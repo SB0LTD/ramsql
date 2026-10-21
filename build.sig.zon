@@ -1,0 +1,17 @@
+.{
+    .name = .@"ramsql",
+    .version = "0.1.0",
+    .fingerprint = 0x0,
+    .dependencies = .{
+        .zpm = .{
+            .url = "https://github.com/SB0LTD/zpm/archive/6bd0edbc0084899822d90028519479f4bcd45e73.tar.gz",
+            .hash = "684b9ec5933ab3b3090a04598f1abba39904e99fba30b79bb79e0c6120da476c",
+        },
+    },
+    .paths = .{
+        "build.sig",
+        "build.sig.zon",
+        "src",
+        "zpm.pkg.zon", "tests", "examples", "README.md", "LICENSE", "AGENTS.md", "tools",
+    },
+}

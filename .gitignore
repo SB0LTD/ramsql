@@ -1,0 +1,7 @@
+.sig-cache/
+.zig-cache/
+sig-out/
+zig-out/
+config.json
+__pycache__/
+*.pyc
