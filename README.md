@@ -254,7 +254,11 @@ python tools/test_sb0.py --format sb0k --image sig-out/bin/ramsql.sb0k
 ```
 
 The native build script verifies the same immutable ZPM archive as `sig build`.
-Published Sig 0.6.3 currently rejects several SQL aggregate/optional operations
-in its native AArch64 backend. Native release jobs deliberately fail until a
-validated compiler revision supports the complete engine; packaging a stub is
-not a substitute for passing the PostgreSQL QEMU session.
+Hosted builds use published Sig 0.6.3. Native jobs bootstrap the exact Sig source
+revision pinned in `tools/release_matrix.py`, including the AArch64 aggregate,
+error-return and exception-return fixes needed by the complete engine. The
+published compiler builds this toolchain; its standard library comes from the
+same pinned source. Executable compiler regressions and the PostgreSQL QEMU
+sessions must pass before packaging. Provenance records both compiler identities
+and the source revision. For local native builds, set `SIG` and `SIG_LIB_DIR` to
+that compiler and its matching library before running the commands above.
