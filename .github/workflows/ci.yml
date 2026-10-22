@@ -6,6 +6,7 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -25,6 +26,12 @@ jobs:
           - os: ubuntu-latest
             asset: sig-0.6.3-zig0.17.0.ac9b716-x86_64-linux.tar.xz
             sha256: e1c1560fc7be0d6b1a0b04ffbdbc899023d64ded0bf65a654f61ffbbc9200277
+          - os: ubuntu-24.04-arm
+            asset: sig-0.6.3-zig0.17.0.ac9b716-aarch64-linux.tar.xz
+            sha256: e155e7dc25630bd7dbfe19ab91a01ae86bbf5227ba3880d70c9d8f10952722c7
+          - os: macos-latest
+            asset: sig-0.6.3-zig0.17.0.ac9b716-aarch64-macos.tar.xz
+            sha256: 995b3d7c0c83cf5a7f8722a6401c8f6709e7d23516f74b0c6b75b44ffc3e4d92
           - os: windows-latest
             asset: sig-0.6.3-zig0.17.0.ac9b716-x86_64-windows.zip
             sha256: 5d0e883b64129715eb86baec43005c72050b93bef5fe7172fdc4f20e4efad8a2
@@ -72,11 +79,22 @@ jobs:
           & $compiler.FullName version
           if ($LASTEXITCODE -ne 0) { throw "Sig compiler did not start" }
 
+      - name: Test release matrix and deterministic packaging
+        run: python tools/test_release.py
+
       - name: Build RAMSQL
-        run: '& $env:SIG build -Doptimize=ReleaseSafe'
+        run: |
+          $arguments = @('build', '-Doptimize=ReleaseSafe')
+          if ($env:RUNNER_OS -eq 'macOS') { $arguments += '-Dlink-libc=true' }
+          & $env:SIG @arguments
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Test allocator-free database and library
-        run: '& $env:SIG build test -Doptimize=ReleaseSafe'
+        run: |
+          $arguments = @('build', 'test', '-Doptimize=ReleaseSafe')
+          if ($env:RUNNER_OS -eq 'macOS') { $arguments += '-Dlink-libc=true' }
+          & $env:SIG @arguments
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run demonstration
         run: |
@@ -102,4 +120,8 @@ jobs:
         run: python tools/test_persistence.py
 
       - name: Build and run native performance smoke benchmark
-        run: '& $env:SIG build benchmark -Doptimize=ReleaseFast'
+        run: |
+          $arguments = @('build', 'benchmark', '-Doptimize=ReleaseFast')
+          if ($env:RUNNER_OS -eq 'macOS') { $arguments += '-Dlink-libc=true' }
+          & $env:SIG @arguments
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

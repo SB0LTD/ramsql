@@ -122,8 +122,6 @@ pub fn run(options: Options) !void {
         if (options.protocol != .postgres or options.mysql_port != null or options.mssql_port != null) return error.AuthenticationUnsupportedForProtocol;
         const file = try sig.io.Dir.cwd().openFile(.{}, verifier_path, .{});
         defer file.close(.{});
-        const size = file.stat().size;
-        if (size == 0 or size > 512) return error.InvalidVerifier;
         var source: [513]u8 = undefined;
         var reader = file.reader(.{}, &.{});
         var used: usize = 0;
@@ -132,7 +130,7 @@ pub fn run(options: Options) !void {
             if (n == 0) break;
             used += n;
         }
-        if (used != size) return error.InvalidVerifier;
+        if (used == 0 or used > 512) return error.InvalidVerifier;
         while (used != 0 and (source[used - 1] == '\n' or source[used - 1] == '\r')) used -= 1;
         verifier = try scram.Verifier.parse(options.auth_user, source[0..used]);
         std.crypto.secureZero(u8, &source);

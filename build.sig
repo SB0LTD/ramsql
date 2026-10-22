@@ -70,6 +70,9 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     var entropy_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
     const entropy_path = try zpm.modulePath("src/platform/entropy.sig", &entropy_buf);
     _ = try ctx.addModule("entropy", entropy_path);
+    var stream_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    const stream_path = try zpm.modulePath("src/db/stream_server.sig", &stream_buf);
+    _ = try ctx.addModule("stream_server", stream_path);
     const pg_module = try ctx.addModule("postgres", pg_path);
     try ctx.addImport(pg_module, "scram", scram_path);
     const clients = ctx.option(usize, "clients", "Preallocated connection slots (1..60)") orelse 16;
@@ -189,7 +192,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     const benchmark = try ctx.addStep("benchmark", "ramsql-bench", &runBinary);
     try ctx.addDependency(benchmark, bench);
     var test_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
-    inline for (.{ "postgres", "mysql", "tds", "db_store", "tcp_server", "sql_index", "scram", "durable_log", "db_file", "entropy" }) |name| {
+    inline for (.{ "postgres", "mysql", "tds", "db_store", "tcp_server", "sql_index", "scram", "durable_log", "db_file", "entropy", "db_stream", "pg_stream" }) |name| {
         const path = try zpm.modulePath("tests/test_" ++ name ++ ".sig", &test_buf);
         const compiled = try ctx.addCompileStep(.{
             .source_path = path,
@@ -197,7 +200,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
             .cache_dir = ctx.cache_dir[0..ctx.cache_dir_len],
             .optimize = ctx.optimize,
             .target = null,
-            .imports = &.{ importEntry("sql", sql_path), importEntry("postgres", pg_path), importEntry("mysql", mysql_path), importEntry("tds", tds_path), importEntry("db_store", store_path), importEntry("scram", scram_path), importEntry("durable_log", durable_log_path), importEntry("db_file", db_file_path), importEntry("entropy", entropy_path), importEntry("profile", profile_path), importEntry("tcp_server", tcp_path) },
+            .imports = &.{ importEntry("sql", sql_path), importEntry("postgres", pg_path), importEntry("mysql", mysql_path), importEntry("tds", tds_path), importEntry("db_store", store_path), importEntry("scram", scram_path), importEntry("durable_log", durable_log_path), importEntry("db_file", db_file_path), importEntry("entropy", entropy_path), importEntry("stream_server", stream_path), importEntry("profile", profile_path), importEntry("tcp_server", tcp_path) },
             .compiler_path = "",
         });
         const contract = try ctx.addStep("test-" ++ name, "contract-" ++ name, &runBinary);

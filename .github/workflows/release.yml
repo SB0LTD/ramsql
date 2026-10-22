@@ -1,0 +1,333 @@
+name: Release matrix
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Optional tag; must equal v plus the checked-out source version'
+        required: false
+        type: string
+      publish:
+        description: 'Publish after every build and test passes (development versions are prereleases)'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  metadata:
+    name: Validate version, matrix and release policy
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.meta.outputs.matrix }}
+      hosted_matrix: ${{ steps.meta.outputs.hosted_matrix }}
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+      revision: ${{ steps.source.outputs.revision }}
+      epoch: ${{ steps.source.outputs.epoch }}
+      sig_tag: ${{ steps.meta.outputs.sig_tag }}
+      sig_asset: ${{ steps.meta.outputs.sig_asset }}
+      sig_sha256: ${{ steps.meta.outputs.sig_sha256 }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate release packaging contracts
+        run: python tools/test_release.py
+      - name: Resolve immutable source
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "epoch=$(git show -s --format=%ct HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Resolve release metadata
+        id: meta
+        env:
+          REQUESTED_TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            REQUESTED_TAG="$GITHUB_REF_NAME"
+          fi
+          args=()
+          if [[ -n "$REQUESTED_TAG" ]]; then args+=(--tag "$REQUESTED_TAG"); fi
+          python tools/release_matrix.py "${args[@]}" --github-output "$GITHUB_OUTPUT"
+      - name: Require production evidence for stable versions
+        if: steps.meta.outputs.prerelease != 'true'
+        run: python tools/release_gate.py
+
+  # Reuse the same native contract, independent client, authentication and crash
+  # tests that gate main. The caller and reusable workflow use the same SHA.
+  native-tests:
+    name: Native operating system validation
+    needs: metadata
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: Build and verify ${{ matrix.slug }}
+    needs: metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.metadata.outputs.matrix) }}
+    env:
+      SIG_RELEASE_TAG: ${{ needs.metadata.outputs.sig_tag }}
+      SIG_RELEASE_ASSET: ${{ needs.metadata.outputs.sig_asset }}
+      SIG_RELEASE_SHA256: ${{ needs.metadata.outputs.sig_sha256 }}
+      SOURCE_REVISION: ${{ needs.metadata.outputs.revision }}
+      SOURCE_DATE_EPOCH: ${{ needs.metadata.outputs.epoch }}
+      TARGET_SLUG: ${{ matrix.slug }}
+      TARGET_TRIPLE: ${{ matrix.triple }}
+      TARGET_FORMAT: ${{ matrix.format }}
+      TARGET_BINARY: ${{ matrix.binary }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.metadata.outputs.revision }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install checksum-verified Sig with its matching library
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/$SIG_RELEASE_ASSET"
+          destination="$RUNNER_TEMP/sig-toolchain"
+          curl --fail --location --retry 3 \
+            "https://github.com/SB0LTD/sig/releases/download/$SIG_RELEASE_TAG/$SIG_RELEASE_ASSET" \
+            --output "$archive"
+          printf '%s  %s\n' "$SIG_RELEASE_SHA256" "$archive" | sha256sum --check --strict -
+          mkdir -p "$destination"
+          tar -xf "$archive" -C "$destination"
+          compiler="$(find "$destination" -type f -name sig -print -quit)"
+          library_marker="$(find "$destination" -type f -path '*/lib/std/std.sig' -print -quit)"
+          test -n "$compiler" && test -n "$library_marker"
+          chmod +x "$compiler"
+          library="$(dirname "$(dirname "$library_marker")")"
+          echo "SIG=$compiler" >> "$GITHUB_ENV"
+          echo "SIG_LIB_DIR=$library" >> "$GITHUB_ENV"
+          dirname "$compiler" >> "$GITHUB_PATH"
+          "$compiler" version
+      - name: Cross-compile hosted server
+        if: matrix.kind == 'hosted'
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=()
+          if [[ "$TARGET_SLUG" == *-macos ]]; then args+=(-Dlink-libc=true); fi
+          "$SIG" build -Dtarget="$TARGET_TRIPLE" -Doptimize=ReleaseSafe \
+            --prefix ".sig-cache/release/$TARGET_SLUG" "${args[@]}"
+      - name: Build native SB0 image
+        if: matrix.kind == 'native-sb0'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/build_sb0.py --format "$TARGET_FORMAT" --optimize ReleaseSmall \
+            --output ".sig-cache/release/$TARGET_SLUG/bin/$TARGET_BINARY"
+      - name: Install native SB0 boot test tools
+        if: matrix.kind == 'native-sb0'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-arm
+      - name: Boot native image and assert PostgreSQL packet and transaction behavior
+        if: matrix.kind == 'native-sb0'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/test_sb0.py --format "$TARGET_FORMAT" \
+            --image ".sig-cache/release/$TARGET_SLUG/bin/$TARGET_BINARY" \
+            --report ".sig-cache/release/$TARGET_SLUG/runtime-test.json"
+      - name: Package deterministic archive with source, license and capability manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=()
+          optimize=ReleaseSafe
+          if [[ "$TARGET_FORMAT" == "sb0x" || "$TARGET_FORMAT" == "sb0k" ]]; then
+            optimize=ReleaseSmall
+            args+=(--verification ".sig-cache/release/$TARGET_SLUG/runtime-test.json")
+          fi
+          python tools/package_release.py package --target "$TARGET_SLUG" \
+            --binary ".sig-cache/release/$TARGET_SLUG/bin/$TARGET_BINARY" \
+            --output dist --revision "$SOURCE_REVISION" --source-date-epoch "$SOURCE_DATE_EPOCH" \
+            --optimize "$optimize" "${args[@]}"
+      - name: Upload verified platform artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.slug }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+      - name: Preserve native validation diagnostics
+        if: failure() && matrix.kind == 'native-sb0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-diagnostics-${{ matrix.slug }}
+          path: .sig-cache/release/${{ matrix.slug }}/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  hosted-runtime:
+    name: Execute release artifact (${{ matrix.slug }})
+    needs: [metadata, build]
+    # Hosted artifacts still get tested when an independent native image fails.
+    if: always() && needs.metadata.result == 'success' && !cancelled()
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.metadata.outputs.hosted_matrix) }}
+    env:
+      SOURCE_REVISION: ${{ needs.metadata.outputs.revision }}
+      TARGET_SLUG: ${{ matrix.slug }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.metadata.outputs.revision }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          # Windows ARM executes the native ARM64 server with x64 Python clients
+          # under OS emulation; client ISA is recorded separately in evidence.
+          architecture: ${{ matrix.python_arch }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-${{ matrix.slug }}
+          path: .sig-cache/release-input
+      - name: Verify archive, provenance, hashes and architecture; install exact release binary
+        run: |
+          python tools/package_release.py verify --input .sig-cache/release-input `
+            --target $env:TARGET_SLUG --revision $env:SOURCE_REVISION `
+            --install-bin sig-out/bin --report .sig-cache/verified-artifact.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Install independent database clients
+        run: python -m pip install -r tools/requirements-test.txt
+      - name: Test command line and bounded SQL streams
+        run: python tools/test_cli.py
+      - name: Test TCP framing, fairness and lifecycle
+        run: python tools/test_server.py
+      - name: Test PostgreSQL, MySQL and SQL Server client interoperability
+        run: python tools/test_clients.py
+      - name: Test authenticated PostgreSQL access
+        run: python tools/test_auth.py
+      - name: Test synchronous durability, corruption and crash recovery
+        run: python tools/test_persistence.py
+      - name: Bind passed runtime tests to exact archive and binary hashes
+        run: |
+          python tools/package_release.py runtime-report --verification .sig-cache/verified-artifact.json `
+            --report "runtime-evidence/runtime-$env:TARGET_SLUG.json" `
+            --tests tools/test_cli.py tools/test_server.py tools/test_clients.py tools/test_auth.py tools/test_persistence.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hosted-runtime-${{ matrix.slug }}
+          path: runtime-evidence/*.json
+          if-no-files-found: error
+          retention-days: 14
+
+  assemble:
+    name: Verify full matrix and attest release bundle
+    needs: [metadata, native-tests, build, hosted-runtime]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    env:
+      SOURCE_REVISION: ${{ needs.metadata.outputs.revision }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.metadata.outputs.revision }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: hosted-runtime-*
+          merge-multiple: true
+          path: dist
+      - name: Record native CI evidence
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          evidence = {"source_revision": os.environ["SOURCE_REVISION"],
+                      "native_ci": "passed", "workflow": ".github/workflows/ci.yml",
+                      "run": f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
+                      "note": "Native CI and every hosted release artifact passed runtime validation; native SB0 images carry their exact-image QEMU evidence inside the archive."}
+          Path("dist/native-ci-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
+          PY
+      - name: Require every target and verify every checksum
+        run: python tools/package_release.py assemble --output dist --revision "$SOURCE_REVISION"
+      - name: Attest exact bundle bytes
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ramsql-release-bundle
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish explicitly requested release
+    if: (github.event_name == 'push' && github.ref_type == 'tag') || (github.event_name == 'workflow_dispatch' && inputs.publish)
+    needs: [metadata, assemble]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
+      SOURCE_REVISION: ${{ needs.metadata.outputs.revision }}
+      IS_PRERELEASE: ${{ needs.metadata.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.metadata.outputs.revision }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: ramsql-release-bundle
+          path: dist
+      - name: Verify publication bytes and production gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd dist && sha256sum --check --strict SHA256SUMS.txt)
+          if [[ "$IS_PRERELEASE" != "true" ]]; then python tools/release_gate.py; fi
+      - name: Create immutable GitHub release
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=()
+          if [[ "$IS_PRERELEASE" == "true" ]]; then args+=(--prerelease --latest=false); fi
+          gh release create "$RELEASE_TAG" dist/* --repo "$GITHUB_REPOSITORY" \
+            --target "$SOURCE_REVISION" --title "RAMSQL $RELEASE_TAG" \
+            --notes-file compatibility/RELEASE.md "${args[@]}"
