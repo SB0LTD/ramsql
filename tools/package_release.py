@@ -87,8 +87,9 @@ def capabilities(entry: dict) -> dict:
         "hosted_tcp_server": hosted_server,
         "hosted_durable_wal": hosted_server,
         "native_sb0": entry["kind"] == "native-sb0",
-        "native_transport": {"sb0s": "SB0 channel", "sb0k": "PL011 UART"}.get(entry["runtime"]),
+        "native_transport": {"sb0x": "SB0 channel", "sb0k": "PL011 UART"}.get(entry["format"]),
         "native_authentication": "trusted transport, memory only" if entry["kind"] == "native-sb0" else None,
+        "full_sb0s_distribution_integration": False,
         "production_postgres_drop_in": False,
         "qualification": "See RELEASE.md and the attached test evidence; compilation alone is not runtime validation.",
     }

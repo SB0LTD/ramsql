@@ -15,6 +15,9 @@ ROOT = Path(__file__).resolve().parents[1]
 SIG_TAG = "sig-0.6.3-zig0.17.0.ac9b716"
 SIG_ASSET = "sig-0.6.3-zig0.17.0.ac9b716-x86_64-linux.tar.xz"
 SIG_SHA256 = "e1c1560fc7be0d6b1a0b04ffbdbc899023d64ded0bf65a654f61ffbbc9200277"
+# Full source pin for the native compiler candidate. Database and loader QEMU
+# probes must pass before it can produce a release bundle; never use a branch.
+NATIVE_SIG_REVISION = "2052a77c49ed4eb301ae18ed1fe5a4b77b10c5e4"
 
 # SLS .github/workflows/release.yaml publishes these six hosted architectures
 # plus an aarch64-sb0 SB0X app. RAMSQL also packages the requested SB0K image.
@@ -25,8 +28,8 @@ TARGETS = [
     {"slug": "aarch64-macos", "triple": "aarch64-macos", "format": "macho", "arch": "aarch64", "kind": "hosted", "binary": "ramsql", "runtime": "macos"},
     {"slug": "x86_64-windows", "triple": "x86_64-windows", "format": "pe", "arch": "x86_64", "kind": "hosted", "binary": "ramsql.exe", "runtime": "windows"},
     {"slug": "aarch64-windows", "triple": "aarch64-windows", "format": "pe", "arch": "aarch64", "kind": "hosted", "binary": "ramsql.exe", "runtime": "windows"},
-    {"slug": "aarch64-sb0-sb0x", "triple": "aarch64-sb0", "format": "sb0x", "arch": "aarch64", "kind": "native-sb0", "binary": "ramsql.sb0x", "runtime": "sb0s"},
-    {"slug": "aarch64-sb0-sb0k", "triple": "aarch64-sb0", "format": "sb0k", "arch": "aarch64", "kind": "native-sb0", "binary": "ramsql.sb0k", "runtime": "sb0k"},
+    {"slug": "aarch64-sb0-sb0x", "triple": "aarch64-sb0", "format": "sb0x", "arch": "aarch64", "kind": "native-sb0", "binary": "ramsql.sb0x", "runtime": "sb0", "execution_context": "EL0"},
+    {"slug": "aarch64-sb0-sb0k", "triple": "aarch64-sb0", "format": "sb0k", "arch": "aarch64", "kind": "native-sb0", "binary": "ramsql.sb0k", "runtime": "sb0", "execution_context": "EL1"},
 ]
 
 HOSTED_RUNNERS = {
@@ -64,6 +67,8 @@ def metadata(tag: str | None = None) -> dict:
             "hosted_matrix": {"include": [dict(entry, runner=HOSTED_RUNNERS[entry["slug"]],
                                           python_arch="x64" if entry["runtime"] == "windows" or entry["arch"] == "x86_64" else "arm64")
                                           for entry in TARGETS if entry["kind"] == "hosted"]},
+            "native_matrix": {"include": [entry for entry in TARGETS if entry["kind"] == "native-sb0"]},
+            "native_sig_revision": NATIVE_SIG_REVISION,
             "sig_tag": SIG_TAG,
             "sig_asset": SIG_ASSET, "sig_sha256": SIG_SHA256}
 

@@ -3,6 +3,13 @@ name: Release matrix
 on:
   push:
     tags: ['v*']
+  pull_request:
+    branches: [main, master]
+    paths:
+      - '.github/workflows/**'
+      - 'tools/**'
+      - 'src/**'
+      - 'build.sig*'
   workflow_dispatch:
     inputs:
       tag:
@@ -29,6 +36,8 @@ jobs:
     outputs:
       matrix: ${{ steps.meta.outputs.matrix }}
       hosted_matrix: ${{ steps.meta.outputs.hosted_matrix }}
+      native_matrix: ${{ steps.meta.outputs.native_matrix }}
+      native_sig_revision: ${{ steps.meta.outputs.native_sig_revision }}
       version: ${{ steps.meta.outputs.version }}
       tag: ${{ steps.meta.outputs.tag }}
       prerelease: ${{ steps.meta.outputs.prerelease }}
@@ -76,13 +85,13 @@ jobs:
     uses: ./.github/workflows/ci.yml
 
   build:
-    name: Build and verify ${{ matrix.slug }}
+    name: Cross-build hosted ${{ matrix.slug }}
     needs: metadata
     runs-on: ubuntu-latest
     timeout-minutes: 35
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(needs.metadata.outputs.matrix) }}
+      matrix: ${{ fromJSON(needs.metadata.outputs.hosted_matrix) }}
     env:
       SIG_RELEASE_TAG: ${{ needs.metadata.outputs.sig_tag }}
       SIG_RELEASE_ASSET: ${{ needs.metadata.outputs.sig_asset }}
@@ -130,40 +139,14 @@ jobs:
           if [[ "$TARGET_SLUG" == *-macos ]]; then args+=(-Dlink-libc=true); fi
           "$SIG" build -Dtarget="$TARGET_TRIPLE" -Doptimize=ReleaseSafe \
             --prefix ".sig-cache/release/$TARGET_SLUG" "${args[@]}"
-      - name: Build native SB0 image
-        if: matrix.kind == 'native-sb0'
-        shell: bash
-        run: |
-          set -euo pipefail
-          python tools/build_sb0.py --format "$TARGET_FORMAT" --optimize ReleaseSmall \
-            --output ".sig-cache/release/$TARGET_SLUG/bin/$TARGET_BINARY"
-      - name: Install native SB0 boot test tools
-        if: matrix.kind == 'native-sb0'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y qemu-system-arm
-      - name: Boot native image and assert PostgreSQL packet and transaction behavior
-        if: matrix.kind == 'native-sb0'
-        shell: bash
-        run: |
-          set -euo pipefail
-          python tools/test_sb0.py --format "$TARGET_FORMAT" \
-            --image ".sig-cache/release/$TARGET_SLUG/bin/$TARGET_BINARY" \
-            --report ".sig-cache/release/$TARGET_SLUG/runtime-test.json"
       - name: Package deterministic archive with source, license and capability manifest
         shell: bash
         run: |
           set -euo pipefail
-          args=()
-          optimize=ReleaseSafe
-          if [[ "$TARGET_FORMAT" == "sb0x" || "$TARGET_FORMAT" == "sb0k" ]]; then
-            optimize=ReleaseSmall
-            args+=(--verification ".sig-cache/release/$TARGET_SLUG/runtime-test.json")
-          fi
           python tools/package_release.py package --target "$TARGET_SLUG" \
             --binary ".sig-cache/release/$TARGET_SLUG/bin/$TARGET_BINARY" \
             --output dist --revision "$SOURCE_REVISION" --source-date-epoch "$SOURCE_DATE_EPOCH" \
-            --optimize "$optimize" "${args[@]}"
+            --optimize ReleaseSafe
       - name: Upload verified platform artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -171,8 +154,162 @@ jobs:
           path: dist/*
           if-no-files-found: error
           retention-days: 14
+
+  native-toolchain:
+    name: Bootstrap pinned native SB0 compiler with published Sig
+    needs: metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      NATIVE_SIG_REVISION: ${{ needs.metadata.outputs.native_sig_revision }}
+      SIG_RELEASE_TAG: ${{ needs.metadata.outputs.sig_tag }}
+      SIG_RELEASE_ASSET: ${{ needs.metadata.outputs.sig_asset }}
+      SIG_RELEASE_SHA256: ${{ needs.metadata.outputs.sig_sha256 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.metadata.outputs.revision }}
+      - name: Require reviewed immutable native compiler source
+        shell: bash
+        run: |
+          if [[ ! "$NATIVE_SIG_REVISION" =~ ^[0-9a-f]{40}$ ]]; then
+            echo '::error::Native compiler source pin is pending verified SB0 database and loader QEMU tests.'
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          repository: SB0LTD/sig
+          ref: ${{ needs.metadata.outputs.native_sig_revision }}
+          path: .sig-cache/native-sig-source
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install checksum-verified published Sig bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/$SIG_RELEASE_ASSET"
+          destination="$RUNNER_TEMP/sig-bootstrap"
+          curl --fail --location --retry 3 \
+            "https://github.com/SB0LTD/sig/releases/download/$SIG_RELEASE_TAG/$SIG_RELEASE_ASSET" --output "$archive"
+          printf '%s  %s\n' "$SIG_RELEASE_SHA256" "$archive" | sha256sum --check --strict -
+          mkdir -p "$destination"
+          tar -xf "$archive" -C "$destination"
+          compiler="$(find "$destination" -type f -name sig -print -quit)"
+          test -n "$compiler"
+          chmod +x "$compiler"
+          echo "SIG_BOOTSTRAP=$compiler" >> "$GITHUB_ENV"
+          "$compiler" version
+      - name: Build native code-generation compiler from pinned Sig source
+        shell: bash
+        run: |
+          set -euo pipefail
+          source="$GITHUB_WORKSPACE/.sig-cache/native-sig-source"
+          test "$(git -C "$source" rev-parse HEAD)" = "$NATIVE_SIG_REVISION"
+          mkdir -p "$RUNNER_TEMP/native-toolchain/bin"
+          bash "$source/ci/build-sb0-codegen.sh" "$SIG_BOOTSTRAP" \
+            "$RUNNER_TEMP/native-toolchain/bin/sig" "$RUNNER_TEMP/native-compiler-cache"
+          cp -a "$source/lib" "$RUNNER_TEMP/native-toolchain/lib"
+      - name: Verify native database code generation under QEMU
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-arm
+          bash .sig-cache/native-sig-source/ci/test-sb0-database-codegen.sh \
+            "$RUNNER_TEMP/native-toolchain/bin/sig" "$RUNNER_TEMP/native-probe"
+      - name: Record exact compiler, source, library and bootstrap provenance
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib, json, os, subprocess, sys
+          from pathlib import Path
+          sys.path.insert(0, 'tools')
+          from package_release import published_toolchain
+          root = Path(os.environ['RUNNER_TEMP']) / 'native-toolchain'
+          compiler = root / 'bin/sig'
+          revision = os.environ['NATIVE_SIG_REVISION']
+          record = {'schema': 1, 'kind': 'source-build',
+                    'source_repository': 'https://github.com/SB0LTD/sig', 'source_revision': revision,
+                    'library_revision': revision, 'compiler_sha256': hashlib.sha256(compiler.read_bytes()).hexdigest(),
+                    'compiler_version': subprocess.check_output([str(compiler), 'version'], text=True).strip(),
+                    'bootstrap': published_toolchain(), 'llvm_backend': False,
+                    'build_command': 'ci/build-sb0-codegen.sh BOOTSTRAP OUTPUT CACHE',
+                    'database_codegen_qemu': 'passed'}
+          (root / 'toolchain.json').write_text(json.dumps(record, indent=2) + '\n', encoding='utf-8')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-sb0-toolchain
+          path: ${{ runner.temp }}/native-toolchain/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+
+  native-build:
+    name: Build and execute native ${{ matrix.slug }}
+    needs: [metadata, native-toolchain]
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.metadata.outputs.native_matrix) }}
+    env:
+      SOURCE_REVISION: ${{ needs.metadata.outputs.revision }}
+      SOURCE_DATE_EPOCH: ${{ needs.metadata.outputs.epoch }}
+      TARGET_SLUG: ${{ matrix.slug }}
+      TARGET_FORMAT: ${{ matrix.format }}
+      TARGET_BINARY: ${{ matrix.binary }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.metadata.outputs.revision }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-sb0-toolchain
+          path: .sig-cache/native-toolchain
+      - name: Verify native compiler bytes and install matched library
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$GITHUB_WORKSPACE/.sig-cache/native-toolchain"
+          expected="$(python -c 'import json;print(json.load(open(".sig-cache/native-toolchain/toolchain.json"))["compiler_sha256"])')"
+          printf '%s  %s\n' "$expected" "$root/bin/sig" | sha256sum --check --strict -
+          chmod +x "$root/bin/sig"
+          echo "SIG=$root/bin/sig" >> "$GITHUB_ENV"
+          echo "SIG_LIB_DIR=$root/lib" >> "$GITHUB_ENV"
+      - name: Build actual native image
+        run: |
+          python tools/build_sb0.py --format "$TARGET_FORMAT" --optimize ReleaseSmall \
+            --output ".sig-cache/release/$TARGET_SLUG/bin/$TARGET_BINARY"
+      - name: Install QEMU
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-arm
+      - name: Boot native image and assert PostgreSQL packets and transactions
+        run: |
+          python tools/test_sb0.py --format "$TARGET_FORMAT" \
+            --image ".sig-cache/release/$TARGET_SLUG/bin/$TARGET_BINARY" \
+            --report ".sig-cache/release/$TARGET_SLUG/runtime-test.json"
+      - name: Package native image with exact compiler and runtime proof
+        run: |
+          python tools/package_release.py package --target "$TARGET_SLUG" \
+            --binary ".sig-cache/release/$TARGET_SLUG/bin/$TARGET_BINARY" --output dist \
+            --revision "$SOURCE_REVISION" --source-date-epoch "$SOURCE_DATE_EPOCH" --optimize ReleaseSmall \
+            --verification ".sig-cache/release/$TARGET_SLUG/runtime-test.json" \
+            --toolchain-manifest .sig-cache/native-toolchain/toolchain.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.slug }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
       - name: Preserve native validation diagnostics
-        if: failure() && matrix.kind == 'native-sb0'
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: native-diagnostics-${{ matrix.slug }}
@@ -243,7 +380,7 @@ jobs:
 
   assemble:
     name: Verify full matrix and attest release bundle
-    needs: [metadata, native-tests, build, hosted-runtime]
+    needs: [metadata, native-tests, build, native-build, hosted-runtime]
     runs-on: ubuntu-latest
     permissions:
       contents: read
