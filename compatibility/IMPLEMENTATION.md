@@ -1,5 +1,8 @@
 # PostgreSQL replacement implementation sequence
 
+For the reviewable inventory, practical examples, layer ownership, dependencies
+and closure tests, see the [detailed gap-closing plan](GAP_CLOSING_PLAN.md).
+
 The production target is PostgreSQL application compatibility with durable,
 allocator-free execution. The alpha is the starting point. Passing the finite
 differential suite does not establish complete compatibility. Keep stable

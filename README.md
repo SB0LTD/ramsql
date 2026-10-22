@@ -9,8 +9,8 @@ requirement and is currently blocked.** See [release gates](compatibility/RELEAS
 and the [native PostgreSQL differential report](compatibility/postgres-report.json).
 The `0.3.0-alpha.2` subset has synchronous persistence and PostgreSQL SCRAM authentication;
 it does not provide complete PostgreSQL behavior.
-The [implementation sequence](compatibility/IMPLEMENTATION.md) tracks the storage,
-transaction, compatibility, security and qualification work needed for that target.
+The [detailed gap-closing plan](compatibility/GAP_CLOSING_PLAN.md) explains the
+remaining work, its practical impact, implementation layers and closing tests.
 
 ## Run
 
@@ -143,9 +143,10 @@ The current implementation uses one reactor thread, not multiple CPU workers.
 
 Primary-key equality queries and duplicate checks use a bounded hash index.
 Unused result capacity is not cleared for each statement; only active ranges
-are valid. Durable candidates, transaction snapshots and recovery copy live
-schemas/rows/indices rather than reserved database capacity. CREATE/DROP also
-avoid clearing inactive row payloads. LIMIT without ORDER BY stops scanning once enough rows match.
+are valid. Durable autocommit and single-statement recovery avoid database
+snapshots. Explicit transactions and multi-statement recovery still copy live
+schemas/rows/indices. CREATE/DROP/DELETE leave inactive row payloads alone.
+LIMIT without ORDER BY stops scanning once enough rows match.
 Deletion compaction and primary-key changes rebuild index references. General
 filters remain scans, and ordering currently uses bounded insertion sorting.
 

@@ -59,6 +59,9 @@ change statuses merely to make a release command pass.
 
 ## Known blocking work
 
+The [detailed gap-closing plan](GAP_CLOSING_PLAN.md) breaks these requirements
+into individual review items, implementation tasks and closing evidence.
+
 - Remaining PostgreSQL types (NUMERIC, timestamp, JSONB and others), expressions, joins, aggregates,
   CTEs, catalogs, COPY, savepoints, schema features and extension/tooling behavior.
 - Default READ COMMITTED, row-level write concurrency/MVCC, scalable storage and
@@ -81,7 +84,7 @@ as with other database connection/storage failures, so clients must reconcile it
 
 The WAL is versioned but contains original SQL rather than native struct images.
 Do not change parser/type semantics across upgrades without preserving old replay
-semantics or adding a format migration. Restore needs the same version and enough
+semantics or adding a format migration. Restore needs compatible schema semantics and enough
 capacity for historical peak states and transactions. The WAL is never truncated
 for compaction in this version. A whole-WAL offline backup preserves its history.
 
