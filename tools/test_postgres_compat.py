@@ -11,6 +11,7 @@ Alternatively, --postgres-bin owns an isolated native POSIX cluster under
 
     python tools/test_postgres_compat.py
     python tools/test_postgres_compat.py --legacy-cli  # previous 0.2 binary
+    python tools/test_postgres_compat.py --durable --scram  # WAL + SCRAM candidate
 
 Exit codes: 0 all probes match; 1 compatibility gaps; 2 harness/infrastructure error.
 """
@@ -209,6 +210,7 @@ def native_postgres(image, psycopg, *, binary_directory=None, work_directory=Non
                     raise RuntimeError("native PostgreSQL did not become ready within 40 seconds") from None
                 time.sleep(0.15)
         metadata = {"image_requested": image, "image_id": info["Id"], "image_digests": info.get("RepoDigests", []),
+                    "container_id": container,
                     "platform": info["Os"] + "/" + info["Architecture"],
                     "server_version": version, "server_version_num": version_number}
         yield connection, metadata
@@ -219,13 +221,72 @@ def native_postgres(image, psycopg, *, binary_directory=None, work_directory=Non
             subprocess.run(["docker", "rm", "--force", "--volumes", container], capture_output=True, text=True, timeout=30)
 
 
+def restart_native(connection, metadata, psycopg):
+    """Crash-restart the owned Docker reference (SIGKILL, no shutdown checkpoint).
+
+    Only the container ID created by native_postgres is restarted; the published
+    loopback port may change, so the caller's connection dict is updated in place.
+    """
+    container = metadata.get("container_id")
+    if container is None:
+        raise RuntimeError("reference restart requires the Docker reference")
+    docker("restart", "--time", "0", container)
+    connection["port"] = int(docker("port", container, "5432/tcp").splitlines()[0].rsplit(":", 1)[1])
+    deadline = time.monotonic() + 40
+    while True:
+        try:
+            with psycopg.connect(**connection) as reference:
+                reference.execute("SELECT 1")
+            return
+        except psycopg.OperationalError:
+            if time.monotonic() >= deadline:
+                raise RuntimeError("native PostgreSQL did not recover within 40 seconds") from None
+            time.sleep(0.15)
+
+
 @contextmanager
-def running_ramsql(binary, legacy_cli=False, extra_arguments=(), *, data_path=None, startup_timeout=20):
+def candidate_mode(work_directory, *, durable=False, scram=False):
+    """Yield running_ramsql keyword arguments and report metadata for a gate mode.
+
+    --durable owns a fresh WAL under a unique directory in --work-dir instead of
+    --memory. --scram derives a verifier exactly like tools/test_auth.py and
+    connects with the generated password instead of --insecure-local. The
+    owned directory (WAL and verifier) is removed on exit.
+    """
+    from test_auth import make_verifier
+
+    directory = Path(work_directory).resolve() / ("ramsql-" + uuid.uuid4().hex)
+    arguments = {}
+    try:
+        if durable or scram:
+            directory.mkdir(parents=True)
+        if durable:
+            arguments["data_path"] = directory / "database.wal"
+        if scram:
+            password = secrets.token_urlsafe(32)
+            verifier = directory / "ramsql.verifier"
+            verifier.write_bytes(make_verifier(password.encode(), secrets.token_bytes(32)) + b"\n")
+            verifier.chmod(0o600)
+            arguments["auth"] = ("ramsql", verifier, password)
+        yield arguments, {"durable": durable, "scram": scram,
+                          "storage": "durable WAL" if durable else "memory",
+                          "authentication": "SCRAM-SHA-256" if scram else "insecure-local"}
+    finally:
+        if directory.exists():
+            __import__("shutil").rmtree(directory, ignore_errors=True)
+
+
+@contextmanager
+def running_ramsql(binary, legacy_cli=False, extra_arguments=(), *, data_path=None, auth=None, startup_timeout=20):
     command = [str(binary), "--serve", "--port", "0"]
     if data_path is not None:
-        command += ["--data", str(data_path), "--insecure-local"]
+        command += ["--data", str(data_path)]
     elif not legacy_cli:
-        command += ["--memory", "--insecure-local"]
+        command += ["--memory"]
+    if auth is not None:
+        command += ["--auth-user", auth[0], "--auth-verifier-file", str(auth[1])]
+    elif data_path is not None or not legacy_cli:
+        command += ["--insecure-local"]
     command += extra_arguments
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
     output = queue.Queue()
@@ -257,7 +318,8 @@ def running_ramsql(binary, legacy_cli=False, extra_arguments=(), *, data_path=No
                 port = int(match[1])
             elif time.monotonic() >= deadline:
                 raise RuntimeError("RAMSQL did not report a PostgreSQL loopback port")
-        yield dict(host="127.0.0.1", port=port, user="ramsql", dbname="ramsql", password="",
+        yield dict(host="127.0.0.1", port=port, user=auth[0] if auth else "ramsql", dbname="ramsql",
+                   password=auth[2] if auth else "",
                    sslmode="disable", connect_timeout=3, autocommit=True,
                    application_name="ramsql-postgres-compat", options="-c statement_timeout=4000")
         if process.poll() is not None:
@@ -406,7 +468,11 @@ def main():
     parser.add_argument("--report", type=Path, default=ROOT / "compatibility" / "postgres-report.json")
     parser.add_argument("--legacy-cli", action="store_true", help="run a pre-secure-default 0.2 binary for baseline discovery")
     parser.add_argument("--ramsql-arg", action="append", default=[], help="extra RAMSQL argument; use --ramsql-arg=--flag")
+    parser.add_argument("--durable", action="store_true", help="run RAMSQL on a fresh durable WAL under --work-dir instead of --memory")
+    parser.add_argument("--scram", action="store_true", help="run RAMSQL with a generated SCRAM-SHA-256 verifier instead of --insecure-local")
     args = parser.parse_args()
+    if args.legacy_cli and (args.durable or args.scram):
+        parser.error("--legacy-cli cannot be combined with --durable or --scram")
     import psycopg
 
     started = datetime.now(timezone.utc).isoformat()
@@ -420,9 +486,12 @@ def main():
               "ramsql_legacy_cli": args.legacy_cli,
               "client": {"name": "psycopg", "version": psycopg.__version__}, "probes": []}
     try:
-        with native_postgres(args.image, psycopg, binary_directory=args.postgres_bin, work_directory=args.work_dir) as (native, metadata):
+        with native_postgres(args.image, psycopg, binary_directory=args.postgres_bin, work_directory=args.work_dir) as (native, metadata), \
+                candidate_mode(args.work_dir, durable=args.durable, scram=args.scram) as (mode_arguments, mode):
             report["reference"] = metadata
-            with running_ramsql(args.binary.resolve(), args.legacy_cli, args.ramsql_arg) as candidate:
+            report["mode"] = mode
+            report["reference_image"] = {"id": metadata.get("image_id"), "repo_digests": metadata.get("image_digests")}
+            with running_ramsql(args.binary.resolve(), args.legacy_cli, args.ramsql_arg, **mode_arguments) as candidate:
                 for case in CASES:
                     reference_result = run_case(psycopg, native, case)
                     candidate_result = run_case(psycopg, candidate, case)
