@@ -2,19 +2,42 @@
 
 ## Durable comparison with native PostgreSQL
 
-[Durable measurements](postgres-comparison.json) compare the selected shared SQL
+[Current durable measurements](durable-boundary.json) compare the selected shared SQL
 subset using identical psycopg simple queries, 512 rows, synchronous commits,
 1/4 clients and three trials. Individual request p50/p95/p99 timings, correctness
 checks, durability settings and binary/source provenance are recorded.
 
-The reference PostgreSQL runs inside Docker Linux; RAMSQL runs as a native Windows
-process. Storage, VM and networking costs differ. These results do not establish
-PostgreSQL drop-in performance: the compatibility gate still fails, and several
-four-client write measurements favor PostgreSQL.
+Both engines run as native Linux processes under WSL2 with sibling data
+directories on the same ext4 filesystem. PostgreSQL reports fsync,
+synchronous_commit and full_page_writes all on; RAMSQL synchronizes every commit.
+The [baseline](durable-boundary-baseline.json) uses the actual published alpha.1
+Linux binary, whose archive provenance and binary hash are retained in the report.
+All results and post-kill WAL recovery are checked.
+
+| Workload | Clients | Alpha.1 requests/s | Alpha.2 requests/s | Alpha.2 / PostgreSQL |
+| --- | ---: | ---: | ---: | ---: |
+| CREATE/DROP | 1 | 999 | 1,223 | 1.52 |
+| CREATE/DROP | 4 | 958 | 906 | 0.49 |
+| INSERT | 1 | 988 | 1,095 | 0.52 |
+| INSERT | 4 | 698 | 1,370 | 0.34 |
+| Point UPDATE | 1 | 503 | 1,115 | 0.53 |
+| Point UPDATE | 4 | 1,063 | 1,234 | 0.30 |
+| Point SELECT | 1 | 10,581 | 11,146 | 1.20 |
+| Point SELECT | 4 | 1,231 | 1,114 | 1.00 |
+| Scan LIMIT 16 | 1 | 7,105 | 6,628 | 1.10 |
+| Scan LIMIT 16 | 4 | 546 | 527 | 1.03 |
+
+These are medians of three trials of 1,000 operations, not guarantees. The two
+full experiments ran sequentially and exhibit host/storage variability, visible
+in the retained individual timings and reference-engine results. They do not
+isolate a causal speedup for every workload. Reopening and validating the same
+2,169,648-byte WAL took 698 ms for alpha.1 and 27 ms for alpha.2 on this host.
+PostgreSQL still leads durable writes; the compatibility gate also still fails.
+These measurements do not establish production PostgreSQL replacement performance.
 
 ```sh
 sig build -Doptimize=ReleaseFast
-python tools/benchmark_postgres.py
+python tools/benchmark_postgres.py --postgres-bin /usr/lib/postgresql/16/bin --work-dir /var/tmp/ramsql-benchmark --operations 1000 --trials 3 --clients 1 4
 ```
 
 ## Historical in-memory baseline (0.2.0)

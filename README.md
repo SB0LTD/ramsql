@@ -7,8 +7,10 @@ listeners use the same bounded database.
 **Development version. Production PostgreSQL drop-in compatibility is a release
 requirement and is currently blocked.** See [release gates](compatibility/RELEASE.md)
 and the [native PostgreSQL differential report](compatibility/postgres-report.json).
-The `0.3.0-alpha.1` subset has synchronous persistence and PostgreSQL SCRAM authentication;
+The `0.3.0-alpha.2` subset has synchronous persistence and PostgreSQL SCRAM authentication;
 it does not provide complete PostgreSQL behavior.
+The [implementation sequence](compatibility/IMPLEMENTATION.md) tracks the storage,
+transaction, compatibility, security and qualification work needed for that target.
 
 ## Run
 

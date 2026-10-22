@@ -1,0 +1,19 @@
+{
+  "source_release": "v0.3.0-alpha.1",
+  "source_revision": "e6624267e09723993e75ed6b7af1e98aac8f3c55",
+  "producer_binary_sha256": "208363c28064ece22b74256a870f34a255c31579cda447d3368942c8726be182",
+  "producer_asset": "ramsql-0.3.0-alpha.1-x86_64-linux.tar.gz",
+  "fixture_sha256": "5105cb5fe515bab9659a6d06468f1bef2c0ad982a9a6e2d7ee66a513087ab1c6",
+  "fixture_bytes": 620,
+  "statements": [
+    "CREATE TABLE upgrade (id INTEGER PRIMARY KEY, wide BIGINT, value TEXT)",
+    "INSERT INTO upgrade VALUES (-2147483648, 9223372036854775807, 'alpha.1')",
+    "BEGIN",
+    "UPDATE upgrade SET value = 'retained; semicolon' WHERE id = -2147483648",
+    "INSERT INTO upgrade VALUES (2147483647, -9223372036854775808, NULL)",
+    "COMMIT",
+    "INSERT INTO upgrade VALUES (0, 0, 'deleted')",
+    "DELETE FROM upgrade WHERE id = 0"
+  ],
+  "purpose": "Real published alpha.1 synchronous WAL with autocommit, a multi-statement transaction, integer bounds, NULL, literal semicolon and deletion; restart must preserve exactly two rows."
+}
