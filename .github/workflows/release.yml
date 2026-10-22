@@ -156,7 +156,7 @@ jobs:
           retention-days: 14
 
   native-toolchain:
-    name: Bootstrap pinned native SB0 compiler with published Sig
+    name: Bootstrap pinned Sig and validate native SB0X and SB0K
     needs: metadata
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -165,6 +165,8 @@ jobs:
       SIG_RELEASE_TAG: ${{ needs.metadata.outputs.sig_tag }}
       SIG_RELEASE_ASSET: ${{ needs.metadata.outputs.sig_asset }}
       SIG_RELEASE_SHA256: ${{ needs.metadata.outputs.sig_sha256 }}
+      SOURCE_REVISION: ${{ needs.metadata.outputs.revision }}
+      SOURCE_DATE_EPOCH: ${{ needs.metadata.outputs.epoch }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -217,6 +219,11 @@ jobs:
         run: |
           set -euo pipefail
           if ! command -v qemu-system-aarch64 >/dev/null; then
+            # Some hosted runners throttle this mirror to a few KiB/s. Keep
+            # Ubuntu's signed package validation and use its official archive.
+            if [[ -f /etc/apt/apt-mirrors.txt ]]; then
+              sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
+            fi
             sudo timeout 180 apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
             sudo timeout 180 apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y qemu-system-arm ipxe-qemu
           fi
@@ -250,78 +257,42 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  native-build:
-    name: Build and execute native ${{ matrix.slug }}
-    needs: [metadata, native-toolchain]
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.metadata.outputs.native_matrix) }}
-    env:
-      SOURCE_REVISION: ${{ needs.metadata.outputs.revision }}
-      SOURCE_DATE_EPOCH: ${{ needs.metadata.outputs.epoch }}
-      TARGET_SLUG: ${{ matrix.slug }}
-      TARGET_FORMAT: ${{ matrix.format }}
-      TARGET_BINARY: ${{ matrix.binary }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.metadata.outputs.revision }}
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - uses: actions/download-artifact@v4
-        with:
-          name: native-sb0-toolchain
-          path: .sig-cache/native-toolchain
-      - name: Verify native compiler bytes and install matched library
+      - name: Build, execute and package both native image formats on the verified QEMU host
         shell: bash
         run: |
           set -euo pipefail
-          root="$GITHUB_WORKSPACE/.sig-cache/native-toolchain"
-          expected="$(python -c 'import json;print(json.load(open(".sig-cache/native-toolchain/toolchain.json"))["compiler_sha256"])')"
+          root="$RUNNER_TEMP/native-toolchain"
+          expected="$(python -c 'import json,os;from pathlib import Path;print(json.loads((Path(os.environ["RUNNER_TEMP"])/"native-toolchain/toolchain.json").read_text())["compiler_sha256"])')"
           printf '%s  %s\n' "$expected" "$root/bin/sig" | sha256sum --check --strict -
-          chmod +x "$root/bin/sig"
-          echo "SIG=$root/bin/sig" >> "$GITHUB_ENV"
-          echo "SIG_LIB_DIR=$root/lib" >> "$GITHUB_ENV"
-      - name: Build actual native image
-        run: |
-          python tools/build_sb0.py --format "$TARGET_FORMAT" --optimize ReleaseSmall \
-            --output ".sig-cache/release/$TARGET_SLUG/bin/$TARGET_BINARY"
-      - name: Install QEMU
-        timeout-minutes: 7
-        run: |
-          set -euo pipefail
-          if ! command -v qemu-system-aarch64 >/dev/null; then
-            sudo timeout 180 apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
-            sudo timeout 180 apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y qemu-system-arm ipxe-qemu
-          fi
-          qemu-system-aarch64 --version
-      - name: Boot native image and assert PostgreSQL packets and transactions
-        run: |
-          python tools/test_sb0.py --format "$TARGET_FORMAT" \
-            --image ".sig-cache/release/$TARGET_SLUG/bin/$TARGET_BINARY" \
-            --report ".sig-cache/release/$TARGET_SLUG/runtime-test.json"
-      - name: Package native image with exact compiler and runtime proof
-        run: |
-          python tools/package_release.py package --target "$TARGET_SLUG" \
-            --binary ".sig-cache/release/$TARGET_SLUG/bin/$TARGET_BINARY" --output dist \
-            --revision "$SOURCE_REVISION" --source-date-epoch "$SOURCE_DATE_EPOCH" --optimize ReleaseSmall \
-            --verification ".sig-cache/release/$TARGET_SLUG/runtime-test.json" \
-            --toolchain-manifest .sig-cache/native-toolchain/toolchain.json
+          export SIG="$root/bin/sig" SIG_LIB_DIR="$root/lib"
+          for format in sb0x sb0k; do
+            slug="aarch64-sb0-$format"
+            directory=".sig-cache/release/$slug"
+            binary="$directory/bin/ramsql.$format"
+            python tools/build_sb0.py --format "$format" --optimize ReleaseSmall --output "$binary"
+            python tools/test_sb0.py --format "$format" --image "$binary" --report "$directory/runtime-test.json"
+            python tools/package_release.py package --target "$slug" --binary "$binary" --output "dist/$slug" \
+              --revision "$SOURCE_REVISION" --source-date-epoch "$SOURCE_DATE_EPOCH" --optimize ReleaseSmall \
+              --verification "$directory/runtime-test.json" --toolchain-manifest "$root/toolchain.json"
+          done
       - uses: actions/upload-artifact@v4
         with:
-          name: release-${{ matrix.slug }}
-          path: dist/*
+          name: release-aarch64-sb0-sb0x
+          path: dist/aarch64-sb0-sb0x/*
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-aarch64-sb0-sb0k
+          path: dist/aarch64-sb0-sb0k/*
           if-no-files-found: error
           retention-days: 14
       - name: Preserve native validation diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: native-diagnostics-${{ matrix.slug }}
-          path: .sig-cache/release/${{ matrix.slug }}/
+          name: native-diagnostics
+          path: .sig-cache/release/
           if-no-files-found: ignore
           retention-days: 14
 
@@ -434,7 +405,7 @@ jobs:
 
   assemble:
     name: Verify full matrix and attest release bundle
-    needs: [metadata, native-tests, build, native-build, hosted-runtime, benchmark]
+    needs: [metadata, native-tests, build, native-toolchain, hosted-runtime, benchmark]
     runs-on: ubuntu-latest
     permissions:
       contents: read
