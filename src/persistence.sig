@@ -63,14 +63,23 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
         fn replay(self: *Self, sequence: u64, payload: []const u8) !void {
             const store = self.store orelse return error.PersistenceClosed;
             const workspace = self.workspace orelse return error.InvalidWorkspace;
-            workspace.copyFrom(&store.database);
             var iterator: batches.BatchIterator = .{ .bytes = payload };
-            var count: usize = 0;
+            const first = (try iterator.next()) orelse return error.InvalidCommitBatch;
+            // A verified single-statement record is already fail-atomic in the
+            // SQL engine. Check the complete length framing BEFORE applying it;
+            // malformed tails must not publish even their first valid statement.
+            if ((try iterator.next()) == null) {
+                try store.database.execute(first, &self.replay_result);
+                self.sequence = sequence;
+                return;
+            }
+            // Multi-statement transactions still require a private candidate so
+            // a rejected later statement cannot publish any earlier statement.
+            workspace.copyFrom(&store.database);
+            iterator = .{ .bytes = payload };
             while (try iterator.next()) |statement| {
                 try workspace.execute(statement, &self.replay_result);
-                count += 1;
             }
-            if (count == 0) return error.InvalidCommitBatch;
             // Every statement and length frame passed before any batch publishes.
             store.database.copyFrom(workspace);
             self.sequence = sequence;

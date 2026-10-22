@@ -1,4 +1,4 @@
-# RAMSQL 0.3.0-alpha.1
+# RAMSQL 0.3.0-alpha.2
 
 This is an explicitly scoped development prerelease, with six hosted builds
 (x86_64/AArch64 Linux, macOS and Windows), plus native SB0X and SB0K images.
@@ -8,27 +8,35 @@ TCP, durable files or SCRAM. Every exact image must pass its runtime tests.
 
 Changes in this version:
 
-- Copy live database state and active results for durable writes, transaction
-  snapshots and WAL replay. CREATE/DROP avoid clearing unused row capacity.
-- PostgreSQL 32-bit INTEGER, 64-bit BIGINT, correct OIDs/binary widths/range
-  errors, and NULL ordering. MySQL/TDS report the corresponding integer widths.
+- Validate and durably log autocommit statements before applying their changes,
+  with zero database snapshots. ZPM owns the shared mutation boundary and store
+  adapter; older adapters retain the candidate fallback.
+- Recover single-statement records without database copies, while retaining
+  atomic multi-statement replay and failing closed on malformed inner framing.
+- Apply primary-key point updates without scanning unrelated rows; leave deleted
+  payloads outside the active row range. Coalesce small WAL frames into one
+  bounded write instead of three, preserving synchronous flush guarantees.
+- Retain PostgreSQL 32-bit INTEGER, 64-bit BIGINT, OIDs/binary widths/range
+  errors and NULL ordering, including corresponding MySQL/TDS integer widths.
 - Checksummed, attested release artifacts and matched durable benchmarks of the
   exact Linux release image against an isolated native PostgreSQL process.
 
-The local Linux experiment in `benchmarks/postgres-comparison.json` checks 60
+The local Linux experiment in `benchmarks/durable-boundary.json` checks 60
 measurements (five workloads, 1/4 clients, three trials, two engines), all results,
-and abrupt-stop recovery. The previous implementation's corresponding report is
-`benchmarks/qualification-baseline.json`. WAL reopen and validation fell from
-9,891 ms to 802 ms on that host. Durable writes improved over the previous
-implementation, but PostgreSQL still wins multiple workloads, particularly
-concurrent writes. These are small SQL-subset experiments, not a production
+and abrupt-stop recovery. The published alpha.1 comparison is retained in
+`benchmarks/durable-boundary-baseline.json`. Results include host/storage
+variability; PostgreSQL still wins multiple durable-write workloads. Reopening
+and validating the same 2.17 MB WAL took 698 ms for alpha.1 and 27 ms for alpha.2
+on this host. These are small SQL-subset experiments, not a production
 PostgreSQL replacement or a general superiority claim. The release additionally
 ships `benchmark-postgres.json`, measured from its exact Linux artifact in CI.
 
 **WAL compatibility:** this version uses framing version 1, payload kind 2 for
 32-bit INTEGER semantics. It refuses earlier development kind-1 logs without
 modifying them. Preserve the old binary and backup; no automatic migration is
-provided. Restore requires the same semantic version and adequate capacity.
+provided. This alpha retains alpha.1's SQL interpretation and kind-2 framing;
+the release tests reopen alpha.1 WALs with the updated binary. Restore requires
+compatible schema semantics and adequate capacity.
 
 ## Production release requirements
 
@@ -50,6 +58,9 @@ partial, unverified or unproven. Review evidence before changing a gate; do not
 change statuses merely to make a release command pass.
 
 ## Known blocking work
+
+The [detailed gap-closing plan](GAP_CLOSING_PLAN.md) breaks these requirements
+into individual review items, implementation tasks and closing evidence.
 
 - Remaining PostgreSQL types (NUMERIC, timestamp, JSONB and others), expressions, joins, aggregates,
   CTEs, catalogs, COPY, savepoints, schema features and extension/tooling behavior.
@@ -73,7 +84,7 @@ as with other database connection/storage failures, so clients must reconcile it
 
 The WAL is versioned but contains original SQL rather than native struct images.
 Do not change parser/type semantics across upgrades without preserving old replay
-semantics or adding a format migration. Restore needs the same version and enough
+semantics or adding a format migration. Restore needs compatible schema semantics and enough
 capacity for historical peak states and transactions. The WAL is never truncated
 for compaction in this version. A whole-WAL offline backup preserves its history.
 

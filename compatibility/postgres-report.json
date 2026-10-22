@@ -1,9 +1,9 @@
 {
   "schema": 1,
-  "started_utc": "2026-10-22T17:43:56.824026+00:00",
+  "started_utc": "2026-10-22T19:20:28.272906+00:00",
   "scope": "finite differential compatibility gate; passing does not establish full PostgreSQL parity",
   "ramsql_binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\sig-out\\bin\\ramsql.exe",
-  "ramsql_sha256": "1c8185a999c220755fb012632b917e5635116024c32ae465ab71126e55490956",
+  "ramsql_sha256": "5c13dec9e35df6c3c9583b52b02b27815d429e6376e8571124979b70ef5ef7fa",
   "ramsql_legacy_cli": false,
   "client": {
     "name": "psycopg",
@@ -2514,5 +2514,5 @@
     "mismatching": 18,
     "drop_in_gate_passed": false
   },
-  "finished_utc": "2026-10-22T17:44:01.401002+00:00"
+  "finished_utc": "2026-10-22T19:20:32.778595+00:00"
 }

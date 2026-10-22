@@ -134,6 +134,10 @@ def assert_database(server, expected):
 def record(sequence, sql, kind=2):
     statement = sql.encode("utf-8")
     payload = struct.pack("<I", len(statement)) + statement
+    return batch_record(sequence, payload, kind)
+
+
+def batch_record(sequence, payload, kind=2):
     header = bytearray(struct.pack("<8sHHIQII", b"RAMSQLW1", 1, kind, len(payload), sequence, 0, 0))
     struct.pack_into("<I", header, 24, zlib.crc32(header))
     trailer = struct.pack("<I4sQ", zlib.crc32(payload), b"CMIT", sequence)
@@ -260,6 +264,29 @@ def main():
     semantic_backup = artifacts / "semantic-backup.wal"
     offline_backup(binary, semantic, semantic_backup, ("TableNotFound", "UnknownTable"))
     check(not semantic_backup.exists(), "semantically invalid backup was published")
+    # These records have valid outer CRCs/trailers. Recovery must reject their
+    # inner framing/SQL before opening listeners or publishing a backup. A valid
+    # first statement must never hide a malformed/rejected later statement.
+    first = b"INSERT INTO durable VALUES (2000, 'first')"
+    framed = struct.pack("<I", len(first)) + first
+    second = b"INSERT INTO missing VALUES (1)"
+    bad_batches = {
+        "length-tail": (framed + b"\x01", ("InvalidCommitBatch",)),
+        "zero-length": (framed + struct.pack("<I", 0), ("InvalidCommitBatch",)),
+        "missing-body": (framed + struct.pack("<I", 1), ("InvalidCommitBatch",)),
+        "third-frame": (framed + framed + b"\x01", ("PrimaryKeyViolation", "InvalidCommitBatch")),
+        "later-sql": (framed + struct.pack("<I", len(second)) + second, ("TableNotFound",)),
+        "empty": (b"", ("InvalidPayloadLength",)),
+    }
+    for name, (payload, errors) in bad_batches.items():
+        candidate = artifacts / f"batch-{name}.wal"
+        contents = original + batch_record(sequence + 1, payload)
+        candidate.write_bytes(contents)
+        refuse(binary, candidate, errors)
+        check(candidate.read_bytes() == contents, "invalid batch modified its WAL")
+        target = artifacts / f"batch-{name}-backup.wal"
+        offline_backup(binary, candidate, target, errors)
+        check(not target.exists(), "invalid transaction batch was backed up")
     legacy = artifacts / "legacy-integer64.wal"
     legacy_bytes = record(1, "CREATE TABLE durable (id INTEGER PRIMARY KEY, value TEXT)", kind=1)
     legacy.write_bytes(legacy_bytes)

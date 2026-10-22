@@ -1,9 +1,9 @@
 {
   "schema": 1,
-  "started_utc": "2026-10-22T17:43:57.459055+00:00",
+  "started_utc": "2026-10-22T19:20:21.286275+00:00",
   "scope": "finite differential compatibility gate; passing does not establish full PostgreSQL parity",
-  "ramsql_binary": "/home/sb/.cache/ramsql-qualification/final/bin/ramsql",
-  "ramsql_sha256": "308eefba7f0340026af5dbf7ae76a1299b652481d58b74097fcce56a18cbcc88",
+  "ramsql_binary": "/home/sb/.cache/ramsql-qualification/boundary/bin/ramsql",
+  "ramsql_sha256": "ee9a4cb7288f628b552b3c9d56e8ac3fed7e1bf33935f13926710235f8060960",
   "ramsql_legacy_cli": false,
   "client": {
     "name": "psycopg",
@@ -2502,7 +2502,7 @@
     "deployment": "owned native process",
     "server_version": "PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit",
     "server_version_num": "160015",
-    "data_path": "/home/sb/.cache/ramsql-qualification/compat-final/postgres-eb2a0d493736426f9d49a20142ffe591/data",
+    "data_path": "/home/sb/.cache/ramsql-qualification/boundary-postgres-compat/postgres-f3a2e9905e54435fab432b059cdbc61e/data",
     "postgres_binary": "/usr/lib/postgresql/16/bin/postgres",
     "postgres_sha256": "201d8daff9a5bd9df70b820471b965c39f5a776d677f395232c477d051270722",
     "authentication": "loopback trust, isolated benchmark cluster"
@@ -2513,5 +2513,5 @@
     "mismatching": 18,
     "drop_in_gate_passed": false
   },
-  "finished_utc": "2026-10-22T17:43:58.622129+00:00"
+  "finished_utc": "2026-10-22T19:20:22.403274+00:00"
 }
