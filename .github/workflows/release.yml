@@ -212,11 +212,14 @@ jobs:
             "$RUNNER_TEMP/native-toolchain/bin/sig" "$RUNNER_TEMP/native-compiler-cache"
           cp -a "$source/lib" "$RUNNER_TEMP/native-toolchain/lib"
       - name: Verify native database code generation under QEMU
+        timeout-minutes: 10
         shell: bash
         run: |
           set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y qemu-system-arm
+          if ! command -v qemu-system-aarch64 >/dev/null; then
+            sudo timeout 180 apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+            sudo timeout 180 apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y qemu-system-arm
+          fi
           bash .sig-cache/native-sig-source/ci/test-sb0-database-codegen.sh \
             "$RUNNER_TEMP/native-toolchain/bin/sig" "$RUNNER_TEMP/native-probe"
       - name: Record exact compiler, source, library and bootstrap provenance
@@ -287,9 +290,14 @@ jobs:
           python tools/build_sb0.py --format "$TARGET_FORMAT" --optimize ReleaseSmall \
             --output ".sig-cache/release/$TARGET_SLUG/bin/$TARGET_BINARY"
       - name: Install QEMU
+        timeout-minutes: 7
         run: |
-          sudo apt-get update
-          sudo apt-get install -y qemu-system-arm
+          set -euo pipefail
+          if ! command -v qemu-system-aarch64 >/dev/null; then
+            sudo timeout 180 apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+            sudo timeout 180 apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y qemu-system-arm
+          fi
+          qemu-system-aarch64 --version
       - name: Boot native image and assert PostgreSQL packets and transactions
         run: |
           python tools/test_sb0.py --format "$TARGET_FORMAT" \
