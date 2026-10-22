@@ -29,7 +29,7 @@ def main():
         expected = (status, stdout, stderr)
         assert actual == expected, f"{label}: expected {expected!r}, got {actual!r}"
 
-    expect("version", run(["--version"]), stdout=b"ramsql 0.2.0\n")
+    expect("version", run(["--version"]), stdout=b"ramsql 0.3.0-dev.1\n")
     help_result = run(["--help"])
     assert help_result.returncode == 0 and not help_result.stderr, help_result
     assert b"ramsql" in help_result.stdout and b"--stdin" in help_result.stdout
@@ -38,7 +38,7 @@ def main():
         unknown = run(arguments, "")
         assert unknown.returncode == 2, (arguments, unknown.returncode, unknown.stderr)
 
-    for invalid in (["--port"], ["--port", "65536"], ["--protocol", "oracle"], ["--max-clients", "0"], ["--max-clients", "17"], ["--idle-ms", "0"], ["--demo", "--port", "0"]):
+    for invalid in (["--port"], ["--port", "65536"], ["--protocol", "oracle"], ["--max-clients", "0"], ["--max-clients", "61"], ["--idle-ms", "0"], ["--demo", "--port", "0"]):
         bad = run(invalid)
         assert bad.returncode == 2, (invalid, bad.returncode, bad.stderr)
     demo = run(["--demo"])

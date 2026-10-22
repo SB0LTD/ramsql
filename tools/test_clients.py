@@ -13,7 +13,7 @@ sys.path.insert(0, str(ROOT / '.sig-cache' / 'client-deps'))
 
 @contextmanager
 def running_server(binary):
-    process = subprocess.Popen([str(binary), '--serve', '--port', '0', '--mysql-port', '0', '--mssql-port', '0'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    process = subprocess.Popen([str(binary), '--serve', '--memory', '--insecure-local', '--port', '0', '--mysql-port', '0', '--mssql-port', '0'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     lines = queue.Queue()
     def read_ready():
         for _ in range(3): lines.put(process.stdout.readline())

@@ -2,7 +2,7 @@
     .protocol_version = 1,
     .scope = "sb0",
     .name = "ramsql",
-    .version = "0.2.0",
+    .version = "0.3.0-dev.1",
     .layer = 0,
     .platform = .any,
     .system_libraries = .{},

@@ -56,7 +56,7 @@ class Server:
 
     def __enter__(self):
         self.process = subprocess.Popen(
-            [str(self.binary), "--serve", "--protocol", "postgres", "--port", "0",
+            [str(self.binary), "--serve", "--memory", "--insecure-local", "--protocol", "postgres", "--port", "0",
              "--idle-ms", str(self.idle_ms), "--max-clients", str(self.max_clients)],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1,
         )
@@ -398,7 +398,7 @@ def test_transactions_and_disconnect(server):
         first.ok("INSERT INTO txn VALUES (1)")
         first.ok("BEGIN", status=b"T")
         first.ok("INSERT INTO txn VALUES (2)", status=b"T")
-        expect_error(second.query("SELECT * FROM txn"), "55P03")
+        second.ok("SELECT * FROM txn", [["1"]])
         expect_error(first.query("INSERT INTO txn VALUES (1)"), "23505")
         expect_error(first.query("SELECT * FROM txn"), "25P02")
         first.ok("ROLLBACK")

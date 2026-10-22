@@ -1,6 +1,7 @@
 // Native build graph, extended from `zpm init --template package`.
 const sig_build = @import("sig_build");
 const builtin = @import("builtin");
+const std = @import("std");
 
 fn noop(_: *sig_build.Step_Context) sig_build.SigError!void {}
 
@@ -57,6 +58,35 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     const tds_path = try zpm.modulePath("src/db/tds.sig", &tds_buf);
     const tcp_path = try zpm.modulePath("src/platform/tcp_server.sig", &tcp_buf);
     const store_path = try zpm.modulePath("src/db/store.sig", &store_buf);
+    var scram_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    const scram_path = try zpm.modulePath("src/db/scram.sig", &scram_buf);
+    _ = try ctx.addModule("scram", scram_path);
+    var durable_log_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    const durable_log_path = try zpm.modulePath("src/db/durable_log.sig", &durable_log_buf);
+    _ = try ctx.addModule("durable_log", durable_log_path);
+    var db_file_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    const db_file_path = try zpm.modulePath("src/platform/db_file.sig", &db_file_buf);
+    _ = try ctx.addModule("db_file", db_file_path);
+    var entropy_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    const entropy_path = try zpm.modulePath("src/platform/entropy.sig", &entropy_buf);
+    _ = try ctx.addModule("entropy", entropy_path);
+    const pg_module = try ctx.addModule("postgres", pg_path);
+    try ctx.addImport(pg_module, "scram", scram_path);
+    const clients = ctx.option(usize, "clients", "Preallocated connection slots (1..60)") orelse 16;
+    const rows = ctx.option(usize, "rows", "Rows per table") orelse 512;
+    const tables = ctx.option(usize, "tables", "Table capacity") orelse 8;
+    const text_bytes = ctx.option(usize, "text-bytes", "Bytes per text value") orelse 128;
+    const transaction_bytes = ctx.option(usize, "transaction-bytes", "SQL log bytes per transaction") orelse 1048576;
+    if (clients == 0 or clients > 60 or rows == 0 or tables == 0 or text_bytes == 0 or transaction_bytes < 65540) return error.BufferTooSmall;
+    var profile_buf: [512]u8 = undefined;
+    const profile = try std.fmt.bufPrint(&profile_buf, "pub const clients={d}; pub const rows={d}; pub const tables={d}; pub const text_bytes={d}; pub const transaction_bytes={d};\n", .{ clients, rows, tables, text_bytes, transaction_bytes });
+    var profile_path_buf: [256]u8 = undefined;
+    const profile_path = try std.fmt.bufPrint(&profile_path_buf, ".sig-cache/profile-{d}-{d}-{d}-{d}-{d}.sig", .{ clients, rows, tables, text_bytes, transaction_bytes });
+    try sig_build.sig_io.Dir.cwd().createDirPath(.{}, ".sig-cache");
+    const profile_file = try sig_build.sig_io.Dir.cwd().createFile(.{}, profile_path, .{});
+    try profile_file.writeStreamingAll(.{}, profile);
+    profile_file.close(.{});
+    _ = try ctx.addModule("profile", profile_path);
     const lib = try ctx.addModule("ramsql", "src/root.sig");
     try ctx.addImport(lib, "sql", sql_path);
     const sig_lib = ctx.sig_lib_dir[0..ctx.sig_lib_dir_len];
@@ -76,6 +106,11 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
             importEntry("tds", tds_path),
             importEntry("tcp_server", tcp_path),
             importEntry("db_store", store_path),
+            importEntry("scram", scram_path),
+            importEntry("durable_log", durable_log_path),
+            importEntry("db_file", db_file_path),
+            importEntry("entropy", entropy_path),
+            importEntry("profile", profile_path),
         },
         .compiler_path = "",
     });
@@ -99,6 +134,36 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     const test_engine = try ctx.addStep("test-engine", "contract-sql", &runBinary);
     try ctx.addDependency(test_engine, engine);
     try ctx.addDependency(test_step, test_engine);
+    const persistence_module = try ctx.addModule("persistence", "src/persistence.sig");
+    try ctx.addImport(persistence_module, "db_file", db_file_path);
+    try ctx.addImport(persistence_module, "durable_log", durable_log_path);
+    try ctx.addImport(persistence_module, "db_store", store_path);
+    const backup_module = try ctx.addModule("backup", "src/backup.sig");
+    try ctx.addImport(backup_module, "db_file", db_file_path);
+    const backup_test = try ctx.addCompileStep(.{
+        .source_path = "tests/backup.sig",
+        .output_name = "contract-backup",
+        .cache_dir = ctx.cache_dir[0..ctx.cache_dir_len],
+        .optimize = ctx.optimize,
+        .target = null,
+        .imports = &.{ importEntry("sql", sql_path), importEntry("db_store", store_path), importEntry("db_file", db_file_path), importEntry("durable_log", durable_log_path), importEntry("persistence", "src/persistence.sig"), importEntry("backup", "src/backup.sig") },
+        .compiler_path = "",
+    });
+    const test_backup = try ctx.addStep("test-backup", "contract-backup", &runBinary);
+    try ctx.addDependency(test_backup, backup_test);
+    try ctx.addDependency(test_step, test_backup);
+    const persistence_test = try ctx.addCompileStep(.{
+        .source_path = "tests/persistence.sig",
+        .output_name = "contract-persistence",
+        .cache_dir = ctx.cache_dir[0..ctx.cache_dir_len],
+        .optimize = ctx.optimize,
+        .target = null,
+        .imports = &.{ importEntry("sql", sql_path), importEntry("db_store", store_path), importEntry("db_file", db_file_path), importEntry("durable_log", durable_log_path), importEntry("persistence", "src/persistence.sig") },
+        .compiler_path = "",
+    });
+    const test_persistence = try ctx.addStep("test-persistence", "contract-persistence", &runBinary);
+    try ctx.addDependency(test_persistence, persistence_test);
+    try ctx.addDependency(test_step, test_persistence);
     const api = try ctx.addCompileStep(.{
         .source_path = "tests/api.sig",
         .output_name = "contract-ramsql",
@@ -124,7 +189,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     const benchmark = try ctx.addStep("benchmark", "ramsql-bench", &runBinary);
     try ctx.addDependency(benchmark, bench);
     var test_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
-    inline for (.{ "postgres", "mysql", "tds", "db_store", "tcp_server", "sql_index" }) |name| {
+    inline for (.{ "postgres", "mysql", "tds", "db_store", "tcp_server", "sql_index", "scram", "durable_log", "db_file", "entropy" }) |name| {
         const path = try zpm.modulePath("tests/test_" ++ name ++ ".sig", &test_buf);
         const compiled = try ctx.addCompileStep(.{
             .source_path = path,
@@ -132,7 +197,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
             .cache_dir = ctx.cache_dir[0..ctx.cache_dir_len],
             .optimize = ctx.optimize,
             .target = null,
-            .imports = &.{ importEntry("sql", sql_path), importEntry("postgres", pg_path), importEntry("mysql", mysql_path), importEntry("tds", tds_path), importEntry("db_store", store_path), importEntry("tcp_server", tcp_path) },
+            .imports = &.{ importEntry("sql", sql_path), importEntry("postgres", pg_path), importEntry("mysql", mysql_path), importEntry("tds", tds_path), importEntry("db_store", store_path), importEntry("scram", scram_path), importEntry("durable_log", durable_log_path), importEntry("db_file", db_file_path), importEntry("entropy", entropy_path), importEntry("profile", profile_path), importEntry("tcp_server", tcp_path) },
             .compiler_path = "",
         });
         const contract = try ctx.addStep("test-" ++ name, "contract-" ++ name, &runBinary);

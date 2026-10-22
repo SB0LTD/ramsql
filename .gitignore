@@ -5,3 +5,8 @@ zig-out/
 config.json
 __pycache__/
 *.pyc
+
+# Local durable database and credentials
+*.wal
+*.wal.*
+*.verifier

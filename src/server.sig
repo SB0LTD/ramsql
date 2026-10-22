@@ -1,5 +1,10 @@
 //! Product policy and bounded single-threaded database reactor.
 const sig = @import("sig");
+const std = @import("std");
+const profile = @import("profile");
+const scram = @import("scram");
+const entropy = @import("entropy");
+const Persistence = @import("persistence.sig").Persistence(Raw, Store);
 const sql = @import("sql");
 const tcp = @import("tcp_server");
 const pg = @import("postgres");
@@ -13,16 +18,21 @@ pub const Options = struct {
     port: ?u16 = null,
     mysql_port: ?u16 = null,
     mssql_port: ?u16 = null,
-    max_clients: usize = 16,
+    max_clients: usize = profile.clients,
+    memory: bool = false,
+    data: []const u8 = "ramsql.wal",
+    insecure_local: bool = false,
+    auth_user: []const u8 = "postgres",
+    auth_verifier_file: ?[]const u8 = null,
     idle_ms: u32 = 30000,
 };
-const Raw = sql.Database(.{ .tables = 8, .columns = 8, .rows_per_table = 512, .name_bytes = 32, .text_bytes = 128, .boolean_integers = true });
+const Raw = sql.Database(.{ .tables = profile.tables, .columns = 8, .rows_per_table = profile.rows, .name_bytes = 63, .text_bytes = profile.text_bytes, .boolean_integers = true });
 const Store = stores.Store(Raw);
 const DB = Store.Connection;
 const PG = pg.Session(DB);
 const MySQL = mysql.Session(DB);
 const TDS = tds.Session(DB);
-const capacity = 16;
+const capacity = profile.clients;
 const input_capacity = 65536;
 const output_capacity = @max(PG.responseCapacity(), @max(MySQL.responseCapacity(), TDS.responseCapacity())) + 32768;
 const Session = union(Protocol) { postgres: PG, mysql: MySQL, mssql: TDS };
@@ -38,6 +48,8 @@ const Client = struct {
     output_sent: usize = 0,
     closing: bool = false,
     touched: i64 = 0,
+    transaction_workspace: Raw = .{},
+    transaction_log: [profile.transaction_bytes]u8 = undefined,
 
     fn close(self: *Client) void {
         self.connection.disconnect();
@@ -93,11 +105,39 @@ const Client = struct {
     }
 };
 var store: Store = .{};
+var autocommit_workspace: Raw = .{};
+var persistence: Persistence = .{};
+var recovery_buffer: [profile.transaction_bytes]u8 = undefined;
+var verifier: ?scram.Verifier = null;
 var clients: [capacity]Client = @splat(.{});
 var next_id: u64 = 1;
 
 pub fn run(options: Options) !void {
     if (options.max_clients == 0 or options.max_clients > capacity or options.idle_ms == 0) return error.InvalidServerOptions;
+    if (!options.insecure_local) {
+        const verifier_path = options.auth_verifier_file orelse return error.AuthenticationRequired;
+        if (options.protocol != .postgres or options.mysql_port != null or options.mssql_port != null) return error.AuthenticationUnsupportedForProtocol;
+        const file = try sig.io.Dir.cwd().openFile(.{}, verifier_path, .{});
+        defer file.close(.{});
+        const size = file.stat().size;
+        if (size == 0 or size > 512) return error.InvalidVerifier;
+        var source: [513]u8 = undefined;
+        var reader = file.reader(.{}, &.{});
+        var used: usize = 0;
+        while (used < source.len) {
+            const n = try reader.interface.readSliceShort(source[used..]);
+            if (n == 0) break;
+            used += n;
+        }
+        if (used != size) return error.InvalidVerifier;
+        while (used != 0 and (source[used - 1] == '\n' or source[used - 1] == '\r')) used -= 1;
+        verifier = try scram.Verifier.parse(options.auth_user, source[0..used]);
+        std.crypto.secureZero(u8, &source);
+    } else if (options.auth_verifier_file != null) return error.InvalidServerOptions;
+    if (!options.memory) {
+        _ = try persistence.init(options.data, &store, &autocommit_workspace, &recovery_buffer);
+    }
+    defer persistence.close();
     try tcp.init();
     defer tcp.deinit();
     var listeners: [3]tcp.Socket = @splat(tcp.invalid_socket);
@@ -143,7 +183,7 @@ pub fn run(options: Options) !void {
                     continue;
                 };
                 client.socket = socket;
-                client.connection = .{ .store = &store, .id = next_id };
+                client.connection = .{ .store = &store, .id = next_id, .transaction_workspace = &client.transaction_workspace, .transaction_log = &client.transaction_log };
                 next_id +%= 1;
                 if (next_id == 0) next_id = 1;
                 client.session = switch (protocol) {
@@ -151,6 +191,21 @@ pub fn run(options: Options) !void {
                     .mysql => .{ .mysql = .{} },
                     .mssql => .{ .mssql = .{} },
                 };
+                if (protocol == .postgres) {
+                    if (verifier) |*credential| {
+                        var random: [24]u8 = undefined;
+                        entropy.fill(&random) catch {
+                            client.close();
+                            continue;
+                        };
+                        var nonce: [32]u8 = undefined;
+                        _ = std.base64.standard.Encoder.encode(&nonce, &random);
+                        client.session.postgres.configureAuthentication(credential, &nonce) catch {
+                            client.close();
+                            continue;
+                        };
+                    }
+                }
                 client.input_len = 0;
                 client.input_start = 0;
                 client.output_len = 0;
@@ -229,4 +284,12 @@ pub fn run(options: Options) !void {
             }
         }
     }
+}
+
+/// Offline backup validates/replays the existing source before publishing a copy.
+pub fn backup(options: Options, target: []const u8) !void {
+    if (options.memory) return error.InvalidServerOptions;
+    _ = try persistence.initExisting(options.data, &store, &autocommit_workspace, &recovery_buffer);
+    defer persistence.close();
+    try @import("backup.sig").create(&persistence.file, target, &recovery_buffer);
 }
