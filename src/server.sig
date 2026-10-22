@@ -48,7 +48,7 @@ const Client = struct {
     output_sent: usize = 0,
     closing: bool = false,
     touched: i64 = 0,
-    transaction_workspace: Raw = .{},
+    transaction_workspace: Raw = undefined,
     transaction_log: [profile.transaction_bytes]u8 = undefined,
 
     fn close(self: *Client) void {
@@ -105,15 +105,18 @@ const Client = struct {
     }
 };
 var store: Store = .{};
-var autocommit_workspace: Raw = .{};
+var autocommit_workspace: Raw = undefined;
 var persistence: Persistence = .{};
 var recovery_buffer: [profile.transaction_bytes]u8 = undefined;
 var verifier: ?scram.Verifier = null;
-var clients: [capacity]Client = @splat(.{});
+// Keep large caller-owned workspaces/buffers out of the executable data image.
+// run initializes free-slot metadata; accept initializes every live field.
+var clients: [capacity]Client = undefined;
 var next_id: u64 = 1;
 
 pub fn run(options: Options) !void {
     if (options.max_clients == 0 or options.max_clients > capacity or options.idle_ms == 0) return error.InvalidServerOptions;
+    for (&clients) |*client| client.socket = tcp.invalid_socket;
     if (!options.insecure_local) {
         const verifier_path = options.auth_verifier_file orelse return error.AuthenticationRequired;
         if (options.protocol != .postgres or options.mysql_port != null or options.mssql_port != null) return error.AuthenticationUnsupportedForProtocol;
