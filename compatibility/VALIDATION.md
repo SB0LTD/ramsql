@@ -30,3 +30,11 @@ RAMSQL has its own Windows/Linux CI on the latest stable Sig 0.6.3.
 No production release was created. `tools/release_gate.py` returns failure while
 PostgreSQL parity, transport security, scale, operations and physical storage
 qualification remain incomplete.
+
+The client-workspace initialization fix reduces the ReleaseFast Windows image
+from 139,028,992 to 1,905,152 bytes. All live ReleaseSafe suites were rerun after
+this change. Scratch workspaces are fully overwritten before any read.
+
+[RAMSQL Windows/Linux CI run 39729836950](https://github.com/SB0LTD/ramsql/actions/runs/39729836950)
+passed for the initial durable implementation. The follow-up workspace-layout
+change is checked separately on the pull request's latest commit.
