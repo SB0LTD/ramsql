@@ -1,0 +1,1567 @@
+{
+  "schema": 1,
+  "started_utc": "2026-10-22T05:43:04.686322+00:00",
+  "scope": "durable selected SQL subset; no PostgreSQL drop-in performance conclusion; see compatibility/postgres-report.json",
+  "environment": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.15",
+    "cpu": "Intel(R) Core(TM) i9-14900HX",
+    "logical_cpus": 32,
+    "client": {
+      "name": "psycopg",
+      "version": "3.3.6"
+    },
+    "ramsql_binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\sig-out\\bin\\ramsql.exe",
+    "ramsql_sha256": "b2822c1d83773bc8bd05aa22aad0ff3227207973e97350319ea398486055b437",
+    "ramsql_version": "ramsql 0.3.0-dev.1",
+    "build_mode_declared": "ReleaseFast",
+    "git_head": "722d292d87f9e0a30708018872f894ff6ebf42fb",
+    "git_is_dirty": true,
+    "source_tree_digest": "272949e38c036c68e322156dc8f4e2c9f58f34c3dae47aedaaee2a1f3e835124",
+    "source_tree_files": 21,
+    "source_tree_hash_format": "SHA256 of sorted relative UTF-8 paths and source bytes, each prefixed by LE64 length; .sig/.py/.zon only, excludes caches/outputs",
+    "zpm_dependency": {
+      "manifest": "build.sig.zon",
+      "manifest_sha256": "cf22059bd3b8bd22fb9935707b2298fc52508856e7b62087e166230edad0c5d6",
+      "url": "https://github.com/SB0LTD/zpm/archive/2b70acb4c817c1121f0c0275335bc5509629dc92.tar.gz",
+      "hash": "c96c00db1ce6f4a3581247f2c208ecd4fb4895422c692987627f55acc18afbed",
+      "local_override": false
+    },
+    "data_path": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\postgres-benchmark\\eded778cc92e4dc286601444492432a2\\ramsql.wal",
+    "volume": "C:\\",
+    "volume_bytes_total": 1021821579264,
+    "volume_bytes_free": 7569096704,
+    "docker_storage_context": "driver=overlayfs os=Docker Desktop arch=x86_64 cpus=32 memory=16620048384",
+    "deployment_caveat": "RAMSQL is a native host process; PostgreSQL is a Docker Linux container with an anonymous data volume. Networking, filesystem, VM and container costs are included and can differ materially. No equivalence of physical storage barriers is claimed."
+  },
+  "workload": {
+    "rows": 512,
+    "operations_per_trial": 1000,
+    "trials": 3,
+    "concurrent_clients": [
+      1,
+      4
+    ],
+    "protocol": "identical psycopg simple queries, autocommit, prepare=False, no pipeline",
+    "schema_create_drop": "each logical operation is one CREATE and one DROP; both request latencies are sampled",
+    "insert": "bounded per-client INSERT batches, retained row contents verified before DELETE reset; validation/reset phases excluded from request throughput and recorded separately",
+    "timing": "individual request latency includes execute and fetch/decode; active phase throughput includes Python thread orchestration; setup and warmup excluded"
+  },
+  "durability": {
+    "ramsql": "durable --data WAL, synchronous stable-storage hook before commit publication; no --memory",
+    "limits": "OS synchronization guarantees only; this experiment does not simulate hardware power loss",
+    "postgres": {
+      "fsync": "on",
+      "synchronous_commit": "on",
+      "full_page_writes": "on"
+    },
+    "ramsql_reopen_row_check": "passed after abrupt process termination",
+    "ramsql_wal_bytes": 2169648
+  },
+  "measurements": [
+    {
+      "trial": 1,
+      "workload": "schema_create_drop",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 2000,
+      "timed_request_phase_ns": 4687856200,
+      "requests_per_second": 426.63424701465885,
+      "logical_operations_per_second": 213.31712350732943,
+      "latency_us": {
+        "p50": 2228.3,
+        "p95": 3011.3,
+        "p99": 4528.5,
+        "mean": 2341.1215,
+        "max": 18299.3
+      },
+      "setup_warmup_ns_excluded": 3428000,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 1,
+      "workload": "schema_create_drop",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 2000,
+      "timed_request_phase_ns": 1679986300,
+      "requests_per_second": 1190.4858986052445,
+      "logical_operations_per_second": 595.2429493026223,
+      "latency_us": {
+        "p50": 798.7,
+        "p95": 1105.0,
+        "p99": 1333.3,
+        "mean": 837.6914,
+        "max": 1985.3
+      },
+      "setup_warmup_ns_excluded": 534900,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 2,
+      "workload": "schema_create_drop",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 2000,
+      "timed_request_phase_ns": 1663532500,
+      "requests_per_second": 1202.2608515313045,
+      "logical_operations_per_second": 601.1304257656523,
+      "latency_us": {
+        "p50": 805.8,
+        "p95": 1055.3,
+        "p99": 1246.0,
+        "mean": 829.5495,
+        "max": 1905.6
+      },
+      "setup_warmup_ns_excluded": 605600,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 2,
+      "workload": "schema_create_drop",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 2000,
+      "timed_request_phase_ns": 4654644600,
+      "requests_per_second": 429.6783475155117,
+      "logical_operations_per_second": 214.83917375775584,
+      "latency_us": {
+        "p50": 2234.3,
+        "p95": 2849.7,
+        "p99": 4010.8,
+        "mean": 2324.55565,
+        "max": 25025.5
+      },
+      "setup_warmup_ns_excluded": 4116300,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 3,
+      "workload": "schema_create_drop",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 2000,
+      "timed_request_phase_ns": 4657885900,
+      "requests_per_second": 429.3793456812671,
+      "logical_operations_per_second": 214.68967284063356,
+      "latency_us": {
+        "p50": 2222.7,
+        "p95": 2980.6,
+        "p99": 4005.3,
+        "mean": 2326.1385499999997,
+        "max": 11728.6
+      },
+      "setup_warmup_ns_excluded": 4764500,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 3,
+      "workload": "schema_create_drop",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 2000,
+      "timed_request_phase_ns": 1746844800,
+      "requests_per_second": 1144.921403435497,
+      "logical_operations_per_second": 572.4607017177485,
+      "latency_us": {
+        "p50": 843.9,
+        "p95": 1121.5,
+        "p99": 1317.4,
+        "mean": 871.05335,
+        "max": 2098.4
+      },
+      "setup_warmup_ns_excluded": 450800,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 1,
+      "workload": "insert",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 1057115400,
+      "requests_per_second": 945.9705156125812,
+      "logical_operations_per_second": 945.9705156125812,
+      "latency_us": {
+        "p50": 1012.2,
+        "p95": 1379.5,
+        "p99": 1704.8,
+        "mean": 1052.5227,
+        "max": 4510.1
+      },
+      "setup_warmup_ns_excluded": 9332700,
+      "insert_validation_reset_ns_excluded": 4827400,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 1,
+      "workload": "insert",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 834838500,
+      "requests_per_second": 1197.8364677719103,
+      "logical_operations_per_second": 1197.8364677719103,
+      "latency_us": {
+        "p50": 802.3,
+        "p95": 1088.5,
+        "p99": 1219.1,
+        "mean": 830.8228,
+        "max": 1897.9
+      },
+      "setup_warmup_ns_excluded": 2313300,
+      "insert_validation_reset_ns_excluded": 2329300,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 2,
+      "workload": "insert",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 842750600,
+      "requests_per_second": 1186.5906710716076,
+      "logical_operations_per_second": 1186.5906710716076,
+      "latency_us": {
+        "p50": 805.6,
+        "p95": 1100.7,
+        "p99": 1403.7,
+        "mean": 838.4495,
+        "max": 2234.4
+      },
+      "setup_warmup_ns_excluded": 2442900,
+      "insert_validation_reset_ns_excluded": 2104700,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 2,
+      "workload": "insert",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 989718100,
+      "requests_per_second": 1010.3887157363293,
+      "logical_operations_per_second": 1010.3887157363293,
+      "latency_us": {
+        "p50": 910.2,
+        "p95": 1400.7,
+        "p99": 2238.4,
+        "mean": 985.5013,
+        "max": 6894.0
+      },
+      "setup_warmup_ns_excluded": 8639400,
+      "insert_validation_reset_ns_excluded": 4380800,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 3,
+      "workload": "insert",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 990261400,
+      "requests_per_second": 1009.8343730251427,
+      "logical_operations_per_second": 1009.8343730251427,
+      "latency_us": {
+        "p50": 914.6,
+        "p95": 1315.4,
+        "p99": 1686.1,
+        "mean": 985.878,
+        "max": 12283.1
+      },
+      "setup_warmup_ns_excluded": 7395700,
+      "insert_validation_reset_ns_excluded": 4569300,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 3,
+      "workload": "insert",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 871727300,
+      "requests_per_second": 1147.1477376009677,
+      "logical_operations_per_second": 1147.1477376009677,
+      "latency_us": {
+        "p50": 803.6,
+        "p95": 1244.7,
+        "p99": 2002.1,
+        "mean": 867.4797,
+        "max": 2948.3
+      },
+      "setup_warmup_ns_excluded": 1603400,
+      "insert_validation_reset_ns_excluded": 4416400,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 1,
+      "workload": "point_update",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 1247763300,
+      "requests_per_second": 801.4340540389351,
+      "logical_operations_per_second": 801.4340540389351,
+      "latency_us": {
+        "p50": 1088.5,
+        "p95": 2161.8,
+        "p99": 3388.0,
+        "mean": 1243.0128,
+        "max": 8910.3
+      },
+      "setup_warmup_ns_excluded": 6837800,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 1,
+      "workload": "point_update",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 899541400,
+      "requests_per_second": 1111.677572594213,
+      "logical_operations_per_second": 1111.677572594213,
+      "latency_us": {
+        "p50": 807.4,
+        "p95": 1356.4,
+        "p99": 2972.7,
+        "mean": 895.6924,
+        "max": 3345.5
+      },
+      "setup_warmup_ns_excluded": 347800,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 2,
+      "workload": "point_update",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 885168600,
+      "requests_per_second": 1129.7282800135476,
+      "logical_operations_per_second": 1129.7282800135476,
+      "latency_us": {
+        "p50": 778.9,
+        "p95": 1392.7,
+        "p99": 2889.8,
+        "mean": 881.3873000000001,
+        "max": 3559.5
+      },
+      "setup_warmup_ns_excluded": 340600,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 2,
+      "workload": "point_update",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 1317828300,
+      "requests_per_second": 758.8241958379555,
+      "logical_operations_per_second": 758.8241958379555,
+      "latency_us": {
+        "p50": 1065.3,
+        "p95": 2581.1,
+        "p99": 6038.7,
+        "mean": 1313.4753999999998,
+        "max": 10164.9
+      },
+      "setup_warmup_ns_excluded": 4024000,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 3,
+      "workload": "point_update",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 1624803700,
+      "requests_per_second": 615.458962827325,
+      "logical_operations_per_second": 615.458962827325,
+      "latency_us": {
+        "p50": 1190.9,
+        "p95": 3715.7,
+        "p99": 5527.2,
+        "mean": 1620.0145,
+        "max": 23246.2
+      },
+      "setup_warmup_ns_excluded": 4376300,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 3,
+      "workload": "point_update",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 1520919600,
+      "requests_per_second": 657.4969511866374,
+      "logical_operations_per_second": 657.4969511866374,
+      "latency_us": {
+        "p50": 902.6,
+        "p95": 3287.5,
+        "p99": 13356.0,
+        "mean": 1516.2964,
+        "max": 26812.2
+      },
+      "setup_warmup_ns_excluded": 417000,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 1,
+      "workload": "point_select",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 689227300,
+      "requests_per_second": 1450.9001602229048,
+      "logical_operations_per_second": 1450.9001602229048,
+      "latency_us": {
+        "p50": 577.1,
+        "p95": 1004.6,
+        "p99": 3708.2,
+        "mean": 683.8156,
+        "max": 5537.6
+      },
+      "setup_warmup_ns_excluded": 4832700,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 1,
+      "workload": "point_select",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 63140500,
+      "requests_per_second": 15837.69529858015,
+      "logical_operations_per_second": 15837.69529858015,
+      "latency_us": {
+        "p50": 52.2,
+        "p95": 99.7,
+        "p99": 126.8,
+        "mean": 60.1442,
+        "max": 150.5
+      },
+      "setup_warmup_ns_excluded": 958800,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 2,
+      "workload": "point_select",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 67878000,
+      "requests_per_second": 14732.313857214414,
+      "logical_operations_per_second": 14732.313857214414,
+      "latency_us": {
+        "p50": 55.3,
+        "p95": 105.5,
+        "p99": 128.0,
+        "mean": 64.6785,
+        "max": 161.3
+      },
+      "setup_warmup_ns_excluded": 411000,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 2,
+      "workload": "point_select",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 756930500,
+      "requests_per_second": 1321.1252552248852,
+      "logical_operations_per_second": 1321.1252552248852,
+      "latency_us": {
+        "p50": 551.4,
+        "p95": 2339.1,
+        "p99": 3932.6,
+        "mean": 751.762,
+        "max": 4471.8
+      },
+      "setup_warmup_ns_excluded": 4322800,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 3,
+      "workload": "point_select",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 1063174400,
+      "requests_per_second": 940.5794571426851,
+      "logical_operations_per_second": 940.5794571426851,
+      "latency_us": {
+        "p50": 584.3,
+        "p95": 3780.5,
+        "p99": 4628.2,
+        "mean": 1057.1277,
+        "max": 5850.8
+      },
+      "setup_warmup_ns_excluded": 19842800,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 3,
+      "workload": "point_select",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 57909100,
+      "requests_per_second": 17268.44312897282,
+      "logical_operations_per_second": 17268.44312897282,
+      "latency_us": {
+        "p50": 48.1,
+        "p95": 106.3,
+        "p99": 152.0,
+        "mean": 55.2876,
+        "max": 355.4
+      },
+      "setup_warmup_ns_excluded": 464300,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 1,
+      "workload": "scan_limit_16",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 795432300,
+      "requests_per_second": 1257.1780150240315,
+      "logical_operations_per_second": 1257.1780150240315,
+      "latency_us": {
+        "p50": 573.8,
+        "p95": 2287.7,
+        "p99": 4255.3,
+        "mean": 783.9533,
+        "max": 6180.9
+      },
+      "setup_warmup_ns_excluded": 9850100,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 1,
+      "workload": "scan_limit_16",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 62651400,
+      "requests_per_second": 15961.335261462633,
+      "logical_operations_per_second": 15961.335261462633,
+      "latency_us": {
+        "p50": 49.4,
+        "p95": 91.7,
+        "p99": 166.3,
+        "mean": 56.1884,
+        "max": 469.9
+      },
+      "setup_warmup_ns_excluded": 375600,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 2,
+      "workload": "scan_limit_16",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 63305200,
+      "requests_per_second": 15796.490651636832,
+      "logical_operations_per_second": 15796.490651636832,
+      "latency_us": {
+        "p50": 49.3,
+        "p95": 98.8,
+        "p99": 184.3,
+        "mean": 56.7449,
+        "max": 384.0
+      },
+      "setup_warmup_ns_excluded": 799200,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 2,
+      "workload": "scan_limit_16",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 599774800,
+      "requests_per_second": 1667.2924571022324,
+      "logical_operations_per_second": 1667.2924571022324,
+      "latency_us": {
+        "p50": 546.2,
+        "p95": 744.4,
+        "p99": 1108.4,
+        "mean": 588.8266,
+        "max": 8171.4
+      },
+      "setup_warmup_ns_excluded": 4872000,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 3,
+      "workload": "scan_limit_16",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 611294200,
+      "requests_per_second": 1635.8735286544515,
+      "logical_operations_per_second": 1635.8735286544515,
+      "latency_us": {
+        "p50": 531.0,
+        "p95": 822.6,
+        "p99": 1871.1,
+        "mean": 600.5462,
+        "max": 8998.0
+      },
+      "setup_warmup_ns_excluded": 4617400,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 3,
+      "workload": "scan_limit_16",
+      "clients": 1,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 69062600,
+      "requests_per_second": 14479.617043088445,
+      "logical_operations_per_second": 14479.617043088445,
+      "latency_us": {
+        "p50": 52.4,
+        "p95": 110.1,
+        "p99": 152.2,
+        "mean": 62.106300000000005,
+        "max": 479.3
+      },
+      "setup_warmup_ns_excluded": 384900,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 1,
+      "workload": "schema_create_drop",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 2000,
+      "timed_request_phase_ns": 1361510900,
+      "requests_per_second": 1468.956289663197,
+      "logical_operations_per_second": 734.4781448315985,
+      "latency_us": {
+        "p50": 2504.1,
+        "p95": 3870.8,
+        "p99": 5549.7,
+        "mean": 2706.8972000000003,
+        "max": 20725.7
+      },
+      "setup_warmup_ns_excluded": 40607600,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 1,
+      "workload": "schema_create_drop",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 2000,
+      "timed_request_phase_ns": 1487753400,
+      "requests_per_second": 1344.3088081667297,
+      "logical_operations_per_second": 672.1544040833649,
+      "latency_us": {
+        "p50": 2166.8,
+        "p95": 4597.2,
+        "p99": 5009.6,
+        "mean": 2583.3892,
+        "max": 5446.5
+      },
+      "setup_warmup_ns_excluded": 1111800,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 2,
+      "workload": "schema_create_drop",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 2000,
+      "timed_request_phase_ns": 1559538900,
+      "requests_per_second": 1282.4303388649043,
+      "logical_operations_per_second": 641.2151694324522,
+      "latency_us": {
+        "p50": 2294.3,
+        "p95": 5147.6,
+        "p99": 5747.2,
+        "mean": 2729.85715,
+        "max": 7043.0
+      },
+      "setup_warmup_ns_excluded": 890100,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 2,
+      "workload": "schema_create_drop",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 2000,
+      "timed_request_phase_ns": 1231911400,
+      "requests_per_second": 1623.4933778516863,
+      "logical_operations_per_second": 811.7466889258432,
+      "latency_us": {
+        "p50": 2348.2,
+        "p95": 3096.2,
+        "p99": 4008.3,
+        "mean": 2454.99275,
+        "max": 16335.4
+      },
+      "setup_warmup_ns_excluded": 15228900,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 3,
+      "workload": "schema_create_drop",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 2000,
+      "timed_request_phase_ns": 1292378000,
+      "requests_per_second": 1547.5348543537573,
+      "logical_operations_per_second": 773.7674271768786,
+      "latency_us": {
+        "p50": 2504.2,
+        "p95": 3276.3,
+        "p99": 3969.4,
+        "mean": 2572.46465,
+        "max": 5088.4
+      },
+      "setup_warmup_ns_excluded": 13751800,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 3,
+      "workload": "schema_create_drop",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 2000,
+      "timed_request_phase_ns": 1522342100,
+      "requests_per_second": 1313.7651517356053,
+      "logical_operations_per_second": 656.8825758678026,
+      "latency_us": {
+        "p50": 2260.3,
+        "p95": 4792.9,
+        "p99": 5177.3,
+        "mean": 2664.6015,
+        "max": 6993.1
+      },
+      "setup_warmup_ns_excluded": 2052300,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 1,
+      "workload": "insert",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 336199400,
+      "requests_per_second": 2974.425296416353,
+      "logical_operations_per_second": 2974.425296416353,
+      "latency_us": {
+        "p50": 1281.7,
+        "p95": 1853.4,
+        "p99": 2094.9,
+        "mean": 1329.4405,
+        "max": 2473.3
+      },
+      "setup_warmup_ns_excluded": 28826500,
+      "insert_validation_reset_ns_excluded": 9040800,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 1,
+      "workload": "insert",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 719247400,
+      "requests_per_second": 1390.342182675947,
+      "logical_operations_per_second": 1390.342182675947,
+      "latency_us": {
+        "p50": 2106.6,
+        "p95": 4565.1,
+        "p99": 5590.6,
+        "mean": 2521.1648,
+        "max": 6657.4
+      },
+      "setup_warmup_ns_excluded": 6159100,
+      "insert_validation_reset_ns_excluded": 3483800,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 2,
+      "workload": "insert",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 773211100,
+      "requests_per_second": 1293.3078689635986,
+      "logical_operations_per_second": 1293.3078689635986,
+      "latency_us": {
+        "p50": 2182.5,
+        "p95": 4505.1,
+        "p99": 4867.4,
+        "mean": 2617.0829,
+        "max": 6209.7
+      },
+      "setup_warmup_ns_excluded": 7268700,
+      "insert_validation_reset_ns_excluded": 4139800,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 2,
+      "workload": "insert",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 329815600,
+      "requests_per_second": 3031.9972736280515,
+      "logical_operations_per_second": 3031.9972736280515,
+      "latency_us": {
+        "p50": 1254.6,
+        "p95": 1773.3,
+        "p99": 2088.6,
+        "mean": 1307.0846000000001,
+        "max": 2814.6
+      },
+      "setup_warmup_ns_excluded": 32373800,
+      "insert_validation_reset_ns_excluded": 9219400,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 3,
+      "workload": "insert",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 331846000,
+      "requests_per_second": 3013.445996034305,
+      "logical_operations_per_second": 3013.445996034305,
+      "latency_us": {
+        "p50": 1282.7,
+        "p95": 1681.4,
+        "p99": 1927.9,
+        "mean": 1311.6075,
+        "max": 3619.0
+      },
+      "setup_warmup_ns_excluded": 26385400,
+      "insert_validation_reset_ns_excluded": 8745500,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 3,
+      "workload": "insert",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 694100700,
+      "requests_per_second": 1440.713141479327,
+      "logical_operations_per_second": 1440.713141479327,
+      "latency_us": {
+        "p50": 2054.5,
+        "p95": 4396.2,
+        "p99": 4770.2,
+        "mean": 2425.8005,
+        "max": 5529.7
+      },
+      "setup_warmup_ns_excluded": 5883800,
+      "insert_validation_reset_ns_excluded": 3817100,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 1,
+      "workload": "point_update",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 378581700,
+      "requests_per_second": 2641.437766273436,
+      "logical_operations_per_second": 2641.437766273436,
+      "latency_us": {
+        "p50": 1277.4,
+        "p95": 2045.6,
+        "p99": 6835.2,
+        "mean": 1502.1132,
+        "max": 15977.0
+      },
+      "setup_warmup_ns_excluded": 15831800,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 1,
+      "workload": "point_update",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 708242900,
+      "requests_per_second": 1411.944969727194,
+      "logical_operations_per_second": 1411.944969727194,
+      "latency_us": {
+        "p50": 2071.4,
+        "p95": 4463.3,
+        "p99": 4849.6,
+        "mean": 2461.3752999999997,
+        "max": 5527.9
+      },
+      "setup_warmup_ns_excluded": 1769800,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 2,
+      "workload": "point_update",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 734784400,
+      "requests_per_second": 1360.9434277592175,
+      "logical_operations_per_second": 1360.9434277592175,
+      "latency_us": {
+        "p50": 2127.1,
+        "p95": 4615.3,
+        "p99": 6089.4,
+        "mean": 2561.6981,
+        "max": 7208.8
+      },
+      "setup_warmup_ns_excluded": 1824700,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 2,
+      "workload": "point_update",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 338942400,
+      "requests_per_second": 2950.353806428467,
+      "logical_operations_per_second": 2950.353806428467,
+      "latency_us": {
+        "p50": 1248.1,
+        "p95": 1821.1,
+        "p99": 2673.1,
+        "mean": 1343.7384,
+        "max": 6921.3
+      },
+      "setup_warmup_ns_excluded": 14561600,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 3,
+      "workload": "point_update",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 344791300,
+      "requests_per_second": 2900.305199116103,
+      "logical_operations_per_second": 2900.305199116103,
+      "latency_us": {
+        "p50": 1281.4,
+        "p95": 1875.3,
+        "p99": 2330.1,
+        "mean": 1368.0756999999999,
+        "max": 7048.0
+      },
+      "setup_warmup_ns_excluded": 15332800,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 3,
+      "workload": "point_update",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 718787500,
+      "requests_per_second": 1391.2317618211223,
+      "logical_operations_per_second": 1391.2317618211223,
+      "latency_us": {
+        "p50": 2130.2,
+        "p95": 4699.5,
+        "p99": 5756.0,
+        "mean": 2531.1987000000004,
+        "max": 6153.9
+      },
+      "setup_warmup_ns_excluded": 1451900,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 1,
+      "workload": "point_select",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 163710400,
+      "requests_per_second": 6108.347423254723,
+      "logical_operations_per_second": 6108.347423254723,
+      "latency_us": {
+        "p50": 581.7,
+        "p95": 1038.7,
+        "p99": 1346.3,
+        "mean": 642.5745,
+        "max": 1770.2
+      },
+      "setup_warmup_ns_excluded": 14891100,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 1,
+      "workload": "point_select",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 59000900,
+      "requests_per_second": 16948.893999922035,
+      "logical_operations_per_second": 16948.893999922035,
+      "latency_us": {
+        "p50": 215.8,
+        "p95": 364.5,
+        "p99": 490.8,
+        "mean": 226.47979999999998,
+        "max": 982.7
+      },
+      "setup_warmup_ns_excluded": 1654800,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 2,
+      "workload": "point_select",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 53104500,
+      "requests_per_second": 18830.79588358802,
+      "logical_operations_per_second": 18830.79588358802,
+      "latency_us": {
+        "p50": 194.3,
+        "p95": 333.5,
+        "p99": 441.2,
+        "mean": 205.4905,
+        "max": 672.1
+      },
+      "setup_warmup_ns_excluded": 1617600,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 2,
+      "workload": "point_select",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 170185600,
+      "requests_per_second": 5875.937799672828,
+      "logical_operations_per_second": 5875.937799672828,
+      "latency_us": {
+        "p50": 607.2,
+        "p95": 1015.9,
+        "p99": 1525.6,
+        "mean": 670.1819,
+        "max": 3000.7
+      },
+      "setup_warmup_ns_excluded": 19075200,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 3,
+      "workload": "point_select",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 152170300,
+      "requests_per_second": 6571.584599622923,
+      "logical_operations_per_second": 6571.584599622923,
+      "latency_us": {
+        "p50": 548.3,
+        "p95": 873.9,
+        "p99": 1125.9,
+        "mean": 591.6891999999999,
+        "max": 2179.4
+      },
+      "setup_warmup_ns_excluded": 13406600,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 3,
+      "workload": "point_select",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 52542800,
+      "requests_per_second": 19032.10335193404,
+      "logical_operations_per_second": 19032.10335193404,
+      "latency_us": {
+        "p50": 194.4,
+        "p95": 326.5,
+        "p99": 449.8,
+        "mean": 202.6532,
+        "max": 604.7
+      },
+      "setup_warmup_ns_excluded": 2151800,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 1,
+      "workload": "scan_limit_16",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 160738900,
+      "requests_per_second": 6221.269400250966,
+      "logical_operations_per_second": 6221.269400250966,
+      "latency_us": {
+        "p50": 574.2,
+        "p95": 953.3,
+        "p99": 1311.4,
+        "mean": 626.7746999999999,
+        "max": 2576.3
+      },
+      "setup_warmup_ns_excluded": 13361600,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 1,
+      "workload": "scan_limit_16",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 61101100,
+      "requests_per_second": 16366.317464006377,
+      "logical_operations_per_second": 16366.317464006377,
+      "latency_us": {
+        "p50": 220.7,
+        "p95": 373.3,
+        "p99": 476.7,
+        "mean": 229.9774,
+        "max": 713.3
+      },
+      "setup_warmup_ns_excluded": 1300200,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 2,
+      "workload": "scan_limit_16",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 57385800,
+      "requests_per_second": 17425.913727786316,
+      "logical_operations_per_second": 17425.913727786316,
+      "latency_us": {
+        "p50": 207.8,
+        "p95": 363.1,
+        "p99": 517.4,
+        "mean": 218.682,
+        "max": 1078.8
+      },
+      "setup_warmup_ns_excluded": 1635000,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    },
+    {
+      "trial": 2,
+      "workload": "scan_limit_16",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 191527000,
+      "requests_per_second": 5221.195967148235,
+      "logical_operations_per_second": 5221.195967148235,
+      "latency_us": {
+        "p50": 617.8,
+        "p95": 1254.8,
+        "p99": 3819.8,
+        "mean": 750.9196,
+        "max": 7249.7
+      },
+      "setup_warmup_ns_excluded": 13942100,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 3,
+      "workload": "scan_limit_16",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 169349400,
+      "requests_per_second": 5904.951538062727,
+      "logical_operations_per_second": 5904.951538062727,
+      "latency_us": {
+        "p50": 611.1,
+        "p95": 1036.9,
+        "p99": 1353.2,
+        "mean": 657.3733000000001,
+        "max": 2122.5
+      },
+      "setup_warmup_ns_excluded": 18642200,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "postgres"
+    },
+    {
+      "trial": 3,
+      "workload": "scan_limit_16",
+      "clients": 4,
+      "logical_operations": 1000,
+      "timed_requests": 1000,
+      "timed_request_phase_ns": 58507900,
+      "requests_per_second": 17091.70898288949,
+      "logical_operations_per_second": 17091.70898288949,
+      "latency_us": {
+        "p50": 205.1,
+        "p95": 364.6,
+        "p99": 486.2,
+        "mean": 219.1659,
+        "max": 912.1
+      },
+      "setup_warmup_ns_excluded": 1626800,
+      "insert_validation_reset_ns_excluded": 0,
+      "correctness": "all timed result rows/affected counts checked; INSERT retained rows and UPDATE final values verified",
+      "engine": "ramsql"
+    }
+  ],
+  "reference": {
+    "image_requested": "postgres:18-alpine",
+    "image_id": "sha256:4da1a4828be12604092fa55311276f08f9224a74a62dcb4708bd7439e2a03911",
+    "image_digests": [
+      "postgres@sha256:4da1a4828be12604092fa55311276f08f9224a74a62dcb4708bd7439e2a03911"
+    ],
+    "platform": "linux/amd64",
+    "server_version": "PostgreSQL 18.3 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+    "server_version_num": "180003"
+  },
+  "summary": [
+    {
+      "workload": "schema_create_drop",
+      "clients": 1,
+      "engines": {
+        "postgres": {
+          "median_requests_per_second": 429.3793456812671,
+          "min_requests_per_second": 426.63424701465885,
+          "max_requests_per_second": 429.6783475155117,
+          "median_p50_us": 2228.3,
+          "median_p95_us": 2980.6,
+          "median_p99_us": 4010.8
+        },
+        "ramsql": {
+          "median_requests_per_second": 1190.4858986052445,
+          "min_requests_per_second": 1144.921403435497,
+          "max_requests_per_second": 1202.2608515313045,
+          "median_p50_us": 805.8,
+          "median_p95_us": 1105.0,
+          "median_p99_us": 1317.4
+        }
+      },
+      "selected_subset_ramsql_over_postgres_throughput": 2.772573740631099
+    },
+    {
+      "workload": "schema_create_drop",
+      "clients": 4,
+      "engines": {
+        "postgres": {
+          "median_requests_per_second": 1547.5348543537573,
+          "min_requests_per_second": 1468.956289663197,
+          "max_requests_per_second": 1623.4933778516863,
+          "median_p50_us": 2504.1,
+          "median_p95_us": 3276.3,
+          "median_p99_us": 4008.3
+        },
+        "ramsql": {
+          "median_requests_per_second": 1313.7651517356053,
+          "min_requests_per_second": 1282.4303388649043,
+          "max_requests_per_second": 1344.3088081667297,
+          "median_p50_us": 2260.3,
+          "median_p95_us": 4792.9,
+          "median_p99_us": 5177.3
+        }
+      },
+      "selected_subset_ramsql_over_postgres_throughput": 0.848940589634879
+    },
+    {
+      "workload": "insert",
+      "clients": 1,
+      "engines": {
+        "postgres": {
+          "median_requests_per_second": 1009.8343730251427,
+          "min_requests_per_second": 945.9705156125812,
+          "max_requests_per_second": 1010.3887157363293,
+          "median_p50_us": 914.6,
+          "median_p95_us": 1379.5,
+          "median_p99_us": 1704.8
+        },
+        "ramsql": {
+          "median_requests_per_second": 1186.5906710716076,
+          "min_requests_per_second": 1147.1477376009677,
+          "max_requests_per_second": 1197.8364677719103,
+          "median_p50_us": 803.6,
+          "median_p95_us": 1100.7,
+          "median_p99_us": 1403.7
+        }
+      },
+      "selected_subset_ramsql_over_postgres_throughput": 1.1750349391623096
+    },
+    {
+      "workload": "insert",
+      "clients": 4,
+      "engines": {
+        "postgres": {
+          "median_requests_per_second": 3013.445996034305,
+          "min_requests_per_second": 2974.425296416353,
+          "max_requests_per_second": 3031.9972736280515,
+          "median_p50_us": 1281.7,
+          "median_p95_us": 1773.3,
+          "median_p99_us": 2088.6
+        },
+        "ramsql": {
+          "median_requests_per_second": 1390.342182675947,
+          "min_requests_per_second": 1293.3078689635986,
+          "max_requests_per_second": 1440.713141479327,
+          "median_p50_us": 2106.6,
+          "median_p95_us": 4505.1,
+          "median_p99_us": 4867.4
+        }
+      },
+      "selected_subset_ramsql_over_postgres_throughput": 0.4613794919522823
+    },
+    {
+      "workload": "point_update",
+      "clients": 1,
+      "engines": {
+        "postgres": {
+          "median_requests_per_second": 758.8241958379555,
+          "min_requests_per_second": 615.458962827325,
+          "max_requests_per_second": 801.4340540389351,
+          "median_p50_us": 1088.5,
+          "median_p95_us": 2581.1,
+          "median_p99_us": 5527.2
+        },
+        "ramsql": {
+          "median_requests_per_second": 1111.677572594213,
+          "min_requests_per_second": 657.4969511866374,
+          "max_requests_per_second": 1129.7282800135476,
+          "median_p50_us": 807.4,
+          "median_p95_us": 1392.7,
+          "median_p99_us": 2972.7
+        }
+      },
+      "selected_subset_ramsql_over_postgres_throughput": 1.4650001656399583
+    },
+    {
+      "workload": "point_update",
+      "clients": 4,
+      "engines": {
+        "postgres": {
+          "median_requests_per_second": 2900.305199116103,
+          "min_requests_per_second": 2641.437766273436,
+          "max_requests_per_second": 2950.353806428467,
+          "median_p50_us": 1277.4,
+          "median_p95_us": 1875.3,
+          "median_p99_us": 2673.1
+        },
+        "ramsql": {
+          "median_requests_per_second": 1391.2317618211223,
+          "min_requests_per_second": 1360.9434277592175,
+          "max_requests_per_second": 1411.944969727194,
+          "median_p50_us": 2127.1,
+          "median_p95_us": 4615.3,
+          "median_p99_us": 5756.0
+        }
+      },
+      "selected_subset_ramsql_over_postgres_throughput": 0.47968460775959515
+    },
+    {
+      "workload": "point_select",
+      "clients": 1,
+      "engines": {
+        "postgres": {
+          "median_requests_per_second": 1321.1252552248852,
+          "min_requests_per_second": 940.5794571426851,
+          "max_requests_per_second": 1450.9001602229048,
+          "median_p50_us": 577.1,
+          "median_p95_us": 2339.1,
+          "median_p99_us": 3932.6
+        },
+        "ramsql": {
+          "median_requests_per_second": 15837.69529858015,
+          "min_requests_per_second": 14732.313857214414,
+          "max_requests_per_second": 17268.44312897282,
+          "median_p50_us": 52.2,
+          "median_p95_us": 105.5,
+          "median_p99_us": 128.0
+        }
+      },
+      "selected_subset_ramsql_over_postgres_throughput": 11.988034621201923
+    },
+    {
+      "workload": "point_select",
+      "clients": 4,
+      "engines": {
+        "postgres": {
+          "median_requests_per_second": 6108.347423254723,
+          "min_requests_per_second": 5875.937799672828,
+          "max_requests_per_second": 6571.584599622923,
+          "median_p50_us": 581.7,
+          "median_p95_us": 1015.9,
+          "median_p99_us": 1346.3
+        },
+        "ramsql": {
+          "median_requests_per_second": 18830.79588358802,
+          "min_requests_per_second": 16948.893999922035,
+          "max_requests_per_second": 19032.10335193404,
+          "median_p50_us": 194.4,
+          "median_p95_us": 333.5,
+          "median_p99_us": 449.8
+        }
+      },
+      "selected_subset_ramsql_over_postgres_throughput": 3.082797126420548
+    },
+    {
+      "workload": "scan_limit_16",
+      "clients": 1,
+      "engines": {
+        "postgres": {
+          "median_requests_per_second": 1635.8735286544515,
+          "min_requests_per_second": 1257.1780150240315,
+          "max_requests_per_second": 1667.2924571022324,
+          "median_p50_us": 546.2,
+          "median_p95_us": 822.6,
+          "median_p99_us": 1871.1
+        },
+        "ramsql": {
+          "median_requests_per_second": 15796.490651636832,
+          "min_requests_per_second": 14479.617043088445,
+          "max_requests_per_second": 15961.335261462633,
+          "median_p50_us": 49.4,
+          "median_p95_us": 98.8,
+          "median_p99_us": 166.3
+        }
+      },
+      "selected_subset_ramsql_over_postgres_throughput": 9.656303115699815
+    },
+    {
+      "workload": "scan_limit_16",
+      "clients": 4,
+      "engines": {
+        "postgres": {
+          "median_requests_per_second": 5904.951538062727,
+          "min_requests_per_second": 5221.195967148235,
+          "max_requests_per_second": 6221.269400250966,
+          "median_p50_us": 611.1,
+          "median_p95_us": 1036.9,
+          "median_p99_us": 1353.2
+        },
+        "ramsql": {
+          "median_requests_per_second": 17091.70898288949,
+          "min_requests_per_second": 16366.317464006377,
+          "max_requests_per_second": 17425.913727786316,
+          "median_p50_us": 207.8,
+          "median_p95_us": 364.6,
+          "median_p99_us": 486.2
+        }
+      },
+      "selected_subset_ramsql_over_postgres_throughput": 2.8944706612269453
+    }
+  ],
+  "finished_utc": "2026-10-22T05:44:14.477641+00:00",
+  "measurement_checks_passed": true
+}
