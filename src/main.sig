@@ -2,6 +2,7 @@
 const std = @import("std");
 const ram = @import("ramsql");
 const sig = @import("sig");
+const server = @import("server.sig");
 const io = sig.io;
 const fmt = sig.fmt;
 const process = sig.process;
@@ -135,29 +136,45 @@ fn run(init: std.process.Init.Minimal) !u8 {
     var args_buf: [8192]u8 = undefined;
     var args = process.Argv_Iterator.init(init.args.vector, &args_buf);
     _ = try args.next();
-    if (try args.next()) |arg| {
-        // Choose the mode before next() reuses the argument buffer.
-        const mode: enum { help, version, input, demo, invalid } =
-            if (same(arg, "--help")) .help else if (same(arg, "--version")) .version else if (same(arg, "--stdin")) .input else if (same(arg, "--demo")) .demo else .invalid;
-        if ((try args.next()) != null or mode == .invalid) {
-            report("UnknownArgument");
-            return 2;
+    var options: server.Options = .{};
+    var mode: enum { serve, demo, input, help, version } = .serve;
+    var explicit_mode = false;
+    var has_server_options = false;
+    while (try args.next()) |arg| {
+        if (same(arg, "--serve") or same(arg, "--demo") or same(arg, "--stdin") or same(arg, "--help") or same(arg, "--version")) {
+            if (explicit_mode) return error.UnknownArgument;
+            explicit_mode = true;
+            mode = if (same(arg, "--serve")) .serve else if (same(arg, "--demo")) .demo else if (same(arg, "--stdin")) .input else if (same(arg, "--help")) .help else .version;
+        } else {
+            const option: enum { protocol, port, mysql_port, mssql_port, max_clients, idle_ms } =
+                if (same(arg, "--protocol")) .protocol else if (same(arg, "--port")) .port else if (same(arg, "--mysql-port")) .mysql_port else if (same(arg, "--mssql-port")) .mssql_port else if (same(arg, "--max-clients")) .max_clients else if (same(arg, "--idle-ms")) .idle_ms else return error.UnknownArgument;
+            const value = try args.next() orelse return error.UnknownArgument;
+            has_server_options = true;
+            switch (option) {
+                .protocol => options.protocol = if (same(value, "postgres")) .postgres else if (same(value, "mysql")) .mysql else if (same(value, "mssql")) .mssql else return error.UnknownArgument,
+                .port => options.port = try fmt.parseInt(u16, value, 10),
+                .mysql_port => options.mysql_port = try fmt.parseInt(u16, value, 10),
+                .mssql_port => options.mssql_port = try fmt.parseInt(u16, value, 10),
+                .max_clients => options.max_clients = try fmt.parseInt(usize, value, 10),
+                .idle_ms => options.idle_ms = try fmt.parseInt(u32, value, 10),
+            }
         }
-        switch (mode) {
-            .help => try write("ramsql 0.1.0\nUsage: ramsql [--demo|--stdin|--version|--help]\n--stdin: one SQL statement per line; database lasts for this process.\n"),
-            .version => try write("ramsql " ++ ram.version ++ "\n"),
-            .input => return if (try stdin()) 1 else 0,
-            .demo => try demo(),
-            .invalid => unreachable,
-        }
-    } else try demo();
+    }
+    if (has_server_options and mode != .serve) return error.UnknownArgument;
+    switch (mode) {
+        .help => try write("ramsql 0.2.0\nUsage: ramsql [--serve|--demo|--stdin|--version|--help]\nServer: --protocol postgres|mysql|mssql --port N --mysql-port N --mssql-port N\n        --max-clients N (1..16) --idle-ms N; default loopback PostgreSQL:5432\n--stdin: one SQL statement per line. --demo: run the example and exit.\n"),
+        .version => try write("ramsql " ++ ram.version ++ "\n"),
+        .input => return if (try stdin()) 1 else 0,
+        .demo => try demo(),
+        .serve => try server.run(options),
+    }
     return 0;
 }
 
 pub fn main(init: std.process.Init.Minimal) void {
     const status = run(init) catch |err| {
         report(@errorName(err));
-        process.exit(1);
+        process.exit(if (err == error.UnknownArgument or err == error.InvalidCharacter or err == error.Overflow or err == error.InvalidServerOptions) 2 else 1);
     };
     process.exit(status);
 }

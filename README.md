@@ -1,123 +1,156 @@
 # RAMSQL
 
-An in-memory SQL database written entirely in allocator-free Sig, started with
-`zpm init --template package --name ramsql --layer 0`.
-
-The reusable engine is ZPM's **Layer 0 `@zpm/sql`** package. RAMSQL exposes its
-public API, a bounded command-line interface, examples, and integration tests.
-Database and result storage belong to the caller. Names, text values, and result
-rows are copied inline; SQL input can be reused immediately after execution.
-
-## Build and run
-
-Tested with the complete [Sig 0.6.3 release](https://github.com/SB0LTD/sig/releases/tag/sig-0.6.3-zig0.17.0.ac9b716)
-and current-source ZPM 0.3.0. `build.sig.zon` pins the exact ZPM commit archive
-and its SHA-256; Sig fetches and verifies it automatically.
-
-```sh
-sig version
-sig build
-sig build test
-sig build run
-python tools/test_cli.py
-```
-
-Current-source `zpm build`, `zpm build test`, and `zpm run` forward to Sig.
-The old published ZPM v0.3.0 binary only prints build/run commands; build its CLI
-from the same pinned ZPM source with `sig build zpm` in `cli/` if needed.
-
-By default the executable runs a short demonstration. For a database session,
-send **one statement per line** through stdin. All lines share one database;
-the database lasts until the process exits.
-
-```powershell
-Get-Content examples/quickstart.sql | ./sig-out/bin/ramsql.exe --stdin
-```
-
-```sh
-./sig-out/bin/ramsql --stdin < examples/quickstart.sql
-```
-
-The CLI prints tab-separated SELECT headers and rows, with `TRUE`, `FALSE`, and
-`NULL` values. Text escapes backslash, tab, carriage return, and newline as `\\`,
-`\t`, `\r`, and `\n`. Mutations print `OK <affected_rows>`; CREATE and DROP print
-`OK 0`. Errors go to stderr. Invalid statements leave the database unchanged;
-processing continues, and any failed statement gives a final exit status of 1.
-Unknown options return 2. Lines longer than 4,096 bytes are discarded in full.
-The final line executes without a trailing newline. `--help` and `--version`
-are also available.
-
-## Library API
-
-Wire the `ramsql` module from `src/root.sig` and its named `sql` import from the
-resolved ZPM source tree, as shown in `build.sig`.
-
-```zig
-const ram = @import("ramsql");
-const DB = ram.Database(.{
-    .tables = 2,
-    .columns = 4,
-    .rows_per_table = 64,
-    .name_bytes = 32,
-    .text_bytes = 128,
-    .predicates = 8,
-});
-
-var db: DB = .{};
-var result: DB.Result = .{};
-try db.execute("CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT NOT NULL)", &result);
-try db.execute("INSERT INTO notes VALUES (1, 'hello')", &result);
-try db.execute("SELECT body FROM notes WHERE id = 1", &result);
-const body = result.rows[0].cells[0].text.slice();
-```
-
-`DB.storageBytes()` reports database storage; `@sizeOf(DB.Result)` reports the
-separate result storage. Large profiles can live in caller-owned static storage.
-The default profile has 4 tables, 8 columns, 128 rows per table, 32-byte names,
-128-byte text values, and 8 AND predicates. No allocator parameter is accepted.
-Callers serialize access. An error preserves both the database and the previous
-result. Results own their data and remain valid until the caller overwrites them.
-
-## SQL supported in 0.1.0
-
-- `CREATE TABLE` / `DROP TABLE`, with `INTEGER` (`INT`), `BOOLEAN` (`BOOL`), and `TEXT`.
-- `NOT NULL` and a single-column `PRIMARY KEY`, which also implies NOT NULL.
-- Single-row `INSERT INTO ... [(columns)] VALUES (...)`; omitted columns become NULL.
-- `SELECT *` or named columns, `WHERE` comparisons joined by `AND`, `IS [NOT] NULL`,
-  one `ORDER BY ... [ASC|DESC]`, and `LIMIT`.
-- `UPDATE ... SET column = literal [, ...] [WHERE ...]` and `DELETE FROM ... [WHERE ...]`.
-- Signed 64-bit integer, boolean, text, and NULL literals; doubled apostrophes
-  in text, optional trailing semicolon, and `--` line comments.
-
-Identifiers are ASCII and case insensitive. Text comparison is bytewise and
-text bounds count bytes. Ordinary NULL comparisons do not match; use IS NULL.
-Sorting is stable, with NULL first in ascending order and last in descending
-order. Capacity, type, syntax, overflow, and constraint failures are explicit
-errors. Exactly one statement is accepted by each `execute` call.
-
-This initial version uses table scans and bounded insertion sorting. It does
-not yet provide joins, aggregates, indexes, transactions, parameters, persistence,
-network serving, or full SQL-standard compatibility.
-
-## Layers and validation
-
-| Layer | Responsibility |
-| --- | --- |
-| Sig | Compiler, native build system, freestanding I/O, formatting, process primitives |
-| ZPM Layer 0 | SQL parser, schema, typed values, bounded storage, execution, constraints |
-| RAMSQL | Public facade, capacity profile, CLI policy/output, examples, consumer contracts |
-
-`sig build test` executes the pinned ZPM SQL contract and RAMSQL consumer
-contract. Engine coverage includes CRUD, ownership, NULL semantics, constraints,
-all capacities, malformed statements, integer boundaries, and deterministic
-parser fuzzing. Tests execute real assertions, including in release modes.
-`tools/test_cli.py` exercises the executable through subprocesses. CI checks
-Windows and Linux using checksum-verified matched Sig releases.
-
-MIT License — SB0 LTD.
+An allocator-free in-memory database **server**, written entirely in Sig.
+PostgreSQL is the default wire protocol; optional MySQL and SQL Server/TDS
+listeners use the same bounded database.
 
 ## Run
 
+Use the complete [Sig 0.6.3 release](https://github.com/SB0LTD/sig/releases/tag/sig-0.6.3-zig0.17.0.ac9b716).
+The source and SHA-256 for ZPM are pinned in `build.sig.zon` and fetched by Sig.
+Current-source ZPM delegates `zpm build` / `zpm run` to the same native build.
+
+```sh
+sig build -Doptimize=ReleaseFast
+./sig-out/bin/ramsql
+# PostgreSQL on 127.0.0.1:5432; Windows executable has .exe suffix.
 ```
-zpm run
+
+```sh
+./sig-out/bin/ramsql --port 5432 --mysql-port 3306 --mssql-port 1433
+./sig-out/bin/ramsql --protocol mysql --port 3306
+./sig-out/bin/ramsql --protocol mssql --port 1433
 ```
+
+Each process has one shared in-memory store. Extra listeners in the same process
+share tables, constraints and transactions. Binding is deliberately loopback-only:
+this version uses empty-password/trust sessions and does not implement TLS or
+production authentication. It must not be exposed through a public proxy.
+
+`--port 0` chooses an ephemeral port. Startup prints each listener's actual
+address. `--max-clients N` selects 1..16 active connections; `--idle-ms N` controls
+idle expiry (30,000 ms default). Defaults are 8 tables, 8 columns, 512 rows per
+table, 32-byte names and 128-byte text cells. These are explicit compile-time
+bounds in the server profile, rather than unbounded runtime growth.
+
+`--demo` runs an example and exits. `--stdin` retains the one-statement-per-line
+CLI, with tab-separated escaped output and a 4,096-byte line bound.
+
+## Client compatibility
+
+Compatibility is tested with real independent drivers, not only our packet tests.
+The implemented SQL subset is shared across protocols; this is not full server
+or dialect parity with the original database engines.
+
+| Wire protocol | Tested independent client | Implemented path |
+| --- | --- | --- |
+| PostgreSQL v3 | psycopg 3 / libpq | Startup, SSL/GSS refusal, simple queries, Parse/Bind/Describe/Execute/Sync, named prepared statements, text/binary values, portal suspension, Close/DEALLOCATE |
+| MySQL protocol 10 | PyMySQL | Native-password empty-password login, COM_QUERY, COM_INIT_DB, PING, text result sets and errors |
+| SQL Server TDS 7.2–7.4 | python-tds | PRELOGIN, LOGIN7, UTF-16 SQL batches, typed results, packet fragmentation, transaction-manager messages and parameterized sp_executesql RPC |
+
+For PostgreSQL, use `host=127.0.0.1 port=5432 user=ramsql dbname=ramsql sslmode=disable`.
+PyMySQL can use `host='127.0.0.1', port=3306, user='ramsql', password='',
+database='ramsql', autocommit=True, charset='utf8mb4'`.
+For python-tds use `server='127.0.0.1', port=1433, user='ramsql', password='',
+database='ramsql', autocommit=True, use_mars=False`.
+
+Not implemented: TLS, password authentication, system catalogs, replication,
+COPY/bulk loading, stored procedures, ORM-specific discovery, and complete SQL
+dialects. MySQL's binary prepared-statement protocol is not implemented;
+PyMySQL parameters use its normal safe client-side encoding. Unsupported
+operations return errors; they do not silently succeed. SQL Server RPC supports bounded integer, boolean, NVARCHAR and NULL parameters
+for sp_executesql; other procedures and parameter types are rejected.
+
+## SQL and transactions
+
+CREATE/DROP TABLE; single-row INSERT with optional columns; SELECT projection
+or `*`; UPDATE literal assignments; DELETE. Types are signed 64-bit INTEGER,
+BOOLEAN and TEXT, plus NULL. NOT NULL and one single-column PRIMARY KEY are
+supported. WHERE supports typed comparisons, bounded AND conjunctions and
+IS [NOT] NULL. SELECT supports one ORDER BY column and LIMIT. Names are ASCII
+and case insensitive; text is bytewise and text bounds count bytes. Apostrophes
+are doubled in SQL text. Each execute call accepts one statement.
+
+The server additionally accepts boolean integer literals 0/1 for common
+MySQL/BIT client encodings. Raw library configurations remain strictly typed
+unless this option is enabled.
+
+BEGIN/COMMIT/ROLLBACK use one fixed shared snapshot. Transactions are serialized:
+a transaction owns the store, other connections receive DatabaseBusy rather
+than seeing uncommitted changes. Snapshot copying occurs on transaction begin,
+not ordinary statements. PostgreSQL errors mark an active transaction failed
+until rollback; disconnect and idle expiry roll back abandoned transactions.
+This is a bounded isolation mechanism, not MVCC or concurrent write transactions.
+
+Joins, aggregates, general expressions, foreign keys, secondary indexes,
+persistence and complete SQL-standard semantics are future work.
+
+## Memory and execution
+
+The database, primary-key hash indexes, transaction snapshot, connection slots,
+prepared statements, receive buffers and response buffers all have fixed owners
+and bounds. Runtime source is `.sig`; there is no SQLite/C database dependency,
+heap allocator API, language runtime or garbage collector.
+
+One nonblocking reactor services all listeners. It handles partial reads/writes,
+limits work per connection, stops reading backpressured sockets, and expires
+idle sessions. Pipelined responses are coalesced within a bounded queue, and
+input is compacted once per socket read rather than once per packet.
+OS socket buffers and native platform services remain OS-owned.
+The current implementation uses one reactor thread, not multiple CPU workers.
+
+Primary-key equality queries and duplicate checks use a bounded hash index.
+Unused result capacity is not cleared for each statement; only active ranges
+are valid. LIMIT without ORDER BY stops scanning once enough rows match.
+Deletion compaction and primary-key changes rebuild index references. General
+filters remain scans, and ordering currently uses bounded insertion sorting.
+
+## Layers
+
+| Layer | Responsibilities |
+| --- | --- |
+| Sig | Compiler, native build, formatting, process and standard I/O primitives |
+| ZPM Layer 0 | `sql`: parser/storage/indexes; `db-store`: shared state and isolated snapshots |
+| ZPM Layer 1 | PostgreSQL/MySQL/TDS wire sessions; nonblocking native TCP primitives |
+| RAMSQL | Public facade, listener defaults, reactor policy, capacity profile, integration tests and benchmarks |
+
+The public library remains `@import("ramsql").Database(Config)` with separate
+caller-owned `DB.Result` storage. `DB.storageBytes()` and `@sizeOf(DB.Result)`
+report the profile's bounded memory. `Result.column_types` describes even empty
+SELECT results. Names, text, and results are owned copies. Failing SQL preserves
+the database and previous result. Callers serialize raw library access.
+
+## Tests
+
+```sh
+sig build test -Doptimize=ReleaseSafe
+python tools/test_cli.py
+python tools/test_server.py
+python -m pip install -r tools/requirements-test.txt
+python tools/test_clients.py
+```
+
+Client dependencies are test-only. Local tests may install into
+`.sig-cache/client-deps`; the harness finds that directory automatically.
+Protocol contracts cover malformed/fragmented packets, lengths, parameters,
+UTF-16, typed NULLs, output capacity, errors and recovery, plus deterministic
+fuzzing. TCP integration covers shared state, pipelining, half-close, connection
+exhaustion/reuse, idle expiry, transactions, and slow-reader fairness. Independent
+drivers exercise actual handshakes and data round trips. CI runs on Windows and
+Linux with checksum-verified matched Sig releases.
+
+## Benchmarks
+
+```sh
+sig build benchmark -Doptimize=ReleaseFast
+python tools/benchmark.py --build-mode ReleaseFast --output benchmarks/local.json
+```
+
+The native benchmark times parsing, lookup and materialization with checked
+results. The network benchmark includes TCP, protocol handling and Python
+client validation overhead; sequential and pipelined costs are reported
+separately. Results include machine/build metadata and workload bounds.
+They are measurements of this implementation, not comparisons to PostgreSQL,
+MySQL or SQL Server. See the checked-in report for the measured environment.
+
+MIT License — SB0 LTD.

@@ -81,7 +81,19 @@ jobs:
       - name: Run demonstration
         run: |
           $binary = if ($env:RUNNER_OS -eq "Windows") { "./sig-out/bin/ramsql.exe" } else { "./sig-out/bin/ramsql" }
-          & $binary
+          & $binary --demo
 
       - name: Test command line and bounded SQL streams
         run: python tools/test_cli.py
+
+      - name: Test TCP framing, fairness, limits and session cleanup
+        run: python tools/test_server.py
+
+      - name: Install independent database clients for tests
+        run: python -m pip install -r tools/requirements-test.txt
+
+      - name: Test PostgreSQL, MySQL and SQL Server clients
+        run: python tools/test_clients.py
+
+      - name: Build and run native performance smoke benchmark
+        run: '& $env:SIG build benchmark -Doptimize=ReleaseFast'

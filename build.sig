@@ -47,6 +47,16 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     var sql_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
     const sql_path = try zpm.modulePath("src/core/sql.sig", &sql_buf);
     _ = try ctx.addModule("sql", sql_path);
+    var pg_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    var mysql_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    var tds_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    var tcp_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    var store_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    const pg_path = try zpm.modulePath("src/db/postgres.sig", &pg_buf);
+    const mysql_path = try zpm.modulePath("src/db/mysql.sig", &mysql_buf);
+    const tds_path = try zpm.modulePath("src/db/tds.sig", &tds_buf);
+    const tcp_path = try zpm.modulePath("src/platform/tcp_server.sig", &tcp_buf);
+    const store_path = try zpm.modulePath("src/db/store.sig", &store_buf);
     const lib = try ctx.addModule("ramsql", "src/root.sig");
     try ctx.addImport(lib, "sql", sql_path);
     const sig_lib = ctx.sig_lib_dir[0..ctx.sig_lib_dir_len];
@@ -60,6 +70,12 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
         .imports = &.{
             importEntry("ramsql", "src/root.sig"),
             importEntry("sig", try libPath(sig_lib, "/sig/sig.sig", &runtime_buf)),
+            importEntry("sql", sql_path),
+            importEntry("postgres", pg_path),
+            importEntry("mysql", mysql_path),
+            importEntry("tds", tds_path),
+            importEntry("tcp_server", tcp_path),
+            importEntry("db_store", store_path),
         },
         .compiler_path = "",
     });
@@ -95,4 +111,32 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     const test_api = try ctx.addStep("test-api", "contract-ramsql", &runBinary);
     try ctx.addDependency(test_api, api);
     try ctx.addDependency(test_step, test_api);
+    const runtime_path = try libPath(sig_lib, "/sig/sig.sig", &runtime_buf);
+    const bench = try ctx.addCompileStep(.{
+        .source_path = "src/benchmark.sig",
+        .output_name = "ramsql-bench",
+        .cache_dir = ctx.cache_dir[0..ctx.cache_dir_len],
+        .optimize = ctx.optimize,
+        .target = null,
+        .imports = &.{ importEntry("sql", sql_path), importEntry("sig", runtime_path) },
+        .compiler_path = "",
+    });
+    const benchmark = try ctx.addStep("benchmark", "ramsql-bench", &runBinary);
+    try ctx.addDependency(benchmark, bench);
+    var test_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    inline for (.{ "postgres", "mysql", "tds", "db_store", "tcp_server", "sql_index" }) |name| {
+        const path = try zpm.modulePath("tests/test_" ++ name ++ ".sig", &test_buf);
+        const compiled = try ctx.addCompileStep(.{
+            .source_path = path,
+            .output_name = "contract-" ++ name,
+            .cache_dir = ctx.cache_dir[0..ctx.cache_dir_len],
+            .optimize = ctx.optimize,
+            .target = null,
+            .imports = &.{ importEntry("sql", sql_path), importEntry("postgres", pg_path), importEntry("mysql", mysql_path), importEntry("tds", tds_path), importEntry("db_store", store_path), importEntry("tcp_server", tcp_path) },
+            .compiler_path = "",
+        });
+        const contract = try ctx.addStep("test-" ++ name, "contract-" ++ name, &runBinary);
+        try ctx.addDependency(contract, compiled);
+        try ctx.addDependency(test_step, contract);
+    }
 }
