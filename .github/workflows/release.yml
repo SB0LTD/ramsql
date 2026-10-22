@@ -137,7 +137,7 @@ jobs:
           set -euo pipefail
           args=()
           if [[ "$TARGET_SLUG" == *-macos ]]; then args+=(-Dlink-libc=true); fi
-          "$SIG" build -Dtarget="$TARGET_TRIPLE" -Doptimize=ReleaseSafe \
+          "$SIG" build -Dtarget="$TARGET_TRIPLE" -Doptimize=ReleaseFast \
             --prefix ".sig-cache/release/$TARGET_SLUG" "${args[@]}"
       - name: Package deterministic archive with source, license and capability manifest
         shell: bash
@@ -146,7 +146,7 @@ jobs:
           python tools/package_release.py package --target "$TARGET_SLUG" \
             --binary ".sig-cache/release/$TARGET_SLUG/bin/$TARGET_BINARY" \
             --output dist --revision "$SOURCE_REVISION" --source-date-epoch "$SOURCE_DATE_EPOCH" \
-            --optimize ReleaseSafe
+            --optimize ReleaseFast
       - name: Upload verified platform artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -378,9 +378,55 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  benchmark:
+    name: Benchmark exact Linux artifact against durable native PostgreSQL
+    needs: [metadata, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SOURCE_REVISION: ${{ needs.metadata.outputs.revision }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.metadata.outputs.revision }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-x86_64-linux
+          path: .sig-cache/benchmark-input
+      - name: Install exact checksummed release image and independent client
+        run: |
+          set -euo pipefail
+          python tools/package_release.py verify --input .sig-cache/benchmark-input \
+            --target x86_64-linux --revision "$SOURCE_REVISION" --install-bin sig-out/bin
+          python -m pip install -r tools/requirements-test.txt
+      - name: Locate native PostgreSQL reference
+        run: |
+          set -euo pipefail
+          if ! command -v pg_config >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install --no-install-recommends -y postgresql
+          fi
+          pg_bin="$(pg_config --bindir)"
+          test -x "$pg_bin/initdb" && test -x "$pg_bin/postgres"
+          echo "PG_BIN=$pg_bin" >> "$GITHUB_ENV"
+      - name: Compare verified SQL subset with synchronous durability on both engines
+        run: |
+          python tools/benchmark_postgres.py --binary sig-out/bin/ramsql \
+            --postgres-bin "$PG_BIN" --work-dir "$RUNNER_TEMP/ramsql-benchmark" \
+            --operations 512 --trials 3 --clients 1 4 --report benchmark-evidence/benchmark-postgres.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-evidence
+          path: benchmark-evidence/benchmark-postgres.json
+          if-no-files-found: error
+          retention-days: 30
+
   assemble:
     name: Verify full matrix and attest release bundle
-    needs: [metadata, native-tests, build, native-build, hosted-runtime]
+    needs: [metadata, native-tests, build, native-build, hosted-runtime, benchmark]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -404,6 +450,10 @@ jobs:
         with:
           pattern: hosted-runtime-*
           merge-multiple: true
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: benchmark-evidence
           path: dist
       - name: Record native CI evidence
         shell: bash

@@ -1,0 +1,648 @@
+{
+  "schema_version": 1,
+  "experiment": "RAMSQL local native and loopback wire",
+  "invocation": [
+    "/home/sb/.cache/ramsql-qualification-venv/bin/python",
+    "tools/benchmark.py",
+    "--binary",
+    "/home/sb/.cache/ramsql-qualification/final/bin/ramsql",
+    "--native-binary",
+    "/home/sb/.cache/ramsql-qualification/final/bin/ramsql-bench",
+    "--build-mode",
+    "ReleaseFast",
+    "--operations",
+    "4096",
+    "--warmup",
+    "64",
+    "--trials",
+    "3",
+    "--batches",
+    "1,16,64",
+    "--concurrency",
+    "1,8",
+    "--output",
+    "benchmarks/local.json"
+  ],
+  "configuration": {
+    "operations_per_wire_trial": 4096,
+    "warmup_per_connection_per_wire_trial": 64,
+    "trials": 3,
+    "pipeline_batches": [
+      1,
+      16,
+      64
+    ],
+    "connections": [
+      1,
+      8
+    ]
+  },
+  "environment": {
+    "recorded_at_utc": "2026-10-22T17:45:52.079971+00:00",
+    "os": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "machine": "x86_64",
+    "cpu": "Intel(R) Core(TM) i9-14900HX",
+    "logical_cpus": 32,
+    "python": "3.12.3",
+    "compiler_path": "/usr/local/bin/sig",
+    "compiler_version": "sig 0.6.3 (zig 0.17.0)",
+    "build_mode_operator_declared": "ReleaseFast",
+    "ramsql_git": {
+      "head": "c741082b2ba12f9923a03456a95a4c61593e526b",
+      "dirty": true,
+      "status": [
+        "M .github/workflows/ci.yml",
+        " M .github/workflows/release.yml",
+        " M .gitignore",
+        " M AGENTS.md",
+        " M LICENSE",
+        " M README.md",
+        " M benchmarks/README.md",
+        " M benchmarks/postgres-comparison.json",
+        " M benchmarks/windows-local-512rows.json",
+        " M build.sig",
+        " M build.sig.zon",
+        " M compatibility/RELEASE.md",
+        " M compatibility/VALIDATION.md",
+        " M compatibility/postgres-report.json",
+        " M compatibility/release-gates.json",
+        " M src/backup.sig",
+        " M src/main.sig",
+        " M src/persistence.sig",
+        " M src/platform/sb0_app.sig",
+        " M src/platform/sb0k.ld",
+        " M src/root.sig",
+        " M src/server.sig",
+        " M tests/backup.sig",
+        " M tests/persistence.sig",
+        " M tools/benchmark.py",
+        " M tools/benchmark_postgres.py",
+        " M tools/build_sb0.py",
+        " M tools/package_release.py",
+        " M tools/release_gate.py",
+        " M tools/release_matrix.py",
+        " M tools/test_auth.py",
+        " M tools/test_cli.py",
+        " M tools/test_clients.py",
+        " M tools/test_persistence.py",
+        " M tools/test_postgres_compat.py",
+        " M tools/test_release.py",
+        " M tools/test_sb0.py",
+        " M tools/test_sb0_loader.sig",
+        " M tools/test_server.py",
+        " M zpm.pkg.zon",
+        "?? benchmarks/qualification-baseline.json",
+        "?? compatibility/postgres-0.2-baseline.json",
+        "?? compatibility/postgres16-report.json"
+      ]
+    },
+    "zpm_git": null,
+    "source_sha256": {
+      "ramsql/src/main.sig": "3a12cb35f008a9fdc673483643fb02130b359674e2418f293bcbaaa079f4c6cb",
+      "ramsql/src/server.sig": "32e5431e69c49098462e1388aedfd767661ea52b861a0f95e9fdbb2dd888fccd",
+      "ramsql/src/benchmark.sig": "55910b4d053a318195b15d5970347537a0681a48804cfa7bb86c6ec18d1f22a3",
+      "ramsql/build.sig": "d6588c6d8f076d1d6f6b8f4331df289c54768797c9b94fca03c02c05081c33ce",
+      "ramsql/build.sig.zon": "2d1d5b308ee380dafd6bc315f8b89e82f3528caaba317f0fdec895ac1ca5452c",
+      "ramsql/tools/benchmark.py": "10d9fb45ca4077464d97d4b7308daad42f2b19340560e693b66c7fae69c7c180",
+      "ramsql/tools/test_server.py": "fccf74297cae62fd31a35b4d7a1380b956cb7b4ef12cb9a04aafa15b700dba92"
+    },
+    "server_binary": {
+      "path": "/home/sb/.cache/ramsql-qualification/final/bin/ramsql",
+      "bytes": 2561128,
+      "sha256": "308eefba7f0340026af5dbf7ae76a1299b652481d58b74097fcce56a18cbcc88"
+    },
+    "native_binary": {
+      "path": "/home/sb/.cache/ramsql-qualification/final/bin/ramsql-bench",
+      "bytes": 4058504,
+      "sha256": "90e148a680630d0609bf0dbd09cf54291eaeb5015e3747b7a7719e7e2381b650"
+    }
+  },
+  "scope": [
+    "Single-host local experiment with a 512-row fixed-capacity in-memory table; no persistence, network hop, TLS or authentication cost.",
+    "Native measurements include parsing, execution and result materialization; native warmup is excluded.",
+    "Wire measurements include loopback TCP, Python client framing, Python threading/GIL, response decoding and correctness checks; connection setup and warmup are excluded.",
+    "Amortized batch completion time divides a batch's total completion time by its operation count. It is not an individual query latency distribution.",
+    "p50/p95 use nearest-rank batch observations; summary values are medians across trials, not pooled percentiles.",
+    "Process RSS/commit includes fixed buffers, mapped images and OS accounting; it does not prove absence of heap allocations and excludes kernel socket buffers.",
+    "The historical native baseline is a separate local capture without full environment metadata and is not a controlled comparative result.",
+    "No performance comparison with PostgreSQL, MySQL or SQL Server is made; no speed threshold determines success."
+  ],
+  "historical_native_baseline": {
+    "source": {
+      "path": "/mnt/c/Just-Things/Projects/sb0/ramsql/.sig-cache/benchmark-baseline.jsonl",
+      "bytes": 545,
+      "sha256": "507088ab6ffd8d2b7c47649ff753506863d73fd605090e8a3c1273b43f5c4250"
+    },
+    "records": [
+      {
+        "case": "primary_key_select",
+        "iterations": 50000,
+        "elapsed_ns": 143121900,
+        "ns_per_op": 2862,
+        "ops_per_second": 349352,
+        "checksum": 25600000,
+        "rows": 512,
+        "database_bytes": 98512,
+        "result_bytes": 98448
+      },
+      {
+        "case": "scan_limit_16",
+        "iterations": 5000,
+        "elapsed_ns": 13897000,
+        "ns_per_op": 2779,
+        "ops_per_second": 359789,
+        "checksum": 80000,
+        "rows": 512,
+        "database_bytes": 98512,
+        "result_bytes": 98448
+      },
+      {
+        "case": "point_update",
+        "iterations": 5000,
+        "elapsed_ns": 14983200,
+        "ns_per_op": 2996,
+        "ops_per_second": 333707,
+        "checksum": 5000,
+        "rows": 512,
+        "database_bytes": 98512,
+        "result_bytes": 98448
+      }
+    ]
+  },
+  "native": {
+    "warmup_operations_per_case_per_trial": 1000,
+    "includes": [
+      "SQL parsing",
+      "lookup or scan",
+      "result materialization"
+    ],
+    "trials": [
+      [
+        {
+          "case": "primary_key_select",
+          "iterations": 50000,
+          "elapsed_ns": 9549973,
+          "ns_per_op": 190,
+          "ops_per_second": 5235616,
+          "checksum": 25600000,
+          "rows": 512,
+          "database_bytes": 106720,
+          "result_bytes": 98456
+        },
+        {
+          "case": "scan_limit_16",
+          "iterations": 5000,
+          "elapsed_ns": 748071,
+          "ns_per_op": 149,
+          "ops_per_second": 6683857,
+          "checksum": 80000,
+          "rows": 512,
+          "database_bytes": 106720,
+          "result_bytes": 98456
+        },
+        {
+          "case": "point_update",
+          "iterations": 5000,
+          "elapsed_ns": 1875560,
+          "ns_per_op": 375,
+          "ops_per_second": 2665870,
+          "checksum": 5000,
+          "rows": 512,
+          "database_bytes": 106720,
+          "result_bytes": 98456
+        }
+      ],
+      [
+        {
+          "case": "primary_key_select",
+          "iterations": 50000,
+          "elapsed_ns": 9820820,
+          "ns_per_op": 196,
+          "ops_per_second": 5091224,
+          "checksum": 25600000,
+          "rows": 512,
+          "database_bytes": 106720,
+          "result_bytes": 98456
+        },
+        {
+          "case": "scan_limit_16",
+          "iterations": 5000,
+          "elapsed_ns": 707100,
+          "ns_per_op": 141,
+          "ops_per_second": 7071135,
+          "checksum": 80000,
+          "rows": 512,
+          "database_bytes": 106720,
+          "result_bytes": 98456
+        },
+        {
+          "case": "point_update",
+          "iterations": 5000,
+          "elapsed_ns": 1815508,
+          "ns_per_op": 363,
+          "ops_per_second": 2754050,
+          "checksum": 5000,
+          "rows": 512,
+          "database_bytes": 106720,
+          "result_bytes": 98456
+        }
+      ],
+      [
+        {
+          "case": "primary_key_select",
+          "iterations": 50000,
+          "elapsed_ns": 9772804,
+          "ns_per_op": 195,
+          "ops_per_second": 5116238,
+          "checksum": 25600000,
+          "rows": 512,
+          "database_bytes": 106720,
+          "result_bytes": 98456
+        },
+        {
+          "case": "scan_limit_16",
+          "iterations": 5000,
+          "elapsed_ns": 805301,
+          "ns_per_op": 161,
+          "ops_per_second": 6208858,
+          "checksum": 80000,
+          "rows": 512,
+          "database_bytes": 106720,
+          "result_bytes": 98456
+        },
+        {
+          "case": "point_update",
+          "iterations": 5000,
+          "elapsed_ns": 1910337,
+          "ns_per_op": 382,
+          "ops_per_second": 2617339,
+          "checksum": 5000,
+          "rows": 512,
+          "database_bytes": 106720,
+          "result_bytes": 98456
+        }
+      ]
+    ],
+    "summary": [
+      {
+        "case": "primary_key_select",
+        "iterations_per_trial": 50000,
+        "median_ns_per_op": 195.45608,
+        "min_ns_per_op": 190.99946,
+        "median_ops_per_second": 5116238.901342952,
+        "min_ops_per_second": 5091224.561696477,
+        "database_bytes": 106720,
+        "result_bytes": 98456,
+        "checksum_per_trial": 25600000
+      },
+      {
+        "case": "scan_limit_16",
+        "iterations_per_trial": 5000,
+        "median_ns_per_op": 149.6142,
+        "min_ns_per_op": 141.42,
+        "median_ops_per_second": 6683857.548280845,
+        "min_ops_per_second": 6208858.551026262,
+        "database_bytes": 106720,
+        "result_bytes": 98456,
+        "checksum_per_trial": 80000
+      },
+      {
+        "case": "point_update",
+        "iterations_per_trial": 5000,
+        "median_ns_per_op": 375.112,
+        "min_ns_per_op": 363.1016,
+        "median_ops_per_second": 2665870.4600226064,
+        "min_ops_per_second": 2617339.244332283,
+        "database_bytes": 106720,
+        "result_bytes": 98456,
+        "checksum_per_trial": 5000
+      }
+    ]
+  },
+  "wire": {
+    "query": "SELECT id, value FROM wire_bench WHERE id = 511",
+    "expected_rows_per_operation": 1,
+    "expected_cells": [
+      [
+        "511",
+        "511"
+      ]
+    ],
+    "checksum_per_operation": 1022,
+    "server_memory_after_setup": {
+      "rss_bytes": 2883584,
+      "peak_rss_bytes": 2883584,
+      "virtual_bytes": 153636864,
+      "source": "/proc/PID/status"
+    },
+    "server_memory_after_trials": {
+      "rss_bytes": 7602176,
+      "peak_rss_bytes": 7602176,
+      "virtual_bytes": 153636864,
+      "source": "/proc/PID/status"
+    },
+    "cases": [
+      {
+        "case": "postgres_primary_key_select",
+        "protocol": "PostgreSQL v3 simple query, text results",
+        "connections": 1,
+        "pipeline_batch": 1,
+        "rows": 512,
+        "operations_per_trial": 4096,
+        "warmup_operations_per_connection_per_trial": 64,
+        "median_ops_per_second": 18074.432321508284,
+        "min_ops_per_second": 13619.639751949784,
+        "trials": [
+          {
+            "operations": 4096,
+            "checksum": 4186112,
+            "elapsed_ns": 226618459,
+            "ops_per_second": 18074.432321508284,
+            "batches": 4096,
+            "batch_completion_us_p50": 44.764,
+            "batch_completion_us_p95": 106.039,
+            "amortized_batch_completion_us_per_op_p50": 44.764,
+            "amortized_batch_completion_us_per_op_p95": 106.039
+          },
+          {
+            "operations": 4096,
+            "checksum": 4186112,
+            "elapsed_ns": 223399002,
+            "ops_per_second": 18334.907333202857,
+            "batches": 4096,
+            "batch_completion_us_p50": 43.97,
+            "batch_completion_us_p95": 104.396,
+            "amortized_batch_completion_us_per_op_p50": 43.97,
+            "amortized_batch_completion_us_per_op_p95": 104.396
+          },
+          {
+            "operations": 4096,
+            "checksum": 4186112,
+            "elapsed_ns": 300742169,
+            "ops_per_second": 13619.639751949784,
+            "batches": 4096,
+            "batch_completion_us_p50": 56.038,
+            "batch_completion_us_p95": 144.787,
+            "amortized_batch_completion_us_per_op_p50": 56.038,
+            "amortized_batch_completion_us_per_op_p95": 144.787
+          }
+        ],
+        "median_trial_batch_completion_us_p50": 44.764,
+        "median_trial_batch_completion_us_p95": 106.039,
+        "median_trial_amortized_batch_completion_us_per_op_p50": 44.764,
+        "median_trial_amortized_batch_completion_us_per_op_p95": 106.039
+      },
+      {
+        "case": "postgres_primary_key_select",
+        "protocol": "PostgreSQL v3 simple query, text results",
+        "connections": 1,
+        "pipeline_batch": 16,
+        "rows": 512,
+        "operations_per_trial": 4096,
+        "warmup_operations_per_connection_per_trial": 64,
+        "median_ops_per_second": 100665.9757186097,
+        "min_ops_per_second": 92822.32137521527,
+        "trials": [
+          {
+            "operations": 4096,
+            "checksum": 4186112,
+            "elapsed_ns": 44127317,
+            "ops_per_second": 92822.32137521527,
+            "batches": 256,
+            "batch_completion_us_p50": 157.113,
+            "batch_completion_us_p95": 259.282,
+            "amortized_batch_completion_us_per_op_p50": 9.8195625,
+            "amortized_batch_completion_us_per_op_p95": 16.205125
+          },
+          {
+            "operations": 4096,
+            "checksum": 4186112,
+            "elapsed_ns": 40689021,
+            "ops_per_second": 100665.9757186097,
+            "batches": 256,
+            "batch_completion_us_p50": 138.668,
+            "batch_completion_us_p95": 236.368,
+            "amortized_batch_completion_us_per_op_p50": 8.66675,
+            "amortized_batch_completion_us_per_op_p95": 14.773
+          },
+          {
+            "operations": 4096,
+            "checksum": 4186112,
+            "elapsed_ns": 38560148,
+            "ops_per_second": 106223.65868512745,
+            "batches": 256,
+            "batch_completion_us_p50": 130.962,
+            "batch_completion_us_p95": 226.208,
+            "amortized_batch_completion_us_per_op_p50": 8.185125,
+            "amortized_batch_completion_us_per_op_p95": 14.138
+          }
+        ],
+        "median_trial_batch_completion_us_p50": 138.668,
+        "median_trial_batch_completion_us_p95": 236.368,
+        "median_trial_amortized_batch_completion_us_per_op_p50": 8.66675,
+        "median_trial_amortized_batch_completion_us_per_op_p95": 14.773
+      },
+      {
+        "case": "postgres_primary_key_select",
+        "protocol": "PostgreSQL v3 simple query, text results",
+        "connections": 1,
+        "pipeline_batch": 64,
+        "rows": 512,
+        "operations_per_trial": 4096,
+        "warmup_operations_per_connection_per_trial": 64,
+        "median_ops_per_second": 174854.95277934422,
+        "min_ops_per_second": 164314.85679093728,
+        "trials": [
+          {
+            "operations": 4096,
+            "checksum": 4186112,
+            "elapsed_ns": 24927752,
+            "ops_per_second": 164314.85679093728,
+            "batches": 64,
+            "batch_completion_us_p50": 371.052,
+            "batch_completion_us_p95": 486.588,
+            "amortized_batch_completion_us_per_op_p50": 5.7976875,
+            "amortized_batch_completion_us_per_op_p95": 7.6029375
+          },
+          {
+            "operations": 4096,
+            "checksum": 4186112,
+            "elapsed_ns": 23199157,
+            "ops_per_second": 176558.13959102047,
+            "batches": 64,
+            "batch_completion_us_p50": 340.543,
+            "batch_completion_us_p95": 436.686,
+            "amortized_batch_completion_us_per_op_p50": 5.320984375,
+            "amortized_batch_completion_us_per_op_p95": 6.82321875
+          },
+          {
+            "operations": 4096,
+            "checksum": 4186112,
+            "elapsed_ns": 23425130,
+            "ops_per_second": 174854.95277934422,
+            "batches": 64,
+            "batch_completion_us_p50": 349.243,
+            "batch_completion_us_p95": 451.176,
+            "amortized_batch_completion_us_per_op_p50": 5.456921875,
+            "amortized_batch_completion_us_per_op_p95": 7.049625
+          }
+        ],
+        "median_trial_batch_completion_us_p50": 349.243,
+        "median_trial_batch_completion_us_p95": 451.176,
+        "median_trial_amortized_batch_completion_us_per_op_p50": 5.456921875,
+        "median_trial_amortized_batch_completion_us_per_op_p95": 7.049625
+      },
+      {
+        "case": "postgres_primary_key_select",
+        "protocol": "PostgreSQL v3 simple query, text results",
+        "connections": 8,
+        "pipeline_batch": 1,
+        "rows": 512,
+        "operations_per_trial": 4096,
+        "warmup_operations_per_connection_per_trial": 64,
+        "median_ops_per_second": 11045.82695979095,
+        "min_ops_per_second": 11010.60419300743,
+        "trials": [
+          {
+            "operations": 4096,
+            "checksum": 4186112,
+            "elapsed_ns": 369391272,
+            "ops_per_second": 11088.513212082607,
+            "batches": 4096,
+            "batch_completion_us_p50": 639.85,
+            "batch_completion_us_p95": 1380.283,
+            "amortized_batch_completion_us_per_op_p50": 639.85,
+            "amortized_batch_completion_us_per_op_p95": 1380.283
+          },
+          {
+            "operations": 4096,
+            "checksum": 4186112,
+            "elapsed_ns": 372005017,
+            "ops_per_second": 11010.60419300743,
+            "batches": 4096,
+            "batch_completion_us_p50": 655.29,
+            "batch_completion_us_p95": 1356.804,
+            "amortized_batch_completion_us_per_op_p50": 655.29,
+            "amortized_batch_completion_us_per_op_p95": 1356.804
+          },
+          {
+            "operations": 4096,
+            "checksum": 4186112,
+            "elapsed_ns": 370818773,
+            "ops_per_second": 11045.82695979095,
+            "batches": 4096,
+            "batch_completion_us_p50": 655.658,
+            "batch_completion_us_p95": 1358.864,
+            "amortized_batch_completion_us_per_op_p50": 655.658,
+            "amortized_batch_completion_us_per_op_p95": 1358.864
+          }
+        ],
+        "median_trial_batch_completion_us_p50": 655.29,
+        "median_trial_batch_completion_us_p95": 1358.864,
+        "median_trial_amortized_batch_completion_us_per_op_p50": 655.29,
+        "median_trial_amortized_batch_completion_us_per_op_p95": 1358.864
+      },
+      {
+        "case": "postgres_primary_key_select",
+        "protocol": "PostgreSQL v3 simple query, text results",
+        "connections": 8,
+        "pipeline_batch": 16,
+        "rows": 512,
+        "operations_per_trial": 4096,
+        "warmup_operations_per_connection_per_trial": 64,
+        "median_ops_per_second": 102089.9604468699,
+        "min_ops_per_second": 101811.81532579519,
+        "trials": [
+          {
+            "operations": 4096,
+            "checksum": 4186112,
+            "elapsed_ns": 40121477,
+            "ops_per_second": 102089.9604468699,
+            "batches": 256,
+            "batch_completion_us_p50": 1077.714,
+            "batch_completion_us_p95": 2317.384,
+            "amortized_batch_completion_us_per_op_p50": 67.357125,
+            "amortized_batch_completion_us_per_op_p95": 144.8365
+          },
+          {
+            "operations": 4096,
+            "checksum": 4186112,
+            "elapsed_ns": 39314351,
+            "ops_per_second": 104185.87349947606,
+            "batches": 256,
+            "batch_completion_us_p50": 1057.185,
+            "batch_completion_us_p95": 2276.186,
+            "amortized_batch_completion_us_per_op_p50": 66.0740625,
+            "amortized_batch_completion_us_per_op_p95": 142.261625
+          },
+          {
+            "operations": 4096,
+            "checksum": 4186112,
+            "elapsed_ns": 40231087,
+            "ops_per_second": 101811.81532579519,
+            "batches": 256,
+            "batch_completion_us_p50": 1124.154,
+            "batch_completion_us_p95": 2433.169,
+            "amortized_batch_completion_us_per_op_p50": 70.259625,
+            "amortized_batch_completion_us_per_op_p95": 152.0730625
+          }
+        ],
+        "median_trial_batch_completion_us_p50": 1077.714,
+        "median_trial_batch_completion_us_p95": 2317.384,
+        "median_trial_amortized_batch_completion_us_per_op_p50": 67.357125,
+        "median_trial_amortized_batch_completion_us_per_op_p95": 144.8365
+      },
+      {
+        "case": "postgres_primary_key_select",
+        "protocol": "PostgreSQL v3 simple query, text results",
+        "connections": 8,
+        "pipeline_batch": 64,
+        "rows": 512,
+        "operations_per_trial": 4096,
+        "warmup_operations_per_connection_per_trial": 64,
+        "median_ops_per_second": 156974.79523622885,
+        "min_ops_per_second": 149207.88136720317,
+        "trials": [
+          {
+            "operations": 4096,
+            "checksum": 4186112,
+            "elapsed_ns": 25593453,
+            "ops_per_second": 160040.92921732756,
+            "batches": 64,
+            "batch_completion_us_p50": 2596.899,
+            "batch_completion_us_p95": 5155.187,
+            "amortized_batch_completion_us_per_op_p50": 40.576546875,
+            "amortized_batch_completion_us_per_op_p95": 80.549796875
+          },
+          {
+            "operations": 4096,
+            "checksum": 4186112,
+            "elapsed_ns": 26093361,
+            "ops_per_second": 156974.79523622885,
+            "batches": 64,
+            "batch_completion_us_p50": 2815.949,
+            "batch_completion_us_p95": 5342.61,
+            "amortized_batch_completion_us_per_op_p50": 43.999203125,
+            "amortized_batch_completion_us_per_op_p95": 83.47828125
+          },
+          {
+            "operations": 4096,
+            "checksum": 4186112,
+            "elapsed_ns": 27451633,
+            "ops_per_second": 149207.88136720317,
+            "batches": 64,
+            "batch_completion_us_p50": 2834.242,
+            "batch_completion_us_p95": 5630.156,
+            "amortized_batch_completion_us_per_op_p50": 44.28503125,
+            "amortized_batch_completion_us_per_op_p95": 87.9711875
+          }
+        ],
+        "median_trial_batch_completion_us_p50": 2815.949,
+        "median_trial_batch_completion_us_p95": 5342.61,
+        "median_trial_amortized_batch_completion_us_per_op_p50": 43.999203125,
+        "median_trial_amortized_batch_completion_us_per_op_p95": 83.47828125
+      }
+    ]
+  },
+  "experiment_seconds": 2.75
+}

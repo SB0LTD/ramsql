@@ -1,24 +1,37 @@
 # Validation evidence
 
 Development implementation tested with Sig 0.6.3, ZPM archive
-`2b70acb4c817c1121f0c0275335bc5509629dc92`, SHA-256
-`c96c00db1ce6f4a3581247f2c208ecd4fb4895422c692987627f55acc18afbed`.
+`070a05820dedf59cafdd9e4a3ab6694e69d9f932`, SHA-256
+`54e1848aff34c4c0992209c026d0dca83a9c45b73eb52324e879f95c08d29b41`.
 
-- RAMSQL `sig build test -Doptimize=ReleaseSafe`: 29 successful build/run steps,
-  over 294,000 executed contract assertions across SQL/index/store/protocol/auth/
+- RAMSQL `sig build test -Doptimize=ReleaseSafe`: 33 successful build/run steps,
+  over 298,000 executed contract assertions across SQL/index/store/protocol/auth/
   entropy/files/WAL/product replay/backup suites.
 - Windows live tests: CLI, raw TCP (3,349 assertions), psycopg/PyMySQL/python-tds,
   SCRAM (7,482 assertions, 128 authenticated unique nonces), crash/backup
-  (35 cases, 1,614 assertions and five post-acknowledgement process kills).
+  (37 cases, 1,622 assertions and five post-acknowledgement process kills).
 - Actual Linux under WSL: native WAL/file/SCRAM/entropy/protocol/replay/backup
   contracts and CLI/raw TCP/crash-backup integration. Windows-cross-built Linux
   server uses the matching Sig library and `-lc` required by Sig's standard I/O.
 - ZPM scoped SQL/database contracts: pass; CLI: all 13 test suites pass.
-- Native PostgreSQL differential: **12 matches / 37 probes; 25 gaps**.
+- Native PostgreSQL 16 and 18 differential: **19 matches / 37 probes; 18 gaps**.
   This finite suite is a blocker, not a substitute for upstream PostgreSQL
   regressions, application suites and operational qualification.
 - Durable performance: 60 matched-workload measurements, full result verification
-  and abrupt-stop/WAL-reopen validation. Deployment/storage caveats remain.
+  and abrupt-stop/WAL-reopen validation. Both native Linux engines use sibling
+  data directories and synchronous commits. PostgreSQL wins multiple workloads;
+  no general superiority claim follows. The baseline and updated reports retain
+  binary/source/dependency hashes and all individual trials.
+- Both updated native images execute SQL, transactions and extended binary
+  PostgreSQL under QEMU: SB0K 583 assertions, SB0X 597 assertions, including
+  malformed-image rejection and EL0 page permissions. These are memory-only
+  transport profiles, not hosted TCP/durability profiles.
+- Updated Windows and Linux ReleaseFast server binaries pass all five live
+  CLI/server/independent-client/authentication/persistence suites. Integer-width
+  tests check signed bounds, PostgreSQL binary/OIDs and MySQL/TDS decoding.
+- WAL framing remains version 1, payload kind 2 distinguishes PostgreSQL INTEGER
+  semantics. Recovery and backup refuse legacy kind-1 development WAL without
+  modifying it. Generic ZPM kind-1 callers retain their original behavior.
 
 ZPM's broader existing CI is **not green**. Run
 [39729399386](https://github.com/SB0LTD/zpm/actions/runs/39729399386)

@@ -317,6 +317,31 @@ def runtime_report(args: argparse.Namespace) -> dict:
     return result
 
 
+def validate_benchmark(report: dict, revision: str, image_sha256: str) -> None:
+    """Require a checked, durable comparison of the actual published Linux image.
+
+    Performance ratios are evidence, never silently converted into a speed claim.
+    """
+    if (report.get("measurement_checks_passed") is not True or report.get("harness_error")
+            or report.get("environment", {}).get("git_head") != revision
+            or report.get("environment", {}).get("ramsql_sha256") != image_sha256
+            or report.get("reference", {}).get("deployment") != "owned native process"
+            or report.get("durability", {}).get("postgres") != {"fsync": "on", "synchronous_commit": "on", "full_page_writes": "on"}
+            or report.get("durability", {}).get("ramsql_reopen_row_check") != "passed after abrupt process termination"):
+        raise ValueError("benchmark identity, correctness or durability evidence missing")
+    workload = report.get("workload", {})
+    trials = workload.get("trials", 0)
+    if trials < 3 or workload.get("concurrent_clients") != [1, 4] or workload.get("operations_per_trial", 0) < 256:
+        raise ValueError("benchmark workload qualification incomplete")
+    expected = {(engine, case, clients, trial) for engine in ("postgres", "ramsql")
+                for case in ("schema_create_drop", "insert", "point_update", "point_select", "scan_limit_16")
+                for clients in (1, 4) for trial in range(1, trials + 1)}
+    measurements = report.get("measurements", [])
+    actual = {(item.get("engine"), item.get("workload"), item.get("clients"), item.get("trial")) for item in measurements}
+    if actual != expected or len(measurements) != len(expected):
+        raise ValueError("benchmark measurements incomplete or duplicated")
+
+
 def assemble(args: argparse.Namespace) -> dict:
     """Fail closed when any target, archive, hash, or source revision is missing."""
     records = []
@@ -358,8 +383,12 @@ def assemble(args: argparse.Namespace) -> dict:
         records.append(record)
     if seen != expected:
         raise ValueError(f"release matrix incomplete: missing {sorted(expected - seen)}")
+    benchmark = json.loads((args.output / "benchmark-postgres.json").read_text(encoding="utf-8"))
+    linux = next(record for record in records if record["target"] == "x86_64-linux")
+    validate_benchmark(benchmark, args.revision, linux["hosted_runtime_evidence"]["image_sha256"])
     manifest = {"schema": 1, "project": "ramsql", "version": source_version(),
-                "revision": args.revision, "production_ready": False, "targets": records}
+                "revision": args.revision, "production_ready": False, "targets": records,
+                "benchmark_evidence": "benchmark-postgres.json"}
     manifest_path = args.output / "release-manifest.json"
     manifest_path.write_bytes(json_bytes(manifest))
     # Include artifact records and evidence as well as binaries. The checksum

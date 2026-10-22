@@ -9,6 +9,11 @@ This is not evidence of a faster PostgreSQL drop-in: the differential parity gat
 must pass separately and currently has material gaps.
 
     python tools/benchmark_postgres.py --operations 1000 --trials 3 --clients 1 4
+    python tools/benchmark_postgres.py --postgres-bin /usr/lib/postgresql/16/bin --work-dir /var/tmp/ramsql-benchmark
+
+--postgres-bin uses isolated native processes with sibling data directories;
+the reference cluster is preserved after its owned process stops. Its loopback
+trust authentication matches RAMSQL's benchmark-only --insecure-local mode.
 
 Exit 0 means measurement/correctness checks passed; it is not a speed threshold.
 Generated RAMSQL WALs remain under .sig-cache/postgres-benchmark for inspection.
@@ -265,6 +270,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, default=ROOT / "sig-out" / "bin" / ("ramsql.exe" if os.name == "nt" else "ramsql"))
     parser.add_argument("--image", default="postgres:18-alpine")
+    parser.add_argument("--postgres-bin", type=Path, help="use an isolated native PostgreSQL installation instead of Docker")
+    parser.add_argument("--work-dir", type=Path, default=ROOT / ".sig-cache" / "postgres-benchmark", help="parent for both engines' isolated data directories")
     parser.add_argument("--rows", type=int, default=512)
     parser.add_argument("--operations", type=int, default=1000, help="total logical operations per trial, shared evenly across clients")
     parser.add_argument("--trials", type=int, default=3)
@@ -277,7 +284,7 @@ def main():
     import psycopg
 
     started = datetime.now(timezone.utc).isoformat()
-    data_directory = ROOT / ".sig-cache" / "postgres-benchmark" / uuid.uuid4().hex
+    data_directory = args.work_dir.resolve() / uuid.uuid4().hex
     data_directory.mkdir(parents=True)
     data_path = data_directory / "ramsql.wal"
     binary = args.binary.resolve()
@@ -294,8 +301,9 @@ def main():
                         **source, "zpm_dependency": dependency_provenance(),
                         "data_path": str(data_path), "volume": data_path.anchor,
                         "volume_bytes_total": usage.total, "volume_bytes_free": usage.free,
-                        "docker_storage_context": command(["docker", "info", "--format", "driver={{.Driver}} os={{.OperatingSystem}} arch={{.Architecture}} cpus={{.NCPU}} memory={{.MemTotal}}"]),
-                        "deployment_caveat": "RAMSQL is a native host process; PostgreSQL is a Docker Linux container with an anonymous data volume. Networking, filesystem, VM and container costs are included and can differ materially. No equivalence of physical storage barriers is claimed."},
+                        "docker_storage_context": None if args.postgres_bin else command(["docker", "info", "--format", "driver={{.Driver}} os={{.OperatingSystem}} arch={{.Architecture}} cpus={{.NCPU}} memory={{.MemTotal}}"]),
+                        "deployment_caveat": ("Both engines are native processes on the same host with sibling data directories. OS synchronization is required for both; physical power-loss equivalence is not established. RAMSQL implements a SQL subset and uses conservative transaction snapshots."
+                                              if args.postgres_bin else "RAMSQL is a native host process; PostgreSQL is a Docker Linux container with an anonymous data volume. Networking, filesystem, VM and container costs are included and can differ materially. No equivalence of physical storage barriers is claimed.")},
         "workload": {"rows": args.rows, "operations_per_trial": args.operations, "trials": args.trials,
                      "concurrent_clients": args.clients, "protocol": "identical psycopg simple queries, autocommit, prepare=False, no pipeline",
                      "schema_create_drop": "each logical operation is one CREATE and one DROP; both request latencies are sampled",
@@ -307,7 +315,7 @@ def main():
     }
     result = 0
     try:
-        with native_postgres(args.image, psycopg) as (native, metadata):
+        with native_postgres(args.image, psycopg, binary_directory=args.postgres_bin, work_directory=data_directory) as (native, metadata):
             report["reference"] = metadata
             with psycopg.connect(**native) as connection:
                 settings = {name: execute(connection, "SHOW " + name).fetchone()[0]
@@ -333,11 +341,13 @@ def main():
             require(data_path.exists() and data_path.stat().st_size > 0, "durable RAMSQL produced no WAL")
             # The server was terminated without a graceful checkpoint. Reopen the
             # exact WAL and verify that all acknowledged dataset rows survived.
-            with running_ramsql(binary, data_path=data_path) as recovered:
+            recovery_started = time.perf_counter_ns()
+            with running_ramsql(binary, data_path=data_path, startup_timeout=180) as recovered:
                 with psycopg.connect(**recovered) as connection:
                     actual = execute(connection, "SELECT id, label FROM bench ORDER BY id").fetchall()
                 require(actual == [(identity, "v" + str(identity)) for identity in range(args.rows)], "durable recovery lost acknowledged rows")
             report["durability"]["ramsql_reopen_row_check"] = "passed after abrupt process termination"
+            report["durability"]["ramsql_reopen_and_validation_ms"] = (time.perf_counter_ns() - recovery_started) / 1e6
             report["durability"]["ramsql_wal_bytes"] = data_path.stat().st_size
         report["summary"] = summarize(report["measurements"])
     except Exception as error:

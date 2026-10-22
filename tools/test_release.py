@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 from pathlib import Path
 import struct
@@ -35,6 +36,20 @@ def synthetic_binary(entry: dict) -> bytes:
     else:
         data[:4] = entry["format"].upper().encode()
     return bytes(data)
+
+
+def synthetic_benchmark(revision, image_sha256):
+    # Identity/gate fixture only: no fabricated performance measurements.
+    return {"measurement_checks_passed": True,
+            "environment": {"git_head": revision, "ramsql_sha256": image_sha256},
+            "reference": {"deployment": "owned native process"},
+            "durability": {"postgres": {"fsync": "on", "synchronous_commit": "on", "full_page_writes": "on"},
+                           "ramsql_reopen_row_check": "passed after abrupt process termination"},
+            "workload": {"trials": 3, "concurrent_clients": [1, 4], "operations_per_trial": 256},
+            "measurements": [{"engine": engine, "workload": case, "clients": clients, "trial": trial}
+                             for engine in ("postgres", "ramsql")
+                             for case in ("schema_create_drop", "insert", "point_update", "point_select", "scan_limit_16")
+                             for clients in (1, 4) for trial in (1, 2, 3)]}
 
 
 class ReleaseContracts(unittest.TestCase):
@@ -120,6 +135,8 @@ class ReleaseContracts(unittest.TestCase):
                             package.runtime_report(argparse.Namespace(verification=verified,
                                 report=output / f"runtime-{entry['slug']}.json",
                                 tests=package.HOSTED_RUNTIME_TESTS))
+            evidence = synthetic_benchmark(revision, package.sha256(synthetic_binary(matrix.target("x86_64-linux"))))
+            (first / "benchmark-postgres.json").write_text(json.dumps(evidence))
             result = package.assemble(args)
             self.assertEqual(len(result["targets"]), 8)
             self.assertFalse(result["production_ready"])
@@ -130,6 +147,28 @@ class ReleaseContracts(unittest.TestCase):
             archive.write_bytes(archive.read_bytes() + b"corruption")
             with self.assertRaisesRegex(ValueError, "checksum"):
                 package.assemble(args)
+
+    def test_benchmark_requires_exact_image_durability_and_complete_trials(self):
+        revision, digest = "a" * 40, "b" * 64
+        evidence = synthetic_benchmark(revision, digest)
+        package.validate_benchmark(evidence, revision, digest)
+        for section, key, invalid in (("environment", "git_head", "c" * 40),
+                                      ("environment", "ramsql_sha256", "d" * 64),
+                                      ("reference", "deployment", "Docker"),
+                                      ("durability", "postgres", {"fsync": "off"}),
+                                      ("durability", "ramsql_reopen_row_check", "failed"),
+                                      ("workload", "trials", 1)):
+            bad = copy.deepcopy(evidence)
+            bad[section][key] = invalid
+            with self.assertRaises(ValueError):
+                package.validate_benchmark(bad, revision, digest)
+        bad = copy.deepcopy(evidence)
+        bad["measurements"].pop()
+        with self.assertRaises(ValueError):
+            package.validate_benchmark(bad, revision, digest)
+        bad["measurements"].append(bad["measurements"][0])
+        with self.assertRaises(ValueError):
+            package.validate_benchmark(bad, revision, digest)
 
     def test_archive_paths_and_links_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
