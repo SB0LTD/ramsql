@@ -30,7 +30,7 @@ fn clearLog(path: []const u8) !void {
     try file.sync();
 }
 pub fn main(init: std.process.Init) !void {
-    const pid: u32 = if (builtin.os.tag == .windows) Win.GetCurrentProcessId() else @intCast(std.os.linux.getpid());
+    const pid: u32 = if (builtin.os.tag == .windows) Win.GetCurrentProcessId() else if (builtin.os.tag == .macos) @intCast(std.c.getpid()) else @intCast(std.os.linux.getpid());
     var path_buffer: [256]u8 = undefined;
     const path = try std.fmt.bufPrint(&path_buffer, "sig-out/persistence-contract-{d}.wal", .{pid});
     var created = try disk.File.createExclusive(path);

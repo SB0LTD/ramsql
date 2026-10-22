@@ -209,3 +209,56 @@ complete WAL copy. It refuses to overwrite an existing destination.
 Keep backups on separate storage. Restore with the same version and a profile
 large enough for every historical state. This is a whole-WAL backup, not a
 compacted checkpoint or PostgreSQL pg_dump/pg_basebackup compatibility.
+
+## Release matrix
+
+`.github/workflows/release.yml` follows SLS's six hosted targets: x86_64 and
+AArch64 on Linux GNU, macOS and Windows. It also defines distinct SB0X userspace
+and SB0K kernel artifacts, both built directly for the consolidated
+`aarch64-sb0` target. Native SB0 images are never renamed ELF/PE executables.
+
+Hosted artifacts use the same TCP server, synchronous WAL and SCRAM paths. Their
+exact packaged binaries are tested on matching OS/architecture runners. Native
+SB0X currently uses a delegated process channel; SB0K uses privileged PL011 UART.
+These native profiles run the shared PostgreSQL/SQL/store implementation over
+trusted, memory-only streams. The current SB0 device ABI does not provide the
+TCP listener, file durability barrier and secure entropy interfaces required for
+the hosted profile. Artifact capability manifests preserve this distinction.
+
+A release requires all eight builds, hosted contract and client tests, six exact
+artifact runtime checks, and native QEMU protocol/transaction checks. Packages
+include deterministic archives, content hashes, source/toolchain/dependency
+provenance and capability manifests. A complete release bundle also includes
+SHA256SUMS and GitHub provenance attestations.
+
+Run the workflow manually with `publish=false` to validate and retain CI
+artifacts. Set `publish=true` to publish after every gate passes. A matching
+`v<source-version>` tag also publishes after validation. Development versions
+are marked prerelease; stable versions additionally require the production
+release gate. Adding the pipeline does not change the current production status.
+
+SB0X tests use a self-contained, public SB0 ABI loader harness under QEMU. It
+loads the native segments, initializes process state, enters EL0 and serves the
+delegated channel traps used by the PostgreSQL tests. This validates the SB0S
+image and process ABI without private repository credentials. It is separate
+from integration testing a complete SB0S kernel distribution. SB0K tests execute
+the privileged image directly. Failed native compilation or execution blocks
+publication.
+
+```sh
+python tools/test_release.py
+python tools/build_sb0.py --format sb0x --output sig-out/bin/ramsql.sb0x
+python tools/build_sb0.py --format sb0k --output sig-out/bin/ramsql.sb0k
+# Kernel image, using qemu-system-aarch64:
+python tools/test_sb0.py --format sb0k --image sig-out/bin/ramsql.sb0k
+```
+
+The native build script verifies the same immutable ZPM archive as `sig build`.
+Hosted builds use published Sig 0.6.3. Native jobs bootstrap the exact Sig source
+revision pinned in `tools/release_matrix.py`, including the AArch64 aggregate,
+error-return and exception-return fixes needed by the complete engine. The
+published compiler builds this toolchain; its standard library comes from the
+same pinned source. Executable compiler regressions and the PostgreSQL QEMU
+sessions must pass before packaging. Provenance records both compiler identities
+and the source revision. For local native builds, set `SIG` and `SIG_LIB_DIR` to
+that compiler and its matching library before running the commands above.
