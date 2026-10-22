@@ -4,6 +4,12 @@ An allocator-free in-memory database **server**, written entirely in Sig.
 PostgreSQL is the default wire protocol; optional MySQL and SQL Server/TDS
 listeners use the same bounded database.
 
+**Development version. Production PostgreSQL drop-in compatibility is a release
+requirement and is currently blocked.** See [release gates](compatibility/RELEASE.md)
+and the [native PostgreSQL differential report](compatibility/postgres-report.json).
+The implemented subset has synchronous persistence and PostgreSQL SCRAM authentication;
+it does not provide complete PostgreSQL behavior.
+
 ## Run
 
 Use the complete [Sig 0.6.3 release](https://github.com/SB0LTD/sig/releases/tag/sig-0.6.3-zig0.17.0.ac9b716).
@@ -12,26 +18,52 @@ Current-source ZPM delegates `zpm build` / `zpm run` to the same native build.
 
 ```sh
 sig build -Doptimize=ReleaseFast
-./sig-out/bin/ramsql
+./sig-out/bin/ramsql --data ramsql.wal --auth-user postgres --auth-verifier-file postgres.verifier
 # PostgreSQL on 127.0.0.1:5432; Windows executable has .exe suffix.
 ```
 
 ```sh
-./sig-out/bin/ramsql --port 5432 --mysql-port 3306 --mssql-port 1433
-./sig-out/bin/ramsql --protocol mysql --port 3306
-./sig-out/bin/ramsql --protocol mssql --port 1433
+./sig-out/bin/ramsql --memory --insecure-local --port 5432 --mysql-port 3306 --mssql-port 1433
+./sig-out/bin/ramsql --memory --insecure-local --protocol mysql --port 3306
+./sig-out/bin/ramsql --memory --insecure-local --protocol mssql --port 1433
 ```
 
-Each process has one shared in-memory store. Extra listeners in the same process
-share tables, constraints and transactions. Binding is deliberately loopback-only:
-this version uses empty-password/trust sessions and does not implement TLS or
-production authentication. It must not be exposed through a public proxy.
+Each process has one shared store. By default the server requires a PostgreSQL
+SCRAM verifier and persists committed mutations in `ramsql.wal`. The verifier file
+contains PostgreSQL's `SCRAM-SHA-256$iterations:salt$stored-key:server-key` format
+for `--auth-user` (default `postgres`), optionally followed by a newline. Provision
+it through a trusted credential-management process; protect it as a credential.
+Fresh server nonces come from native cryptographic entropy on every connection.
+TLS and channel binding are not implemented, so listeners remain loopback only.
+MySQL/TDS require the explicit `--insecure-local` testing mode.
 
-`--port 0` chooses an ephemeral port. Startup prints each listener's actual
-address. `--max-clients N` selects 1..16 active connections; `--idle-ms N` controls
-idle expiry (30,000 ms default). Defaults are 8 tables, 8 columns, 512 rows per
-table, 32-byte names and 128-byte text cells. These are explicit compile-time
-bounds in the server profile, rather than unbounded runtime growth.
+`--memory` explicitly disables persistence. `--data PATH` selects another WAL.
+Recovery validates record versions, checksums, contiguous sequences, commit markers
+and SQL replay before opening any listener. It repairs a physically incomplete
+final record; complete corruption or semantic replay failure aborts startup.
+The process holds an exclusive writer lock. A failed append/flush disables further
+writes until recovery. A transaction is acknowledged only after the complete
+commit record reaches the operating system's synchronous flush API.
+
+This does not establish power-loss durability on every storage device. There is
+no checkpoint/compaction or automatic upgrade migration yet. WAL grows with all
+committed changes; recovery needs capacity for historical states and transactions.
+Back up using the offline command below, and test restoration before relying on it.
+
+`--port 0` chooses an ephemeral port and prints the actual listener address.
+`--max-clients N` selects active connections within the compiled profile;
+`--idle-ms N` controls expiry (30,000 ms default). The default profile contains
+16 clients, 8 tables, 8 columns, 512 rows per table, 63-byte names, 128-byte text
+cells, and 1 MiB of SQL log storage per transaction. Configure an explicit profile:
+
+```sh
+sig build -Doptimize=ReleaseFast -Dclients=32 -Drows=4096 -Dtables=16 -Dtext-bytes=512 -Dtransaction-bytes=4194304
+```
+
+Storage, results and transaction workspaces are dense and preallocated, so larger
+profiles increase memory significantly. These configurable bounds still fall short
+of PostgreSQL's capacity and concurrency model; they are tracked as a release gap.
+The Windows reactor currently permits at most 60 compiled client slots.
 
 `--demo` runs an example and exits. `--stdin` retains the one-statement-per-line
 CLI, with tab-separated escaped output and a 4,096-byte line bound.
@@ -44,17 +76,17 @@ or dialect parity with the original database engines.
 
 | Wire protocol | Tested independent client | Implemented path |
 | --- | --- | --- |
-| PostgreSQL v3 | psycopg 3 / libpq | Startup, SSL/GSS refusal, simple queries, Parse/Bind/Describe/Execute/Sync, named prepared statements, text/binary values, portal suspension, Close/DEALLOCATE |
+| PostgreSQL v3 | psycopg 3 / libpq | Startup, SCRAM-SHA-256, SSL/GSS refusal, simple queries, Parse/Bind/Describe/Execute/Sync, named prepared statements, text/binary values, portal suspension, Close/DEALLOCATE |
 | MySQL protocol 10 | PyMySQL | Native-password empty-password login, COM_QUERY, COM_INIT_DB, PING, text result sets and errors |
 | SQL Server TDS 7.2–7.4 | python-tds | PRELOGIN, LOGIN7, UTF-16 SQL batches, typed results, packet fragmentation, transaction-manager messages and parameterized sp_executesql RPC |
 
-For PostgreSQL, use `host=127.0.0.1 port=5432 user=ramsql dbname=ramsql sslmode=disable`.
+For authenticated PostgreSQL, use `host=127.0.0.1 port=5432 user=postgres dbname=ramsql sslmode=disable` and supply the matching password through the client credential mechanism.
 PyMySQL can use `host='127.0.0.1', port=3306, user='ramsql', password='',
 database='ramsql', autocommit=True, charset='utf8mb4'`.
 For python-tds use `server='127.0.0.1', port=1433, user='ramsql', password='',
 database='ramsql', autocommit=True, use_mars=False`.
 
-Not implemented: TLS, password authentication, system catalogs, replication,
+Not implemented: TLS, roles/authorization, system catalogs, replication,
 COPY/bulk loading, stored procedures, ORM-specific discovery, and complete SQL
 dialects. MySQL's binary prepared-statement protocol is not implemented;
 PyMySQL parameters use its normal safe client-side encoding. Unsupported
@@ -75,19 +107,22 @@ The server additionally accepts boolean integer literals 0/1 for common
 MySQL/BIT client encodings. Raw library configurations remain strictly typed
 unless this option is enabled.
 
-BEGIN/COMMIT/ROLLBACK use one fixed shared snapshot. Transactions are serialized:
-a transaction owns the store, other connections receive DatabaseBusy rather
-than seeing uncommitted changes. Snapshot copying occurs on transaction begin,
-not ordinary statements. PostgreSQL errors mark an active transaction failed
-until rollback; disconnect and idle expiry roll back abandoned transactions.
-This is a bounded isolation mechanism, not MVCC or concurrent write transactions.
+BEGIN/COMMIT/ROLLBACK use separate caller-owned transaction snapshots. Readers
+continue to see committed data while other connections hold private changes.
+A writing transaction commits only if the global committed generation has not
+changed since BEGIN; otherwise it receives PostgreSQL SQLSTATE `40001` and must
+roll back/retry. Read-only commits do not conflict. Failed transactions and
+disconnected sessions cannot publish their changes. This is conservative snapshot
+isolation and differs from PostgreSQL's default READ COMMITTED behavior.
 
-Joins, aggregates, general expressions, foreign keys, secondary indexes,
-persistence and complete SQL-standard semantics are future work.
+Joins, aggregates, general expressions, foreign keys, secondary indexes and
+complete SQL-standard semantics remain release blockers. INTEGER currently means
+signed 64-bit throughout the engine; native PostgreSQL INTEGER is 32-bit. Catalog,
+metadata and NULL-ordering differences are exercised by the differential gate.
 
 ## Memory and execution
 
-The database, primary-key hash indexes, transaction snapshot, connection slots,
+The database, primary-key hash indexes, per-connection transaction snapshots, connection slots,
 prepared statements, receive buffers and response buffers all have fixed owners
 and bounds. Runtime source is `.sig`; there is no SQLite/C database dependency,
 heap allocator API, language runtime or garbage collector.
@@ -110,9 +145,9 @@ filters remain scans, and ordering currently uses bounded insertion sorting.
 | Layer | Responsibilities |
 | --- | --- |
 | Sig | Compiler, native build, formatting, process and standard I/O primitives |
-| ZPM Layer 0 | `sql`: parser/storage/indexes; `db-store`: shared state and isolated snapshots |
-| ZPM Layer 1 | PostgreSQL/MySQL/TDS wire sessions; nonblocking native TCP primitives |
-| RAMSQL | Public facade, listener defaults, reactor policy, capacity profile, integration tests and benchmarks |
+| ZPM Layer 0 | `sql`, `db-store`, `durable-log` and `scram`: parsing, storage, transactions, WAL framing and authentication |
+| ZPM Layer 1 | PostgreSQL/MySQL/TDS wire sessions; native TCP, durable files and cryptographic entropy |
+| RAMSQL | Public facade, persistence/replay lifecycle, offline backups, listeners, reactor policy, capacity profiles and integration tests |
 
 The public library remains `@import("ramsql").Database(Config)` with separate
 caller-owned `DB.Result` storage. `DB.storageBytes()` and `@sizeOf(DB.Result)`
@@ -128,6 +163,11 @@ python tools/test_cli.py
 python tools/test_server.py
 python -m pip install -r tools/requirements-test.txt
 python tools/test_clients.py
+python tools/test_auth.py
+python tools/test_persistence.py
+# Separate release gates; currently return nonzero for known compatibility gaps
+python tools/test_postgres_compat.py
+python tools/release_gate.py
 ```
 
 Client dependencies are test-only. Local tests may install into
@@ -154,3 +194,18 @@ They are measurements of this implementation, not comparisons to PostgreSQL,
 MySQL or SQL Server. See the checked-in report for the measured environment.
 
 MIT License — SB0 LTD.
+
+## Offline backup and restore
+
+Stop the server before backing up; the writer lock prevents a concurrent copy.
+The backup command validates and replays the source before publishing a flushed,
+complete WAL copy. It refuses to overwrite an existing destination.
+
+```sh
+./sig-out/bin/ramsql --data ramsql.wal --backup-to backup-2026-10-22.wal
+./sig-out/bin/ramsql --data backup-2026-10-22.wal --auth-verifier-file postgres.verifier
+```
+
+Keep backups on separate storage. Restore with the same version and a profile
+large enough for every historical state. This is a whole-WAL backup, not a
+compacted checkpoint or PostgreSQL pg_dump/pg_basebackup compatibility.

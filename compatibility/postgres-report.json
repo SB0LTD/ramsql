@@ -1,0 +1,2548 @@
+{
+  "schema": 1,
+  "started_utc": "2026-10-22T05:51:41.726310+00:00",
+  "scope": "finite differential compatibility gate; passing does not establish full PostgreSQL parity",
+  "ramsql_binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\sig-out\\bin\\ramsql.exe",
+  "ramsql_sha256": "0a8f3841035497c12a742e17deb74729d38a596ee7c15871ada012fac16738af",
+  "ramsql_legacy_cli": false,
+  "client": {
+    "name": "psycopg",
+    "version": "3.3.6"
+  },
+  "probes": [
+    {
+      "name": "boolean_text",
+      "feature": "typed result metadata",
+      "match": true,
+      "differences": [],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT flag, label FROM compat WHERE id = 1",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "flag",
+                  "oid": 16
+                },
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  true,
+                  "one"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT flag, label FROM compat WHERE id = 1",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "flag",
+                  "oid": 16
+                },
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  true,
+                  "one"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "integer_oid",
+      "feature": "INTEGER wire OID",
+      "match": false,
+      "differences": [
+        {
+          "path": "/events/0/outcome/columns/0/oid",
+          "postgres": 23,
+          "ramsql": 20
+        }
+      ],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT id FROM compat ORDER BY id",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "id",
+                  "oid": 23
+                }
+              ],
+              "rows": [
+                [
+                  1
+                ],
+                [
+                  2
+                ],
+                [
+                  3
+                ]
+              ],
+              "rowcount": 3,
+              "status": "SELECT 3"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT id FROM compat ORDER BY id",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "id",
+                  "oid": 20
+                }
+              ],
+              "rows": [
+                [
+                  1
+                ],
+                [
+                  2
+                ],
+                [
+                  3
+                ]
+              ],
+              "rowcount": 3,
+              "status": "SELECT 3"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "point_select",
+      "feature": "primary key lookup",
+      "match": true,
+      "differences": [],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT label FROM compat WHERE id = 3",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  "three"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT label FROM compat WHERE id = 3",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  "three"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "filter_limit",
+      "feature": "filters, order and limit",
+      "match": true,
+      "differences": [],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT label FROM compat WHERE id > 1 AND id < 4 ORDER BY id DESC LIMIT 1",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  "three"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT label FROM compat WHERE id > 1 AND id < 4 ORDER BY id DESC LIMIT 1",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  "three"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "crud",
+      "feature": "CRUD command results",
+      "match": true,
+      "differences": [],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "INSERT INTO compat VALUES (4, FALSE, 'four')",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": 1,
+              "status": "INSERT 0 1"
+            }
+          },
+          {
+            "sql": "UPDATE compat SET label = 'changed' WHERE id = 4",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": 1,
+              "status": "UPDATE 1"
+            }
+          },
+          {
+            "sql": "SELECT label FROM compat WHERE id = 4",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  "changed"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          },
+          {
+            "sql": "DELETE FROM compat WHERE id = 4",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": 1,
+              "status": "DELETE 1"
+            }
+          },
+          {
+            "sql": "SELECT label FROM compat WHERE id = 4",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [],
+              "rowcount": 0,
+              "status": "SELECT 0"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "INSERT INTO compat VALUES (4, FALSE, 'four')",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": 1,
+              "status": "INSERT 0 1"
+            }
+          },
+          {
+            "sql": "UPDATE compat SET label = 'changed' WHERE id = 4",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": 1,
+              "status": "UPDATE 1"
+            }
+          },
+          {
+            "sql": "SELECT label FROM compat WHERE id = 4",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  "changed"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          },
+          {
+            "sql": "DELETE FROM compat WHERE id = 4",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": 1,
+              "status": "DELETE 1"
+            }
+          },
+          {
+            "sql": "SELECT label FROM compat WHERE id = 4",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [],
+              "rowcount": 0,
+              "status": "SELECT 0"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "duplicate_key",
+      "feature": "SQLSTATE 23505",
+      "match": true,
+      "differences": [],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "INSERT INTO compat VALUES (1, FALSE, 'duplicate')",
+            "outcome": {
+              "sqlstate": "23505",
+              "error_class": "UniqueViolation",
+              "message": "duplicate key value violates unique constraint \"compat_pkey\""
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "INSERT INTO compat VALUES (1, FALSE, 'duplicate')",
+            "outcome": {
+              "sqlstate": "23505",
+              "error_class": "UniqueViolation",
+              "message": "PrimaryKeyViolation"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "missing_table",
+      "feature": "SQLSTATE 42P01",
+      "match": true,
+      "differences": [],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT * FROM absent",
+            "outcome": {
+              "sqlstate": "42P01",
+              "error_class": "UndefinedTable",
+              "message": "relation \"absent\" does not exist"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT * FROM absent",
+            "outcome": {
+              "sqlstate": "42P01",
+              "error_class": "UndefinedTable",
+              "message": "TableNotFound"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "missing_column",
+      "feature": "SQLSTATE 42703",
+      "match": true,
+      "differences": [],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT missing FROM compat",
+            "outcome": {
+              "sqlstate": "42703",
+              "error_class": "UndefinedColumn",
+              "message": "column \"missing\" does not exist"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT missing FROM compat",
+            "outcome": {
+              "sqlstate": "42703",
+              "error_class": "UndefinedColumn",
+              "message": "ColumnNotFound"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "not_null",
+      "feature": "SQLSTATE 23502",
+      "match": true,
+      "differences": [],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "INSERT INTO compat VALUES (1, NULL)",
+            "outcome": {
+              "sqlstate": "23502",
+              "error_class": "NotNullViolation",
+              "message": "null value in column \"label\" of relation \"compat\" violates not-null constraint"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "INSERT INTO compat VALUES (1, NULL)",
+            "outcome": {
+              "sqlstate": "23502",
+              "error_class": "NotNullViolation",
+              "message": "NotNullViolation"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "integer_positive_overflow",
+      "feature": "32-bit INTEGER range",
+      "match": false,
+      "differences": [
+        {
+          "path": "/events/0/outcome/sqlstate",
+          "postgres": "22003",
+          "ramsql": "00000"
+        }
+      ],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "INSERT INTO compat VALUES (2147483648, TRUE, 'overflow')",
+            "outcome": {
+              "sqlstate": "22003",
+              "error_class": "NumericValueOutOfRange",
+              "message": "integer out of range"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "INSERT INTO compat VALUES (2147483648, TRUE, 'overflow')",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": 1,
+              "status": "INSERT 0 1"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "integer_negative_overflow",
+      "feature": "32-bit INTEGER range",
+      "match": false,
+      "differences": [
+        {
+          "path": "/events/0/outcome/sqlstate",
+          "postgres": "22003",
+          "ramsql": "00000"
+        }
+      ],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "INSERT INTO compat VALUES (-2147483649, TRUE, 'overflow')",
+            "outcome": {
+              "sqlstate": "22003",
+              "error_class": "NumericValueOutOfRange",
+              "message": "integer out of range"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "INSERT INTO compat VALUES (-2147483649, TRUE, 'overflow')",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": 1,
+              "status": "INSERT 0 1"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "bigint",
+      "feature": "64-bit BIGINT type",
+      "match": false,
+      "differences": [
+        {
+          "path": "/stage",
+          "postgres": "statements",
+          "ramsql": "setup"
+        },
+        {
+          "path": "/ramsql/setup",
+          "sql": "CREATE TABLE compat (id BIGINT PRIMARY KEY, label TEXT)",
+          "sqlstate": "42601"
+        }
+      ],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "INSERT INTO compat VALUES (9223372036854775807, 'max')",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": 1,
+              "status": "INSERT 0 1"
+            }
+          },
+          {
+            "sql": "SELECT id FROM compat",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "id",
+                  "oid": 20
+                }
+              ],
+              "rows": [
+                [
+                  9223372036854775807
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "setup",
+        "index": 0,
+        "sql": "CREATE TABLE compat (id BIGINT PRIMARY KEY, label TEXT)",
+        "outcome": {
+          "sqlstate": "42601",
+          "error_class": "SyntaxError",
+          "message": "Syntax"
+        }
+      }
+    },
+    {
+      "name": "numeric",
+      "feature": "exact NUMERIC type",
+      "match": false,
+      "differences": [
+        {
+          "path": "/stage",
+          "postgres": "statements",
+          "ramsql": "setup"
+        },
+        {
+          "path": "/ramsql/setup",
+          "sql": "CREATE TABLE compat (id INTEGER PRIMARY KEY, amount NUMERIC(18,4))",
+          "sqlstate": "42601"
+        }
+      ],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "INSERT INTO compat VALUES (1, 12.3456)",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": 1,
+              "status": "INSERT 0 1"
+            }
+          },
+          {
+            "sql": "SELECT amount FROM compat",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "amount",
+                  "oid": 1700
+                }
+              ],
+              "rows": [
+                [
+                  "12.3456"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "setup",
+        "index": 0,
+        "sql": "CREATE TABLE compat (id INTEGER PRIMARY KEY, amount NUMERIC(18,4))",
+        "outcome": {
+          "sqlstate": "42601",
+          "error_class": "SyntaxError",
+          "message": "Syntax"
+        }
+      }
+    },
+    {
+      "name": "timestamp",
+      "feature": "TIMESTAMPTZ type",
+      "match": false,
+      "differences": [
+        {
+          "path": "/stage",
+          "postgres": "statements",
+          "ramsql": "setup"
+        },
+        {
+          "path": "/ramsql/setup",
+          "sql": "CREATE TABLE compat (id INTEGER PRIMARY KEY, happened TIMESTAMPTZ)",
+          "sqlstate": "42601"
+        }
+      ],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "INSERT INTO compat VALUES (1, '2026-10-22T12:00:00Z')",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": 1,
+              "status": "INSERT 0 1"
+            }
+          },
+          {
+            "sql": "SELECT happened FROM compat",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "happened",
+                  "oid": 1184
+                }
+              ],
+              "rows": [
+                [
+                  "2026-10-22 12:00:00+00:00"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "setup",
+        "index": 0,
+        "sql": "CREATE TABLE compat (id INTEGER PRIMARY KEY, happened TIMESTAMPTZ)",
+        "outcome": {
+          "sqlstate": "42601",
+          "error_class": "SyntaxError",
+          "message": "Syntax"
+        }
+      }
+    },
+    {
+      "name": "jsonb",
+      "feature": "JSONB type and operators",
+      "match": false,
+      "differences": [
+        {
+          "path": "/stage",
+          "postgres": "statements",
+          "ramsql": "setup"
+        },
+        {
+          "path": "/ramsql/setup",
+          "sql": "CREATE TABLE compat (id INTEGER PRIMARY KEY, payload JSONB)",
+          "sqlstate": "42601"
+        }
+      ],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "INSERT INTO compat VALUES (1, '{\"kind\":\"event\"}')",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": 1,
+              "status": "INSERT 0 1"
+            }
+          },
+          {
+            "sql": "SELECT payload ->> 'kind' FROM compat",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "?column?",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  "event"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "setup",
+        "index": 0,
+        "sql": "CREATE TABLE compat (id INTEGER PRIMARY KEY, payload JSONB)",
+        "outcome": {
+          "sqlstate": "42601",
+          "error_class": "SyntaxError",
+          "message": "Syntax"
+        }
+      }
+    },
+    {
+      "name": "null_ascending",
+      "feature": "default NULLS LAST for ASC",
+      "match": false,
+      "differences": [
+        {
+          "path": "/events/0/outcome/rows/0/0",
+          "postgres": "one",
+          "ramsql": null
+        },
+        {
+          "path": "/events/0/outcome/rows/1/0",
+          "postgres": "three",
+          "ramsql": "one"
+        },
+        {
+          "path": "/events/0/outcome/rows/2/0",
+          "postgres": null,
+          "ramsql": "three"
+        }
+      ],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT label FROM compat ORDER BY label ASC",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  "one"
+                ],
+                [
+                  "three"
+                ],
+                [
+                  null
+                ]
+              ],
+              "rowcount": 3,
+              "status": "SELECT 3"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT label FROM compat ORDER BY label ASC",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  null
+                ],
+                [
+                  "one"
+                ],
+                [
+                  "three"
+                ]
+              ],
+              "rowcount": 3,
+              "status": "SELECT 3"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "null_descending",
+      "feature": "default NULLS FIRST for DESC",
+      "match": false,
+      "differences": [
+        {
+          "path": "/events/0/outcome/rows/0/0",
+          "postgres": null,
+          "ramsql": "three"
+        },
+        {
+          "path": "/events/0/outcome/rows/1/0",
+          "postgres": "three",
+          "ramsql": "one"
+        },
+        {
+          "path": "/events/0/outcome/rows/2/0",
+          "postgres": "one",
+          "ramsql": null
+        }
+      ],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT label FROM compat ORDER BY label DESC",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  null
+                ],
+                [
+                  "three"
+                ],
+                [
+                  "one"
+                ]
+              ],
+              "rowcount": 3,
+              "status": "SELECT 3"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT label FROM compat ORDER BY label DESC",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  "three"
+                ],
+                [
+                  "one"
+                ],
+                [
+                  null
+                ]
+              ],
+              "rowcount": 3,
+              "status": "SELECT 3"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "explicit_null_order",
+      "feature": "NULLS FIRST syntax",
+      "match": false,
+      "differences": [
+        {
+          "path": "/events/0/outcome/sqlstate",
+          "postgres": "00000",
+          "ramsql": "42601"
+        }
+      ],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT label FROM compat ORDER BY label ASC NULLS FIRST",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  null
+                ],
+                [
+                  "one"
+                ],
+                [
+                  "three"
+                ]
+              ],
+              "rowcount": 3,
+              "status": "SELECT 3"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT label FROM compat ORDER BY label ASC NULLS FIRST",
+            "outcome": {
+              "sqlstate": "42601",
+              "error_class": "SyntaxError",
+              "message": "Syntax"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "aggregate",
+      "feature": "COUNT and SUM aggregates",
+      "match": false,
+      "differences": [
+        {
+          "path": "/events/0/outcome/sqlstate",
+          "postgres": "00000",
+          "ramsql": "42601"
+        }
+      ],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT COUNT(*), SUM(id) FROM compat",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "count",
+                  "oid": 20
+                },
+                {
+                  "name": "sum",
+                  "oid": 20
+                }
+              ],
+              "rows": [
+                [
+                  3,
+                  6
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT COUNT(*), SUM(id) FROM compat",
+            "outcome": {
+              "sqlstate": "42601",
+              "error_class": "SyntaxError",
+              "message": "Syntax"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "group_by",
+      "feature": "GROUP BY aggregation",
+      "match": false,
+      "differences": [
+        {
+          "path": "/events/0/outcome/sqlstate",
+          "postgres": "00000",
+          "ramsql": "42601"
+        }
+      ],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT flag, COUNT(*) FROM compat GROUP BY flag ORDER BY flag",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "flag",
+                  "oid": 16
+                },
+                {
+                  "name": "count",
+                  "oid": 20
+                }
+              ],
+              "rows": [
+                [
+                  false,
+                  1
+                ],
+                [
+                  true,
+                  1
+                ],
+                [
+                  null,
+                  1
+                ]
+              ],
+              "rowcount": 3,
+              "status": "SELECT 3"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT flag, COUNT(*) FROM compat GROUP BY flag ORDER BY flag",
+            "outcome": {
+              "sqlstate": "42601",
+              "error_class": "SyntaxError",
+              "message": "Syntax"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "join",
+      "feature": "equi-join",
+      "match": false,
+      "differences": [
+        {
+          "path": "/events/0/outcome/sqlstate",
+          "postgres": "00000",
+          "ramsql": "42601"
+        }
+      ],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT compat.label, aux.label FROM compat JOIN aux ON compat.id = aux.id",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                },
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  "one",
+                  "joined"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT compat.label, aux.label FROM compat JOIN aux ON compat.id = aux.id",
+            "outcome": {
+              "sqlstate": "42601",
+              "error_class": "SyntaxError",
+              "message": "Syntax"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "cte",
+      "feature": "common table expressions",
+      "match": false,
+      "differences": [
+        {
+          "path": "/events/0/outcome/sqlstate",
+          "postgres": "00000",
+          "ramsql": "0A000"
+        }
+      ],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "WITH selected AS (SELECT label FROM compat WHERE id = 1) SELECT label FROM selected",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  "one"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "WITH selected AS (SELECT label FROM compat WHERE id = 1) SELECT label FROM selected",
+            "outcome": {
+              "sqlstate": "0A000",
+              "error_class": "FeatureNotSupported",
+              "message": "UnsupportedStatement"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "or_predicate",
+      "feature": "OR predicates",
+      "match": false,
+      "differences": [
+        {
+          "path": "/events/0/outcome/sqlstate",
+          "postgres": "00000",
+          "ramsql": "42601"
+        }
+      ],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT label FROM compat WHERE id = 1 OR id = 3 ORDER BY id",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  "one"
+                ],
+                [
+                  "three"
+                ]
+              ],
+              "rowcount": 2,
+              "status": "SELECT 2"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT label FROM compat WHERE id = 1 OR id = 3 ORDER BY id",
+            "outcome": {
+              "sqlstate": "42601",
+              "error_class": "SyntaxError",
+              "message": "Syntax"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "distinct",
+      "feature": "DISTINCT",
+      "match": false,
+      "differences": [
+        {
+          "path": "/events/0/outcome/sqlstate",
+          "postgres": "00000",
+          "ramsql": "42601"
+        }
+      ],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT DISTINCT flag FROM compat ORDER BY flag",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "flag",
+                  "oid": 16
+                }
+              ],
+              "rows": [
+                [
+                  false
+                ],
+                [
+                  true
+                ],
+                [
+                  null
+                ]
+              ],
+              "rowcount": 3,
+              "status": "SELECT 3"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT DISTINCT flag FROM compat ORDER BY flag",
+            "outcome": {
+              "sqlstate": "42601",
+              "error_class": "SyntaxError",
+              "message": "Syntax"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "returning",
+      "feature": "INSERT RETURNING",
+      "match": false,
+      "differences": [
+        {
+          "path": "/events/0/outcome/sqlstate",
+          "postgres": "00000",
+          "ramsql": "42601"
+        }
+      ],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "INSERT INTO compat VALUES (4, FALSE, 'four') RETURNING label",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  "four"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "INSERT 0 1"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "INSERT INTO compat VALUES (4, FALSE, 'four') RETURNING label",
+            "outcome": {
+              "sqlstate": "42601",
+              "error_class": "SyntaxError",
+              "message": "Syntax"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "upsert",
+      "feature": "ON CONFLICT",
+      "match": false,
+      "differences": [
+        {
+          "path": "/events/0/outcome/sqlstate",
+          "postgres": "00000",
+          "ramsql": "42601"
+        }
+      ],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "INSERT INTO compat VALUES (1, FALSE, 'upsert') ON CONFLICT (id) DO UPDATE SET label = EXCLUDED.label RETURNING label",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  "upsert"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "INSERT 0 1"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "INSERT INTO compat VALUES (1, FALSE, 'upsert') ON CONFLICT (id) DO UPDATE SET label = EXCLUDED.label RETURNING label",
+            "outcome": {
+              "sqlstate": "42601",
+              "error_class": "SyntaxError",
+              "message": "Syntax"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "defaults",
+      "feature": "DEFAULT values",
+      "match": false,
+      "differences": [
+        {
+          "path": "/stage",
+          "postgres": "statements",
+          "ramsql": "setup"
+        },
+        {
+          "path": "/ramsql/setup",
+          "sql": "CREATE TABLE compat (id INTEGER PRIMARY KEY, label TEXT DEFAULT 'default')",
+          "sqlstate": "42601"
+        }
+      ],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "INSERT INTO compat (id) VALUES (1)",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": 1,
+              "status": "INSERT 0 1"
+            }
+          },
+          {
+            "sql": "SELECT label FROM compat",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  "default"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "setup",
+        "index": 0,
+        "sql": "CREATE TABLE compat (id INTEGER PRIMARY KEY, label TEXT DEFAULT 'default')",
+        "outcome": {
+          "sqlstate": "42601",
+          "error_class": "SyntaxError",
+          "message": "Syntax"
+        }
+      }
+    },
+    {
+      "name": "identity",
+      "feature": "identity columns",
+      "match": false,
+      "differences": [
+        {
+          "path": "/stage",
+          "postgres": "statements",
+          "ramsql": "setup"
+        },
+        {
+          "path": "/ramsql/setup",
+          "sql": "CREATE TABLE compat (id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY, label TEXT)",
+          "sqlstate": "42601"
+        }
+      ],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "INSERT INTO compat (label) VALUES ('generated') RETURNING id",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "id",
+                  "oid": 23
+                }
+              ],
+              "rows": [
+                [
+                  1
+                ]
+              ],
+              "rowcount": 1,
+              "status": "INSERT 0 1"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "setup",
+        "index": 0,
+        "sql": "CREATE TABLE compat (id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY, label TEXT)",
+        "outcome": {
+          "sqlstate": "42601",
+          "error_class": "SyntaxError",
+          "message": "Syntax"
+        }
+      }
+    },
+    {
+      "name": "pg_type",
+      "feature": "pg_catalog type discovery",
+      "match": false,
+      "differences": [
+        {
+          "path": "/events/0/outcome/sqlstate",
+          "postgres": "00000",
+          "ramsql": "42P01"
+        }
+      ],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT oid, typname FROM pg_catalog.pg_type WHERE typname = 'int4'",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "oid",
+                  "oid": 26
+                },
+                {
+                  "name": "typname",
+                  "oid": 19
+                }
+              ],
+              "rows": [
+                [
+                  23,
+                  "int4"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT oid, typname FROM pg_catalog.pg_type WHERE typname = 'int4'",
+            "outcome": {
+              "sqlstate": "42P01",
+              "error_class": "UndefinedTable",
+              "message": "TableNotFound"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "information_schema",
+      "feature": "information_schema discovery",
+      "match": false,
+      "differences": [
+        {
+          "path": "/events/0/outcome/sqlstate",
+          "postgres": "00000",
+          "ramsql": "42P01"
+        }
+      ],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'compat' ORDER BY table_name",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "table_name",
+                  "oid": 19
+                }
+              ],
+              "rows": [
+                [
+                  "compat"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'compat' ORDER BY table_name",
+            "outcome": {
+              "sqlstate": "42P01",
+              "error_class": "UndefinedTable",
+              "message": "TableNotFound"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "read_your_writes",
+      "feature": "transaction visibility",
+      "match": true,
+      "differences": [],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "BEGIN",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": -1,
+              "status": "BEGIN"
+            }
+          },
+          {
+            "sql": "UPDATE compat SET label = 'private' WHERE id = 1",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": 1,
+              "status": "UPDATE 1"
+            }
+          },
+          {
+            "sql": "SELECT label FROM compat WHERE id = 1",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  "private"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          },
+          {
+            "sql": "ROLLBACK",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": -1,
+              "status": "ROLLBACK"
+            }
+          },
+          {
+            "sql": "SELECT label FROM compat WHERE id = 1",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  "one"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "BEGIN",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": -1,
+              "status": "BEGIN"
+            }
+          },
+          {
+            "sql": "UPDATE compat SET label = 'private' WHERE id = 1",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": 1,
+              "status": "UPDATE 1"
+            }
+          },
+          {
+            "sql": "SELECT label FROM compat WHERE id = 1",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  "private"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          },
+          {
+            "sql": "ROLLBACK",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": -1,
+              "status": "ROLLBACK"
+            }
+          },
+          {
+            "sql": "SELECT label FROM compat WHERE id = 1",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  "one"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "failed_transaction",
+      "feature": "failed transaction SQLSTATE 25P02",
+      "match": true,
+      "differences": [],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "BEGIN",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": -1,
+              "status": "BEGIN"
+            }
+          },
+          {
+            "sql": "SELECT missing FROM compat",
+            "outcome": {
+              "sqlstate": "42703",
+              "error_class": "UndefinedColumn",
+              "message": "column \"missing\" does not exist"
+            }
+          },
+          {
+            "sql": "SELECT label FROM compat",
+            "outcome": {
+              "sqlstate": "25P02",
+              "error_class": "InFailedSqlTransaction",
+              "message": "current transaction is aborted, commands ignored until end of transaction block"
+            }
+          },
+          {
+            "sql": "ROLLBACK",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": -1,
+              "status": "ROLLBACK"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "BEGIN",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": -1,
+              "status": "BEGIN"
+            }
+          },
+          {
+            "sql": "SELECT missing FROM compat",
+            "outcome": {
+              "sqlstate": "42703",
+              "error_class": "UndefinedColumn",
+              "message": "ColumnNotFound"
+            }
+          },
+          {
+            "sql": "SELECT label FROM compat",
+            "outcome": {
+              "sqlstate": "25P02",
+              "error_class": "InFailedSqlTransaction",
+              "message": "TransactionFailed"
+            }
+          },
+          {
+            "sql": "ROLLBACK",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": -1,
+              "status": "ROLLBACK"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "savepoint",
+      "feature": "SAVEPOINT and ROLLBACK TO",
+      "match": false,
+      "differences": [
+        {
+          "path": "/events/length",
+          "postgres": 6,
+          "ramsql": 2
+        },
+        {
+          "path": "/events/1/outcome/sqlstate",
+          "postgres": "00000",
+          "ramsql": "0A000"
+        }
+      ],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "BEGIN",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": -1,
+              "status": "BEGIN"
+            }
+          },
+          {
+            "sql": "SAVEPOINT item",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": -1,
+              "status": "SAVEPOINT"
+            }
+          },
+          {
+            "sql": "UPDATE compat SET label = 'temporary' WHERE id = 1",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": 1,
+              "status": "UPDATE 1"
+            }
+          },
+          {
+            "sql": "ROLLBACK TO SAVEPOINT item",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": -1,
+              "status": "ROLLBACK"
+            }
+          },
+          {
+            "sql": "SELECT label FROM compat WHERE id = 1",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  "one"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          },
+          {
+            "sql": "COMMIT",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": -1,
+              "status": "COMMIT"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "BEGIN",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": -1,
+              "status": "BEGIN"
+            }
+          },
+          {
+            "sql": "SAVEPOINT item",
+            "outcome": {
+              "sqlstate": "0A000",
+              "error_class": "FeatureNotSupported",
+              "message": "UnsupportedStatement"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "copy",
+      "feature": "COPY FROM STDIN",
+      "match": false,
+      "differences": [
+        {
+          "path": "/events/0/outcome/sqlstate",
+          "postgres": "00000",
+          "ramsql": "0A000"
+        }
+      ],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "COPY compat (id, label) FROM STDIN",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  "copied"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "COPY compat (id, label) FROM STDIN",
+            "outcome": {
+              "sqlstate": "0A000",
+              "error_class": "FeatureNotSupported",
+              "message": "UnsupportedStatement"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "prepared",
+      "feature": "extended query parameters",
+      "match": true,
+      "differences": [],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT flag, label FROM compat WHERE id = %s",
+            "parameters": [
+              1
+            ],
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "flag",
+                  "oid": 16
+                },
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  true,
+                  "one"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          },
+          {
+            "sql": "SELECT flag, label FROM compat WHERE id = %s",
+            "parameters": [
+              3
+            ],
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "flag",
+                  "oid": 16
+                },
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  null,
+                  "three"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT flag, label FROM compat WHERE id = %s",
+            "parameters": [
+              1
+            ],
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "flag",
+                  "oid": 16
+                },
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  true,
+                  "one"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          },
+          {
+            "sql": "SELECT flag, label FROM compat WHERE id = %s",
+            "parameters": [
+              3
+            ],
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "flag",
+                  "oid": 16
+                },
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  null,
+                  "three"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "binary",
+      "feature": "binary result formats",
+      "match": true,
+      "differences": [],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT flag, label FROM compat WHERE id = %s",
+            "parameters": [
+              1
+            ],
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "flag",
+                  "oid": 16
+                },
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  true,
+                  "one"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          },
+          {
+            "sql": "SELECT flag, label FROM compat WHERE id = %s",
+            "parameters": [
+              3
+            ],
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "flag",
+                  "oid": 16
+                },
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  null,
+                  "three"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "SELECT flag, label FROM compat WHERE id = %s",
+            "parameters": [
+              1
+            ],
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "flag",
+                  "oid": 16
+                },
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  true,
+                  "one"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          },
+          {
+            "sql": "SELECT flag, label FROM compat WHERE id = %s",
+            "parameters": [
+              3
+            ],
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "flag",
+                  "oid": 16
+                },
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  null,
+                  "three"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "read_committed",
+      "feature": "default READ COMMITTED statement snapshots",
+      "match": false,
+      "differences": [
+        {
+          "path": "/events/3/outcome/rows/0/0",
+          "postgres": "visible",
+          "ramsql": "one"
+        }
+      ],
+      "postgres": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "BEGIN",
+            "actor": "reader",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": -1,
+              "status": "BEGIN"
+            }
+          },
+          {
+            "sql": "SELECT label FROM compat WHERE id = 1",
+            "actor": "reader",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  "one"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          },
+          {
+            "sql": "UPDATE compat SET label = 'visible' WHERE id = 1",
+            "actor": "writer",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": 1,
+              "status": "UPDATE 1"
+            }
+          },
+          {
+            "sql": "SELECT label FROM compat WHERE id = 1",
+            "actor": "reader",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  "visible"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          },
+          {
+            "sql": "COMMIT",
+            "actor": "reader",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": -1,
+              "status": "COMMIT"
+            }
+          }
+        ]
+      },
+      "ramsql": {
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "BEGIN",
+            "actor": "reader",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": -1,
+              "status": "BEGIN"
+            }
+          },
+          {
+            "sql": "SELECT label FROM compat WHERE id = 1",
+            "actor": "reader",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  "one"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          },
+          {
+            "sql": "UPDATE compat SET label = 'visible' WHERE id = 1",
+            "actor": "writer",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": 1,
+              "status": "UPDATE 1"
+            }
+          },
+          {
+            "sql": "SELECT label FROM compat WHERE id = 1",
+            "actor": "reader",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  "one"
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          },
+          {
+            "sql": "COMMIT",
+            "actor": "reader",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": -1,
+              "status": "COMMIT"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "reference": {
+    "image_requested": "postgres:18-alpine",
+    "image_id": "sha256:4da1a4828be12604092fa55311276f08f9224a74a62dcb4708bd7439e2a03911",
+    "image_digests": [
+      "postgres@sha256:4da1a4828be12604092fa55311276f08f9224a74a62dcb4708bd7439e2a03911"
+    ],
+    "platform": "linux/amd64",
+    "server_version": "PostgreSQL 18.3 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+    "server_version_num": "180003"
+  },
+  "summary": {
+    "probes": 37,
+    "matching": 12,
+    "mismatching": 25,
+    "drop_in_gate_passed": false
+  },
+  "finished_utc": "2026-10-22T05:51:45.917408+00:00"
+}

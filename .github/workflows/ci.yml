@@ -73,10 +73,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Sig compiler did not start" }
 
       - name: Build RAMSQL
-        run: '& $env:SIG build'
+        run: '& $env:SIG build -Doptimize=ReleaseSafe'
 
       - name: Test allocator-free database and library
-        run: '& $env:SIG build test'
+        run: '& $env:SIG build test -Doptimize=ReleaseSafe'
 
       - name: Run demonstration
         run: |
@@ -94,6 +94,12 @@ jobs:
 
       - name: Test PostgreSQL, MySQL and SQL Server clients
         run: python tools/test_clients.py
+
+      - name: Test SCRAM authentication with independent clients
+        run: python tools/test_auth.py
+
+      - name: Test durable commits, process crashes, corruption and offline restore
+        run: python tools/test_persistence.py
 
       - name: Build and run native performance smoke benchmark
         run: '& $env:SIG build benchmark -Doptimize=ReleaseFast'

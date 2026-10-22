@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "target": "More efficient, production PostgreSQL drop-in replacement; MySQL/TDS compatibility also requested",
+  "release_allowed": false,
+  "gates": [
+    {
+      "id": "postgres_compatibility",
+      "status": "failed",
+      "evidence": "compatibility/postgres-report.json",
+      "requirement": "Native PostgreSQL SQL, type/OID, catalog, protocol, transaction and tooling behavior; upstream regression and real application suites"
+    },
+    {
+      "id": "implemented_subset_durability",
+      "status": "passed",
+      "evidence": "tests/persistence.sig and tools/test_persistence.py",
+      "requirement": "Synchronous commit-before-ack; crash recovery; exclusive writer; failed-storage guards"
+    },
+    {
+      "id": "authentication",
+      "status": "partial",
+      "evidence": "tools/test_auth.py",
+      "requirement": "PostgreSQL SCRAM implemented; role authorization and MySQL/TDS credentials missing"
+    },
+    {
+      "id": "transport_security",
+      "status": "failed",
+      "evidence": "tools/test_auth.py reports tls_supported=false",
+      "requirement": "Native TLS and channel binding with authenticated transport tests"
+    },
+    {
+      "id": "capacity_concurrency",
+      "status": "failed",
+      "evidence": "src/server.sig and src/db/store.sig",
+      "requirement": "PostgreSQL-scale data/connections and default READ COMMITTED; bounded page storage/streamed results; concurrent write progress"
+    },
+    {
+      "id": "backup_restore",
+      "status": "partial",
+      "evidence": "src/backup.sig and tools/test_persistence.py",
+      "requirement": "Offline whole-WAL copy implemented; online backup, checkpointing, WAL compaction and upgrade migrations missing"
+    },
+    {
+      "id": "matched_performance",
+      "status": "unproven",
+      "evidence": "benchmarks/postgres-comparison.json",
+      "requirement": "Efficiency improvement with equivalent supported semantics, durability, storage and representative workloads"
+    },
+    {
+      "id": "operations",
+      "status": "failed",
+      "evidence": "compatibility/RELEASE.md",
+      "requirement": "Monitoring, cancellation, roles, schema/data migration and tested operational recovery; full supported-platform release matrix"
+    },
+    {
+      "id": "storage_power_failure",
+      "status": "unverified",
+      "evidence": "tools/test_persistence.py tests process termination and injected I/O failures",
+      "requirement": "Power-loss and filesystem/device fault validation on supported deployment storage"
+    }
+  ]
+}

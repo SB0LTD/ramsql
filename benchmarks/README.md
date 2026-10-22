@@ -1,4 +1,23 @@
-# Local benchmark baseline
+# Benchmarks
+
+## Durable comparison with native PostgreSQL
+
+[Durable measurements](postgres-comparison.json) compare the selected shared SQL
+subset using identical psycopg simple queries, 512 rows, synchronous commits,
+1/4 clients and three trials. Individual request p50/p95/p99 timings, correctness
+checks, durability settings and binary/source provenance are recorded.
+
+The reference PostgreSQL runs inside Docker Linux; RAMSQL runs as a native Windows
+process. Storage, VM and networking costs differ. These results do not establish
+PostgreSQL drop-in performance: the compatibility gate still fails, and several
+four-client write measurements favor PostgreSQL.
+
+```sh
+sig build -Doptimize=ReleaseFast
+python tools/benchmark_postgres.py
+```
+
+## Historical in-memory baseline (0.2.0)
 
 Measured with Sig 0.6.3 / ReleaseFast on Intel(R) Core(TM) i9-14900HX, Windows, using a 512-row fixed-capacity table. Each wire configuration ran 3 trials of 10,000 checked queries after warmup. Native cases use 50,000 point SELECTs or 5,000 scans/updates per trial.
 

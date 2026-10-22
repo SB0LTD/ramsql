@@ -1,17 +1,17 @@
 .{
     .name = .@"ramsql",
-    .version = "0.2.0",
+    .version = "0.3.0-dev.1",
     .fingerprint = 0x0,
     .dependencies = .{
         .zpm = .{
-            .url = "https://github.com/SB0LTD/zpm/archive/7032c4f64bcc6283a643dd18bfcbbb20a3072ef7.tar.gz",
-            .hash = "b929bd4e9e6d3bc2b5fa67ccd7d234906d2437196c893aecb1c9c703d1d15fa1",
+            .url = "https://github.com/SB0LTD/zpm/archive/2b70acb4c817c1121f0c0275335bc5509629dc92.tar.gz",
+            .hash = "c96c00db1ce6f4a3581247f2c208ecd4fb4895422c692987627f55acc18afbed",
         },
     },
     .paths = .{
         "build.sig",
         "build.sig.zon",
         "src",
-        "zpm.pkg.zon", "tests", "examples", "README.md", "LICENSE", "AGENTS.md", "tools",
+        "zpm.pkg.zon", "tests", "examples", "README.md", "LICENSE", "AGENTS.md", "tools", "compatibility", "benchmarks",
     },
 }

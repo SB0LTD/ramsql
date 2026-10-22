@@ -137,6 +137,12 @@ fn run(init: std.process.Init.Minimal) !u8 {
     var args = process.Argv_Iterator.init(init.args.vector, &args_buf);
     _ = try args.next();
     var options: server.Options = .{};
+    var data_buffer: [4096]u8 = undefined;
+    var verifier_buffer: [4096]u8 = undefined;
+    var user_buffer: [64]u8 = undefined;
+    var backup_buffer: [4096]u8 = undefined;
+    var backup_target: ?[]const u8 = null;
+    var data_set = false;
     var mode: enum { serve, demo, input, help, version } = .serve;
     var explicit_mode = false;
     var has_server_options = false;
@@ -145,12 +151,40 @@ fn run(init: std.process.Init.Minimal) !u8 {
             if (explicit_mode) return error.UnknownArgument;
             explicit_mode = true;
             mode = if (same(arg, "--serve")) .serve else if (same(arg, "--demo")) .demo else if (same(arg, "--stdin")) .input else if (same(arg, "--help")) .help else .version;
+        } else if (same(arg, "--memory")) {
+            if (data_set) return error.InvalidServerOptions;
+            options.memory = true;
+            has_server_options = true;
+        } else if (same(arg, "--insecure-local")) {
+            options.insecure_local = true;
+            has_server_options = true;
         } else {
-            const option: enum { protocol, port, mysql_port, mssql_port, max_clients, idle_ms } =
-                if (same(arg, "--protocol")) .protocol else if (same(arg, "--port")) .port else if (same(arg, "--mysql-port")) .mysql_port else if (same(arg, "--mssql-port")) .mssql_port else if (same(arg, "--max-clients")) .max_clients else if (same(arg, "--idle-ms")) .idle_ms else return error.UnknownArgument;
+            const option: enum { protocol, port, mysql_port, mssql_port, max_clients, idle_ms, data, verifier_file, auth_user, backup_to } =
+                if (same(arg, "--protocol")) .protocol else if (same(arg, "--port")) .port else if (same(arg, "--mysql-port")) .mysql_port else if (same(arg, "--mssql-port")) .mssql_port else if (same(arg, "--max-clients")) .max_clients else if (same(arg, "--idle-ms")) .idle_ms else if (same(arg, "--data")) .data else if (same(arg, "--auth-verifier-file")) .verifier_file else if (same(arg, "--auth-user")) .auth_user else if (same(arg, "--backup-to")) .backup_to else return error.UnknownArgument;
             const value = try args.next() orelse return error.UnknownArgument;
             has_server_options = true;
             switch (option) {
+                .backup_to => {
+                    if (value.len == 0 or value.len > backup_buffer.len or backup_target != null) return error.InvalidServerOptions;
+                    @memcpy(backup_buffer[0..value.len], value);
+                    backup_target = backup_buffer[0..value.len];
+                },
+                .data => {
+                    if (options.memory or value.len == 0 or value.len > data_buffer.len) return error.InvalidServerOptions;
+                    @memcpy(data_buffer[0..value.len], value);
+                    options.data = data_buffer[0..value.len];
+                    data_set = true;
+                },
+                .verifier_file => {
+                    if (value.len == 0 or value.len > verifier_buffer.len) return error.InvalidServerOptions;
+                    @memcpy(verifier_buffer[0..value.len], value);
+                    options.auth_verifier_file = verifier_buffer[0..value.len];
+                },
+                .auth_user => {
+                    if (value.len == 0 or value.len > user_buffer.len) return error.InvalidServerOptions;
+                    @memcpy(user_buffer[0..value.len], value);
+                    options.auth_user = user_buffer[0..value.len];
+                },
                 .protocol => options.protocol = if (same(value, "postgres")) .postgres else if (same(value, "mysql")) .mysql else if (same(value, "mssql")) .mssql else return error.UnknownArgument,
                 .port => options.port = try fmt.parseInt(u16, value, 10),
                 .mysql_port => options.mysql_port = try fmt.parseInt(u16, value, 10),
@@ -161,8 +195,14 @@ fn run(init: std.process.Init.Minimal) !u8 {
         }
     }
     if (has_server_options and mode != .serve) return error.UnknownArgument;
+    if (backup_target) |target| {
+        if (mode != .serve or options.memory) return error.InvalidServerOptions;
+        try server.backup(options, target);
+        try write("RAMSQL backup complete\n");
+        return 0;
+    }
     switch (mode) {
-        .help => try write("ramsql 0.2.0\nUsage: ramsql [--serve|--demo|--stdin|--version|--help]\nServer: --protocol postgres|mysql|mssql --port N --mysql-port N --mssql-port N\n        --max-clients N (1..16) --idle-ms N; default loopback PostgreSQL:5432\n--stdin: one SQL statement per line. --demo: run the example and exit.\n"),
+        .help => try write("ramsql development\nUsage: ramsql [--serve|--demo|--stdin|--version|--help]\nServer: --protocol postgres|mysql|mssql --port N --mysql-port N --mssql-port N\n        --max-clients N --idle-ms N; default loopback PostgreSQL:5432\nStorage: --data WAL_PATH (default ramsql.wal) | --memory\nBackup: --data EXISTING_WAL --backup-to NEW_PATH (offline)\nAuth: --auth-user USER --auth-verifier-file PATH (PostgreSQL SCRAM verifier)\n      --insecure-local explicitly enables unauthenticated loopback testing\n--stdin: one SQL statement per line. --demo: run the example and exit.\n"),
         .version => try write("ramsql " ++ ram.version ++ "\n"),
         .input => return if (try stdin()) 1 else 0,
         .demo => try demo(),

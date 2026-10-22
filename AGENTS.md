@@ -17,8 +17,13 @@ RAMSQL is a pure Sig, allocator-free in-memory database server and library.
   and capacity limits documented. Do not imply full SQL-standard compatibility.
 - Validate with `sig build`, `sig build test`, `sig build run`,
   `python tools/test_cli.py`, `python tools/test_server.py`, and
-  `python tools/test_clients.py`. Default run starts a PostgreSQL server; use
+  `python tools/test_clients.py`, `python tools/test_auth.py`, and
+  `python tools/test_persistence.py`. Default run requires PostgreSQL SCRAM credentials and durable WAL; use
   `ramsql --demo` for a terminating example. Tests must execute assertions.
+- Preserve flush-before-publication, exclusive writer locking and fail-closed
+  recovery. Offline backups validate existing source data and never overwrite
+  destinations. Scratch database workspaces are uninitialized reserved storage;
+  every read must follow a complete committed-state copy.
 - Verify protocol changes with independent clients; wire framing compatibility
   does not imply complete SQL dialect, catalog, authentication or extension support.
 - Benchmark ReleaseFast with correctness checks and recorded environment. Report
