@@ -463,8 +463,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          remote="$(git ls-remote --tags origin "refs/tags/$RELEASE_TAG" "refs/tags/$RELEASE_TAG^{}")"
+          if [[ -z "$remote" ]]; then
+            git tag "$RELEASE_TAG" "$SOURCE_REVISION"
+            git push origin "refs/tags/$RELEASE_TAG"
+          fi
+          git fetch --no-tags origin "refs/tags/$RELEASE_TAG"
+          actual="$(git rev-parse 'FETCH_HEAD^{commit}')"
+          if [[ "$actual" != "$SOURCE_REVISION" ]]; then
+            echo '::error::Remote release tag does not resolve to the validated source revision.'
+            exit 1
+          fi
           args=()
           if [[ "$IS_PRERELEASE" == "true" ]]; then args+=(--prerelease --latest=false); fi
           gh release create "$RELEASE_TAG" dist/* --repo "$GITHUB_REPOSITORY" \
-            --target "$SOURCE_REVISION" --title "RAMSQL $RELEASE_TAG" \
+            --target "$SOURCE_REVISION" --verify-tag --title "RAMSQL $RELEASE_TAG" \
             --notes-file compatibility/RELEASE.md "${args[@]}"

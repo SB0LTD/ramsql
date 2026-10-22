@@ -77,7 +77,7 @@ def main():
     options = cache / "options.sig"
     options.write_text(f"pub const kernel = {'true' if args.format == 'sb0k' else 'false'};\n", encoding="utf-8")
     command = [args.sig, "build-exe", "-target", "aarch64-sb0", "-mcpu=baseline", "-O" + args.optimize,
-               "--stack", "8388608", "-fno-stack-check", "-fno-stack-protector", "-fno-unwind-tables", "-fstrip", "-ffunction-sections"]
+               "--stack", "16777216", "-fno-stack-check", "-fno-stack-protector", "-fno-unwind-tables", "-fstrip", "-ffunction-sections"]
     if args.sig_lib_dir:
         command += ["--Sig-lib-dir", str(args.sig_lib_dir.resolve())]
     if args.format == "sb0k":

@@ -8,8 +8,9 @@ const physical_bias: usize = 0x40000000;
 const l1_base: usize = 0x40100000;
 const l2_base: usize = 0x40101000;
 const l3_base: usize = 0x40102000;
-const stack_base: usize = 0x07000000;
+const stack_top: usize = 0x07800000;
 const handoff_base: usize = 0x07c00000;
+const vector_base: usize = 0x40190000;
 var saw_svc: u64 = 0;
 
 fn pointer(address: usize) [*]volatile u8 {
@@ -90,7 +91,7 @@ fn mapPage(virtual: usize, writable: bool, executable: bool) void {
     if (table(l3)[index] != 0) reject();
     // AF + inner-shareable Normal memory; AP grants EL0 RO or RW. PXN
     // prevents executing userspace through EL1; UXN protects data and stack.
-    var attributes: u64 = 0x703 | (@as(u64, 1) << 53);
+    var attributes: u64 = 0x707 | (@as(u64, 1) << 53);
     attributes |= if (writable) @as(u64, 0x40) else @as(u64, 0xc0);
     if (!executable) attributes |= @as(u64, 1) << 54;
     table(l3)[index] = (virtual + physical_bias) | attributes;
@@ -110,19 +111,42 @@ fn userBuffer(address: usize, length: usize, writable: bool) bool {
     return true;
 }
 
-export fn loaderFault(esr: u64, far: u64, elr: u64) callconv(.c) noreturn {
+fn initializeVectors() void {
+    // Fixed aligned vector slots avoid relying on compiler function placement.
+    // Each standard AArch64 stub preserves x16/x17, loads the absolute handler
+    // address, and branches. The synchronous handler restores them before its
+    // complete register save. Kernel RAM is inaccessible to EL0.
+    zero(vector_base, 2048);
+    var index: usize = 0;
+    while (index < 16) : (index += 1) {
+        const at = vector_base + index * 128;
+        write32(at, 0xa9bf47f0); // stp x16,x17,[sp,#-16]!
+        write32(at + 4, 0x58000070); // ldr x16, literal at +16
+        write32(at + 8, 0xd61f0200); // br x16
+        write32(at + 12, 0xd503201f); // nop (align 64-bit literal)
+        write64(at + 16, if (index == 8) @intFromPtr(&loaderSync) else @intFromPtr(&loaderFaultAsm));
+    }
+}
+
+export fn loaderFault(esr: u64, far: u64, elr: u64, user_sp: u64, user_fp: u64, user_lr: u64) callconv(.c) noreturn {
     print("SB0-ABI-LOADER-FAULT esr=");
     hexadecimal(esr);
     print(" far=");
     hexadecimal(far);
     print(" elr=");
     hexadecimal(elr);
+    print(" sp=");
+    hexadecimal(user_sp);
+    print(" fp=");
+    hexadecimal(user_fp);
+    print(" lr=");
+    hexadecimal(user_lr);
     print("\n");
     park();
 }
 
 export fn loaderTrap(frame: [*]u64, esr: u64) callconv(.c) void {
-    if (esr >> 26 != 0x15 or esr & 65535 != 0 or frame[33] & 15 != 0) loaderFault(esr, 0, frame[32]);
+    if (esr >> 26 != 0x15 or esr & 65535 != 0 or frame[33] & 15 != 0) loaderFault(esr, 0, frame[32], frame[31], frame[29], frame[30]);
     if (saw_svc == 0) {
         saw_svc = 1;
         print("SB0-ABI-LOADER-SVC-EL0\n");
@@ -172,6 +196,7 @@ extern fn loaderEnter(u64, u64, u64, u64) callconv(.c) noreturn;
 
 export fn loaderMain() callconv(.c) noreturn {
     saw_svc = 0;
+    initializeVectors();
     print("SB0-ABI-LOADER-START public single-process conformance fixture\n");
     const length: usize = table(0x47e00000)[0];
     if (length < 64 or length > 0x1000000 or read32(0) != 0x58304253 or pointer(source_base)[4] != 1 or pointer(source_base)[5] != 0 or read16(6) != 1) reject();
@@ -179,7 +204,8 @@ export fn loaderMain() callconv(.c) noreturn {
     const image_size = read64(32);
     const stack_size = read64(40);
     const entry = read64(8);
-    if (segments == 0 or segments > 8 or 64 + segments * 40 > length or image_size == 0 or image_size > 0x4000000 or stack_size < 4096 or stack_size > 0x800000 or stack_size & 4095 != 0) reject();
+    if (segments == 0 or segments > 8 or 64 + segments * 40 > length or image_size == 0 or image_size > 0x4000000 or stack_size < 4096 or stack_size > 0x1000000 or stack_size & 4095 != 0) reject();
+    const stack_base = stack_top - stack_size;
     if (read16(18) != 0 or read32(20) != 0 or read32(24) != 0 or read32(28) != 0 or read64(48) != 0 or read64(56) != 0) reject();
     var executable_entry = false;
     var index: usize = 0;
@@ -289,55 +315,13 @@ export fn _start() callconv(.naked) noreturn {
         \\1: mov sp, x9
         \\ movz x10, #0x30, lsl #16
         \\ msr cpacr_el1, x10
-        \\ adrp x10, %[vectors]
-        \\ add x10, x10, :lo12:%[vectors]
+        \\ movz x10, #0x4019, lsl #16
         \\ msr vbar_el1, x10
         \\ isb
         \\ bl %[main]
         \\ b .
         :
-        : [vectors] "S" (&loaderVectors),
-          [main] "S" (&loaderMain),
-        : .{ .memory = true });
-}
-
-export fn loaderVectors() align(2048) callconv(.naked) noreturn {
-    asm volatile (
-        \\ b %[fault]
-        \\ .balign 128
-        \\ b %[fault]
-        \\ .balign 128
-        \\ b %[fault]
-        \\ .balign 128
-        \\ b %[fault]
-        \\ .balign 128
-        \\ b %[fault]
-        \\ .balign 128
-        \\ b %[fault]
-        \\ .balign 128
-        \\ b %[fault]
-        \\ .balign 128
-        \\ b %[fault]
-        \\ .balign 128
-        \\ b %[sync]
-        \\ .balign 128
-        \\ b %[fault]
-        \\ .balign 128
-        \\ b %[fault]
-        \\ .balign 128
-        \\ b %[fault]
-        \\ .balign 128
-        \\ b %[fault]
-        \\ .balign 128
-        \\ b %[fault]
-        \\ .balign 128
-        \\ b %[fault]
-        \\ .balign 128
-        \\ b %[fault]
-        \\ .balign 2048
-        :
-        : [fault] "S" (&loaderFaultAsm),
-          [sync] "S" (&loaderSync),
+        : [main] "S" (&loaderMain),
         : .{ .memory = true });
 }
 
@@ -346,6 +330,9 @@ export fn loaderFaultAsm() callconv(.naked) noreturn {
         \\ mrs x0, esr_el1
         \\ mrs x1, far_el1
         \\ mrs x2, S3_0_C4_C0_1
+        \\ mrs x3, S3_0_C4_C1_0
+        \\ mov x4, x29
+        \\ mov x5, x30
         \\ b %[fault]
         :
         : [fault] "S" (&loaderFault),
@@ -354,6 +341,7 @@ export fn loaderFaultAsm() callconv(.naked) noreturn {
 
 export fn loaderSync() callconv(.naked) noreturn {
     asm volatile (
+        \\ ldp x16, x17, [sp], #16
         \\ sub sp, sp, #784
         \\ stp x0, x1, [sp, #0]
         \\ stp x2, x3, [sp, #16]

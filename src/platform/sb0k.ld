@@ -22,6 +22,6 @@ SECTIONS
     . = ALIGN(16); __bss_end = .;
   }
   /* SQL table construction/metadata uses bounded nested automatic storage. */
-  .stack (NOLOAD) : ALIGN(16) { . += 0x800000; __stack_top = .; }
+  .stack (NOLOAD) : ALIGN(16) { . += 0x1000000; __stack_top = .; }
   /DISCARD/ : { *(.comment .note .note.* .eh_frame .eh_frame_hdr) }
 }

@@ -137,7 +137,10 @@ class Guest:
         for _ in range(4096):
             header = self.exact(5)
             length = struct.unpack("!I", header[1:])[0]
-            self.proof.check(4 <= length <= 2 * 1024 * 1024, "invalid native PostgreSQL frame length")
+            if not 4 <= length <= 2 * 1024 * 1024 and header.startswith(b"SB0-"):
+                self.until(b"\n", seconds=2)  # collect complete kernel fault diagnostic
+            self.proof.check(4 <= length <= 2 * 1024 * 1024,
+                             f"invalid native PostgreSQL frame length: {header!r}; transcript tail={bytes(self.transcript[-1000:])!r}")
             body = self.exact(length - 4)
             frames.append((header[:1], body))
             if header[:1] == b"Z":

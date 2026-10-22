@@ -19,7 +19,7 @@ import struct
 import tarfile
 import zipfile
 
-from release_matrix import ROOT, SIG_ASSET, SIG_SHA256, SIG_TAG, TARGETS, source_version, target
+from release_matrix import ROOT, SIG_ASSET, SIG_SHA256, SIG_TAG, TARGETS, NATIVE_SIG_REVISION, source_version, target
 
 HOSTED_RUNTIME_TESTS = ["tools/test_cli.py", "tools/test_server.py", "tools/test_clients.py",
                         "tools/test_auth.py", "tools/test_persistence.py"]
@@ -108,6 +108,8 @@ def validate_toolchain(provenance: dict, entry: dict) -> None:
     if entry["kind"] != "native-sb0" or provenance.get("kind") != "source-build":
         raise ValueError("only native SB0 artifacts may use the pinned source-built compiler")
     revision = provenance.get("source_revision", "")
+    if revision != NATIVE_SIG_REVISION:
+        raise ValueError("source-built compiler differs from the pinned native Sig revision")
     if (provenance.get("schema") != 1 or provenance.get("source_repository") != "https://github.com/SB0LTD/sig"
             or not re.fullmatch(r"[0-9a-f]{40}", revision)
             or provenance.get("library_revision") != revision

@@ -172,7 +172,7 @@ class ReleaseContracts(unittest.TestCase):
         native = matrix.target("aarch64-sb0-sb0x")
         provenance = {"schema": 1, "kind": "source-build",
                       "source_repository": "https://github.com/SB0LTD/sig",
-                      "source_revision": "a" * 40, "library_revision": "a" * 40,
+                      "source_revision": matrix.NATIVE_SIG_REVISION, "library_revision": matrix.NATIVE_SIG_REVISION,
                       "compiler_sha256": "b" * 64, "compiler_version": "unit-test fixture",
                       "bootstrap": package.published_toolchain()}
         package.validate_toolchain(provenance, native)
@@ -180,6 +180,10 @@ class ReleaseContracts(unittest.TestCase):
             package.validate_toolchain(provenance, matrix.target("x86_64-linux"))
         provenance["library_revision"] = "c" * 40
         with self.assertRaisesRegex(ValueError, "exact source"):
+            package.validate_toolchain(provenance, native)
+        provenance["library_revision"] = "f" * 40
+        provenance["source_revision"] = "f" * 40
+        with self.assertRaisesRegex(ValueError, "pinned native"):
             package.validate_toolchain(provenance, native)
 
 
