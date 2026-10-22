@@ -4,6 +4,7 @@ import argparse
 import os
 from pathlib import Path
 import subprocess
+from release_matrix import source_version
 
 
 def main():
@@ -29,7 +30,7 @@ def main():
         expected = (status, stdout, stderr)
         assert actual == expected, f"{label}: expected {expected!r}, got {actual!r}"
 
-    expect("version", run(["--version"]), stdout=b"ramsql 0.3.0-dev.1\n")
+    expect("version", run(["--version"]), stdout=("ramsql " + source_version() + "\n").encode())
     help_result = run(["--help"])
     assert help_result.returncode == 0 and not help_result.stderr, help_result
     assert b"ramsql" in help_result.stdout and b"--stdin" in help_result.stdout

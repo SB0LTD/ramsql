@@ -44,7 +44,7 @@ def main():
     with running_server(args.binary.resolve()) as ports:
         pg = psycopg.connect(host='127.0.0.1',port=ports['postgres'],user='ramsql',dbname='ramsql',password='',sslmode='disable',autocommit=True,connect_timeout=5)
         with pg.cursor() as cur:
-            cur.execute('CREATE TABLE clients (id INTEGER PRIMARY KEY, active BOOLEAN, label TEXT)')
+            cur.execute('CREATE TABLE clients (id BIGINT PRIMARY KEY, active BOOLEAN, label TEXT)')
             cur.execute('INSERT INTO clients VALUES (%s, %s, %s)',(1,True,'0123'),prepare=True)
             cur.execute('SELECT id, active, label FROM clients WHERE id = %s',(1,),prepare=True)
             assert cur.fetchone()==(1,True,'0123')
@@ -104,6 +104,28 @@ def main():
             cur.execute("INSERT INTO clients VALUES (-9223372036854775808, TRUE, 'שלום')")
             cur.execute('SELECT id, active, label FROM clients WHERE id = -9223372036854775808')
             assert cur.fetchone()==(-9223372036854775808,True,'שלום')
+            cur.execute('CREATE TABLE widths (small INTEGER PRIMARY KEY, wide BIGINT)')
+            cur.execute('INSERT INTO widths VALUES (%s, %s)', (-2147483648, -9223372036854775808), prepare=True)
+            cur.execute('INSERT INTO widths VALUES (%s, %s)', (2147483647, 9223372036854775807), prepare=True)
+            for value in (-2147483649, 2147483648):
+                try:
+                    cur.execute('INSERT INTO widths VALUES (%s, 0)', (value,))
+                except psycopg.errors.NumericValueOutOfRange as error:
+                    assert error.sqlstate == '22003'
+                else:
+                    raise AssertionError('INTEGER overflow accepted')
+        expected = [(-2147483648, -9223372036854775808), (2147483647, 9223372036854775807)]
+        with pg.cursor(binary=True) as cur:
+            cur.execute('SELECT small, wide FROM widths ORDER BY small')
+            assert [column.type_code for column in cur.description] == [23, 20]
+            assert cur.fetchall() == expected
+        with mysql.cursor() as cur:
+            cur.execute('SELECT small, wide FROM widths ORDER BY small')
+            assert [column[1] for column in cur.description] == [3, 8]
+            assert list(cur.fetchall()) == expected
+        with tds.cursor() as cur:
+            cur.execute('SELECT small, wide FROM widths ORDER BY small')
+            assert cur.fetchall() == expected
         for connection in (tds,mysql,pg): connection.close()
     print('PASS independent clients: psycopg, PyMySQL, python-tds; shared store, prepared/binary PG, transactions and types')
 

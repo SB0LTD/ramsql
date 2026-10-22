@@ -9,6 +9,9 @@ const batches = @import("db_store");
 pub fn Persistence(comptime Raw: type, comptime Store: type) type {
     return struct {
         const Self = @This();
+        // Framing v1, payload kind 2 identifies PostgreSQL 32-bit INTEGER.
+        // Refuse legacy development logs instead of silently reinterpreting SQL.
+        const payload_kind: u16 = if (@hasDecl(Raw, "integer_type") and Raw.integer_type == .integer32) 2 else 1;
         file: disk.File = .{},
         store: ?*Store = null,
         workspace: ?*Raw = null,
@@ -46,7 +49,7 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
                 self.store = null;
                 self.workspace = null;
             }
-            const recovery = try log.recover(&self.file, recovery_buffer, self, Self.replay);
+            const recovery = try log.recoverKind(&self.file, recovery_buffer, self, Self.replay, payload_kind);
             self.sequence = recovery.sequence;
             store.generation = recovery.sequence;
             store.autocommit_workspace = workspace;
@@ -60,7 +63,7 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
         fn replay(self: *Self, sequence: u64, payload: []const u8) !void {
             const store = self.store orelse return error.PersistenceClosed;
             const workspace = self.workspace orelse return error.InvalidWorkspace;
-            workspace.* = store.database;
+            workspace.copyFrom(&store.database);
             var iterator: batches.BatchIterator = .{ .bytes = payload };
             var count: usize = 0;
             while (try iterator.next()) |statement| {
@@ -69,7 +72,7 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
             }
             if (count == 0) return error.InvalidCommitBatch;
             // Every statement and length frame passed before any batch publishes.
-            store.database = workspace.*;
+            store.database.copyFrom(workspace);
             self.sequence = sequence;
         }
 
@@ -84,7 +87,7 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
             var count: usize = 0;
             while (try iterator.next()) |_| count += 1;
             if (count == 0) return error.InvalidCommitBatch;
-            try log.append(&self.file, self.sequence + 1, payload);
+            try log.appendKind(&self.file, self.sequence + 1, payload, payload_kind);
             self.sequence += 1;
         }
 

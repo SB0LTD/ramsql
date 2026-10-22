@@ -294,7 +294,7 @@ def exercise(guest, kind, proof):
     extended = guest.response()
     proof.check(not any(tag == b"E" for tag, _ in extended), f"native extended query failed: {extended!r}")
     proof.check(any(tag == b"1" for tag, _ in extended) and any(tag == b"2" for tag, _ in extended), "missing native Parse/Bind completion")
-    expected_binary = struct.pack("!HIqI", 2, 8, 7, len(b"committed")) + b"committed"
+    expected_binary = struct.pack("!HIiI", 2, 4, 7, len(b"committed")) + b"committed"
     proof.check([body for tag, body in extended if tag == b"D"] == [expected_binary], "wrong native binary integer/text result")
     proof.tests.append("extended_Parse_Bind_Describe_Execute_binary")
     large_text = "native ' payload " + "x" * 100

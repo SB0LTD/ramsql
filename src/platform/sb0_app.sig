@@ -8,7 +8,7 @@ const postgres = @import("postgres");
 const streams = @import("stream_server");
 const native = @import("sb0_stream");
 const options = @import("sb0_options");
-const Raw = sql.Database(.{ .tables = 8, .columns = 8, .rows_per_table = 512, .name_bytes = 63, .text_bytes = 128 });
+const Raw = sql.Database(.{ .tables = 8, .columns = 8, .rows_per_table = 512, .name_bytes = 63, .text_bytes = 128, .nulls_first_ascending = false, .integer_bits = 32 });
 const Store = stores.Store(Raw);
 const Session = postgres.Session(Store.Connection);
 const Stream = streams.Server(Store.Connection, Session, 65536);

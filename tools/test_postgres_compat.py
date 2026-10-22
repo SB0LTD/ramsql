@@ -6,6 +6,8 @@ Passing these probes is necessary, but is not a proof of full PostgreSQL parity.
 The native reference uses a locally available Docker image, an OS-chosen loopback
 port and a generated password passed through the environment. The owned container
 and its anonymous volume are removed on exit; other containers are never touched.
+Alternatively, --postgres-bin owns an isolated native POSIX cluster under
+--work-dir, stops only its own process, and preserves its files for inspection.
 
     python tools/test_postgres_compat.py
     python tools/test_postgres_compat.py --legacy-cli  # previous 0.2 binary
@@ -26,6 +28,7 @@ import os
 from pathlib import Path
 import queue
 import re
+import socket
 import secrets
 import subprocess
 import sys
@@ -107,7 +110,71 @@ def docker(*arguments, env=None):
 
 
 @contextmanager
-def native_postgres(image, psycopg):
+def local_postgres(binary_directory, psycopg, work_directory):
+    """Own an isolated native cluster; preserve its files and stop only our PID.
+
+    Loopback trust matches the candidate's --insecure-local benchmark mode.
+    Never connect to or reconfigure an existing PostgreSQL installation.
+    """
+    if os.name != "posix" or os.geteuid() == 0:
+        raise RuntimeError("--postgres-bin requires a non-root POSIX user")
+    binary_directory = Path(binary_directory).resolve()
+    directory = Path(work_directory).resolve() / ("postgres-" + uuid.uuid4().hex)
+    directory.mkdir(parents=True)
+    data = directory / "data"
+    subprocess.run([str(binary_directory / "initdb"), "-D", str(data), "-U", "ramsql",
+                    "--auth=trust", "--encoding=UTF8", "--locale=C"],
+                   check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=60)
+    with socket.socket() as reservation:
+        reservation.bind(("127.0.0.1", 0))
+        port = reservation.getsockname()[1]
+    process = None
+    connection = dict(host="127.0.0.1", port=port, user="ramsql", dbname="postgres", password="",
+                      sslmode="disable", connect_timeout=3, autocommit=True,
+                      application_name="ramsql-postgres-compat", options="-c statement_timeout=4000")
+    with (directory / "server.log").open("wb") as log:
+        try:
+            process = subprocess.Popen([str(binary_directory / "postgres"), "-D", str(data),
+                                        "-c", "listen_addresses=127.0.0.1", "-c", f"port={port}",
+                                        "-c", "unix_socket_directories=", "-c", "fsync=on",
+                                        "-c", "synchronous_commit=on", "-c", "full_page_writes=on"],
+                                       stdout=log, stderr=log)
+            deadline = time.monotonic() + 30
+            while True:
+                if process.poll() is not None:
+                    raise RuntimeError("owned PostgreSQL exited; see " + str(directory / "server.log"))
+                try:
+                    with psycopg.connect(**connection) as reference:
+                        reference.execute("CREATE DATABASE ramsql")
+                        version = reference.execute("SELECT version()").fetchone()[0]
+                        version_number = reference.execute("SHOW server_version_num").fetchone()[0]
+                    break
+                except psycopg.OperationalError:
+                    if time.monotonic() >= deadline:
+                        raise RuntimeError("owned PostgreSQL startup timed out") from None
+                    time.sleep(0.1)
+            connection["dbname"] = "ramsql"
+            yield connection, {"deployment": "owned native process", "server_version": version,
+                               "server_version_num": version_number, "data_path": str(data),
+                               "postgres_binary": str(binary_directory / "postgres"),
+                               "postgres_sha256": hashlib.sha256((binary_directory / "postgres").read_bytes()).hexdigest(),
+                               "authentication": "loopback trust, isolated benchmark cluster"}
+        finally:
+            if process is not None and process.poll() is None:
+                process.send_signal(__import__("signal").SIGINT)  # PostgreSQL fast shutdown
+                try:
+                    process.wait(timeout=30)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=10)
+
+
+@contextmanager
+def native_postgres(image, psycopg, *, binary_directory=None, work_directory=None):
+    if binary_directory is not None:
+        with local_postgres(binary_directory, psycopg, work_directory) as reference:
+            yield reference
+        return
     info = json.loads(docker("image", "inspect", image))[0]
     name = "ramsql-pg-compat-" + uuid.uuid4().hex[:12]
     password = secrets.token_urlsafe(32)
@@ -153,7 +220,7 @@ def native_postgres(image, psycopg):
 
 
 @contextmanager
-def running_ramsql(binary, legacy_cli=False, extra_arguments=(), *, data_path=None):
+def running_ramsql(binary, legacy_cli=False, extra_arguments=(), *, data_path=None, startup_timeout=20):
     command = [str(binary), "--serve", "--port", "0"]
     if data_path is not None:
         command += ["--data", str(data_path), "--insecure-local"]
@@ -176,10 +243,13 @@ def running_ramsql(binary, legacy_cli=False, extra_arguments=(), *, data_path=No
     threading.Thread(target=read_output, daemon=True).start()
     threading.Thread(target=read_errors, daemon=True).start()
     try:
-        deadline = time.monotonic() + 20
+        deadline = time.monotonic() + startup_timeout
         port = None
         while port is None:
-            line = output.get(timeout=max(0.01, deadline - time.monotonic()))
+            try:
+                line = output.get(timeout=max(0.01, deadline - time.monotonic()))
+            except queue.Empty:
+                raise RuntimeError(f"RAMSQL startup/recovery exceeded {startup_timeout}s: " + "; ".join(errors)) from None
             if line is None:
                 raise RuntimeError("RAMSQL exited before startup: " + "; ".join(errors))
             match = re.fullmatch(r"RAMSQL postgres 127\.0\.0\.1:(\d+)\s*", line)
@@ -331,6 +401,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, default=ROOT / "sig-out" / "bin" / ("ramsql.exe" if os.name == "nt" else "ramsql"))
     parser.add_argument("--image", default="postgres:18-alpine", help="locally available immutable reference image (no automatic pull)")
+    parser.add_argument("--postgres-bin", type=Path, help="use an owned isolated native PostgreSQL installation instead of Docker")
+    parser.add_argument("--work-dir", type=Path, default=ROOT / ".sig-cache" / "postgres-compat")
     parser.add_argument("--report", type=Path, default=ROOT / "compatibility" / "postgres-report.json")
     parser.add_argument("--legacy-cli", action="store_true", help="run a pre-secure-default 0.2 binary for baseline discovery")
     parser.add_argument("--ramsql-arg", action="append", default=[], help="extra RAMSQL argument; use --ramsql-arg=--flag")
@@ -348,7 +420,7 @@ def main():
               "ramsql_legacy_cli": args.legacy_cli,
               "client": {"name": "psycopg", "version": psycopg.__version__}, "probes": []}
     try:
-        with native_postgres(args.image, psycopg) as (native, metadata):
+        with native_postgres(args.image, psycopg, binary_directory=args.postgres_bin, work_directory=args.work_dir) as (native, metadata):
             report["reference"] = metadata
             with running_ramsql(args.binary.resolve(), args.legacy_cli, args.ramsql_arg) as candidate:
                 for case in CASES:

@@ -7,7 +7,7 @@ listeners use the same bounded database.
 **Development version. Production PostgreSQL drop-in compatibility is a release
 requirement and is currently blocked.** See [release gates](compatibility/RELEASE.md)
 and the [native PostgreSQL differential report](compatibility/postgres-report.json).
-The implemented subset has synchronous persistence and PostgreSQL SCRAM authentication;
+The `0.3.0-alpha.1` subset has synchronous persistence and PostgreSQL SCRAM authentication;
 it does not provide complete PostgreSQL behavior.
 
 ## Run
@@ -96,16 +96,20 @@ for sp_executesql; other procedures and parameter types are rejected.
 ## SQL and transactions
 
 CREATE/DROP TABLE; single-row INSERT with optional columns; SELECT projection
-or `*`; UPDATE literal assignments; DELETE. Types are signed 64-bit INTEGER,
+or `*`; UPDATE literal assignments; DELETE. Server/default CLI types are signed
+32-bit INTEGER/INT, signed 64-bit BIGINT/INT8,
 BOOLEAN and TEXT, plus NULL. NOT NULL and one single-column PRIMARY KEY are
 supported. WHERE supports typed comparisons, bounded AND conjunctions and
-IS [NOT] NULL. SELECT supports one ORDER BY column and LIMIT. Names are ASCII
+IS [NOT] NULL. SELECT supports one ORDER BY column, NULLS FIRST/LAST and LIMIT.
+Default ordering follows PostgreSQL: ASC NULLS LAST, DESC NULLS FIRST. Names are ASCII
 and case insensitive; text is bytewise and text bounds count bytes. Apostrophes
 are doubled in SQL text. Each execute call accepts one statement.
 
 The server additionally accepts boolean integer literals 0/1 for common
 MySQL/BIT client encodings. Raw library configurations remain strictly typed
-unless this option is enabled.
+unless this option is enabled. Raw library configurations retain the ZPM defaults
+(64-bit INTEGER and ASC NULLS FIRST); select `integer_bits = 32` and
+`nulls_first_ascending = false` for PostgreSQL scalar semantics.
 
 BEGIN/COMMIT/ROLLBACK use separate caller-owned transaction snapshots. Readers
 continue to see committed data while other connections hold private changes.
@@ -116,9 +120,10 @@ disconnected sessions cannot publish their changes. This is conservative snapsho
 isolation and differs from PostgreSQL's default READ COMMITTED behavior.
 
 Joins, aggregates, general expressions, foreign keys, secondary indexes and
-complete SQL-standard semantics remain release blockers. INTEGER currently means
-signed 64-bit throughout the engine; native PostgreSQL INTEGER is 32-bit. Catalog,
-metadata and NULL-ordering differences are exercised by the differential gate.
+complete SQL-standard semantics remain release blockers. The finite differential
+gate now matches 19/37 probes against PostgreSQL 16 and 18, including integer
+OIDs/ranges, binary formats, and NULL ordering. Catalogs and broader SQL behavior
+remain incompatible.
 
 ## Memory and execution
 
@@ -136,7 +141,9 @@ The current implementation uses one reactor thread, not multiple CPU workers.
 
 Primary-key equality queries and duplicate checks use a bounded hash index.
 Unused result capacity is not cleared for each statement; only active ranges
-are valid. LIMIT without ORDER BY stops scanning once enough rows match.
+are valid. Durable candidates, transaction snapshots and recovery copy live
+schemas/rows/indices rather than reserved database capacity. CREATE/DROP also
+avoid clearing inactive row payloads. LIMIT without ORDER BY stops scanning once enough rows match.
 Deletion compaction and primary-key changes rebuild index references. General
 filters remain scans, and ordering currently uses bounded insertion sorting.
 
@@ -187,7 +194,19 @@ python tools/benchmark.py --build-mode ReleaseFast --output benchmarks/local.jso
 ```
 
 The native benchmark times parsing, lookup and materialization with checked
-results. The network benchmark includes TCP, protocol handling and Python
+results. The recorded Linux experiment in [benchmarks/local.json](benchmarks/local.json)
+has median native primary-key lookup of 5.12 million operations/s (195 ns/op),
+and 174,854 PostgreSQL simple queries/s over loopback with one connection and
+64-query batches. These use a 512-row in-memory table, with no WAL, TLS or
+authentication; they are not durable production throughput claims.
+
+The [durable PostgreSQL comparison](benchmarks/postgres-comparison.json) records
+every trial and correctness/recovery check on native Linux processes. RAMSQL
+leads some single-client reads, while PostgreSQL leads durable inserts/updates
+and concurrent writes. All results remain visible. Every release also runs this
+comparison against its exact checksummed Linux binary and ships the report.
+
+The network benchmark includes TCP, protocol handling and Python
 client validation overhead; sequential and pipelined costs are reported
 separately. Results include machine/build metadata and workload bounds.
 They are measurements of this implementation, not comparisons to PostgreSQL,
@@ -226,7 +245,10 @@ TCP listener, file durability barrier and secure entropy interfaces required for
 the hosted profile. Artifact capability manifests preserve this distinction.
 
 A release requires all eight builds, hosted contract and client tests, six exact
-artifact runtime checks, and native QEMU protocol/transaction checks. Packages
+artifact runtime checks, native QEMU protocol/transaction checks, and a matched
+durable benchmark of the exact Linux artifact against native PostgreSQL. The
+benchmark verifies results and crash recovery; its ratios do not assert full
+PostgreSQL parity or universally superior speed. Packages
 include deterministic archives, content hashes, source/toolchain/dependency
 provenance and capability manifests. A complete release bundle also includes
 SHA256SUMS and GitHub provenance attestations.

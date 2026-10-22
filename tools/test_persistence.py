@@ -131,10 +131,10 @@ def assert_database(server, expected):
         pg.close()
 
 
-def record(sequence, sql):
+def record(sequence, sql, kind=2):
     statement = sql.encode("utf-8")
     payload = struct.pack("<I", len(statement)) + statement
-    header = bytearray(struct.pack("<8sHHIQII", b"RAMSQLW1", 1, 1, len(payload), sequence, 0, 0))
+    header = bytearray(struct.pack("<8sHHIQII", b"RAMSQLW1", 1, kind, len(payload), sequence, 0, 0))
     struct.pack_into("<I", header, 24, zlib.crc32(header))
     trailer = struct.pack("<I4sQ", zlib.crc32(payload), b"CMIT", sequence)
     return bytes(header) + payload + trailer
@@ -260,6 +260,14 @@ def main():
     semantic_backup = artifacts / "semantic-backup.wal"
     offline_backup(binary, semantic, semantic_backup, ("TableNotFound", "UnknownTable"))
     check(not semantic_backup.exists(), "semantically invalid backup was published")
+    legacy = artifacts / "legacy-integer64.wal"
+    legacy_bytes = record(1, "CREATE TABLE durable (id INTEGER PRIMARY KEY, value TEXT)", kind=1)
+    legacy.write_bytes(legacy_bytes)
+    refuse(binary, legacy, ("UnsupportedLogVersion",))
+    check(legacy.read_bytes() == legacy_bytes, "incompatible INTEGER semantics rewrote legacy WAL")
+    legacy_backup = artifacts / "legacy-integer64-backup.wal"
+    offline_backup(binary, legacy, legacy_backup, ("UnsupportedLogVersion",))
+    check(not legacy_backup.exists(), "incompatible legacy WAL was published as a new-version backup")
     check(wal.read_bytes() == original, "test modified its baseline database unexpectedly")
     print(json.dumps({"suite": "persistence_crash", "pass": True, "cases": cases,
                       "assertions": assertions + wire.assertions, "crash_cycles": options.cycles,

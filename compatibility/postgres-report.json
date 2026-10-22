@@ -1,9 +1,9 @@
 {
   "schema": 1,
-  "started_utc": "2026-10-22T05:51:41.726310+00:00",
+  "started_utc": "2026-10-22T17:43:56.824026+00:00",
   "scope": "finite differential compatibility gate; passing does not establish full PostgreSQL parity",
   "ramsql_binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\sig-out\\bin\\ramsql.exe",
-  "ramsql_sha256": "0a8f3841035497c12a742e17deb74729d38a596ee7c15871ada012fac16738af",
+  "ramsql_sha256": "1c8185a999c220755fb012632b917e5635116024c32ae465ab71126e55490956",
   "ramsql_legacy_cli": false,
   "client": {
     "name": "psycopg",
@@ -77,14 +77,8 @@
     {
       "name": "integer_oid",
       "feature": "INTEGER wire OID",
-      "match": false,
-      "differences": [
-        {
-          "path": "/events/0/outcome/columns/0/oid",
-          "postgres": 23,
-          "ramsql": 20
-        }
-      ],
+      "match": true,
+      "differences": [],
       "postgres": {
         "stage": "statements",
         "events": [
@@ -125,7 +119,7 @@
               "columns": [
                 {
                   "name": "id",
-                  "oid": 20
+                  "oid": 23
                 }
               ],
               "rows": [
@@ -529,14 +523,8 @@
     {
       "name": "integer_positive_overflow",
       "feature": "32-bit INTEGER range",
-      "match": false,
-      "differences": [
-        {
-          "path": "/events/0/outcome/sqlstate",
-          "postgres": "22003",
-          "ramsql": "00000"
-        }
-      ],
+      "match": true,
+      "differences": [],
       "postgres": {
         "stage": "statements",
         "events": [
@@ -556,11 +544,9 @@
           {
             "sql": "INSERT INTO compat VALUES (2147483648, TRUE, 'overflow')",
             "outcome": {
-              "sqlstate": "00000",
-              "columns": [],
-              "rows": [],
-              "rowcount": 1,
-              "status": "INSERT 0 1"
+              "sqlstate": "22003",
+              "error_class": "NumericValueOutOfRange",
+              "message": "IntegerOverflow"
             }
           }
         ]
@@ -569,14 +555,8 @@
     {
       "name": "integer_negative_overflow",
       "feature": "32-bit INTEGER range",
-      "match": false,
-      "differences": [
-        {
-          "path": "/events/0/outcome/sqlstate",
-          "postgres": "22003",
-          "ramsql": "00000"
-        }
-      ],
+      "match": true,
+      "differences": [],
       "postgres": {
         "stage": "statements",
         "events": [
@@ -596,11 +576,9 @@
           {
             "sql": "INSERT INTO compat VALUES (-2147483649, TRUE, 'overflow')",
             "outcome": {
-              "sqlstate": "00000",
-              "columns": [],
-              "rows": [],
-              "rowcount": 1,
-              "status": "INSERT 0 1"
+              "sqlstate": "22003",
+              "error_class": "NumericValueOutOfRange",
+              "message": "IntegerOverflow"
             }
           }
         ]
@@ -609,19 +587,8 @@
     {
       "name": "bigint",
       "feature": "64-bit BIGINT type",
-      "match": false,
-      "differences": [
-        {
-          "path": "/stage",
-          "postgres": "statements",
-          "ramsql": "setup"
-        },
-        {
-          "path": "/ramsql/setup",
-          "sql": "CREATE TABLE compat (id BIGINT PRIMARY KEY, label TEXT)",
-          "sqlstate": "42601"
-        }
-      ],
+      "match": true,
+      "differences": [],
       "postgres": {
         "stage": "statements",
         "events": [
@@ -657,14 +624,38 @@
         ]
       },
       "ramsql": {
-        "stage": "setup",
-        "index": 0,
-        "sql": "CREATE TABLE compat (id BIGINT PRIMARY KEY, label TEXT)",
-        "outcome": {
-          "sqlstate": "42601",
-          "error_class": "SyntaxError",
-          "message": "Syntax"
-        }
+        "stage": "statements",
+        "events": [
+          {
+            "sql": "INSERT INTO compat VALUES (9223372036854775807, 'max')",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [],
+              "rows": [],
+              "rowcount": 1,
+              "status": "INSERT 0 1"
+            }
+          },
+          {
+            "sql": "SELECT id FROM compat",
+            "outcome": {
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "id",
+                  "oid": 20
+                }
+              ],
+              "rows": [
+                [
+                  9223372036854775807
+                ]
+              ],
+              "rowcount": 1,
+              "status": "SELECT 1"
+            }
+          }
+        ]
       }
     },
     {
@@ -853,24 +844,8 @@
     {
       "name": "null_ascending",
       "feature": "default NULLS LAST for ASC",
-      "match": false,
-      "differences": [
-        {
-          "path": "/events/0/outcome/rows/0/0",
-          "postgres": "one",
-          "ramsql": null
-        },
-        {
-          "path": "/events/0/outcome/rows/1/0",
-          "postgres": "three",
-          "ramsql": "one"
-        },
-        {
-          "path": "/events/0/outcome/rows/2/0",
-          "postgres": null,
-          "ramsql": "three"
-        }
-      ],
+      "match": true,
+      "differences": [],
       "postgres": {
         "stage": "statements",
         "events": [
@@ -916,13 +891,13 @@
               ],
               "rows": [
                 [
-                  null
-                ],
-                [
                   "one"
                 ],
                 [
                   "three"
+                ],
+                [
+                  null
                 ]
               ],
               "rowcount": 3,
@@ -935,24 +910,8 @@
     {
       "name": "null_descending",
       "feature": "default NULLS FIRST for DESC",
-      "match": false,
-      "differences": [
-        {
-          "path": "/events/0/outcome/rows/0/0",
-          "postgres": null,
-          "ramsql": "three"
-        },
-        {
-          "path": "/events/0/outcome/rows/1/0",
-          "postgres": "three",
-          "ramsql": "one"
-        },
-        {
-          "path": "/events/0/outcome/rows/2/0",
-          "postgres": "one",
-          "ramsql": null
-        }
-      ],
+      "match": true,
+      "differences": [],
       "postgres": {
         "stage": "statements",
         "events": [
@@ -998,13 +957,13 @@
               ],
               "rows": [
                 [
+                  null
+                ],
+                [
                   "three"
                 ],
                 [
                   "one"
-                ],
-                [
-                  null
                 ]
               ],
               "rowcount": 3,
@@ -1017,14 +976,8 @@
     {
       "name": "explicit_null_order",
       "feature": "NULLS FIRST syntax",
-      "match": false,
-      "differences": [
-        {
-          "path": "/events/0/outcome/sqlstate",
-          "postgres": "00000",
-          "ramsql": "42601"
-        }
-      ],
+      "match": true,
+      "differences": [],
       "postgres": {
         "stage": "statements",
         "events": [
@@ -1061,9 +1014,26 @@
           {
             "sql": "SELECT label FROM compat ORDER BY label ASC NULLS FIRST",
             "outcome": {
-              "sqlstate": "42601",
-              "error_class": "SyntaxError",
-              "message": "Syntax"
+              "sqlstate": "00000",
+              "columns": [
+                {
+                  "name": "label",
+                  "oid": 25
+                }
+              ],
+              "rows": [
+                [
+                  null
+                ],
+                [
+                  "one"
+                ],
+                [
+                  "three"
+                ]
+              ],
+              "rowcount": 3,
+              "status": "SELECT 3"
             }
           }
         ]
@@ -2540,9 +2510,9 @@
   },
   "summary": {
     "probes": 37,
-    "matching": 12,
-    "mismatching": 25,
+    "matching": 19,
+    "mismatching": 18,
     "drop_in_gate_passed": false
   },
-  "finished_utc": "2026-10-22T05:51:45.917408+00:00"
+  "finished_utc": "2026-10-22T17:44:01.401002+00:00"
 }
