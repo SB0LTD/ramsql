@@ -38,9 +38,6 @@ fn publishedAlpha1(path: []const u8) !void {
     try file.appendAll(@embedFile("fixtures/alpha1.wal"));
     try file.sync();
     file.close();
-    const PgRaw = sql.Database(.{ .tables = 2, .columns = 3, .rows_per_table = 8, .text_bytes = 64, .integer_bits = 32 });
-    const PgStore = stores.Store(PgRaw);
-    const PgPersistence = module.Persistence(PgRaw, PgStore);
     var store: PgStore = .{};
     var workspace: PgRaw = .{};
     var scratch: [4096]u8 = undefined;
@@ -64,6 +61,233 @@ fn publishedAlpha1(path: []const u8) !void {
     try connection.execute("SELECT * FROM upgrade ORDER BY id", &result);
     try check(result.row_count == 3 and result.rows[1].cells[0].integer == 0);
     try check(std.mem.eql(u8, result.rows[1].cells[2].text.slice(), "alpha.2"));
+}
+
+const PgRaw = sql.Database(.{ .tables = 2, .columns = 3, .rows_per_table = 8, .text_bytes = 64, .integer_bits = 32 });
+const PgStore = stores.Store(PgRaw);
+const PgPersistence = module.Persistence(PgRaw, PgStore);
+/// One constant sizes both the transaction encode buffer and recovery.
+const transaction_bytes = 4096;
+
+fn sameRows(a: anytype, b: anytype) bool {
+    if (a.column_count != b.column_count or a.row_count != b.row_count) return false;
+    for (0..a.column_count) |column| if (a.column_types[column] != b.column_types[column]) return false;
+    for (0..a.row_count) |row| for (0..a.column_count) |column| {
+        const x = a.rows[row].cells[column];
+        const y = b.rows[row].cells[column];
+        switch (x) {
+            .null_value => if (y != .null_value) return false,
+            .integer => |value| if (y != .integer or y.integer != value) return false,
+            .boolean => |value| if (y != .boolean or y.boolean != value) return false,
+            .text => |value| if (y != .text or !std.mem.eql(u8, value.slice(), y.text.slice())) return false,
+        }
+    };
+    return true;
+}
+
+/// Kind of the WAL record starting at `offset`; returns the next offset.
+fn recordKind(file: *disk.File, offset: u64, kind: *u16) !u64 {
+    var header: [log.header_size]u8 = undefined;
+    if (try file.readAt(offset, &header) != header.len) return error.ShortHeader;
+    kind.* = std.mem.readInt(u16, header[10..12], .little);
+    return offset + log.overhead + std.mem.readInt(u32, header[12..16], .little);
+}
+
+fn allKindThree(file: *disk.File, first: u64) !bool {
+    var offset: u64 = 0;
+    var index: u64 = 0;
+    const length = try file.length();
+    while (offset < length) : (index += 1) {
+        var kind: u16 = 0;
+        offset = try recordKind(file, offset, &kind);
+        if (index + 1 >= first and kind != module.change_kind) return false;
+    }
+    return true;
+}
+
+fn changeRecords(path: []const u8) !void {
+    // M1: completed statements of an explicit transaction become one kind-3
+    // record whose ops reproduce the transaction exactly after reopen.
+    try clearLog(path);
+    var store: PgStore = .{};
+    var workspace: PgRaw = .{};
+    var tx_workspace: PgRaw = .{};
+    var tx_log: [transaction_bytes]u8 = undefined;
+    var recovery: [transaction_bytes]u8 = undefined;
+    var persistence: PgPersistence = .{};
+    defer persistence.close();
+    _ = try persistence.init(path, &store, &workspace, &recovery);
+    var connection: PgStore.Connection = .{ .store = &store, .id = 1, .transaction_workspace = &tx_workspace, .transaction_log = &tx_log };
+    var result: PgRaw.Result = .{};
+    try connection.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, value TEXT, flag BOOLEAN)", &result);
+    try connection.execute("INSERT INTO t VALUES (1, 'one', TRUE)", &result);
+    try connection.execute("INSERT INTO t VALUES (2, 'two', NULL)", &result);
+    try connection.execute("BEGIN", &result);
+    try connection.execute("INSERT INTO t VALUES (3, 'three', FALSE)", &result);
+    try connection.execute("UPDATE t SET value = 'three; updated' WHERE id = 3", &result);
+    if (connection.execute("INSERT INTO t VALUES (2, 'duplicate', NULL)", &result)) |_| return error.DuplicateAccepted else |err| try check(err == error.PrimaryKeyViolation);
+    try check(connection.transactionStatus() == 'E');
+    try connection.execute("ROLLBACK", &result);
+    // The failed transaction left no record; redo it without the failure.
+    try check(persistence.sequence == 3);
+    try connection.execute("BEGIN", &result);
+    try connection.execute("INSERT INTO t VALUES (3, 'three', FALSE)", &result);
+    try connection.execute("UPDATE t SET value = 'three; updated' WHERE id = 3", &result);
+    try connection.execute("DELETE FROM t WHERE id = 1", &result);
+    try connection.execute("COMMIT", &result);
+    try check(persistence.sequence == 4 and store.generation == 4);
+    // A rolled-back transaction writes nothing.
+    const length_before = try persistence.file.length();
+    try connection.execute("BEGIN", &result);
+    try connection.execute("INSERT INTO t VALUES (9, 'rolled back', NULL)", &result);
+    try connection.execute("UPDATE t SET flag = TRUE", &result);
+    try connection.execute("ROLLBACK", &result);
+    try check(try persistence.file.length() == length_before and persistence.sequence == 4);
+    try check(try allKindThree(&persistence.file, 1));
+    var unordered: PgRaw.Result = .{};
+    var ordered: PgRaw.Result = .{};
+    try connection.execute("SELECT * FROM t", &unordered);
+    try connection.execute("SELECT * FROM t ORDER BY id DESC", &ordered);
+    try check(unordered.row_count == 2 and unordered.rows[0].cells[0].integer == 2 and unordered.rows[1].cells[0].integer == 3);
+    persistence.close();
+    store = .{};
+    const reopened = try persistence.init(path, &store, &workspace, &recovery);
+    try check(reopened.sequence == 4 and !reopened.truncated_tail);
+    try connection.execute("SELECT * FROM t", &result);
+    try check(sameRows(&result, &unordered));
+    try connection.execute("SELECT * FROM t ORDER BY id DESC", &result);
+    try check(sameRows(&result, &ordered));
+    try check(std.mem.eql(u8, result.rows[0].cells[1].text.slice(), "three; updated"));
+    // Rowids continue where the writer left them: a new row sorts last.
+    try connection.execute("INSERT INTO t VALUES (0, 'after reopen', NULL)", &result);
+    try connection.execute("SELECT id FROM t", &result);
+    try check(result.row_count == 3 and result.rows[2].cells[0].integer == 0);
+    persistence.close();
+
+    // A CRC-valid kind-3 record with a semantic conflict fails closed and
+    // never rewrites the log; earlier records stay unpublished in memory.
+    var file = try disk.File.open(path);
+    var bad: [64]u8 = undefined;
+    std.mem.writeInt(u16, bad[0..2], 1, .little);
+    std.mem.writeInt(u16, bad[2..4], 0, .little);
+    std.mem.writeInt(u32, bad[4..8], 1, .little);
+    bad[8] = 5; // delete
+    std.mem.writeInt(u32, bad[9..13], sql.change_records.first_oid, .little);
+    std.mem.writeInt(u64, bad[13..21], 99, .little);
+    try log.appendKind(&file, 6, bad[0..21], module.change_kind);
+    const corrupt_length = try file.length();
+    file.close();
+    store = .{};
+    if (persistence.init(path, &store, &workspace, &recovery)) |_| return error.CorruptChangeAccepted else |err| try check(err == error.ChangeRecordConflict);
+    try check(store.storage_failed and store.commit_fn == null);
+    file = try disk.File.open(path);
+    try check(try file.length() == corrupt_length);
+    try file.truncate(corrupt_length - 21 - log.overhead);
+    // Unknown op tags inside a checksummed record are a newer format.
+    bad[8] = 8;
+    try log.appendKind(&file, 6, bad[0..21], module.change_kind);
+    file.close();
+    store = .{};
+    if (persistence.init(path, &store, &workspace, &recovery)) |_| return error.UnknownOpAccepted else |err| try check(err == error.UnsupportedLogVersion);
+    // A legacy SQL record after any kind-3 record fails closed.
+    file = try disk.File.open(path);
+    try file.truncate(corrupt_length - 21 - log.overhead);
+    var frame: [128]u8 = undefined;
+    var used: usize = 0;
+    addFrame(&frame, &used, "INSERT INTO t VALUES (8, 'legacy', NULL)");
+    try log.appendKind(&file, 6, frame[0..used], 2);
+    file.close();
+    store = .{};
+    if (persistence.init(path, &store, &workspace, &recovery)) |_| return error.LegacyAfterChangeAccepted else |err| try check(err == error.UnsupportedLogVersion);
+
+    // Kind 2 (alpha.2 PostgreSQL) -> kind 3 continuation; non-alpha SQL in a
+    // kind-2 record stops recovery with UnsupportedLogVersion.
+    try clearLog(path);
+    file = try disk.File.open(path);
+    used = 0;
+    addFrame(&frame, &used, "CREATE TABLE p (id INTEGER PRIMARY KEY, flag BOOLEAN)");
+    try log.appendKind(&file, 1, frame[0..used], 2);
+    used = 0;
+    addFrame(&frame, &used, "INSERT INTO p VALUES (2147483647, 1)");
+    try log.appendKind(&file, 2, frame[0..used], 2);
+    file.close();
+    store = .{};
+    _ = try persistence.init(path, &store, &workspace, &recovery);
+    try connection.execute("SELECT * FROM p", &result);
+    try check(result.row_count == 1 and result.column_types[0] == .integer32 and result.rows[0].cells[1].boolean);
+    try connection.execute("UPDATE p SET flag = FALSE", &result);
+    try check(persistence.sequence == 3);
+    persistence.close();
+    store = .{};
+    _ = try persistence.init(path, &store, &workspace, &recovery);
+    try connection.execute("SELECT * FROM p WHERE flag = FALSE", &result);
+    try check(result.row_count == 1 and result.rows[0].cells[0].integer == 2147483647);
+    try check(try allKindThree(&persistence.file, 3));
+    persistence.close();
+    // A pure kind-2 log whose second record uses OR (outside the alpha grammar).
+    try clearLog(path);
+    file = try disk.File.open(path);
+    used = 0;
+    addFrame(&frame, &used, "CREATE TABLE p (id INTEGER PRIMARY KEY, flag BOOLEAN)");
+    try log.appendKind(&file, 1, frame[0..used], 2);
+    used = 0;
+    addFrame(&frame, &used, "DELETE FROM p WHERE id = 1 OR id = 2");
+    try log.appendKind(&file, 2, frame[0..used], 2);
+    const legacy_length = try file.length();
+    file.close();
+    store = .{};
+    if (persistence.init(path, &store, &workspace, &recovery)) |_| return error.NonAlphaLegacyAccepted else |err| try check(err == error.UnsupportedLogVersion);
+    try check(store.storage_failed and store.commit_fn == null);
+    file = try disk.File.open(path);
+    try check(try file.length() == legacy_length);
+    file.close();
+    // A 64-bit kind-1 record is refused by a 32-bit configuration.
+    try clearLog(path);
+    file = try disk.File.open(path);
+    used = 0;
+    addFrame(&frame, &used, "CREATE TABLE q (id INTEGER)");
+    try log.append(&file, 1, frame[0..used]);
+    file.close();
+    store = .{};
+    if (persistence.init(path, &store, &workspace, &recovery)) |_| return error.WrongLegacyKindAccepted else |err| try check(err == error.UnsupportedLogVersion);
+}
+
+fn wideContinuation(path: []const u8) !void {
+    // 64-bit configurations accept kind 1 then continue with kind 3.
+    try clearLog(path);
+    var file = try disk.File.open(path);
+    var frame: [128]u8 = undefined;
+    var used: usize = 0;
+    addFrame(&frame, &used, "CREATE TABLE wide (id INTEGER PRIMARY KEY, n BIGINT)");
+    try log.append(&file, 1, frame[0..used]);
+    used = 0;
+    addFrame(&frame, &used, "INSERT INTO wide VALUES (9223372036854775807, -9223372036854775808)");
+    try log.append(&file, 2, frame[0..used]);
+    file.close();
+    var store: Store = .{};
+    var workspace: Raw = .{};
+    var tx_workspace: Raw = .{};
+    var tx_log: [transaction_bytes]u8 = undefined;
+    var recovery: [transaction_bytes]u8 = undefined;
+    var persistence: Persistence = .{};
+    defer persistence.close();
+    _ = try persistence.init(path, &store, &workspace, &recovery);
+    var connection: Store.Connection = .{ .store = &store, .id = 1, .transaction_workspace = &tx_workspace, .transaction_log = &tx_log };
+    var result: Raw.Result = .{};
+    try connection.beginTransaction();
+    try connection.execute("INSERT INTO wide VALUES (1, 5)", &result);
+    try connection.execute("UPDATE wide SET n = 6 WHERE id = 1", &result);
+    try connection.commitTransaction();
+    try check(persistence.sequence == 3);
+    var before: Raw.Result = .{};
+    try connection.execute("SELECT * FROM wide", &before);
+    persistence.close();
+    store = .{};
+    _ = try persistence.init(path, &store, &workspace, &recovery);
+    try connection.execute("SELECT * FROM wide", &result);
+    try check(sameRows(&result, &before) and result.row_count == 2 and result.column_types[0] == .integer);
+    try check(result.rows[0].cells[0].integer == 9223372036854775807 and result.rows[1].cells[1].integer == 6);
+    try check(try allKindThree(&persistence.file, 3));
 }
 
 pub fn main(init: std.process.Init) !void {
@@ -211,6 +435,8 @@ pub fn main(init: std.process.Init) !void {
     if (store.database.execute("SELECT * FROM denied", &result)) |_| return error.CapacityFailurePublished else |_| try check(true);
     persistence.close();
     try publishedAlpha1(path);
+    try changeRecords(path);
+    try wideContinuation(path);
     var report_buffer: [160]u8 = undefined;
     const report = try std.fmt.bufPrint(&report_buffer, "{{\"suite\":\"persistence\",\"pass\":true,\"assertions\":{d}}}\n", .{assertions});
     try std.Io.File.stdout().writeStreamingAll(init.io, report);

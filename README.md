@@ -56,7 +56,7 @@ Back up using the offline command below, and test restoration before relying on 
 `--max-clients N` selects active connections within the compiled profile;
 `--idle-ms N` controls expiry (30,000 ms default). The default profile contains
 16 clients, 8 tables, 8 columns, 512 rows per table, 63-byte names, 128-byte text
-cells, and 1 MiB of SQL log storage per transaction. Configure an explicit profile:
+cells, and 1 MiB of change-record storage per transaction. Configure an explicit profile:
 
 ```sh
 sig build -Doptimize=ReleaseFast -Dclients=32 -Drows=4096 -Dtables=16 -Dtext-bytes=512 -Dtransaction-bytes=4194304
@@ -143,12 +143,23 @@ The current implementation uses one reactor thread, not multiple CPU workers.
 
 Primary-key equality queries and duplicate checks use a bounded hash index.
 Unused result capacity is not cleared for each statement; only active ranges
-are valid. Durable autocommit and single-statement recovery avoid database
-snapshots. Explicit transactions and multi-statement recovery still copy live
-schemas/rows/indices. CREATE/DROP/DELETE leave inactive row payloads alone.
-LIMIT without ORDER BY stops scanning once enough rows match.
-Deletion compaction and primary-key changes rebuild index references. General
+are valid. Rows have stable rowids and versions in a fixed arena of 2 x rows per
+table; superseded versions are reclaimed after each statement. A statement that
+cannot fit its new versions fails with `VersionCapacity` (53200) where PostgreSQL
+would succeed. Durable autocommit and recovery of change records avoid database
+snapshots. Explicit transactions (and legacy multi-statement SQL-text recovery)
+still copy live schemas/rows/indices. Statements beyond 512 expression nodes or
+depth 64 fail with `StatementTooComplex` (54001).
+LIMIT without ORDER BY stops scanning once enough rows match. General
 filters remain scans, and ordering currently uses bounded insertion sorting.
+
+The WAL stores versioned kind-3 change records (row and DDL ops with explicit
+type OIDs). Logs written by alpha.1/alpha.2 (SQL-text kind 2) still recover through
+an alpha-grammar-only replay mode and continue with kind-3 records; a legacy record
+containing anything outside the alpha grammar, or appearing after a kind-3 record,
+stops recovery with `UnsupportedLogVersion` before any listener binds. Older
+binaries cannot read kind-3 records. The per-transaction log bound
+(`-Dtransaction-bytes`) also sizes the recovery buffer.
 
 ## Layers
 

@@ -144,6 +144,21 @@ def batch_record(sequence, payload, kind=2):
     return bytes(header) + payload + trailer
 
 
+def change_payload(*ops):
+    """Kind-3 change record: version 1, flags 0, op count, then op bytes."""
+    return struct.pack("<HHI", 1, 0, len(ops)) + b"".join(ops)
+
+
+def record_kinds(data):
+    position = 0
+    kinds = []
+    while position < len(data):
+        kind, length = struct.unpack_from("<HI", data, position + 10)
+        kinds.append(kind)
+        position += 48 + length
+    return kinds
+
+
 def last_sequence(data):
     position = 0
     sequence = 0
@@ -256,17 +271,46 @@ def main():
         corrupt_backup = artifacts / f"corrupt-{offset}-backup.wal"
         offline_backup(binary, candidate, corrupt_backup, ("CorruptLogHeader", "CorruptLogRecord"))
         check(not corrupt_backup.exists(), "corrupt WAL backup was published")
+    # The server writes only kind-3 change records.
+    check(set(record_kinds(original)) == {3}, "server wrote a non-kind-3 WAL record")
+    # Checksummed kind-3 records with semantic or structural damage, and any
+    # legacy SQL record after a kind-3 record, fail closed before listeners
+    # bind and are never published as backups.
+    durable_oid = 16384
+    bad_changes = {
+        "semantic": (change_payload(struct.pack("<BIQ", 5, durable_oid, 99999)), ("ChangeRecordConflict",)),
+        "unknown-op": (change_payload(struct.pack("<BIQ", 8, durable_oid, 1)), ("UnsupportedLogVersion",)),
+        "truncated-op": (change_payload(struct.pack("<BI", 3, durable_oid)), ("InvalidChangeRecord",)),
+        "legacy-after-change": (struct.pack("<I", 30) + b"INSERT INTO durable VALUES (4)", ("UnsupportedLogVersion",)),
+    }
+    for name, (payload, errors) in bad_changes.items():
+        candidate = artifacts / f"change-{name}.wal"
+        kind = 2 if name == "legacy-after-change" else 3
+        contents = original + batch_record(sequence + 1, payload, kind)
+        candidate.write_bytes(contents)
+        refuse(binary, candidate, errors)
+        check(candidate.read_bytes() == contents, "rejected change record rewrote WAL")
+        target = artifacts / f"change-{name}-backup.wal"
+        offline_backup(binary, candidate, target, errors)
+        check(not target.exists(), "invalid change record was backed up")
+    # Legacy (alpha kind-2) SQL batches replay through the alpha grammar.
+    # These records have valid outer CRCs/trailers. Recovery must reject their
+    # inner framing/SQL before opening listeners or publishing a backup. A valid
+    # first statement must never hide a malformed/rejected later statement.
+    legacy_base = record(1, "CREATE TABLE durable (id INTEGER PRIMARY KEY, value TEXT)")
     semantic = artifacts / "semantic-corruption.wal"
-    bad_semantic = original + record(sequence + 1, "INSERT INTO missing VALUES (1)")
+    bad_semantic = legacy_base + record(2, "INSERT INTO missing VALUES (1)")
     semantic.write_bytes(bad_semantic)
     refuse(binary, semantic, ("TableNotFound", "UnknownTable"))
     check(semantic.read_bytes() == bad_semantic, "semantic replay failure rewrote WAL")
     semantic_backup = artifacts / "semantic-backup.wal"
     offline_backup(binary, semantic, semantic_backup, ("TableNotFound", "UnknownTable"))
     check(not semantic_backup.exists(), "semantically invalid backup was published")
-    # These records have valid outer CRCs/trailers. Recovery must reject their
-    # inner framing/SQL before opening listeners or publishing a backup. A valid
-    # first statement must never hide a malformed/rejected later statement.
+    non_alpha = artifacts / "legacy-non-alpha.wal"
+    non_alpha_bytes = legacy_base + record(2, "DELETE FROM durable WHERE id = 1 OR id = 2")
+    non_alpha.write_bytes(non_alpha_bytes)
+    refuse(binary, non_alpha, ("UnsupportedLogVersion",))
+    check(non_alpha.read_bytes() == non_alpha_bytes, "non-alpha legacy record rewrote WAL")
     first = b"INSERT INTO durable VALUES (2000, 'first')"
     framed = struct.pack("<I", len(first)) + first
     second = b"INSERT INTO missing VALUES (1)"
@@ -280,7 +324,7 @@ def main():
     }
     for name, (payload, errors) in bad_batches.items():
         candidate = artifacts / f"batch-{name}.wal"
-        contents = original + batch_record(sequence + 1, payload)
+        contents = legacy_base + batch_record(2, payload)
         candidate.write_bytes(contents)
         refuse(binary, candidate, errors)
         check(candidate.read_bytes() == contents, "invalid batch modified its WAL")

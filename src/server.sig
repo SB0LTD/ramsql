@@ -107,6 +107,9 @@ const Client = struct {
 var store: Store = .{};
 var autocommit_workspace: Raw = undefined;
 var persistence: Persistence = .{};
+// profile.transaction_bytes sizes every client transaction_log (kind-3 change
+// record encode buffer) and this recovery buffer, which Persistence also hands
+// to the store as the autocommit encode buffer: any record written is recoverable.
 var recovery_buffer: [profile.transaction_bytes]u8 = undefined;
 var verifier: ?scram.Verifier = null;
 // Keep large caller-owned workspaces/buffers out of the executable data image.
