@@ -26,7 +26,9 @@ pub const Options = struct {
     auth_verifier_file: ?[]const u8 = null,
     idle_ms: u32 = 30000,
 };
-const Raw = sql.Database(.{ .tables = profile.tables, .columns = 8, .rows_per_table = profile.rows, .name_bytes = 63, .text_bytes = profile.text_bytes, .boolean_integers = true, .nulls_first_ascending = false, .integer_bits = 32 });
+// Integer 0/1 BOOLEAN assignment is per session: the ZPM MySQL/TDS sessions
+// set Store.Connection.dialect themselves; PostgreSQL keeps the default.
+const Raw = sql.Database(.{ .tables = profile.tables, .columns = 8, .rows_per_table = profile.rows, .name_bytes = 63, .text_bytes = profile.text_bytes, .nulls_first_ascending = false, .integer_bits = 32 });
 const Store = stores.Store(Raw);
 const DB = Store.Connection;
 const PG = pg.Session(DB);

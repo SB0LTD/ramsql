@@ -97,21 +97,32 @@ for sp_executesql; other procedures and parameter types are rejected.
 
 ## SQL and transactions
 
-CREATE/DROP TABLE; single-row INSERT with optional columns; SELECT projection
-or `*`; UPDATE literal assignments; DELETE. Server/default CLI types are signed
-32-bit INTEGER/INT, signed 64-bit BIGINT/INT8,
-BOOLEAN and TEXT, plus NULL. NOT NULL and one single-column PRIMARY KEY are
-supported. WHERE supports typed comparisons, bounded AND conjunctions and
-IS [NOT] NULL. SELECT supports one ORDER BY column, NULLS FIRST/LAST and LIMIT.
-Default ordering follows PostgreSQL: ASC NULLS LAST, DESC NULLS FIRST. Names are ASCII
-and case insensitive; text is bytewise and text bounds count bytes. Apostrophes
-are doubled in SQL text. Each execute call accepts one statement.
+CREATE/DROP TABLE; single-row INSERT with optional columns and expression
+values; SELECT expressions or `*` from at most one table (or no table); UPDATE
+with expression SET; DELETE. Types are signed 32-bit INTEGER/INT/INT4, signed
+64-bit BIGINT/INT8, BOOLEAN and TEXT, plus NULL. NOT NULL and one single-column
+PRIMARY KEY are supported.
 
-The server additionally accepts boolean integer literals 0/1 for common
-MySQL/BIT client encodings. Raw library configurations remain strictly typed
-unless this option is enabled. Raw library configurations retain the ZPM defaults
-(64-bit INTEGER and ASC NULLS FIRST); select `integer_bits = 32` and
-`nulls_first_ascending = false` for PostgreSQL scalar semantics.
+Expressions follow PostgreSQL precedence and typing for that type set: AND/OR/NOT
+with three-valued logic, comparisons, IS [NOT] NULL/TRUE/FALSE/UNKNOWN,
+[NOT] IN lists, [NOT] BETWEEN, [NOT] LIKE/ILIKE, `||`, checked integer
+`+ - * / %`, CASE, COALESCE, NULLIF and `::`/CAST, with PostgreSQL SQLSTATEs
+(42804 for `WHERE id`, 42883 for `label + 1`, 22P02, 22003, 22012). A statement
+that fails after changing many rows changes none. ORDER BY accepts expressions,
+output positions and names with ASC/DESC and NULLS FIRST/LAST, then LIMIT.
+Default ordering follows PostgreSQL: ASC NULLS LAST, DESC NULLS FIRST. A WHERE
+holds at most 8 leaf predicates and a statement at most 512 expression nodes
+nested 64 deep. Unquoted names are ASCII and case insensitive, quoted names keep
+case; text is bytewise and text bounds count bytes (including `||` results).
+Apostrophes are doubled in SQL text. Each execute call accepts one statement.
+Other functions, aggregates, joins, subqueries and NUMERIC are not supported.
+
+MySQL and TDS sessions additionally accept integer 0/1 when assigning BOOLEAN
+values (INSERT/UPDATE), for common BIT client encodings; expressions are typed
+identically on every listener. Raw library configurations retain the ZPM
+defaults (ASC NULLS FIRST, 64-bit INTEGER outside the PostgreSQL dialect);
+select `integer_bits = 32` and `nulls_first_ascending = false` for PostgreSQL
+scalar semantics.
 
 BEGIN/COMMIT/ROLLBACK use separate caller-owned transaction snapshots. Readers
 continue to see committed data while other connections hold private changes.
@@ -121,11 +132,12 @@ roll back/retry. Read-only commits do not conflict. Failed transactions and
 disconnected sessions cannot publish their changes. This is conservative snapshot
 isolation and differs from PostgreSQL's default READ COMMITTED behavior.
 
-Joins, aggregates, general expressions, foreign keys, secondary indexes and
-complete SQL-standard semantics remain release blockers. The finite differential
-gate now matches 19/37 probes against PostgreSQL 16 and 18, including integer
-OIDs/ranges, binary formats, and NULL ordering. Catalogs and broader SQL behavior
-remain incompatible.
+Joins, aggregates, foreign keys, secondary indexes and complete SQL-standard
+semantics remain release blockers. The committed finite differential gate report
+matches 19/37 probes against PostgreSQL 16 and 18, including integer OIDs/ranges,
+binary formats, and NULL ordering; development builds additionally match
+`or_predicate` (20/37), and the committed reports are refreshed at release.
+Catalogs and broader SQL behavior remain incompatible.
 
 ## Memory and execution
 
@@ -150,8 +162,9 @@ would succeed. Durable autocommit and recovery of change records avoid database
 snapshots. Explicit transactions (and legacy multi-statement SQL-text recovery)
 still copy live schemas/rows/indices. Statements beyond 512 expression nodes or
 depth 64 fail with `StatementTooComplex` (54001).
-LIMIT without ORDER BY stops scanning once enough rows match. General
-filters remain scans, and ordering currently uses bounded insertion sorting.
+LIMIT without ORDER BY stops scanning once enough rows match. A top-level
+`pk = constant` conjunct uses the index; other filters remain scans, and
+ordering uses a stable merge sort.
 
 The WAL stores versioned kind-3 change records (row and DDL ops with explicit
 type OIDs). Logs written by alpha.1/alpha.2 (SQL-text kind 2) still recover through
