@@ -62,7 +62,9 @@ cells, and 1 MiB of change-record storage per transaction. Configure an explicit
 sig build -Doptimize=ReleaseFast -Dclients=32 -Drows=4096 -Dtables=16 -Dtext-bytes=512 -Dtransaction-bytes=4194304
 ```
 
-Storage, results and transaction workspaces are dense and preallocated, so larger
+`-Dtx-writes=N` (rows changed per transaction, default 4096) and `-Dversions=N`
+(row-version slots per table, default 2 x rows) size the transaction engine.
+Storage, results, version arenas and transaction tables are dense and preallocated, so larger
 profiles increase memory significantly. These configurable bounds still fall short
 of PostgreSQL's capacity and concurrency model; they are tracked as a release gap.
 The Windows reactor currently permits at most 60 compiled client slots.
@@ -124,24 +126,46 @@ defaults (ASC NULLS FIRST, 64-bit INTEGER outside the PostgreSQL dialect);
 select `integer_bits = 32` and `nulls_first_ascending = false` for PostgreSQL
 scalar semantics.
 
-BEGIN/COMMIT/ROLLBACK use separate caller-owned transaction snapshots. Readers
-continue to see committed data while other connections hold private changes.
-A writing transaction commits only if the global committed generation has not
-changed since BEGIN; otherwise it receives PostgreSQL SQLSTATE `40001` and must
-roll back/retry. Read-only commits do not conflict. Failed transactions and
-disconnected sessions cannot publish their changes. This is conservative snapshot
-isolation and differs from PostgreSQL's default READ COMMITTED behavior.
+Transactions are READ COMMITTED only, over row versions in one shared store
+(no per-connection copies). Every statement takes a new snapshot, so it sees
+everything committed before it started plus its own transaction's earlier
+writes. A write that meets a row being changed by another live transaction
+waits for it, then re-checks the row's newest committed version
+(PostgreSQL's EvalPlanQual), so concurrent `v = v + 1` updates are never lost;
+an INSERT waits for a live inserter or deleter of the same key, then gets
+`23505` or proceeds. `SELECT ... FOR UPDATE|SHARE [NOWAIT|SKIP LOCKED]` takes
+row locks; DROP TABLE takes an exclusive table lock that waits for readers and
+writers (and that readers then wait for). Deadlocks are detected once per wait
+after 1 s (`40P01`, the detecting waiter is the victim); `lock_timeout` gives
+`55P03`, `statement_timeout` and PostgreSQL cancel requests give `57014`.
+Waiting never blocks the reactor; other sessions keep running.
+`BEGIN`/`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ|SERIALIZABLE` is
+rejected with `0A000` instead of silently giving READ COMMITTED;
+`SHOW transaction_isolation` reports `read committed`. DDL is transactional:
+an uncommitted CREATE TABLE is invisible to other sessions and ROLLBACK of a
+DROP TABLE restores the table and its rows. SAVEPOINT, RELEASE [SAVEPOINT] and
+ROLLBACK TO [SAVEPOINT] nest (a repeated name refers to the newest; `3B001` for
+an unknown name, `25P01` outside a block); ROLLBACK TO undoes rows, DDL, row
+locks and SET values after the savepoint and recovers a failed block. An error
+inside a block discards the work since the innermost savepoint, releases its
+locks at once and fails the block (`25P02`) until ROLLBACK or ROLLBACK TO, as
+PostgreSQL does. SET [SESSION|LOCAL], SHOW and RESET [ALL] support
+`lock_timeout`, `statement_timeout`, `application_name` and read-only views of
+the reported session defaults; startup `options` accept `-c name=value`.
+Failed transactions and disconnected sessions cannot publish their changes.
+Cursors and two-phase commit do not exist.
 
 Joins, aggregates, foreign keys, secondary indexes and complete SQL-standard
 semantics remain release blockers. The committed finite differential gate report
 matches 19/37 probes against PostgreSQL 16 and 18, including integer OIDs/ranges,
 binary formats, and NULL ordering; development builds additionally match
-`or_predicate` (20/37), and the committed reports are refreshed at release.
+`or_predicate`, `read_committed` and `savepoint` (22/37), and the committed
+reports are refreshed at release.
 Catalogs and broader SQL behavior remain incompatible.
 
 ## Memory and execution
 
-The database, primary-key hash indexes, per-connection transaction snapshots, connection slots,
+The database, primary-key hash indexes, version arenas, the transaction and lock tables, connection slots,
 prepared statements, receive buffers and response buffers all have fixed owners
 and bounds. Runtime source is `.sig`; there is no SQLite/C database dependency,
 heap allocator API, language runtime or garbage collector.
@@ -155,13 +179,18 @@ The current implementation uses one reactor thread, not multiple CPU workers.
 
 Primary-key equality queries and duplicate checks use a bounded hash index.
 Unused result capacity is not cleared for each statement; only active ranges
-are valid. Rows have stable rowids and versions in a fixed arena of 2 x rows per
-table; superseded versions are reclaimed after each statement. A statement that
-cannot fit its new versions fails with `VersionCapacity` (53200) where PostgreSQL
-would succeed. Durable autocommit and recovery of change records avoid database
-snapshots. Explicit transactions (and legacy multi-statement SQL-text recovery)
-still copy live schemas/rows/indices. Statements beyond 512 expression nodes or
-depth 64 fail with `StatementTooComplex` (54001).
+are valid. Rows have stable rowids and versions in a fixed arena per table
+(`-Dversions`, default 2 x rows); superseded versions are reclaimed once no
+waiting statement's snapshot can see them. Uncommitted changes of every open
+transaction share that arena, so a transaction or statement that cannot fit
+its new versions fails with `VersionCapacity` (53200) where PostgreSQL would
+succeed. Transaction capacity limits, each `53200` with the statement rolled
+back: `clients + 2` concurrent transactions, `-Dtx-writes` (default 4096) rows
+changed per transaction (including every COPY row later), 256 FOR UPDATE/SHARE
+locked rows server-wide with at most 8 FOR SHARE holders per row, 32
+savepoints per transaction, and `-Dtransaction-bytes` per commit record.
+Statements beyond 512 expression nodes or depth 64 fail with
+`StatementTooComplex` (54001).
 LIMIT without ORDER BY stops scanning once enough rows match. A top-level
 `pk = constant` conjunct uses the index; other filters remain scans, and
 ordering uses a stable merge sort.

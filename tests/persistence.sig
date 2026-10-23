@@ -39,11 +39,10 @@ fn publishedAlpha1(path: []const u8) !void {
     try file.sync();
     file.close();
     var store: PgStore = .{};
-    var workspace: PgRaw = .{};
     var scratch: [4096]u8 = undefined;
     var persistence: PgPersistence = .{};
     defer persistence.close();
-    const restored = try persistence.init(path, &store, &workspace, &scratch);
+    const restored = try persistence.init(path, &store, &scratch);
     try check(restored.sequence == 5 and !restored.truncated_tail);
     var connection = PgStore.Connection{ .store = &store, .id = 1 };
     var result: PgRaw.Result = .{};
@@ -53,10 +52,10 @@ fn publishedAlpha1(path: []const u8) !void {
     try check(std.mem.eql(u8, result.rows[0].cells[2].text.slice(), "retained; semicolon"));
     try check(result.rows[1].cells[0].integer == 2147483647 and result.rows[1].cells[1].integer == -9223372036854775808 and result.rows[1].cells[2] == .null_value);
     try connection.execute("INSERT INTO upgrade VALUES (0, 0, 'alpha.2')", &result);
-    try check(store.generation == 6 and persistence.sequence == 6);
+    try check(persistence.sequence == 6 and store.database.csn == 6);
     persistence.close();
     store = .{};
-    const updated = try persistence.init(path, &store, &workspace, &scratch);
+    const updated = try persistence.init(path, &store, &scratch);
     try check(updated.sequence == 6 and !updated.truncated_tail);
     try connection.execute("SELECT * FROM upgrade ORDER BY id", &result);
     try check(result.row_count == 3 and result.rows[1].cells[0].integer == 0);
@@ -110,14 +109,11 @@ fn changeRecords(path: []const u8) !void {
     // record whose ops reproduce the transaction exactly after reopen.
     try clearLog(path);
     var store: PgStore = .{};
-    var workspace: PgRaw = .{};
-    var tx_workspace: PgRaw = .{};
-    var tx_log: [transaction_bytes]u8 = undefined;
     var recovery: [transaction_bytes]u8 = undefined;
     var persistence: PgPersistence = .{};
     defer persistence.close();
-    _ = try persistence.init(path, &store, &workspace, &recovery);
-    var connection: PgStore.Connection = .{ .store = &store, .id = 1, .transaction_workspace = &tx_workspace, .transaction_log = &tx_log };
+    _ = try persistence.init(path, &store, &recovery);
+    var connection: PgStore.Connection = .{ .store = &store, .id = 1 };
     var result: PgRaw.Result = .{};
     try connection.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, value TEXT, flag BOOLEAN)", &result);
     try connection.execute("INSERT INTO t VALUES (1, 'one', TRUE)", &result);
@@ -135,7 +131,7 @@ fn changeRecords(path: []const u8) !void {
     try connection.execute("UPDATE t SET value = 'three; updated' WHERE id = 3", &result);
     try connection.execute("DELETE FROM t WHERE id = 1", &result);
     try connection.execute("COMMIT", &result);
-    try check(persistence.sequence == 4 and store.generation == 4);
+    try check(persistence.sequence == 4 and store.database.csn == 4);
     // A rolled-back transaction writes nothing.
     const length_before = try persistence.file.length();
     try connection.execute("BEGIN", &result);
@@ -151,7 +147,7 @@ fn changeRecords(path: []const u8) !void {
     try check(unordered.row_count == 2 and unordered.rows[0].cells[0].integer == 2 and unordered.rows[1].cells[0].integer == 3);
     persistence.close();
     store = .{};
-    const reopened = try persistence.init(path, &store, &workspace, &recovery);
+    const reopened = try persistence.init(path, &store, &recovery);
     try check(reopened.sequence == 4 and !reopened.truncated_tail);
     try connection.execute("SELECT * FROM t", &result);
     try check(sameRows(&result, &unordered));
@@ -178,7 +174,7 @@ fn changeRecords(path: []const u8) !void {
     const corrupt_length = try file.length();
     file.close();
     store = .{};
-    if (persistence.init(path, &store, &workspace, &recovery)) |_| return error.CorruptChangeAccepted else |err| try check(err == error.ChangeRecordConflict);
+    if (persistence.init(path, &store, &recovery)) |_| return error.CorruptChangeAccepted else |err| try check(err == error.ChangeRecordConflict);
     try check(store.storage_failed and store.commit_fn == null);
     file = try disk.File.open(path);
     try check(try file.length() == corrupt_length);
@@ -188,7 +184,7 @@ fn changeRecords(path: []const u8) !void {
     try log.appendKind(&file, 6, bad[0..21], module.change_kind);
     file.close();
     store = .{};
-    if (persistence.init(path, &store, &workspace, &recovery)) |_| return error.UnknownOpAccepted else |err| try check(err == error.UnsupportedLogVersion);
+    if (persistence.init(path, &store, &recovery)) |_| return error.UnknownOpAccepted else |err| try check(err == error.UnsupportedLogVersion);
     // A legacy SQL record after any kind-3 record fails closed.
     file = try disk.File.open(path);
     try file.truncate(corrupt_length - 21 - log.overhead);
@@ -198,7 +194,7 @@ fn changeRecords(path: []const u8) !void {
     try log.appendKind(&file, 6, frame[0..used], 2);
     file.close();
     store = .{};
-    if (persistence.init(path, &store, &workspace, &recovery)) |_| return error.LegacyAfterChangeAccepted else |err| try check(err == error.UnsupportedLogVersion);
+    if (persistence.init(path, &store, &recovery)) |_| return error.LegacyAfterChangeAccepted else |err| try check(err == error.UnsupportedLogVersion);
 
     // Kind 2 (alpha.2 PostgreSQL) -> kind 3 continuation; non-alpha SQL in a
     // kind-2 record stops recovery with UnsupportedLogVersion.
@@ -212,14 +208,14 @@ fn changeRecords(path: []const u8) !void {
     try log.appendKind(&file, 2, frame[0..used], 2);
     file.close();
     store = .{};
-    _ = try persistence.init(path, &store, &workspace, &recovery);
+    _ = try persistence.init(path, &store, &recovery);
     try connection.execute("SELECT * FROM p", &result);
     try check(result.row_count == 1 and result.column_types[0] == .integer32 and result.rows[0].cells[1].boolean);
     try connection.execute("UPDATE p SET flag = FALSE", &result);
     try check(persistence.sequence == 3);
     persistence.close();
     store = .{};
-    _ = try persistence.init(path, &store, &workspace, &recovery);
+    _ = try persistence.init(path, &store, &recovery);
     try connection.execute("SELECT * FROM p WHERE flag = FALSE", &result);
     try check(result.row_count == 1 and result.rows[0].cells[0].integer == 2147483647);
     try check(try allKindThree(&persistence.file, 3));
@@ -236,7 +232,7 @@ fn changeRecords(path: []const u8) !void {
     const legacy_length = try file.length();
     file.close();
     store = .{};
-    if (persistence.init(path, &store, &workspace, &recovery)) |_| return error.NonAlphaLegacyAccepted else |err| try check(err == error.UnsupportedLogVersion);
+    if (persistence.init(path, &store, &recovery)) |_| return error.NonAlphaLegacyAccepted else |err| try check(err == error.UnsupportedLogVersion);
     try check(store.storage_failed and store.commit_fn == null);
     file = try disk.File.open(path);
     try check(try file.length() == legacy_length);
@@ -249,7 +245,7 @@ fn changeRecords(path: []const u8) !void {
     try log.append(&file, 1, frame[0..used]);
     file.close();
     store = .{};
-    if (persistence.init(path, &store, &workspace, &recovery)) |_| return error.WrongLegacyKindAccepted else |err| try check(err == error.UnsupportedLogVersion);
+    if (persistence.init(path, &store, &recovery)) |_| return error.WrongLegacyKindAccepted else |err| try check(err == error.UnsupportedLogVersion);
 }
 
 fn wideContinuation(path: []const u8) !void {
@@ -265,14 +261,11 @@ fn wideContinuation(path: []const u8) !void {
     try log.append(&file, 2, frame[0..used]);
     file.close();
     var store: Store = .{};
-    var workspace: Raw = .{};
-    var tx_workspace: Raw = .{};
-    var tx_log: [transaction_bytes]u8 = undefined;
     var recovery: [transaction_bytes]u8 = undefined;
     var persistence: Persistence = .{};
     defer persistence.close();
-    _ = try persistence.init(path, &store, &workspace, &recovery);
-    var connection: Store.Connection = .{ .store = &store, .id = 1, .transaction_workspace = &tx_workspace, .transaction_log = &tx_log };
+    _ = try persistence.init(path, &store, &recovery);
+    var connection: Store.Connection = .{ .store = &store, .id = 1 };
     var result: Raw.Result = .{};
     try connection.beginTransaction();
     try connection.execute("INSERT INTO wide VALUES (1, 5)", &result);
@@ -283,7 +276,7 @@ fn wideContinuation(path: []const u8) !void {
     try connection.execute("SELECT * FROM wide", &before);
     persistence.close();
     store = .{};
-    _ = try persistence.init(path, &store, &workspace, &recovery);
+    _ = try persistence.init(path, &store, &recovery);
     try connection.execute("SELECT * FROM wide", &result);
     try check(sameRows(&result, &before) and result.row_count == 2 and result.column_types[0] == .integer);
     try check(result.rows[0].cells[0].integer == 9223372036854775807 and result.rows[1].cells[1].integer == 6);
@@ -298,25 +291,22 @@ pub fn main(init: std.process.Init) !void {
     created.close();
     defer disk.remove(path) catch {};
     var store: Store = .{};
-    var workspace: Raw = .{};
-    var tx_workspace: Raw = .{};
-    var tx_log: [4096]u8 = undefined;
     var recovery_buffer: [4096]u8 = undefined;
     var persistence: Persistence = .{};
     defer persistence.close();
-    const empty = try persistence.init(path, &store, &workspace, &recovery_buffer);
+    const empty = try persistence.init(path, &store, &recovery_buffer);
     try check(empty.sequence == 0 and !empty.truncated_tail and store.durability_required);
-    var connection: Store.Connection = .{ .store = &store, .id = 1, .transaction_workspace = &tx_workspace, .transaction_log = &tx_log };
+    var connection: Store.Connection = .{ .store = &store, .id = 1 };
     var result: Raw.Result = .{};
     try connection.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, value TEXT)", &result);
     try connection.execute("INSERT INTO t VALUES (1, 'first')", &result);
-    try check(persistence.sequence == 2 and store.generation == 2);
+    try check(persistence.sequence == 2 and store.database.csn == 2);
     try connection.beginTransaction();
     try connection.execute("UPDATE t SET value = 'committed; newline' WHERE id = 1", &result);
     try connection.execute("INSERT INTO t VALUES (2, 'second')", &result);
-    try check(persistence.sequence == 2 and store.generation == 2);
+    try check(persistence.sequence == 2 and store.database.csn == 2);
     try connection.commitTransaction();
-    try check(persistence.sequence == 3 and store.generation == 3);
+    try check(persistence.sequence == 3 and store.database.csn == 3);
     try connection.beginTransaction();
     try connection.execute("INSERT INTO t VALUES (3, 'rolled back')", &result);
     try connection.rollbackTransaction();
@@ -334,33 +324,30 @@ pub fn main(init: std.process.Init) !void {
     if (connection.execute("INSERT INTO t VALUES (3, 'closed')", &result)) |_| return error.ClosedPersistenceWriteAccepted else |err| try check(err == error.StorageUnavailable);
     // Recovery repairs only an incomplete tail and restores complete SQL batches.
     store = .{};
-    const recovered = try persistence.init(path, &store, &workspace, &recovery_buffer);
+    const recovered = try persistence.init(path, &store, &recovery_buffer);
     try check(recovered.sequence == 3 and recovered.truncated_tail and try persistence.file.length() == committed_length);
     try connection.execute("SELECT * FROM t ORDER BY id", &result);
     try check(result.row_count == 2 and result.rows[0].cells[0].integer == 1 and result.rows[1].cells[0].integer == 2);
     try check(std.mem.eql(u8, result.rows[0].cells[1].text.slice(), "committed; newline"));
     try connection.execute("INSERT INTO t VALUES (3, 'after restart')", &result);
-    try check(persistence.sequence == 4 and store.generation == 4);
+    try check(persistence.sequence == 4 and store.database.csn == 4);
     // Actual native I/O failure occurs before publishing the validated mutation.
     persistence.file.close();
     if (connection.execute("INSERT INTO t VALUES (4, 'must not publish')", &result)) |_| return error.NativeWriteFailureIgnored else |_| try check(store.storage_failed);
     try connection.execute("SELECT * FROM t ORDER BY id", &result);
-    try check(result.row_count == 3 and store.generation == 4);
+    try check(result.row_count == 3 and store.database.csn == 4);
     if (connection.execute("DELETE FROM t", &result)) |_| return error.FailedStorageReused else |err| try check(err == error.StorageUnavailable);
     persistence.close();
     store = .{};
-    const reopened = try persistence.init(path, &store, &workspace, &recovery_buffer);
+    const reopened = try persistence.init(path, &store, &recovery_buffer);
     try check(reopened.sequence == 4 and !store.storage_failed);
     try connection.execute("SELECT * FROM t ORDER BY id", &result);
     try check(result.row_count == 3);
     persistence.close();
 
-    // Autocommit recovery must not touch the multi-statement scratch database.
-    // Its initialized sentinel makes an accidental copy observable.
+    // Legacy records replay as one MVCC transaction each, with no database
+    // copy: afterwards no transaction, lock or uncommitted version remains.
     try clearLog(path);
-    workspace = .{};
-    try workspace.execute("CREATE TABLE sentinel (id INT)", &result);
-    try workspace.execute("INSERT INTO sentinel VALUES (42)", &result);
     var standalone: [512]u8 = undefined;
     var standalone_used: usize = 0;
     addFrame(&standalone, &standalone_used, "CREATE TABLE single (id INT PRIMARY KEY)");
@@ -371,12 +358,13 @@ pub fn main(init: std.process.Init) !void {
     try log.append(&standalone_file, 2, standalone[0..standalone_used]);
     standalone_file.close();
     store = .{};
-    const single_recovery = try persistence.init(path, &store, &workspace, &recovery_buffer);
+    const single_recovery = try persistence.init(path, &store, &recovery_buffer);
     try check(single_recovery.sequence == 2);
     try store.database.execute("SELECT * FROM single WHERE id = 7", &result);
     try check(result.row_count == 1 and result.rows[0].cells[0].integer == 7);
-    try workspace.execute("SELECT * FROM sentinel", &result);
-    try check(workspace.tableCount() == 1 and result.row_count == 1 and result.rows[0].cells[0].integer == 42);
+    const usage = store.database.usage();
+    try check(store.database.tableCount() == 1 and store.database.csn == 2);
+    try check(usage.transactions == 0 and usage.row_locks == 0 and usage.table_locks == 0 and usage.pending_versions == 0);
     persistence.close();
 
     // Check inner framing past a valid first statement before the fast path
@@ -394,7 +382,7 @@ pub fn main(init: std.process.Init) !void {
         const length_before = try invalid_file.length();
         invalid_file.close();
         store = .{};
-        if (persistence.init(path, &store, &workspace, &recovery_buffer)) |_| return error.MalformedTailPublished else |err| try check(err == error.InvalidCommitBatch);
+        if (persistence.init(path, &store, &recovery_buffer)) |_| return error.MalformedTailPublished else |err| try check(err == error.InvalidCommitBatch);
         try check(store.database.tableCount() == 0 and store.storage_failed and store.commit_fn == null);
         invalid_file = try disk.File.open(path);
         try check(try invalid_file.length() == length_before);
@@ -413,7 +401,7 @@ pub fn main(init: std.process.Init) !void {
     const bad_length = try file.length();
     file.close();
     store = .{};
-    if (persistence.init(path, &store, &workspace, &recovery_buffer)) |_| return error.BadSemanticReplayAccepted else |_| try check(store.storage_failed and store.commit_fn == null);
+    if (persistence.init(path, &store, &recovery_buffer)) |_| return error.BadSemanticReplayAccepted else |_| try check(store.storage_failed and store.commit_fn == null);
     if (store.database.execute("SELECT * FROM doomed", &result)) |_| return error.PartialBatchPublished else |_| try check(true);
     file = try disk.File.open(path);
     try check(try file.length() == bad_length);
@@ -424,14 +412,14 @@ pub fn main(init: std.process.Init) !void {
     try log.append(&file, 1, &.{ 100, 0, 0, 0, 'x' });
     file.close();
     store = .{};
-    if (persistence.init(path, &store, &workspace, &recovery_buffer)) |_| return error.BadBatchFrameAccepted else |err| try check(err == error.InvalidCommitBatch);
+    if (persistence.init(path, &store, &recovery_buffer)) |_| return error.BadBatchFrameAccepted else |err| try check(err == error.InvalidCommitBatch);
     // The configured recovery capacity is also enforced before append/ack.
     try clearLog(path);
     var small: [8]u8 = undefined;
     store = .{};
-    _ = try persistence.init(path, &store, &workspace, &small);
+    _ = try persistence.init(path, &store, &small);
     if (connection.execute("CREATE TABLE denied (id INTEGER)", &result)) |_| return error.UnrecoverableLargeCommitAccepted else |err| try check(err == error.TransactionLogCapacity);
-    try check(try persistence.file.length() == 0 and store.generation == 0);
+    try check(try persistence.file.length() == 0 and store.database.csn == 0);
     if (store.database.execute("SELECT * FROM denied", &result)) |_| return error.CapacityFailurePublished else |_| try check(true);
     persistence.close();
     try publishedAlpha1(path);

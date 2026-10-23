@@ -1,4 +1,15 @@
 //! Product policy and bounded single-threaded database reactor.
+//!
+//! One shared READ COMMITTED store serves every client; there are no
+//! per-client database copies. A statement that waits for a lock parks its
+//! client (Reply.blocked: nothing consumed): the client is not re-dispatched
+//! until the store's wake epoch changes, one of its timers (deadlock check,
+//! lock_timeout, statement_timeout) is due, or a cancel request arrives.
+//! Woken clients run in wait-start order. The idle timeout is suspended
+//! while a client is parked, but its socket is still read, so a disconnect
+//! aborts its transaction and releases its locks. PostgreSQL cancel keys:
+//! pid = slot index + 1 with a 32-bit secret from the entropy source,
+//! compared in constant time; unknown keys are ignored silently.
 const sig = @import("sig");
 const std = @import("std");
 const profile = @import("profile");
@@ -28,7 +39,19 @@ pub const Options = struct {
 };
 // Integer 0/1 BOOLEAN assignment is per session: the ZPM MySQL/TDS sessions
 // set Store.Connection.dialect themselves; PostgreSQL keeps the default.
-const Raw = sql.Database(.{ .tables = profile.tables, .columns = 8, .rows_per_table = profile.rows, .name_bytes = 63, .text_bytes = profile.text_bytes, .nulls_first_ascending = false, .integer_bits = 32 });
+// Every client plus two spare slots can hold a transaction at once.
+const Raw = sql.Database(.{
+    .tables = profile.tables,
+    .columns = 8,
+    .rows_per_table = profile.rows,
+    .name_bytes = 63,
+    .text_bytes = profile.text_bytes,
+    .nulls_first_ascending = false,
+    .integer_bits = 32,
+    .versions_per_table = profile.versions,
+    .tx_writes = profile.tx_writes,
+    .transactions = profile.transactions,
+});
 const Store = stores.Store(Raw);
 const DB = Store.Connection;
 const PG = pg.Session(DB);
@@ -38,6 +61,7 @@ const capacity = profile.clients;
 const input_capacity = 65536;
 const output_capacity = @max(PG.responseCapacity(), @max(MySQL.responseCapacity(), TDS.responseCapacity())) + 32768;
 const Session = union(Protocol) { postgres: PG, mysql: MySQL, mssql: TDS };
+const Reply = struct { consumed: usize, written: usize, close: bool, blocked: bool, cancel: ?pg.Cancel = null };
 const Client = struct {
     socket: tcp.Socket = tcp.invalid_socket,
     connection: DB = .{ .store = &store, .id = 0 },
@@ -50,13 +74,15 @@ const Client = struct {
     output_sent: usize = 0,
     closing: bool = false,
     touched: i64 = 0,
-    transaction_workspace: Raw = undefined,
-    transaction_log: [profile.transaction_bytes]u8 = undefined,
+    /// A statement of this client is parked on a lock.
+    blocked: bool = false,
+    cancel_secret: u32 = 0,
 
     fn close(self: *Client) void {
         self.connection.disconnect();
         tcp.close(self.socket);
         self.socket = tcp.invalid_socket;
+        self.blocked = false;
     }
 
     fn dispatch(self: *Client) !void {
@@ -65,24 +91,31 @@ const Client = struct {
             .mysql => MySQL.responseCapacity(),
             .mssql => TDS.responseCapacity(),
         };
-        if (self.output_sent != 0 or self.closing or self.input_len == 0 or self.output.len - self.output_len < required) return;
+        if (self.blocked or self.output_sent != 0 or self.closing or self.input_len == 0 or self.output.len - self.output_len < required) return;
         const input = self.input[self.input_start..][0..self.input_len];
         const output = self.output[self.output_len..];
-        const reply = switch (self.session) {
+        store.now_ns = sig.os.clockMonotonicNs();
+        const reply: Reply = switch (self.session) {
             .postgres => |*session| blk: {
                 const r = try session.handle(&self.connection, input, output);
-                break :blk pg.Reply{ .consumed = r.consumed, .written = r.written, .close = r.close };
+                break :blk .{ .consumed = r.consumed, .written = r.written, .close = r.close, .blocked = r.blocked, .cancel = r.cancel };
             },
             .mysql => |*session| blk: {
                 const r = try session.handle(&self.connection, input, output);
-                break :blk pg.Reply{ .consumed = r.consumed, .written = r.written, .close = r.close };
+                break :blk .{ .consumed = r.consumed, .written = r.written, .close = r.close, .blocked = r.blocked };
             },
             .mssql => |*session| blk: {
                 const r = try session.handle(&self.connection, input, output);
-                break :blk pg.Reply{ .consumed = r.consumed, .written = r.written, .close = r.close };
+                break :blk .{ .consumed = r.consumed, .written = r.written, .close = r.close, .blocked = r.blocked };
             },
         };
         if (reply.consumed > self.input_len or reply.written > output.len) return error.InvalidReply;
+        if (reply.blocked) {
+            if (reply.consumed != 0 or reply.written != 0 or !self.connection.blocked()) return error.InvalidReply;
+            self.blocked = true;
+            return;
+        }
+        if (reply.cancel) |key| cancelBackend(key);
         if (reply.consumed != 0) {
             self.input_len -= reply.consumed;
             self.input_start += reply.consumed;
@@ -105,19 +138,52 @@ const Client = struct {
         }
         if (self.closing and self.output_len == 0) self.close();
     }
+
+    /// Dispatches at most 32 buffered packets, then flushes. Returns true
+    /// when packets remain buffered (the reactor should poll without waiting).
+    fn serve(self: *Client) bool {
+        var frames: usize = 0;
+        while (frames < 32) : (frames += 1) {
+            const before = self.input_len;
+            self.dispatch() catch {
+                self.close();
+                return false;
+            };
+            if (self.blocked or before == self.input_len or self.closing) break;
+        }
+        self.flush() catch {
+            self.close();
+            return false;
+        };
+        if (self.socket == tcp.invalid_socket) return false;
+        return frames == 32 and self.input_len != 0 and self.output_len == 0;
+    }
 };
 var store: Store = .{};
-var autocommit_workspace: Raw = undefined;
 var persistence: Persistence = .{};
-// profile.transaction_bytes sizes every client transaction_log (kind-3 change
-// record encode buffer) and this recovery buffer, which Persistence also hands
-// to the store as the autocommit encode buffer: any record written is recoverable.
+// profile.transaction_bytes sizes this recovery buffer, which Persistence also
+// hands to the store as the change-record encode buffer: any record written is
+// recoverable.
 var recovery_buffer: [profile.transaction_bytes]u8 = undefined;
 var verifier: ?scram.Verifier = null;
-// Keep large caller-owned workspaces/buffers out of the executable data image.
+// Keep large caller-owned buffers out of the executable data image.
 // run initializes free-slot metadata; accept initializes every live field.
 var clients: [capacity]Client = undefined;
 var next_id: u64 = 1;
+
+fn sameSecret(a: u32, b: u32) bool {
+    // Constant time in the secret's bits.
+    return (a ^ b) == 0;
+}
+
+/// CancelRequest from another socket: pid = slot + 1. Unknown keys are ignored.
+fn cancelBackend(key: pg.Cancel) void {
+    if (key.pid == 0 or key.pid > capacity) return;
+    const target = &clients[key.pid - 1];
+    if (target.socket == tcp.invalid_socket or target.session != .postgres) return;
+    if (!sameSecret(target.cancel_secret, key.secret)) return;
+    target.connection.requestCancel();
+}
 
 pub fn run(options: Options) !void {
     if (options.max_clients == 0 or options.max_clients > capacity or options.idle_ms == 0) return error.InvalidServerOptions;
@@ -141,7 +207,7 @@ pub fn run(options: Options) !void {
         std.crypto.secureZero(u8, &source);
     } else if (options.auth_verifier_file != null) return error.InvalidServerOptions;
     if (!options.memory) {
-        _ = try persistence.init(options.data, &store, &autocommit_workspace, &recovery_buffer);
+        _ = try persistence.init(options.data, &store, &recovery_buffer);
     }
     defer persistence.close();
     try tcp.init();
@@ -179,17 +245,19 @@ pub fn run(options: Options) !void {
         for (listeners[0..count], protocols[0..count]) |listener, protocol| {
             for (0..capacity) |_| {
                 const socket = tcp.accept(listener) catch break orelse break;
-                var free: ?*Client = null;
-                for (clients[0..options.max_clients]) |*candidate| if (candidate.socket == tcp.invalid_socket) {
-                    free = candidate;
+                var free: ?usize = null;
+                for (clients[0..options.max_clients], 0..) |*candidate, index| if (candidate.socket == tcp.invalid_socket) {
+                    free = index;
                     break;
                 };
-                const client = free orelse {
+                const slot = free orelse {
                     tcp.close(socket);
                     continue;
                 };
+                const client = &clients[slot];
                 client.socket = socket;
-                client.connection = .{ .store = &store, .id = next_id, .transaction_workspace = &client.transaction_workspace, .transaction_log = &client.transaction_log };
+                client.blocked = false;
+                client.connection = .{ .store = &store, .id = next_id };
                 next_id +%= 1;
                 if (next_id == 0) next_id = 1;
                 client.session = switch (protocol) {
@@ -198,6 +266,14 @@ pub fn run(options: Options) !void {
                     .mssql => .{ .mssql = .{} },
                 };
                 if (protocol == .postgres) {
+                    // BackendKeyData: pid = slot + 1, fresh 32-bit secret.
+                    var secret: [4]u8 = undefined;
+                    entropy.fill(&secret) catch {
+                        client.close();
+                        continue;
+                    };
+                    client.cancel_secret = std.mem.readInt(u32, &secret, .little);
+                    client.session.postgres.configureBackendKey(@intCast(slot + 1), client.cancel_secret);
                     if (verifier) |*credential| {
                         var random: [24]u8 = undefined;
                         entropy.fill(&random) catch {
@@ -229,29 +305,35 @@ pub fn run(options: Options) !void {
         var readable: [capacity + 2]bool = @splat(false);
         var writable: [capacity + 2]bool = @splat(false);
         const now = sig.os.clockMonotonicNs();
+        store.now_ns = now;
         var buffered = false;
+        // Wake parked clients whose lock may have been released, whose timer
+        // is due or that were canceled, in wait-start (FIFO) order.
+        var woken: [capacity]usize = undefined;
+        var woken_count: usize = 0;
+        for (clients[0..options.max_clients], 0..) |*client, index| {
+            if (client.socket == tcp.invalid_socket or !client.blocked or !client.connection.wakeReady()) continue;
+            var position = woken_count;
+            while (position != 0 and clients[woken[position - 1]].connection.waitStart() > client.connection.waitStart()) : (position -= 1) woken[position] = woken[position - 1];
+            woken[position] = index;
+            woken_count += 1;
+        }
+        for (woken[0..woken_count]) |index| {
+            const client = &clients[index];
+            if (client.socket == tcp.invalid_socket) continue;
+            client.blocked = false;
+            if (client.serve()) buffered = true;
+        }
         for (clients[0..options.max_clients], 0..) |*client, index| {
             if (client.socket == tcp.invalid_socket) continue;
+            // The idle timeout does not apply while a statement waits.
+            if (client.blocked) client.touched = now;
             if (now - client.touched >= @as(i64, options.idle_ms) * 1000000) {
                 client.close();
                 continue;
             }
-            // Process at most 32 buffered packets per client before yielding.
-            var frames: usize = 0;
-            while (frames < 32) : (frames += 1) {
-                const before = client.input_len;
-                client.dispatch() catch {
-                    client.close();
-                    break;
-                };
-                if (before == client.input_len or client.closing) break;
-            }
-            client.flush() catch {
-                client.close();
-                continue;
-            };
+            if (client.serve()) buffered = true;
             if (client.socket == tcp.invalid_socket) continue;
-            if (frames == 32 and client.input_len != 0 and client.output_len == 0) buffered = true;
             sockets[index] = client.socket;
             readable[index] = client.output_len == 0 and client.input_len < client.input.len;
             writable[index] = client.output_len != 0;
@@ -260,7 +342,20 @@ pub fn run(options: Options) !void {
             sockets[capacity + index - 1] = listeners[index];
             readable[capacity + index - 1] = true;
         }
-        _ = try tcp.waitMasked(listeners[0], &sockets, &readable, &writable, if (buffered) 0 else @min(options.idle_ms, 1000));
+        // Poll timeout: the idle bound or the nearest parked-statement timer.
+        var timeout: u32 = @min(options.idle_ms, 1000);
+        for (clients[0..options.max_clients]) |*client| {
+            if (client.socket == tcp.invalid_socket or !client.blocked) continue;
+            if (client.connection.wakeReady()) {
+                timeout = 0;
+                continue;
+            }
+            const due = client.connection.nextDeadline() orelse continue;
+            const remaining = due - now;
+            const ms: u32 = if (remaining <= 0) 0 else @intCast(@min(@divFloor(remaining + 999999, 1000000), timeout));
+            timeout = @min(timeout, ms);
+        }
+        _ = try tcp.waitMasked(listeners[0], &sockets, &readable, &writable, if (buffered) 0 else timeout);
         for (clients[0..options.max_clients], 0..) |*client, index| {
             if (client.socket == tcp.invalid_socket) continue;
             if (writable[index]) {
@@ -295,7 +390,7 @@ pub fn run(options: Options) !void {
 /// Offline backup validates/replays the existing source before publishing a copy.
 pub fn backup(options: Options, target: []const u8) !void {
     if (options.memory) return error.InvalidServerOptions;
-    _ = try persistence.initExisting(options.data, &store, &autocommit_workspace, &recovery_buffer);
+    _ = try persistence.initExisting(options.data, &store, &recovery_buffer);
     defer persistence.close();
     try @import("backup.sig").create(&persistence.file, target, &recovery_buffer);
 }

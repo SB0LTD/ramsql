@@ -12,9 +12,9 @@ const Raw = sql.Database(.{ .tables = 8, .columns = 8, .rows_per_table = 512, .n
 const Store = stores.Store(Raw);
 const Session = postgres.Session(Store.Connection);
 const Stream = streams.Server(Store.Connection, Session, 65536);
+// One shared READ COMMITTED store; the single connection holds no database copy.
 var store: Store = .{};
-var transaction: Raw = undefined;
-var connection: Store.Connection = .{ .store = &store, .id = 1, .transaction_workspace = &transaction };
+var connection: Store.Connection = .{ .store = &store, .id = 1 };
 var session: Session = .{};
 var buffers: Stream = .{};
 extern var __bss_start: u8;

@@ -33,12 +33,9 @@ pub fn main(init: std.process.Init) !void {
     var state: Persistence = .{};
     defer state.close();
     var store: Store = .{};
-    var workspace: Raw = .{};
     var recovery: [transaction_bytes]u8 = undefined;
-    _ = try state.initExisting(source_path, &store, &workspace, &recovery);
-    var tx_workspace: Raw = .{};
-    var tx_log: [transaction_bytes]u8 = undefined;
-    var connection: Store.Connection = .{ .store = &store, .id = 1, .transaction_workspace = &tx_workspace, .transaction_log = &tx_log };
+    _ = try state.initExisting(source_path, &store, &recovery);
+    var connection: Store.Connection = .{ .store = &store, .id = 1 };
     var result: Raw.Result = .{};
     try connection.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, value TEXT)", &result);
     try connection.execute("INSERT INTO t VALUES (1, 'restorable')", &result);
@@ -79,9 +76,8 @@ pub fn main(init: std.process.Init) !void {
     var restored: Persistence = .{};
     defer restored.close();
     var restored_store: Store = .{};
-    var restored_workspace: Raw = .{};
     var restored_recovery: [transaction_bytes]u8 = undefined;
-    const restored_result = try restored.initExisting(target_path, &restored_store, &restored_workspace, &restored_recovery);
+    const restored_result = try restored.initExisting(target_path, &restored_store, &restored_recovery);
     try check(restored_result.sequence == 3);
     var restored_connection: Store.Connection = .{ .store = &restored_store, .id = 2 };
     try restored_connection.execute("SELECT * FROM t", &result);
@@ -91,7 +87,7 @@ pub fn main(init: std.process.Init) !void {
     // A missing offline source fails without creating an empty database.
     var missing: Persistence = .{};
     var missing_store: Store = .{};
-    if (missing.initExisting(temporary_path, &missing_store, &workspace, &recovery)) |_| return error.MissingSourceCreated else |err| try check(err == error.FileOpenFailed);
+    if (missing.initExisting(temporary_path, &missing_store, &recovery)) |_| return error.MissingSourceCreated else |err| try check(err == error.FileOpenFailed);
     temporary = try disk.File.createExclusive(temporary_path);
     try check(try temporary.length() == 0);
     temporary.close();

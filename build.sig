@@ -79,12 +79,14 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     const rows = ctx.option(usize, "rows", "Rows per table") orelse 512;
     const tables = ctx.option(usize, "tables", "Table capacity") orelse 8;
     const text_bytes = ctx.option(usize, "text-bytes", "Bytes per text value") orelse 128;
-    const transaction_bytes = ctx.option(usize, "transaction-bytes", "SQL log bytes per transaction") orelse 1048576;
-    if (clients == 0 or clients > 60 or rows == 0 or tables == 0 or text_bytes == 0 or transaction_bytes < 65540) return error.BufferTooSmall;
+    const transaction_bytes = ctx.option(usize, "transaction-bytes", "Change-record encode and recovery buffer bytes per transaction") orelse 1048576;
+    const tx_writes = ctx.option(usize, "tx-writes", "Write-set entries (rows changed) per transaction") orelse 4096;
+    const versions = ctx.option(usize, "versions", "Row-version slots per table (must exceed rows)") orelse rows * 2;
+    if (clients == 0 or clients > 60 or rows == 0 or tables == 0 or text_bytes == 0 or transaction_bytes < 65540 or tx_writes == 0 or versions <= rows) return error.BufferTooSmall;
     var profile_buf: [512]u8 = undefined;
-    const profile = try std.fmt.bufPrint(&profile_buf, "pub const clients={d}; pub const rows={d}; pub const tables={d}; pub const text_bytes={d}; pub const transaction_bytes={d};\n", .{ clients, rows, tables, text_bytes, transaction_bytes });
+    const profile = try std.fmt.bufPrint(&profile_buf, "pub const clients={d}; pub const rows={d}; pub const tables={d}; pub const text_bytes={d}; pub const transaction_bytes={d}; pub const tx_writes={d}; pub const versions={d}; pub const transactions={d};\n", .{ clients, rows, tables, text_bytes, transaction_bytes, tx_writes, versions, clients + 2 });
     var profile_path_buf: [256]u8 = undefined;
-    const profile_path = try std.fmt.bufPrint(&profile_path_buf, ".sig-cache/profile-{d}-{d}-{d}-{d}-{d}.sig", .{ clients, rows, tables, text_bytes, transaction_bytes });
+    const profile_path = try std.fmt.bufPrint(&profile_path_buf, ".sig-cache/profile-{d}-{d}-{d}-{d}-{d}-{d}-{d}.sig", .{ clients, rows, tables, text_bytes, transaction_bytes, tx_writes, versions });
     try sig_build.sig_io.Dir.cwd().createDirPath(.{}, ".sig-cache");
     const profile_file = try sig_build.sig_io.Dir.cwd().createFile(.{}, profile_path, .{});
     try profile_file.writeStreamingAll(.{}, profile);
@@ -192,7 +194,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     const benchmark = try ctx.addStep("benchmark", "ramsql-bench", &runBinary);
     try ctx.addDependency(benchmark, bench);
     var test_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
-    inline for (.{ "postgres", "mysql", "tds", "db_store", "tcp_server", "sql_index", "scram", "durable_log", "db_file", "entropy", "db_stream", "pg_stream", "sql_storage", "sql_change_log", "sql_expr" }) |name| {
+    inline for (.{ "postgres", "mysql", "tds", "db_store", "tcp_server", "sql_index", "scram", "durable_log", "db_file", "entropy", "db_stream", "pg_stream", "sql_storage", "sql_change_log", "sql_expr", "sql_mvcc" }) |name| {
         const path = try zpm.modulePath("tests/test_" ++ name ++ ".sig", &test_buf);
         const compiled = try ctx.addCompileStep(.{
             .source_path = path,
