@@ -414,12 +414,12 @@ def main():
                         candidate_result = run(psycopg, candidate.connection, capacity_case)
                         ref_copy, ram_copy = reference_result["events"][1]["outcome"], candidate_result["events"][1]["outcome"]
                         ram_count = candidate_result["events"][2]["outcome"].get("rows")
-                        documented = (ref_copy.get("status") == "COPY 5000" and ram_copy.get("sqlstate") in ("53200", "54000")
+                        documented = (ref_copy.get("status") == "COPY 5000" and ram_copy.get("sqlstate") == "54000"
                                       and ram_count == [[0]])
                         report["divergences"].append({
                             "name": "default_profile_capacity_5000_rows",
                             "kind": "documented capacity divergence (not parity)",
-                            "expected": "reference COPY 5000; RAMSQL rejects at its row capacity (rows 512, tx-writes 4096) with the table unchanged",
+                            "expected": "reference COPY 5000; RAMSQL rejects with RowCapacity 54000 at its row capacity (rows 512, below tx-writes 4096) with the table unchanged",
                             "as_documented": documented, "postgres": reference_result, "ramsql": candidate_result})
                         print(("DIVERGENCE (as documented)" if documented else "DIVERGENCE UNEXPECTED") +
                               " default_profile_capacity_5000_rows: RAMSQL " + str(ram_copy.get("sqlstate")))

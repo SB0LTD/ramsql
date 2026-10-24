@@ -909,9 +909,9 @@ transaction status and blocking), never a non-error reply.
 The COPY divergence is the default-profile capacity limit (a 5 000-row COPY
 gets 54000 where PostgreSQL loads it); it is reported separately and never
 counted as parity. A 30 000-row COPY import/export, including a durable kill
-and restart, matched both references on the large profile documented in the
-README; that run used the same engine source before the pin (a local ZPM
-checkout) and was not repeated on the pinned archive. Only the two gate reports are committed here; the per-suite JSON
+and restart, matched both references in memory and durable+SCRAM modes on the
+large profile documented in the README, built (ReleaseFast) against the pinned
+archive. Only the two gate reports are committed here; the per-suite JSON
 reports are regenerated with the harness commands above (`--report`).
 `release-gates.json` is unchanged: `postgres_compatibility` and
 `capacity_concurrency` stay false, because 37/37 is necessary, not sufficient.
@@ -927,6 +927,9 @@ steps fail: `unimplemented mul_with_overflow` (`sql/expr.sig`), then
 overflows its stack. `tools/build_sb0.py` / `tools/test_sb0.py` therefore have
 no passing SB0X/SB0K evidence for this engine. These are native backend
 defects to fix in Sig; no gap that depends on native images is closed here.
+Do not merge this branch into `main` until the Sig native-backend fix lands
+and `tools/build_sb0.py` / `tools/test_sb0.py` pass for SB0X and SB0K on the
+pinned engine; merging earlier turns the native gate (N02) red on `main`.
 
 ## Proposed delivery order and exit criteria
 

@@ -125,7 +125,10 @@ pub fn Timezones(comptime Zone: type, comptime capacity: usize) type {
             if (self.directory == null) return error.ZoneUnavailable;
             if (self.cached(name)) |entry| return found(entry, zone, canonical);
             var spelled_buffer: [64]u8 = undefined;
-            const spelled: []const u8 = if (self.indexLookup(name, &spelled_buffer)) |length| spelled_buffer[0..length] else name;
+            // The index is operator data; its spelling reaches the file system
+            // only under the same name rule as client input.
+            const indexed: ?[]const u8 = if (self.indexLookup(name, &spelled_buffer)) |length| spelled_buffer[0..length] else null;
+            const spelled: []const u8 = if (indexed) |candidate| (if (validName(candidate)) candidate else name) else name;
             if (self.cached(spelled)) |entry| return found(entry, zone, canonical);
             var slot = self.count;
             if (slot == capacity) {
