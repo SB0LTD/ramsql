@@ -218,6 +218,17 @@ SCHEDULES: dict[str, Schedule] = {schedule.id: schedule for schedule in (
     t_schedule("SP9", s("a", "BEGIN"), s("a", "SAVEPOINT s"), s("a", "UPDATE t SET v = 1 WHERE id = 1", "ok"),
                s("b", "UPDATE t SET v = 2 WHERE id = 1", "blocked"), s("a", "ROLLBACK TO s", "ok"),
                s("a", "UPDATE t SET v = 5 WHERE id = 2", "ok"), s("a", "COMMIT", "ok")),
+    # SP8b (step 3.7): nextval inside a rolled-back savepoint is not rolled back.
+    t_schedule("SP8b", s("a", "CREATE SEQUENCE sp8b_seq", "ok"), s("a", "BEGIN"), s("a", "SAVEPOINT s"),
+               s("a", "SELECT nextval('sp8b_seq')", "ok"), s("a", "ROLLBACK TO s", "ok"),
+               s("a", "SELECT nextval('sp8b_seq')", "ok"), s("a", "ROLLBACK", "ok"),
+               s("b", "SELECT nextval('sp8b_seq')", "ok"), s("b", "DROP SEQUENCE sp8b_seq", "ok")),
+    # SQ1 (step 3.7): two sessions interleave nextval; currval is per session.
+    t_schedule("SQ1", s("a", "CREATE SEQUENCE sq1_seq", "ok"), s("a", "SELECT nextval('sq1_seq')", "ok"),
+               s("b", "SELECT currval('sq1_seq')", "55000"), s("b", "SELECT nextval('sq1_seq')", "ok"),
+               s("a", "SELECT nextval('sq1_seq'), currval('sq1_seq')", "ok"), s("b", "SELECT currval('sq1_seq'), lastval()", "ok"),
+               s("a", "BEGIN"), s("a", "SELECT nextval('sq1_seq')", "ok"), s("b", "SELECT nextval('sq1_seq')", "ok"),
+               s("a", "ROLLBACK", "ok"), s("b", "DROP SEQUENCE sq1_seq", "ok")),
     # ---- M2 transactional DDL (each followed by a durable restart) ----
     t_schedule("DDL1", s("a", "BEGIN"), s("a", "CREATE TABLE ddl1 (id INTEGER PRIMARY KEY)", "ok"),
                s("a", "INSERT INTO ddl1 VALUES (1)", "ok"), s("b", "SELECT id FROM ddl1", "42P01"),

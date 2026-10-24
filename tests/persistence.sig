@@ -181,8 +181,9 @@ fn changeRecords(path: []const u8) !void {
     file = try disk.File.open(path);
     try check(try file.length() == corrupt_length);
     try file.truncate(corrupt_length - 21 - log.overhead);
-    // Unknown op tags inside a checksummed record are a newer format.
-    bad[8] = 8;
+    // Unknown op tags inside a checksummed record are a newer format
+    // (7..9 are the sequence ops since step 3.7).
+    bad[8] = 10;
     try log.appendKind(&file, 6, bad[0..21], module.change_kind);
     file.close();
     store = .{};
@@ -329,6 +330,64 @@ fn typedValues(path: []const u8) !void {
     try check(result.row_count == 1 and result.rows[0].cells[0].integer == 1);
 }
 
+fn firstInteger(connection: *PgStore.Connection, source: []const u8) !i64 {
+    var result: PgRaw.Result = .{};
+    try connection.execute(source, &result);
+    try check(result.row_count == 1);
+    return result.rows[0].cells[0].integer;
+}
+
+/// Step 3.7 (design §4.6, §5.12/§5.13): identity and sequence log-ahead
+/// values (SEQ_LOG_VALS = 32) survive a reopen at PostgreSQL's post-crash
+/// position; a SELECT that advances a sequence is appended before its reply,
+/// a read-only SELECT appends nothing, and an aborted transaction's
+/// log-ahead value is carried into the next durable append by another
+/// connection.
+fn sequences(path: []const u8) !void {
+    try clearLog(path);
+    var store: PgStore = .{};
+    var recovery: [transaction_bytes]u8 = undefined;
+    var persistence: PgPersistence = .{};
+    defer persistence.close();
+    _ = try persistence.init(path, &store, &recovery);
+    var a: PgStore.Connection = .{ .store = &store, .id = 1 };
+    var b: PgStore.Connection = .{ .store = &store, .id = 2 };
+    var result: PgRaw.Result = .{};
+    try a.execute("CREATE TABLE ident (id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY, label TEXT DEFAULT 'd')", &result);
+    for (1..4) |expected| try check(try firstInteger(&a, "INSERT INTO ident (label) VALUES ('x') RETURNING id") == expected);
+    try a.execute("CREATE SEQUENCE s", &result);
+    var appended = persistence.sequence;
+    try check(try firstInteger(&a, "SELECT nextval('s')") == 1);
+    try check(persistence.sequence == appended + 1);
+    appended = persistence.sequence;
+    try check(try firstInteger(&a, "SELECT nextval('s')") == 2);
+    try check(try firstInteger(&a, "SELECT 1") == 1);
+    try check(persistence.sequence == appended);
+    try a.execute("CREATE SEQUENCE c", &result);
+    appended = persistence.sequence;
+    try a.execute("BEGIN", &result);
+    try check(try firstInteger(&a, "SELECT nextval('c')") == 1);
+    try a.execute("ROLLBACK", &result);
+    try check(persistence.sequence == appended);
+    // currval is per session: b has not called nextval('s').
+    if (b.execute("SELECT currval('s')", &result)) |_| return error.CurrvalAccepted else |err| try check(err == error.SequenceNotReady);
+    try check(persistence.sequence == appended);
+    try check(try firstInteger(&b, "SELECT 2") == 2);
+    try check(persistence.sequence == appended + 1);
+    try check(try allKindThree(&persistence.file, 1));
+    persistence.close();
+    store = .{};
+    _ = try persistence.init(path, &store, &recovery);
+    var c: PgStore.Connection = .{ .store = &store, .id = 3 };
+    try check(try firstInteger(&c, "INSERT INTO ident DEFAULT VALUES RETURNING id") == 34);
+    try check(try firstInteger(&c, "SELECT nextval('s')") == 34);
+    try check(try firstInteger(&c, "SELECT nextval('c')") == 34);
+    try c.execute("SELECT label FROM ident WHERE id = 34", &result);
+    try check(result.row_count == 1 and std.mem.eql(u8, result.rows[0].cells[0].text.slice(), "d"));
+    try c.execute("SELECT COUNT(*) FROM ident", &result);
+    try check(result.rows[0].cells[0].integer == 4);
+}
+
 pub fn main(init: std.process.Init) !void {
     const pid: u32 = if (builtin.os.tag == .windows) Win.GetCurrentProcessId() else if (builtin.os.tag == .macos) @intCast(std.c.getpid()) else @intCast(std.os.linux.getpid());
     var path_buffer: [256]u8 = undefined;
@@ -472,6 +531,7 @@ pub fn main(init: std.process.Init) !void {
     try changeRecords(path);
     try wideContinuation(path);
     try typedValues(path);
+    try sequences(path);
     var report_buffer: [160]u8 = undefined;
     const report = try std.fmt.bufPrint(&report_buffer, "{{\"suite\":\"persistence\",\"pass\":true,\"assertions\":{d}}}\n", .{assertions});
     try std.Io.File.stdout().writeStreamingAll(init.io, report);

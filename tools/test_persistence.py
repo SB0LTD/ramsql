@@ -279,7 +279,8 @@ def main():
     durable_oid = 16384
     bad_changes = {
         "semantic": (change_payload(struct.pack("<BIQ", 5, durable_oid, 99999)), ("ChangeRecordConflict",)),
-        "unknown-op": (change_payload(struct.pack("<BIQ", 8, durable_oid, 1)), ("UnsupportedLogVersion",)),
+        # Ops 7..9 are the sequence ops since step 3.7; 10 is unknown.
+        "unknown-op": (change_payload(struct.pack("<BIQ", 10, durable_oid, 1)), ("UnsupportedLogVersion",)),
         "truncated-op": (change_payload(struct.pack("<BI", 3, durable_oid)), ("InvalidChangeRecord",)),
         "legacy-after-change": (struct.pack("<I", 30) + b"INSERT INTO durable VALUES (4)", ("UnsupportedLogVersion",)),
     }
