@@ -269,15 +269,15 @@ data row (text line, CSV record or binary tuple) is at most 8192 bytes
 are not supported (`0A000`); option SQLSTATEs follow PostgreSQL 16.
 
 Foreign keys, secondary indexes, window functions and complete SQL-standard
-semantics remain release blockers. The committed finite differential gate report
-matches 19/37 probes against PostgreSQL 16 and 18, including integer OIDs/ranges,
-binary formats, and NULL ordering; development builds additionally match
-`or_predicate`, `read_committed`, `savepoint`, `numeric`, `timestamp`,
-`jsonb`, `distinct`, `aggregate`, `group_by`, `join`, `cte`, `returning`,
-`defaults`, `identity`, `upsert`, `pg_type`, `information_schema` and `copy`
-(37/37),
-and the committed reports are refreshed at release. The catalog subset and
-broader SQL behavior remain incomplete.
+semantics remain release blockers. The committed finite differential gate
+reports ([PostgreSQL 18](compatibility/postgres-report.json),
+[PostgreSQL 16](compatibility/postgres16-report.json)) match 37/37 probes, and
+the same 37 match in durable+SCRAM mode; the differential semantics,
+isolation, COPY and crash suites also match both versions (see
+[the gap-closing plan](compatibility/GAP_CLOSING_PLAN.md#gap-closing-run-evidence-24-october-2026)).
+37 probes are a finite gate, not PostgreSQL parity: the catalog subset and
+broader SQL behavior remain incomplete, and `postgres_compatibility` stays
+false in the release gates.
 
 ## Memory and execution
 
@@ -312,7 +312,9 @@ table unchanged where PostgreSQL succeeds; raise `-Drows`, `-Dtx-writes` and
 `-Dtransaction-bytes` together for bulk loads (30 000 rows are verified with
 `-Drows=32768 -Dtables=2 -Dtext-bytes=64 -Dtx-writes=32768
 -Dtransaction-bytes=4194304`). COPY TO returns at most rows-per-table rows,
-like any statement.
+like any statement. Large `-Drows` profiles were verified with a ReleaseFast
+server build: a debug build at `-Drows=8192` overflows the main-thread stack
+at startup.
 Statements beyond 512 expression nodes or depth 64 fail with
 `StatementTooComplex` (54001). Value capacity limits: a NUMERIC holds at most 64
 significant decimal digits and a display scale of at most 120 (declared
@@ -462,7 +464,10 @@ delegated channel traps used by the PostgreSQL tests. This validates the SB0S
 image and process ABI without private repository credentials. It is separate
 from integration testing a complete SB0S kernel distribution. SB0K tests execute
 the privileged image directly. Failed native compilation or execution blocks
-publication.
+publication. The current engine does not yet compile with the pinned native
+compiler (native backend defects, see
+[the gap-closing plan](compatibility/GAP_CLOSING_PLAN.md#native-build-blocker)),
+so native SB0X/SB0K images are currently blocked.
 
 ```sh
 python tools/test_release.py

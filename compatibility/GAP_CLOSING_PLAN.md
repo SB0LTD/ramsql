@@ -1,6 +1,11 @@
 # RAMSQL gap-closing plan
 
 Review baseline: 22 October 2026, development candidate `0.3.0-alpha.2`.
+Status update: 24 October 2026, gap-closing run (RAMSQL branch
+`gap-closing-measured-probes`, ZPM `dba76e1`, [ZPM PR 21](https://github.com/SB0LTD/zpm/pull/21));
+see [Gap-closing run evidence](#gap-closing-run-evidence-24-october-2026).
+The baseline descriptions below are kept for review; each touched gap's
+**Status** line records the result.
 
 This document explains what still separates RAMSQL from the requested product:
 a production database server that keeps its working data in RAM, persists commits,
@@ -28,9 +33,11 @@ Status meanings:
 | Partial | Useful behavior exists, but important required behavior is absent. |
 | Unverified | Current tests do not establish the required behavior. |
 | Candidate addressed | Code and focused tests exist; final platform/release evidence must still be checked. |
+| Closed | The gap's closing criterion is met with linked differential evidence against PostgreSQL 18 and 16, in memory and durable+SCRAM modes, for the scope stated with the gap. It does not change any release gate by itself. |
 
-There are **18 known failures in 37 differential probes**, against both PostgreSQL
-16 and 18. These are examples of incompatibility, not the complete backlog and
+At the review baseline there were **18 known failures in 37 differential probes**,
+against both PostgreSQL 16 and 18; after the gap-closing run all 37 match on
+both, in memory and durable+SCRAM modes. These are examples of incompatibility, not the complete backlog and
 not a percentage of PostgreSQL implemented. Larger feature families and untested
 behavior appear below. Upstream regression and real-application testing must
 continue discovering gaps even after all 37 probes pass.
@@ -145,7 +152,7 @@ cannot close C02 or the production compatibility gate.
 
 ### S01 — Replace dense database-shaped storage and transaction copies
 
-**Status:** Partial; the autocommit-copy bottleneck is addressed in the candidate.
+**Status:** Partial (flag F-S01). Stable rowids, row versions in a fixed per-table arena, a multi-entry PK index and reclamation are implemented, and per-connection database copies are gone (one shared store). There is still no variable-length value store or caller-owned pages: cells stay inline at `text_bytes` and the version arena is preallocated at 2 × rows. [Evidence](#gap-closing-run-evidence-24-october-2026).
 **Owner:** ZPM storage/SQL/store; RAMSQL configures resource budgets.
 
 Every transaction currently reserves a private database-shaped workspace. Inline
@@ -164,7 +171,7 @@ within a configured RAM budget, with no runtime heap allocation or atomicity reg
 
 ### S02 — Add useful indexes and scalable execution algorithms
 
-**Status:** Partial. **Owner:** ZPM SQL/planner/index packages.
+**Status:** Partial (flag F-S02, unchanged). Only the PK hash index exists; insertion sort was replaced by a stable merge sort and statement-bounded workspaces. **Owner:** ZPM SQL/planner/index packages.
 
 Only a single-column primary-key hash index exists. Other filters scan rows,
 sorting uses insertion sort, and deletion compacts rows and rebuilds references.
@@ -197,7 +204,7 @@ every held page, version, cursor and session resource.
 
 ### T01 — Implement PostgreSQL READ COMMITTED visibility
 
-**Status:** Missing; `read_committed` fails. **Owner:** ZPM transaction/storage/execution.
+**Status:** Closed for READ COMMITTED. `read_committed` probe `match: true (PG18+PG16, memory and durable+SCRAM)`; isolation schedules RC1–RC14 match (statement snapshots, own writes, concurrent update/delete with EvalPlanQual, unique-key races, aborts, disconnects). [Evidence](#gap-closing-run-evidence-24-october-2026). **Owner:** ZPM transaction/storage/execution.
 
 Today BEGIN copies a snapshot and a writing COMMIT fails if *any* committed write
 changed the global generation. PostgreSQL's default READ COMMITTED instead takes
@@ -216,7 +223,7 @@ predicates can select different rows and change the transaction's meaning.
 
 ### T02 — Add row ownership, lock waits and deadlock handling
 
-**Status:** Missing. **Owner:** ZPM lock/transaction engine; RAMSQL schedules suspended work.
+**Status:** Candidate addressed (flag F18). Row/table locks, waits that never block the reactor, FOR UPDATE/SHARE [NOWAIT|SKIP LOCKED], deadlock detection (40P01), lock_timeout and cancel; schedules LK1–LK9, UP1–UP4 and CP1 match. FOR NO KEY UPDATE/KEY SHARE and multi-core fair scheduling (O01) remain. [Evidence](#gap-closing-run-evidence-24-october-2026). **Owner:** ZPM lock/transaction engine; RAMSQL schedules suspended work.
 
 Transactions modifying unrelated data currently conflict, and there is no real
 row-lock wait model. Updating the same row requires coordination; rejecting every
@@ -233,7 +240,7 @@ blocked reactor. Requires S01 and T01.
 
 ### T03 — Implement savepoints and transaction-local rollback
 
-**Status:** Missing; `savepoint` fails. **Owner:** ZPM transaction engine and shared SQL commands.
+**Status:** Closed for RAMSQL's feature set (cursors do not exist). `savepoint` probe `match: true (PG18+PG16, memory and durable+SCRAM)`; SP1–SP9 and SP8b match (nesting, repeated names, failures, release, rows/DDL/locks/settings, commit and durable restart). [Evidence](#gap-closing-run-evidence-24-october-2026). **Owner:** ZPM transaction engine and shared SQL commands.
 
 Frameworks use savepoints to undo one operation while keeping the surrounding
 transaction alive. Full ROLLBACK cannot substitute for ROLLBACK TO SAVEPOINT.
@@ -247,7 +254,7 @@ names, commit/restart and disconnect without retaining rolled-back changes.
 
 ### T04 — Complete isolation and transaction-control behavior
 
-**Status:** Partial/unverified. **Owner:** ZPM transactions; codecs expose the behavior.
+**Status:** Partial. READ COMMITTED only; REPEATABLE READ/SERIALIZABLE are rejected with 0A000 instead of being emulated; transactional DDL is tested (DDL1–DDL4). **Owner:** ZPM transactions; codecs expose the behavior.
 
 BEGIN/COMMIT/ROLLBACK working for the subset does not establish all transaction
 modes. Applications can request isolation levels, read-only transactions and
@@ -265,7 +272,7 @@ mechanism as PostgreSQL Serializable or complete Repeatable Read.
 
 ### Q01 — Build typed expressions and complete boolean predicates
 
-**Status:** Missing beyond comparisons/AND; `or_predicate` fails. **Owner:** ZPM parser/type checker/executor.
+**Status:** Closed for the implemented type set. `or_predicate` probe `match: true (PG18+PG16, memory and durable+SCRAM)`; suite q01 matches (precedence, three-valued logic, typing and SQLSTATEs, numeric promotion). [Evidence](#gap-closing-run-evidence-24-october-2026). **Owner:** ZPM parser/type checker/executor.
 
 Applications need arithmetic, OR/NOT, parentheses, casts, parameters, expressions
 in projections/updates, CASE, IN, BETWEEN, LIKE and subexpressions. Currently an
@@ -281,7 +288,7 @@ partial mutations. Other SQL families below should use this engine.
 
 ### Q02 — Exact numeric and floating-point types
 
-**Status:** Missing; `numeric` fails. **Owner:** ZPM values/arithmetic/SQL; protocol codecs encode types.
+**Status:** Partial (flag F-M). NUMERIC/SMALLINT/REAL/DOUBLE implemented, `numeric` probe `match: true (PG18+PG16, memory and durable+SCRAM)`, suite q02 matches; MySQL/TDS return these types as text-typed columns, and NUMERIC holds at most 64 significant digits. [Evidence](#gap-closing-run-evidence-24-october-2026). **Owner:** ZPM values/arithmetic/SQL; protocol codecs encode types.
 
 Money and scientific workloads need more than signed INTEGER/BIGINT. Decimal
 precision, scale, rounding and overflow must be compatible rather than using a
@@ -296,7 +303,7 @@ parameters and persisted round trips match the native reference.
 
 ### Q03 — Dates, times, timestamps, time zones and intervals
 
-**Status:** Missing; `timestamp` fails. **Owner:** ZPM temporal values/execution; RAMSQL configures required data/resources.
+**Status:** Partial (flag F3). DATE/TIMESTAMP/TIMESTAMPTZ/INTERVAL with TZif zones, `timestamp` probe `match: true (PG18+PG16, memory and durable+SCRAM)`, suite q03 matches; no zone abbreviations, non-ISO DateStyle/IntervalStyle variants, and named zones need a TZif directory (none by default on Windows/SB0). [Evidence](#gap-closing-run-evidence-24-october-2026). **Owner:** ZPM temporal values/execution; RAMSQL configures required data/resources.
 
 An event timestamp is not ordinary text. Parsing, time-zone conversion, ordering,
 arithmetic and client binary formats must agree with PostgreSQL.
@@ -310,7 +317,7 @@ typed values and errors through text/binary clients and after recovery.
 
 ### Q04 — JSON/JSONB and structured-value operations
 
-**Status:** Missing; `jsonb` fails. **Owner:** ZPM values, SQL expressions and reusable JSON support.
+**Status:** Partial (flag F4). JSON/JSONB with the core operators, `jsonb` probe `match: true (PG18+PG16, memory and durable+SCRAM)`, suite q04 matches; values are bounded by `text_bytes`, no jsonpath and most JSON functions absent. [Evidence](#gap-closing-run-evidence-24-october-2026). **Owner:** ZPM values, SQL expressions and reusable JSON support.
 
 Applications store documents and query individual fields. Accepting JSON text
 without JSONB validation, comparison and operators would not satisfy this gap.
@@ -340,7 +347,7 @@ only one commonly used type.
 
 ### Q06 — Aggregates, grouping, HAVING and window functions
 
-**Status:** Missing; `aggregate` and `group_by` fail. **Owner:** ZPM planner/executor.
+**Status:** Partial (flag F6). Aggregates, GROUP BY and HAVING implemented, `aggregate` and `group_by` probes `match: true (PG18+PG16, memory and durable+SCRAM)`, suite q06 matches; no window functions or AVG(interval). [Evidence](#gap-closing-run-evidence-24-october-2026). **Owner:** ZPM planner/executor.
 
 Reports and application counts require COUNT/SUM and grouping. Window functions
 compute values over related rows without collapsing the result into groups.
@@ -354,7 +361,7 @@ overflow, large groups and window boundaries match, including wire metadata.
 
 ### Q07 — Joins, subqueries, CTEs and set operations
 
-**Status:** Missing; `join` and `cte` fail. **Owner:** ZPM binder/planner/executor.
+**Status:** Partial (flag F7). Joins, subqueries, CTEs (incl. recursive) and set operations, `join` and `cte` probes `match: true (PG18+PG16, memory and durable+SCRAM)`, suite q07 matches; no data-modifying CTEs, LATERAL, NATURAL or parenthesized join trees; nested-loop joins bounded by the statement workspace. [Evidence](#gap-closing-run-evidence-24-october-2026). **Owner:** ZPM binder/planner/executor.
 
 Real schemas split data across related tables. Joining those tables is a normal
 application operation, not an optional reporting feature.
@@ -369,7 +376,7 @@ recursive termination and transactional behavior match the reference at realisti
 
 ### Q08 — DISTINCT, ordering, pagination and query shape
 
-**Status:** Partial; `distinct` fails. **Owner:** ZPM SQL/planner/executor.
+**Status:** Candidate addressed (flag F8). DISTINCT [ON], multi-key ORDER BY with NULLS FIRST/LAST, OFFSET/FETCH, `distinct` probe `match: true (PG18+PG16, memory and durable+SCRAM)`, suite q08 matches; sorts larger than the statement workspace fail with 54000 (S02/S03). [Evidence](#gap-closing-run-evidence-24-october-2026). **Owner:** ZPM SQL/planner/executor.
 
 Only one ORDER BY column and LIMIT are implemented. Applications also depend on
 duplicate elimination, several sort keys, OFFSET and expressions in ordering.
@@ -383,7 +390,7 @@ queries match PostgreSQL, using bounded algorithms suitable for larger datasets.
 
 ### Q09 — General DML, RETURNING and conflict handling
 
-**Status:** Partial; `returning` and `upsert` fail. **Owner:** ZPM SQL/storage/transactions; codecs serialize results.
+**Status:** Partial (flag F9). Multi-row VALUES, INSERT ... SELECT, RETURNING and ON CONFLICT on the primary key, `returning` and `upsert` probes `match: true (PG18+PG16, memory and durable+SCRAM)`, suite q09 and UP1–UP4 match; no UPDATE ... FROM, DELETE ... USING, RETURNING OLD/NEW or non-PK arbiters. [Evidence](#gap-closing-run-evidence-24-october-2026). **Owner:** ZPM SQL/storage/transactions; codecs serialize results.
 
 Applications commonly insert several rows, return generated values, insert from
 a SELECT, update using expressions and perform an upsert when a key already exists.
@@ -398,7 +405,7 @@ visibility, errors and durable replay agree with the reference.
 
 ### Q10 — Defaults, identity and sequences
 
-**Status:** Missing; `defaults` and `identity` fail. **Owner:** ZPM schema/execution/transactions; RAMSQL persists lifecycle state.
+**Status:** Partial (flag F10). Defaults, identity, stored generated columns and sequences with PostgreSQL's log-ahead, `defaults` and `identity` probes `match: true (PG18+PG16, memory and durable+SCRAM)`, suite q10 and crash cases CR1/CR2 match; one identity column per table, CACHE > 1 and SERIAL unsupported, clean-shutdown continuity not comparable (no graceful shutdown, O04). [Evidence](#gap-closing-run-evidence-24-october-2026). **Owner:** ZPM schema/execution/transactions; RAMSQL persists lifecycle state.
 
 Omitted values currently become NULL. Applications expect column defaults and
 generated identifiers with particular concurrency and rollback behavior.
@@ -427,7 +434,7 @@ and queries behave correctly, and failure cannot leave half-applied schema/index
 
 ### Q12 — Names, text, encodings, collations and dialect separation
 
-**Status:** Partial/code-derived gaps requiring more differential tests. **Owner:** ZPM SQL/types/codecs; RAMSQL selects session policy.
+**Status:** Partial (flag F-M). Quoted identifiers keep case; INTEGER is int4 on PostgreSQL sessions and boolean 0/1 assignment is a per-session MySQL/TDS rule, but the parser is shared by all listeners and collations/encodings are unchanged. **Owner:** ZPM SQL/types/codecs; RAMSQL selects session policy.
 
 Names currently use ASCII case-insensitive rules and text compares as bytes.
 PostgreSQL quoted identifiers, schemas/search_path, Unicode and collation behavior
@@ -463,7 +470,7 @@ ABI requirement remains explicitly open for review.
 
 ### P01 — Real system catalogs and information_schema
 
-**Status:** Missing; `pg_type` and `information_schema` fail. **Owner:** ZPM schema/catalog/query engine.
+**Status:** Partial (flag F14). Versioned catalog with a pg_catalog/information_schema view subset, `pg_type` and `information_schema` probes `match: true (PG18+PG16, memory and durable+SCRAM)`, suite p01 and CAT1 match; migration tools and `psql \d` need many more catalogs and functions. [Evidence](#gap-closing-run-evidence-24-october-2026). **Owner:** ZPM schema/catalog/query engine.
 
 Drivers and migration tools ask the database what tables, columns, types, indexes
 and permissions exist. Hard-coded replies to the two failing discovery queries
@@ -497,7 +504,7 @@ output capacity cannot cause an unreportable mutation.
 
 ### P03 — COPY and bulk movement
 
-**Status:** Missing; `copy` fails. **Owner:** ZPM COPY codecs and executor; RAMSQL I/O/resource policy.
+**Status:** Partial (flag F17). COPY FROM STDIN / TO STDOUT in text, csv and binary over the simple query protocol, `copy` probe `match: true (PG18+PG16, memory and durable+SCRAM)`, COPY suite 11/11 and CP1 match; one COPY is bounded by `-Drows`, `-Dtx-writes` and `-Dtransaction-bytes` (a 5 000-row COPY at the default profile is 54000, recorded as a divergence), no extended-protocol COPY, files, FORCE_*, ON_ERROR or WHERE. [Evidence](#gap-closing-run-evidence-24-october-2026). **Owner:** ZPM COPY codecs and executor; RAMSQL I/O/resource policy.
 
 Imports, exports and PostgreSQL tools rely on COPY. A sequence of single-row
 inserts is not compatible with COPY's streaming protocol or error behavior.
@@ -527,7 +534,7 @@ rewrites, and failures are represented in the gap inventory. Requires broad Q/P 
 
 ### D01 — Version durable semantics and support upgrades
 
-**Status:** Partial. **Owner:** ZPM canonical record/schema formats; RAMSQL upgrade/replay policy.
+**Status:** Partial (flag F-D01). New WALs hold versioned kind-3 typed change records; alpha.1/alpha.2 kind 1/2 logs recover through a frozen alpha-grammar replay; older binaries cannot read kind 3. No release upgrade/downgrade matrix yet. **Owner:** ZPM canonical record/schema formats; RAMSQL upgrade/replay policy.
 
 The WAL currently stores SQL text. A future parser, type or name-resolution change
 can interpret old text differently. Faster replay does not remove that risk.
@@ -651,7 +658,7 @@ including restart, concurrent login/rotation and native-platform entropy failure
 
 ### M01 — MySQL server compatibility
 
-**Status:** Partial; local text-query subset only. **Owner:** ZPM MySQL codec/dialect/types; RAMSQL authenticated listener policy.
+**Status:** Partial (flag F-M); local text-query subset only, new value types are text-typed columns. **Owner:** ZPM MySQL codec/dialect/types; RAMSQL authenticated listener policy.
 
 PyMySQL text queries work, but empty-password local trust, no TLS, no binary
 prepared statements and shared PostgreSQL-shaped SQL do not replace MySQL.
@@ -667,7 +674,7 @@ success remains subset evidence only.
 
 ### M02 — SQL Server/TDS server compatibility
 
-**Status:** Partial; trusted TDS 7.2–7.4 subset only. **Owner:** ZPM TDS codec/dialect/types; RAMSQL listener/access policy.
+**Status:** Partial (flag F-M); trusted TDS 7.2–7.4 subset only, new value types are text-typed columns. **Owner:** ZPM TDS codec/dialect/types; RAMSQL listener/access policy.
 
 PRELOGIN/LOGIN7, SQL batches and bounded sp_executesql work. Other prepared/RPC
 paths, bulk copy, MARS, integrated authentication, TLS and TDS 8 are unsupported.
@@ -701,7 +708,7 @@ deterministic entropy and renamed Linux binaries cannot satisfy this gap.
 
 ### N02 — Test the full OS integration, not just an ABI fixture
 
-**Status:** Partial. **Owner:** RAMSQL/SB0 integration and release qualification.
+**Status:** Partial, **regressed** in the gap-closing run: native SB0X/SB0K images no longer build with the pinned native compiler (Sig `8b4908bb`) since the typed-expression change, so the QEMU tests below have not run on the current engine and native publication is blocked. See [Native build blocker](#native-build-blocker). **Owner:** RAMSQL/SB0 integration and release qualification.
 
 SB0X EL0 and SB0K EL1 QEMU tests pass. The SB0X loader is a public ABI conformance
 fixture, not proof of a complete supported SB0S distribution or hardware deployment.
@@ -749,7 +756,7 @@ flush-before-publication/acknowledgement guarantee by accident.
 
 ### O02 — Cancellation, deadlines and resource control
 
-**Status:** Missing/partial. **Owner:** ZPM interruptible execution/lock waits; RAMSQL request/session policy.
+**Status:** Partial (flag F-O02). PostgreSQL cancel requests (BackendKeyData/CancelRequest), `statement_timeout` and `lock_timeout` work for lock waits; no idle-in-transaction timeout, transaction deadlines or query budgets. **Owner:** ZPM interruptible execution/lock waits; RAMSQL request/session policy.
 
 The PostgreSQL codec currently recognizes CancelRequest and closes that connection
 without interrupting work. Idle expiry exists, but it is not statement cancellation
@@ -851,29 +858,75 @@ enable publication; prereleases must remain explicitly identified as development
 
 ## The 18 measured gaps, mapped to the plan
 
-| Probe | What breaks in ordinary use | Primary closing work |
-| --- | --- | --- |
-| `numeric` | Exact decimal columns such as monetary amounts cannot be created/used. | Q02 |
-| `timestamp` | Typed event times/time-zone behavior cannot be represented. | Q03 |
-| `jsonb` | Document columns and field operators fail. | Q04 |
-| `aggregate` | COUNT/SUM queries fail. | Q06 |
-| `group_by` | Grouped reports and grouped application queries fail. | Q06 |
-| `join` | Queries combining related tables fail. | Q07 |
-| `cte` | WITH queries used by applications/migrations fail. | Q07 |
-| `or_predicate` | A normal WHERE condition containing OR fails. | Q01 |
-| `distinct` | Duplicate elimination fails. | Q08 |
-| `returning` | INSERT cannot return the inserted/generated value. | Q09 |
-| `upsert` | ON CONFLICT insert-or-update workflows fail. | Q09, T02 |
-| `defaults` | Omitted values cannot use column defaults. | Q10 |
-| `identity` | Generated identity columns fail. | Q10 |
-| `pg_type` | PostgreSQL type discovery fails. | P01 |
-| `information_schema` | Standard schema discovery fails. | P01 |
-| `savepoint` | A framework cannot roll back one nested operation. | T03 |
-| `copy` | Streaming bulk import fails. | P03 |
-| `read_committed` | A new statement inside a transaction does not see the expected new committed data. | T01, T02 |
+The "What breaks" column describes the review baseline. Every probe now
+records `match: true (PG18+PG16, memory and durable+SCRAM)`; a matching probe
+does not close its gap, whose status is on the gap's **Status** line.
+
+| Probe | What breaks in ordinary use | Primary closing work | Probe after the gap-closing run |
+| --- | --- | --- | --- |
+| `numeric` | Exact decimal columns such as monetary amounts cannot be created/used. | Q02 | `match: true` (PG18+PG16, memory and durable+SCRAM); Q02 Partial, F-M |
+| `timestamp` | Typed event times/time-zone behavior cannot be represented. | Q03 | `match: true` (PG18+PG16, memory and durable+SCRAM); Q03 Partial, F3 |
+| `jsonb` | Document columns and field operators fail. | Q04 | `match: true` (PG18+PG16, memory and durable+SCRAM); Q04 Partial, F4 |
+| `aggregate` | COUNT/SUM queries fail. | Q06 | `match: true` (PG18+PG16, memory and durable+SCRAM); Q06 Partial, F6 |
+| `group_by` | Grouped reports and grouped application queries fail. | Q06 | `match: true` (PG18+PG16, memory and durable+SCRAM); Q06 Partial, F6 |
+| `join` | Queries combining related tables fail. | Q07 | `match: true` (PG18+PG16, memory and durable+SCRAM); Q07 Partial, F7 |
+| `cte` | WITH queries used by applications/migrations fail. | Q07 | `match: true` (PG18+PG16, memory and durable+SCRAM); Q07 Partial, F7 |
+| `or_predicate` | A normal WHERE condition containing OR fails. | Q01 | `match: true` (PG18+PG16, memory and durable+SCRAM); Q01 Closed |
+| `distinct` | Duplicate elimination fails. | Q08 | `match: true` (PG18+PG16, memory and durable+SCRAM); Q08 Candidate addressed, F8 |
+| `returning` | INSERT cannot return the inserted/generated value. | Q09 | `match: true` (PG18+PG16, memory and durable+SCRAM); Q09 Partial, F9 |
+| `upsert` | ON CONFLICT insert-or-update workflows fail. | Q09, T02 | `match: true` (PG18+PG16, memory and durable+SCRAM); Q09 Partial, T02 Candidate addressed |
+| `defaults` | Omitted values cannot use column defaults. | Q10 | `match: true` (PG18+PG16, memory and durable+SCRAM); Q10 Partial, F10 |
+| `identity` | Generated identity columns fail. | Q10 | `match: true` (PG18+PG16, memory and durable+SCRAM); Q10 Partial, F10 |
+| `pg_type` | PostgreSQL type discovery fails. | P01 | `match: true` (PG18+PG16, memory and durable+SCRAM); P01 Partial, F14 |
+| `information_schema` | Standard schema discovery fails. | P01 | `match: true` (PG18+PG16, memory and durable+SCRAM); P01 Partial, F14 |
+| `savepoint` | A framework cannot roll back one nested operation. | T03 | `match: true` (PG18+PG16, memory and durable+SCRAM); T03 Closed |
+| `copy` | Streaming bulk import fails. | P03 | `match: true` (PG18+PG16, memory and durable+SCRAM); P03 Partial, F17 |
+| `read_committed` | A new statement inside a transaction does not see the expected new committed data. | T01, T02 | `match: true` (PG18+PG16, memory and durable+SCRAM); T01 Closed, T02 Candidate addressed |
 
 Closing these rows is necessary. It does not close the other gaps above, including
 security, scaling, remaining types/SQL, tooling, operations and native services.
+
+## Gap-closing run evidence (24 October 2026)
+
+Builds: RAMSQL `gap-closing-measured-probes` with `build.sig.zon` pinned to ZPM
+archive `dba76e14c98ad62cd74cf72d3916e4005b616578` (SHA-256
+`6bb8f4b6b6999c08da2e1b92d22a5a3561d96fc2197e75d312656ea10e11add4`), debug
+server build. References: `postgres:18-alpine` (PostgreSQL 18.3, image
+`sha256:4da1a4828be1…`) and `postgres:16-alpine` (PostgreSQL 16.15, image
+`sha256:f4610795587…`). Memory mode is `--insecure-local`; durable+SCRAM uses a
+fresh WAL (`--data`) and a SCRAM-SHA-256 password login. Every count below is
+differential parity with the reference (same rows, types, tags, SQLSTATEs,
+transaction status and blocking), never a non-error reply.
+
+| Suite (harness) | PG18 memory | PG18 durable+SCRAM | PG16 memory | PG16 durable+SCRAM |
+| --- | --- | --- | --- | --- |
+| 37-probe gate ([`test_postgres_compat.py`](../tools/test_postgres_compat.py)) | 37/37 ([report](postgres-report.json)) | 37/37 | 37/37 ([report](postgres16-report.json)) | 37/37 |
+| Semantics q01–q04, q06–q10, p01 at step 5.1 ([`test_postgres_semantics.py`](../tools/test_postgres_semantics.py)) | 141/141 (10 restart cases need durable) | 151/151 | 141/141 | 151/151 |
+| Isolation CP1, RC1–RC14, LK1–LK9, SP1–SP9, SP8b, UP1–UP4, CAT1, DDL1–DDL4, SQ1 ([`test_postgres_isolation.py`](../tools/test_postgres_isolation.py)) | 44/44 | 44/44 | 44/44 | 44/44 |
+| COPY ([`test_postgres_copy.py`](../tools/test_postgres_copy.py)) | 11/11, 1 documented divergence | 11/11, 1 | 11/11, 1 | 11/11, 1 |
+| Crash CR1, CR2 ([`test_postgres_crash_compat.py`](../tools/test_postgres_crash_compat.py), durable+SCRAM) | — | 2/2 | — | 2/2 |
+
+The COPY divergence is the default-profile capacity limit (a 5 000-row COPY
+gets 54000 where PostgreSQL loads it); it is reported separately and never
+counted as parity. A 30 000-row COPY import/export, including a durable kill
+and restart, matched both references on the large profile documented in the
+README; that run used the same engine source before the pin (a local ZPM
+checkout) and was not repeated on the pinned archive. Only the two gate reports are committed here; the per-suite JSON
+reports are regenerated with the harness commands above (`--report`).
+`release-gates.json` is unchanged: `postgres_compatibility` and
+`capacity_concurrency` stay false, because 37/37 is necessary, not sufficient.
+
+### Native build blocker
+
+The release is blocked on the native build. With the pinned native compiler
+(`NATIVE_SIG_REVISION` 8b4908bb in `tools/release_matrix.py`), `main`
+(c57fe72) and the storage/WAL step build a 12.6 MB SB0X image, but later
+steps fail: `unimplemented mul_with_overflow` (`sql/expr.sig`), then
+`unimplemented tag_name` (`db/store.sig`) and an oversized aggregate load
+(`sql/catalog.sig`), and from the value-types step on the compiler itself
+overflows its stack. `tools/build_sb0.py` / `tools/test_sb0.py` therefore have
+no passing SB0X/SB0K evidence for this engine. These are native backend
+defects to fix in Sig; no gap that depends on native images is closed here.
 
 ## Proposed delivery order and exit criteria
 
