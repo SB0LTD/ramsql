@@ -778,6 +778,50 @@ SUITES["q09"] = (
         "SELECT id, label FROM compat ORDER BY id",
         "ROLLBACK",
         ALL_ROWS)),
+    # Upsert (design §5.11(d), step 3.8).
+    Case("q09_upsert_probe", "q09", 3.8, feature="upsert probe", statements=(
+        "INSERT INTO compat VALUES (1, FALSE, 'upsert') ON CONFLICT (id) DO UPDATE SET label = EXCLUDED.label RETURNING label",
+        ALL_ROWS)),
+    Case("q09_upsert_nothing", "q09", 3.8, feature="DO NOTHING with and without a target, mixed rows, tags", statements=(
+        "INSERT INTO compat VALUES (1, TRUE, 'x') ON CONFLICT DO NOTHING",
+        "INSERT INTO compat VALUES (2, TRUE, 'x'), (4, TRUE, 'four') ON CONFLICT (id) DO NOTHING RETURNING id, label",
+        "INSERT INTO compat VALUES (5, NULL, 'a'), (5, NULL, 'b') ON CONFLICT DO NOTHING RETURNING label",
+        "INSERT INTO compat SELECT id, flag, 'copy' FROM compat ON CONFLICT DO NOTHING",
+        ALL_ROWS)),
+    Case("q09_upsert_update", "q09", 3.8, feature="DO UPDATE with EXCLUDED, alias, ON CONSTRAINT, WHERE false", statements=(
+        "INSERT INTO compat AS c VALUES (2, TRUE, 'b') ON CONFLICT ON CONSTRAINT compat_pkey DO UPDATE SET label = COALESCE(c.label, 'none') || EXCLUDED.label, flag = EXCLUDED.flag RETURNING *",
+        "INSERT INTO compat VALUES (3, TRUE, 'z') ON CONFLICT (id) DO UPDATE SET label = 'never' WHERE compat.flag RETURNING id",
+        "INSERT INTO compat VALUES (1, FALSE, 'u'), (6, FALSE, 'new') ON CONFLICT (id) DO UPDATE SET label = compat.label || '/' || EXCLUDED.label, id = EXCLUDED.id + 10 RETURNING id, label",
+        "INSERT INTO compat SELECT id, flag, 'again' FROM compat WHERE id < 4 ORDER BY id ON CONFLICT (id) DO UPDATE SET label = EXCLUDED.label RETURNING id, label",
+        "INSERT INTO compat VALUES (3, NULL, 'd') ON CONFLICT (id) DO UPDATE SET label = DEFAULT RETURNING label",
+        ALL_ROWS)),
+    Case("q09_upsert_errors", "q09", 3.8, feature="same row twice (21000), no matching unique index (42P10), 42704, 42601", statements=(
+        "INSERT INTO compat VALUES (5, TRUE, 'a'), (5, TRUE, 'b') ON CONFLICT (id) DO UPDATE SET label = EXCLUDED.label",
+        "INSERT INTO compat VALUES (1, TRUE, 'a'), (1, TRUE, 'b') ON CONFLICT (id) DO UPDATE SET label = EXCLUDED.label",
+        "INSERT INTO compat VALUES (1, TRUE, 'a') ON CONFLICT (label) DO NOTHING",
+        "INSERT INTO compat VALUES (1, TRUE, 'a') ON CONFLICT (id, label) DO NOTHING",
+        "INSERT INTO compat VALUES (1, TRUE, 'a') ON CONFLICT ON CONSTRAINT nope DO NOTHING",
+        "INSERT INTO compat VALUES (1, TRUE, 'a') ON CONFLICT DO UPDATE SET label = 'x'",
+        "INSERT INTO compat VALUES (1, TRUE, 'a') ON CONFLICT (id) DO UPDATE SET label = excluded.nope",
+        "INSERT INTO compat VALUES (1, TRUE, 'a') ON CONFLICT (id) DO UPDATE SET label = label",
+        "INSERT INTO compat VALUES (1, TRUE, 'a') ON CONFLICT (nope) DO NOTHING",
+        ALL_ROWS)),
+    Case("q09_upsert_transaction", "q09", 3.8, feature="own uncommitted rows conflict; rollback discards", statements=(
+        "BEGIN",
+        "INSERT INTO compat VALUES (4, TRUE, 'mine')",
+        "INSERT INTO compat VALUES (4, FALSE, 'again') ON CONFLICT (id) DO UPDATE SET label = compat.label || '+' RETURNING *",
+        "INSERT INTO compat VALUES (4, FALSE, 'x') ON CONFLICT DO NOTHING RETURNING id",
+        "ROLLBACK",
+        "INSERT INTO compat VALUES (4, FALSE, 'x') ON CONFLICT DO NOTHING RETURNING id",
+        ALL_ROWS)),
+    Case("q09_upsert_prepared", "q09", 3.8, feature="extended-protocol upsert executes once", statements=(
+        ("INSERT INTO compat VALUES (%s, %s, %s) ON CONFLICT (id) DO UPDATE SET label = EXCLUDED.label RETURNING id, label", (1, True, "p")),
+        ("INSERT INTO compat VALUES (%s, %s, %s) ON CONFLICT (id) DO UPDATE SET label = EXCLUDED.label RETURNING id, label", (8, True, "q")),
+        ALL_ROWS)),
+    Case("q09_upsert_restart", "q09", 3.8, feature="upserted rows survive a durable restart", statements=(
+        "INSERT INTO compat VALUES (1, FALSE, 'u'), (4, TRUE, 'n') ON CONFLICT (id) DO UPDATE SET label = EXCLUDED.label",
+        "INSERT INTO compat VALUES (2, TRUE, 'x') ON CONFLICT DO NOTHING"), restart=(
+        ALL_ROWS,)),
     Case("q09_restart", "q09", 3.6, feature="RETURNING mutations survive a durable restart", statements=(
         "INSERT INTO compat VALUES (4, TRUE, 'a'), (5, NULL, 'b') RETURNING id",
         "UPDATE compat SET label = 'u' WHERE id = 5 RETURNING label",
