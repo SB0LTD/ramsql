@@ -65,6 +65,11 @@ fn execute(statement: []const u8) !void {
                 .integer => |value| try number(value),
                 .boolean => |value| try write(if (value) "TRUE" else "FALSE"),
                 .text => |*value| try text(value.slice()),
+                // NUMERIC, REAL/DOUBLE, temporal and JSONB: the SQL output function.
+                else => {
+                    var buffer: [ram.DefaultDatabase.Io.format_bytes]u8 = undefined;
+                    try text(try ram.DefaultDatabase.Io.format(cell, false, &database.session, &buffer));
+                },
             }
         }
         try write("\n");
@@ -141,6 +146,7 @@ fn run(init: std.process.Init.Minimal) !u8 {
     var verifier_buffer: [4096]u8 = undefined;
     var user_buffer: [64]u8 = undefined;
     var backup_buffer: [4096]u8 = undefined;
+    var timezone_buffer: [4096]u8 = undefined;
     var backup_target: ?[]const u8 = null;
     var data_set = false;
     var mode: enum { serve, demo, input, help, version } = .serve;
@@ -159,8 +165,8 @@ fn run(init: std.process.Init.Minimal) !u8 {
             options.insecure_local = true;
             has_server_options = true;
         } else {
-            const option: enum { protocol, port, mysql_port, mssql_port, max_clients, idle_ms, data, verifier_file, auth_user, backup_to } =
-                if (same(arg, "--protocol")) .protocol else if (same(arg, "--port")) .port else if (same(arg, "--mysql-port")) .mysql_port else if (same(arg, "--mssql-port")) .mssql_port else if (same(arg, "--max-clients")) .max_clients else if (same(arg, "--idle-ms")) .idle_ms else if (same(arg, "--data")) .data else if (same(arg, "--auth-verifier-file")) .verifier_file else if (same(arg, "--auth-user")) .auth_user else if (same(arg, "--backup-to")) .backup_to else return error.UnknownArgument;
+            const option: enum { protocol, port, mysql_port, mssql_port, max_clients, idle_ms, data, verifier_file, auth_user, backup_to, timezone_dir } =
+                if (same(arg, "--protocol")) .protocol else if (same(arg, "--port")) .port else if (same(arg, "--mysql-port")) .mysql_port else if (same(arg, "--mssql-port")) .mssql_port else if (same(arg, "--max-clients")) .max_clients else if (same(arg, "--idle-ms")) .idle_ms else if (same(arg, "--data")) .data else if (same(arg, "--auth-verifier-file")) .verifier_file else if (same(arg, "--auth-user")) .auth_user else if (same(arg, "--backup-to")) .backup_to else if (same(arg, "--timezone-dir")) .timezone_dir else return error.UnknownArgument;
             const value = try args.next() orelse return error.UnknownArgument;
             has_server_options = true;
             switch (option) {
@@ -179,6 +185,11 @@ fn run(init: std.process.Init.Minimal) !u8 {
                     if (value.len == 0 or value.len > verifier_buffer.len) return error.InvalidServerOptions;
                     @memcpy(verifier_buffer[0..value.len], value);
                     options.auth_verifier_file = verifier_buffer[0..value.len];
+                },
+                .timezone_dir => {
+                    if (value.len == 0 or value.len > timezone_buffer.len) return error.InvalidServerOptions;
+                    @memcpy(timezone_buffer[0..value.len], value);
+                    options.timezone_dir = timezone_buffer[0..value.len];
                 },
                 .auth_user => {
                     if (value.len == 0 or value.len > user_buffer.len) return error.InvalidServerOptions;
@@ -202,7 +213,7 @@ fn run(init: std.process.Init.Minimal) !u8 {
         return 0;
     }
     switch (mode) {
-        .help => try write("ramsql development\nUsage: ramsql [--serve|--demo|--stdin|--version|--help]\nServer: --protocol postgres|mysql|mssql --port N --mysql-port N --mssql-port N\n        --max-clients N --idle-ms N; default loopback PostgreSQL:5432\nStorage: --data WAL_PATH (default ramsql.wal) | --memory\nBackup: --data EXISTING_WAL --backup-to NEW_PATH (offline)\nAuth: --auth-user USER --auth-verifier-file PATH (PostgreSQL SCRAM verifier)\n      --insecure-local explicitly enables unauthenticated loopback testing\n--stdin: one SQL statement per line. --demo: run the example and exit.\n"),
+        .help => try write("ramsql development\nUsage: ramsql [--serve|--demo|--stdin|--version|--help]\nServer: --protocol postgres|mysql|mssql --port N --mysql-port N --mssql-port N\n        --max-clients N --idle-ms N; default loopback PostgreSQL:5432\nStorage: --data WAL_PATH (default ramsql.wal) | --memory\nBackup: --data EXISTING_WAL --backup-to NEW_PATH (offline)\nAuth: --auth-user USER --auth-verifier-file PATH (PostgreSQL SCRAM verifier)\nTime zones: --timezone-dir ZONEINFO_DIR (default /usr/share/zoneinfo on Linux/macOS)\n      --insecure-local explicitly enables unauthenticated loopback testing\n--stdin: one SQL statement per line. --demo: run the example and exit.\n"),
         .version => try write("ramsql " ++ ram.version ++ "\n"),
         .input => return if (try stdin()) 1 else 0,
         .demo => try demo(),

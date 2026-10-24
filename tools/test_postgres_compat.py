@@ -244,8 +244,23 @@ def restart_native(connection, metadata, psycopg):
             time.sleep(0.15)
 
 
+def reference_timezone_dir(image):
+    """The reference image's zoneinfo copied by tools/fetch_tzdata.py (fetched
+    on first use from the local image; never pulled), or None when Docker or
+    the image is unavailable. Both engines then use the same tzdata, and the
+    Python client resolves the same zones (PYTHONTZPATH)."""
+    try:
+        from fetch_tzdata import fetch
+        directory = fetch(image)
+    except Exception as error:  # noqa: BLE001 - reported, the run continues
+        print("note: no reference tzdata (" + str(error) + "); RAMSQL runs without --timezone-dir", file=sys.stderr)
+        return None
+    os.environ.setdefault("PYTHONTZPATH", str(directory))
+    return directory
+
+
 @contextmanager
-def candidate_mode(work_directory, *, durable=False, scram=False):
+def candidate_mode(work_directory, *, durable=False, scram=False, timezone_dir=None):
     """Yield running_ramsql keyword arguments and report metadata for a gate mode.
 
     --durable owns a fresh WAL under a unique directory in --work-dir instead of
@@ -257,6 +272,8 @@ def candidate_mode(work_directory, *, durable=False, scram=False):
 
     directory = Path(work_directory).resolve() / ("ramsql-" + uuid.uuid4().hex)
     arguments = {}
+    if timezone_dir is not None:
+        arguments["extra_arguments"] = ("--timezone-dir", str(timezone_dir))
     try:
         if durable or scram:
             directory.mkdir(parents=True)
@@ -270,7 +287,8 @@ def candidate_mode(work_directory, *, durable=False, scram=False):
             arguments["auth"] = ("ramsql", verifier, password)
         yield arguments, {"durable": durable, "scram": scram,
                           "storage": "durable WAL" if durable else "memory",
-                          "authentication": "SCRAM-SHA-256" if scram else "insecure-local"}
+                          "authentication": "SCRAM-SHA-256" if scram else "insecure-local",
+                          "timezone_dir": str(timezone_dir) if timezone_dir is not None else None}
     finally:
         if directory.exists():
             __import__("shutil").rmtree(directory, ignore_errors=True)
@@ -335,8 +353,13 @@ def running_ramsql(binary, legacy_cli=False, extra_arguments=(), *, data_path=No
 
 
 def json_value(value):
+    if isinstance(value, float) and value != value:
+        # NaN never equals itself; compare its spelling instead.
+        return "NaN"
     if value is None or isinstance(value, (bool, int, float, str)):
         return value
+    if isinstance(value, datetime) and value.tzinfo is not None:
+        return {"datetime": value.isoformat(), "utcoffset": str(value.utcoffset()), "tzinfo": str(value.tzinfo)}
     if isinstance(value, (tuple, list)):
         return [json_value(item) for item in value]
     if isinstance(value, dict):
@@ -473,6 +496,7 @@ def main():
     args = parser.parse_args()
     if args.legacy_cli and (args.durable or args.scram):
         parser.error("--legacy-cli cannot be combined with --durable or --scram")
+    timezone_dir = None if (args.legacy_cli or args.postgres_bin) else reference_timezone_dir(args.image)
     import psycopg
 
     started = datetime.now(timezone.utc).isoformat()
@@ -487,11 +511,12 @@ def main():
               "client": {"name": "psycopg", "version": psycopg.__version__}, "probes": []}
     try:
         with native_postgres(args.image, psycopg, binary_directory=args.postgres_bin, work_directory=args.work_dir) as (native, metadata), \
-                candidate_mode(args.work_dir, durable=args.durable, scram=args.scram) as (mode_arguments, mode):
+                candidate_mode(args.work_dir, durable=args.durable, scram=args.scram, timezone_dir=timezone_dir) as (mode_arguments, mode):
             report["reference"] = metadata
             report["mode"] = mode
             report["reference_image"] = {"id": metadata.get("image_id"), "repo_digests": metadata.get("image_digests")}
-            with running_ramsql(args.binary.resolve(), args.legacy_cli, args.ramsql_arg, **mode_arguments) as candidate:
+            extra = list(args.ramsql_arg) + list(mode_arguments.pop("extra_arguments", ()))
+            with running_ramsql(args.binary.resolve(), args.legacy_cli, extra, **mode_arguments) as candidate:
                 for case in CASES:
                     reference_result = run_case(psycopg, native, case)
                     candidate_result = run_case(psycopg, candidate, case)

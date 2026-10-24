@@ -73,6 +73,9 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     var stream_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
     const stream_path = try zpm.modulePath("src/db/stream_server.sig", &stream_buf);
     _ = try ctx.addModule("stream_server", stream_path);
+    var wall_clock_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    const wall_clock_path = try zpm.modulePath("src/platform/wall_clock.sig", &wall_clock_buf);
+    _ = try ctx.addModule("wall_clock", wall_clock_path);
     const pg_module = try ctx.addModule("postgres", pg_path);
     try ctx.addImport(pg_module, "scram", scram_path);
     const clients = ctx.option(usize, "clients", "Preallocated connection slots (1..60)") orelse 16;
@@ -82,11 +85,12 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     const transaction_bytes = ctx.option(usize, "transaction-bytes", "Change-record encode and recovery buffer bytes per transaction") orelse 1048576;
     const tx_writes = ctx.option(usize, "tx-writes", "Write-set entries (rows changed) per transaction") orelse 4096;
     const versions = ctx.option(usize, "versions", "Row-version slots per table (must exceed rows)") orelse rows * 2;
-    if (clients == 0 or clients > 60 or rows == 0 or tables == 0 or text_bytes == 0 or transaction_bytes < 65540 or tx_writes == 0 or versions <= rows) return error.BufferTooSmall;
+    const timezones = ctx.option(usize, "timezones", "Cached named time zones (16 KiB each)") orelse 8;
+    if (clients == 0 or clients > 60 or rows == 0 or tables == 0 or text_bytes == 0 or text_bytes > 65535 or transaction_bytes < 65540 or tx_writes == 0 or versions <= rows or timezones == 0 or timezones > 256) return error.BufferTooSmall;
     var profile_buf: [512]u8 = undefined;
-    const profile = try std.fmt.bufPrint(&profile_buf, "pub const clients={d}; pub const rows={d}; pub const tables={d}; pub const text_bytes={d}; pub const transaction_bytes={d}; pub const tx_writes={d}; pub const versions={d}; pub const transactions={d};\n", .{ clients, rows, tables, text_bytes, transaction_bytes, tx_writes, versions, clients + 2 });
+    const profile = try std.fmt.bufPrint(&profile_buf, "pub const clients={d}; pub const rows={d}; pub const tables={d}; pub const text_bytes={d}; pub const transaction_bytes={d}; pub const tx_writes={d}; pub const versions={d}; pub const transactions={d}; pub const timezones={d};\n", .{ clients, rows, tables, text_bytes, transaction_bytes, tx_writes, versions, clients + 2, timezones });
     var profile_path_buf: [256]u8 = undefined;
-    const profile_path = try std.fmt.bufPrint(&profile_path_buf, ".sig-cache/profile-{d}-{d}-{d}-{d}-{d}-{d}-{d}.sig", .{ clients, rows, tables, text_bytes, transaction_bytes, tx_writes, versions });
+    const profile_path = try std.fmt.bufPrint(&profile_path_buf, ".sig-cache/profile-{d}-{d}-{d}-{d}-{d}-{d}-{d}-{d}.sig", .{ clients, rows, tables, text_bytes, transaction_bytes, tx_writes, versions, timezones });
     try sig_build.sig_io.Dir.cwd().createDirPath(.{}, ".sig-cache");
     const profile_file = try sig_build.sig_io.Dir.cwd().createFile(.{}, profile_path, .{});
     try profile_file.writeStreamingAll(.{}, profile);
@@ -115,6 +119,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
             importEntry("durable_log", durable_log_path),
             importEntry("db_file", db_file_path),
             importEntry("entropy", entropy_path),
+            importEntry("wall_clock", wall_clock_path),
             importEntry("profile", profile_path),
         },
         .compiler_path = "",
@@ -194,7 +199,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     const benchmark = try ctx.addStep("benchmark", "ramsql-bench", &runBinary);
     try ctx.addDependency(benchmark, bench);
     var test_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
-    inline for (.{ "postgres", "mysql", "tds", "db_store", "tcp_server", "sql_index", "scram", "durable_log", "db_file", "entropy", "db_stream", "pg_stream", "sql_storage", "sql_change_log", "sql_expr", "sql_mvcc" }) |name| {
+    inline for (.{ "postgres", "mysql", "tds", "db_store", "tcp_server", "sql_index", "scram", "durable_log", "db_file", "entropy", "db_stream", "pg_stream", "sql_storage", "sql_change_log", "sql_expr", "sql_mvcc", "sql_types", "wall_clock" }) |name| {
         const path = try zpm.modulePath("tests/test_" ++ name ++ ".sig", &test_buf);
         const compiled = try ctx.addCompileStep(.{
             .source_path = path,
@@ -202,7 +207,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
             .cache_dir = ctx.cache_dir[0..ctx.cache_dir_len],
             .optimize = ctx.optimize,
             .target = null,
-            .imports = &.{ importEntry("sql", sql_path), importEntry("postgres", pg_path), importEntry("mysql", mysql_path), importEntry("tds", tds_path), importEntry("db_store", store_path), importEntry("scram", scram_path), importEntry("durable_log", durable_log_path), importEntry("db_file", db_file_path), importEntry("entropy", entropy_path), importEntry("stream_server", stream_path), importEntry("profile", profile_path), importEntry("tcp_server", tcp_path) },
+            .imports = &.{ importEntry("sql", sql_path), importEntry("postgres", pg_path), importEntry("mysql", mysql_path), importEntry("tds", tds_path), importEntry("db_store", store_path), importEntry("scram", scram_path), importEntry("durable_log", durable_log_path), importEntry("db_file", db_file_path), importEntry("entropy", entropy_path), importEntry("stream_server", stream_path), importEntry("profile", profile_path), importEntry("tcp_server", tcp_path), importEntry("wall_clock", wall_clock_path) },
             .compiler_path = "",
         });
         const contract = try ctx.addStep("test-" ++ name, "contract-" ++ name, &runBinary);

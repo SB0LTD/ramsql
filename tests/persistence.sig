@@ -79,6 +79,8 @@ fn sameRows(a: anytype, b: anytype) bool {
             .integer => |value| if (y != .integer or y.integer != value) return false,
             .boolean => |value| if (y != .boolean or y.boolean != value) return false,
             .text => |value| if (y != .text or !std.mem.eql(u8, value.slice(), y.text.slice())) return false,
+            // NUMERIC, REAL/DOUBLE, temporal and JSONB: same tag and btree-equal.
+            else => if (std.meta.activeTag(x) != std.meta.activeTag(y) or !std.meta.eql(x, y)) return false,
         }
     };
     return true;
@@ -283,6 +285,50 @@ fn wideContinuation(path: []const u8) !void {
     try check(try allKindThree(&persistence.file, 3));
 }
 
+/// Step 3.2 value types (NUMERIC typmods, REAL/DOUBLE specials, temporal
+/// typmods, INTERVAL, JSON verbatim, JSONB canonical) survive a reopen
+/// exactly, through kind-3 records with typmods in create_table.
+fn typedValues(path: []const u8) !void {
+    try clearLog(path);
+    var store: PgStore = .{};
+    var recovery: [transaction_bytes]u8 = undefined;
+    var persistence: PgPersistence = .{};
+    defer persistence.close();
+    _ = try persistence.init(path, &store, &recovery);
+    var connection: PgStore.Connection = .{ .store = &store, .id = 1 };
+    var result: PgRaw.Result = .{};
+    try connection.execute("CREATE TABLE typed (id SMALLINT PRIMARY KEY, amount NUMERIC(8,3), at TIMESTAMPTZ(1))", &result);
+    try connection.execute("CREATE TABLE docs (id INTEGER PRIMARY KEY, doc JSONB, raw JSON)", &result);
+    try connection.execute("INSERT INTO typed VALUES (1, 12.34567, '2026-10-22 12:00:00.15Z')", &result);
+    try connection.execute("INSERT INTO typed VALUES (2, 'NaN', 'infinity')", &result);
+    try connection.execute("INSERT INTO docs VALUES (1, '{\"b\":[1,2.50],\"a\":null}', '{\"b\" : 1}')", &result);
+    try connection.execute("BEGIN", &result);
+    try connection.execute("UPDATE typed SET amount = amount * -2 WHERE id = 1", &result);
+    if (connection.execute("INSERT INTO typed VALUES (3, 123456, NULL)", &result)) |_| return error.TypmodOverflowAccepted else |err| try check(err == error.NumericValueOutOfRange);
+    try connection.execute("ROLLBACK", &result);
+    try connection.execute("UPDATE typed SET amount = amount * -2 WHERE id = 1", &result);
+    var before: PgRaw.Result = .{};
+    var docs_before: PgRaw.Result = .{};
+    try connection.execute("SELECT * FROM typed ORDER BY id", &before);
+    try connection.execute("SELECT * FROM docs", &docs_before);
+    try check(try allKindThree(&persistence.file, 1));
+    persistence.close();
+    store = .{};
+    _ = try persistence.init(path, &store, &recovery);
+    try connection.execute("SELECT * FROM typed ORDER BY id", &result);
+    try check(sameRows(&result, &before) and result.row_count == 2);
+    try check(result.column_types[1] == .numeric and result.column_typmods[1] == (8 << 16 | 3) + 4 and result.column_typmods[2] == 1);
+    var buffer: [PgRaw.Io.format_bytes]u8 = undefined;
+    try check(std.mem.eql(u8, try PgRaw.Io.format(&result.rows[0].cells[1], false, &store.database.session, &buffer), "-24.692"));
+    try check(std.mem.eql(u8, try PgRaw.Io.format(&result.rows[0].cells[2], false, &store.database.session, &buffer), "2026-10-22 12:00:00.2+00"));
+    try connection.execute("SELECT * FROM docs", &result);
+    try check(sameRows(&result, &docs_before));
+    try check(std.mem.eql(u8, try PgRaw.Io.format(&result.rows[0].cells[1], false, &store.database.session, &buffer), "{\"a\": null, \"b\": [1, 2.50]}"));
+    try check(std.mem.eql(u8, result.rows[0].cells[2].text.slice(), "{\"b\" : 1}"));
+    try connection.execute("SELECT id FROM docs WHERE doc @> '{\"b\":[2.5]}'", &result);
+    try check(result.row_count == 1 and result.rows[0].cells[0].integer == 1);
+}
+
 pub fn main(init: std.process.Init) !void {
     const pid: u32 = if (builtin.os.tag == .windows) Win.GetCurrentProcessId() else if (builtin.os.tag == .macos) @intCast(std.c.getpid()) else @intCast(std.os.linux.getpid());
     var path_buffer: [256]u8 = undefined;
@@ -425,6 +471,7 @@ pub fn main(init: std.process.Init) !void {
     try publishedAlpha1(path);
     try changeRecords(path);
     try wideContinuation(path);
+    try typedValues(path);
     var report_buffer: [160]u8 = undefined;
     const report = try std.fmt.bufPrint(&report_buffer, "{{\"suite\":\"persistence\",\"pass\":true,\"assertions\":{d}}}\n", .{assertions});
     try std.Io.File.stdout().writeStreamingAll(init.io, report);

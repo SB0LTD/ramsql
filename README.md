@@ -64,6 +64,18 @@ sig build -Doptimize=ReleaseFast -Dclients=32 -Drows=4096 -Dtables=16 -Dtext-byt
 
 `-Dtx-writes=N` (rows changed per transaction, default 4096) and `-Dversions=N`
 (row-version slots per table, default 2 x rows) size the transaction engine.
+`-Dtimezones=N` (default 8) sizes the named time-zone cache (16 KiB each).
+
+`--timezone-dir PATH` names a zoneinfo (TZif) directory for named time zones
+(`SET TIME ZONE 'America/New_York'`, `... AT TIME ZONE 'Europe/Paris'`); the
+default is `/usr/share/zoneinfo` on Linux and macOS and none on Windows and
+native SB0, where only `UTC`, numeric offsets and POSIX TZ strings (`UTC+3`)
+work. Zone names must match `[A-Za-z0-9_+\-/]{1,64}`. Case-insensitive names
+(`america/new_york`, reported as `America/New_York`) need a
+`ramsql-zones.idx` index in that directory; `python tools/fetch_tzdata.py
+--image postgres:18-alpine` copies a reference image's zoneinfo with its index
+into `.sig-cache/tzdata/<image-id>`. Without an index, a case-mismatched name is
+`22023` where PostgreSQL accepts it.
 Storage, results, version arenas and transaction tables are dense and preallocated, so larger
 profiles increase memory significantly. These configurable bounds still fall short
 of PostgreSQL's capacity and concurrency model; they are tracked as a release gap.
@@ -101,9 +113,33 @@ for sp_executesql; other procedures and parameter types are rejected.
 
 CREATE/DROP TABLE; single-row INSERT with optional columns and expression
 values; SELECT expressions or `*` from at most one table (or no table); UPDATE
-with expression SET; DELETE. Types are signed 32-bit INTEGER/INT/INT4, signed
-64-bit BIGINT/INT8, BOOLEAN and TEXT, plus NULL. NOT NULL and one single-column
-PRIMARY KEY are supported.
+with expression SET; DELETE. Types are SMALLINT/INT2, INTEGER/INT/INT4,
+BIGINT/INT8, NUMERIC/DECIMAL[(p[,s])], REAL/FLOAT4, DOUBLE PRECISION/FLOAT8,
+BOOLEAN, TEXT, NAME, OID, DATE, TIMESTAMP[(p)] [WITHOUT TIME ZONE],
+TIMESTAMPTZ[(p)]/TIMESTAMP WITH TIME ZONE, INTERVAL, JSON and JSONB, plus NULL.
+NOT NULL and one single-column PRIMARY KEY are supported.
+
+Values follow PostgreSQL where implemented: NUMERIC rounds half away from
+zero, uses PostgreSQL's division/AVG scales and NUMERIC(p,s) typmods (negative
+scales allowed, `22003` on overflow), and supports NaN/Infinity (NaN sorts
+last); REAL/DOUBLE accept the measured `float8in` grammar (decimal, `0x..p`
+hex, Infinity/inf/NaN) and print shortest round-trip digits like `float8out`;
+float-to-integer casts round half to even, numeric-to-integer half away.
+Temporal input is ISO 8601 (`T` or space, fractions, `Z`/`+-HH[:MM[:SS]]`, a
+trailing zone name, `BC`), `infinity`/`-infinity`/`epoch`, with PostgreSQL's
+range limits (`22008`) and `22007` for malformed text; output uses DateStyle
+ISO and IntervalStyle postgres. `+ -` on dates, timestamps and intervals,
+`AT TIME ZONE`, `now()`/`CURRENT_TIMESTAMP`/`transaction_timestamp()` (the
+transaction start), `statement_timestamp()`, `clock_timestamp()` and
+`CURRENT_DATE` are supported; nonexistent and ambiguous local times resolve as
+PostgreSQL's Appendix B.1 describes. `SET TIME ZONE` accepts UTC, a number of
+hours, zone names and POSIX TZ strings, is transactional (ROLLBACK, ROLLBACK
+TO, SET LOCAL, reverted by an error in a block) and is reported through
+ParameterStatus with DateStyle, IntervalStyle and application_name. JSON keeps
+its validated text; JSONB is canonical (sorted keys, last duplicate wins,
+NUMERIC numbers, PostgreSQL output spacing) with `-> ->> #> #>> @> <@ ?`,
+equality and btree ordering, `jsonb_typeof` and `jsonb_array_length`.
+PostgreSQL binary results and parameters are supported for every type.
 
 Expressions follow PostgreSQL precedence and typing for that type set: AND/OR/NOT
 with three-valued logic, comparisons, IS [NOT] NULL/TRUE/FALSE/UNKNOWN,
@@ -117,7 +153,11 @@ holds at most 8 leaf predicates and a statement at most 512 expression nodes
 nested 64 deep. Unquoted names are ASCII and case insensitive, quoted names keep
 case; text is bytewise and text bounds count bytes (including `||` results).
 Apostrophes are doubled in SQL text. Each execute call accepts one statement.
-Other functions, aggregates, joins, subqueries and NUMERIC are not supported.
+Other functions (including `pg_typeof`), aggregates, joins, subqueries,
+arrays, JSON (non-B) operators, jsonpath, zone abbreviations (`EST`),
+non-ISO DateStyle and non-postgres IntervalStyle are not supported. MySQL and
+TDS clients receive NUMERIC, REAL/DOUBLE, temporal and JSON values as text
+columns (no native DECIMAL/DOUBLE/DATETIME metadata).
 
 MySQL and TDS sessions additionally accept integer 0/1 when assigning BOOLEAN
 values (INSERT/UPDATE), for common BIT client encodings; expressions are typed
@@ -159,8 +199,8 @@ Joins, aggregates, foreign keys, secondary indexes and complete SQL-standard
 semantics remain release blockers. The committed finite differential gate report
 matches 19/37 probes against PostgreSQL 16 and 18, including integer OIDs/ranges,
 binary formats, and NULL ordering; development builds additionally match
-`or_predicate`, `read_committed` and `savepoint` (22/37), and the committed
-reports are refreshed at release.
+`or_predicate`, `read_committed`, `savepoint`, `numeric`, `timestamp` and
+`jsonb` (25/37), and the committed reports are refreshed at release.
 Catalogs and broader SQL behavior remain incompatible.
 
 ## Memory and execution
@@ -190,7 +230,13 @@ changed per transaction (including every COPY row later), 256 FOR UPDATE/SHARE
 locked rows server-wide with at most 8 FOR SHARE holders per row, 32
 savepoints per transaction, and `-Dtransaction-bytes` per commit record.
 Statements beyond 512 expression nodes or depth 64 fail with
-`StatementTooComplex` (54001).
+`StatementTooComplex` (54001). Value capacity limits: a NUMERIC holds at most 64
+significant decimal digits and a display scale of at most 120 (declared
+precision above 64, results needing more digits, and literals such as `1e100`
+fail with `54000`; `1e100::float8` is parsed as a float); a TEXT, JSON or
+encoded JSONB value is at most `-Dtext-bytes` bytes and JSONB nests at most 64
+deep (`54001`); a statement returns at most 8 columns. TIMESTAMP(p) above 6 is
+clamped to 6 without PostgreSQL's warning.
 LIMIT without ORDER BY stops scanning once enough rows match. A top-level
 `pk = constant` conjunct uses the index; other filters remain scans, and
 ordering uses a stable merge sort.

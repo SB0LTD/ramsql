@@ -22,6 +22,8 @@ const pg = @import("postgres");
 const mysql = @import("mysql");
 const tds = @import("tds");
 const stores = @import("db_store");
+const wall_clock = @import("wall_clock");
+const timezones = @import("timezones.sig");
 
 pub const Protocol = enum { postgres, mysql, mssql };
 pub const Options = struct {
@@ -36,7 +38,11 @@ pub const Options = struct {
     auth_user: []const u8 = "postgres",
     auth_verifier_file: ?[]const u8 = null,
     idle_ms: u32 = 30000,
+    /// zoneinfo directory for named time zones (null: UTC, offsets and
+    /// POSIX TZ strings only).
+    timezone_dir: ?[]const u8 = default_timezone_dir,
 };
+pub const default_timezone_dir: ?[]const u8 = if (@import("builtin").os.tag == .linux or @import("builtin").os.tag == .macos) "/usr/share/zoneinfo" else null;
 // Integer 0/1 BOOLEAN assignment is per session: the ZPM MySQL/TDS sessions
 // set Store.Connection.dialect themselves; PostgreSQL keeps the default.
 // Every client plus two spare slots can hold a transaction at once.
@@ -54,6 +60,31 @@ const Raw = sql.Database(.{
 });
 const Store = stores.Store(Raw);
 const DB = Store.Connection;
+const Zones = timezones.Timezones(Raw.Zone, profile.timezones);
+// Caller-owned zone cache (profile.timezones x 16 KiB), filled on demand.
+var zones: Zones = .{};
+
+fn refersTo(settings: anytype, bytes: []const u8) bool {
+    return settings.zone.kind == .tzif and settings.zone.bytes.ptr == bytes.ptr;
+}
+
+/// Zone-cache eviction guard: any open session's settings (current, session,
+/// transaction-start, startup and savepoint copies) still referring to it.
+fn zoneInUse(bytes: []const u8) bool {
+    for (&clients) |*client| {
+        if (client.socket == tcp.invalid_socket) continue;
+        const c = &client.connection;
+        if (refersTo(&c.settings, bytes) or refersTo(&c.base, bytes) or refersTo(&c.tx_start, bytes) or refersTo(&c.startup, bytes)) return true;
+        for (c.saved[0..c.saved_len]) |*saved| if (refersTo(&saved.current, bytes) or refersTo(&saved.base, bytes)) return true;
+    }
+    return false;
+}
+
+/// Wall clock for now()/CURRENT_TIMESTAMP in PostgreSQL-epoch microseconds.
+fn wallClock() ?i64 {
+    const unix_us = wall_clock.nowUs() catch return null;
+    return sql.temporal.fromUnixUs(unix_us);
+}
 const PG = pg.Session(DB);
 const MySQL = mysql.Session(DB);
 const TDS = tds.Session(DB);
@@ -188,6 +219,10 @@ fn cancelBackend(key: pg.Cancel) void {
 pub fn run(options: Options) !void {
     if (options.max_clients == 0 or options.max_clients > capacity or options.idle_ms == 0) return error.InvalidServerOptions;
     for (&clients) |*client| client.socket = tcp.invalid_socket;
+    if (wall_clock.available) store.wall_clock = &wallClock;
+    zones.directory = options.timezone_dir;
+    zones.in_use = &zoneInUse;
+    store.zone_provider = .{ .context = @ptrCast(&zones), .lookup = &Zones.lookup };
     if (!options.insecure_local) {
         const verifier_path = options.auth_verifier_file orelse return error.AuthenticationRequired;
         if (options.protocol != .postgres or options.mysql_port != null or options.mssql_port != null) return error.AuthenticationUnsupportedForProtocol;
