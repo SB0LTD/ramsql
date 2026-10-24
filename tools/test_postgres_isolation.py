@@ -78,7 +78,7 @@ class Schedule:
 
 T = ("CREATE TABLE t (id INTEGER PRIMARY KEY, v INTEGER)",
      "INSERT INTO t VALUES (1, 0)", "INSERT INTO t VALUES (2, 0)", "INSERT INTO t VALUES (3, 0)")
-T_TABLES = ("t", "sp8", "ddl1", "ddl2", "ddl4")
+T_TABLES = ("t", "sp8", "ddl1", "ddl2", "ddl4", "cat1_meta", "cat1", "cat1_drop")
 T_PROBE = ("UPDATE t SET v = v",)
 ROWS = "SELECT id, v FROM t ORDER BY id"
 
@@ -245,6 +245,24 @@ SCHEDULES: dict[str, Schedule] = {schedule.id: schedule for schedule in (
                s("a", "INSERT INTO t VALUES (2, 7) ON CONFLICT (id) DO UPDATE SET v = EXCLUDED.v", "ok"),
                s("b", "INSERT INTO t VALUES (3, 8) ON CONFLICT (id) DO NOTHING", "ok"),
                s("a", "COMMIT", "ok"), s("b", "COMMIT", "ok")),
+    # ---- P01 catalog views over transactional DDL (design §5.14, step 3.9) ----
+    t_schedule("CAT1", s("a", "BEGIN"), s("a", "CREATE TABLE cat1 (id INTEGER PRIMARY KEY)", "ok"),
+               s("b", "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'cat1'", "ok"),
+               s("a", "SELECT COUNT(*) FROM pg_class WHERE relname IN ('cat1', 'cat1_pkey')", "ok"),
+               s("a", "ROLLBACK", "ok"), s("a", "SELECT COUNT(*) FROM pg_class WHERE relname IN ('cat1', 'cat1_pkey')", "ok"),
+               s("a", "BEGIN"), s("a", "SAVEPOINT s", "ok"), s("a", "CREATE TABLE cat1 (id INTEGER)", "ok"),
+               s("a", "ROLLBACK TO s", "ok"), s("a", "SELECT COUNT(*) FROM pg_class WHERE relname = 'cat1'", "ok"),
+               s("a", "CREATE TABLE cat1 (id INTEGER PRIMARY KEY, v TEXT DEFAULT 'x')", "ok"),
+               s("b", "SELECT COUNT(*) FROM pg_attribute a JOIN pg_class c ON c.oid = a.attrelid WHERE c.relname = 'cat1'", "ok"),
+               s("a", "COMMIT", "ok"),
+               s("b", "SELECT column_name, column_default::text FROM information_schema.columns WHERE table_name = 'cat1' ORDER BY ordinal_position", "ok"),
+               s("b", "CREATE TABLE cat1_drop (id INTEGER)", "ok"), s("b", "DROP TABLE cat1_drop", "ok"),
+               s("a", "SELECT COUNT(*) FROM pg_class WHERE relname = 'cat1_drop'", "ok"),
+               s("b", "CREATE TABLE cat1_meta (o OID)", "ok"),
+               s("b", "INSERT INTO cat1_meta SELECT oid FROM pg_class WHERE relname = 'cat1'", "ok"),
+               after_restart=("SELECT m.o = c.oid FROM cat1_meta m JOIN pg_class c ON c.relname = 'cat1'",
+                              "SELECT column_name, column_default::text FROM information_schema.columns WHERE table_name = 'cat1' ORDER BY ordinal_position",
+                              "SELECT relname, relkind::text FROM pg_class WHERE relname LIKE 'cat1%' ORDER BY relname")),
     # ---- M2 transactional DDL (each followed by a durable restart) ----
     t_schedule("DDL1", s("a", "BEGIN"), s("a", "CREATE TABLE ddl1 (id INTEGER PRIMARY KEY)", "ok"),
                s("a", "INSERT INTO ddl1 VALUES (1)", "ok"), s("b", "SELECT id FROM ddl1", "42P01"),

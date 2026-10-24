@@ -33,8 +33,8 @@ import os
 from pathlib import Path
 import sys
 
-from test_postgres_compat import (BASE, ROOT, candidate_mode, differences, execute, json_value, native_postgres,
-                                  reference_timezone_dir, restart_native, running_ramsql)
+from test_postgres_compat import (BASE, ROOT, candidate_mode, differences, error_result, execute, json_value,
+                                  native_postgres, reference_timezone_dir, restart_native, running_ramsql)
 
 
 @dataclass(frozen=True)
@@ -977,6 +977,77 @@ SUITES["q10"] = (
              "SELECT nextval('s')",
              "SELECT id, label FROM compat ORDER BY id")),
 )
+# P01 (design §5.14/§5.15(d), step 3.9): pg_catalog and information_schema.
+# User OIDs are compared relationally (joins, regclass), built-in OIDs by
+# value. Columns PostgreSQL declares as "char", regproc, int2vector,
+# character_data or yes_or_no are cast to text (RAMSQL reports them as text).
+BUILTIN_TYPES = ("bool", "name", "int8", "int2", "int4", "text", "oid", "json", "float4", "float8", "date",
+                 "timestamp", "timestamptz", "interval", "numeric", "jsonb")
+CATALOG_TABLE = ("CREATE TABLE compat (id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY, amount NUMERIC(10,2), "
+                 "happened TIMESTAMPTZ DEFAULT now(), doc JSONB DEFAULT '{}', label TEXT DEFAULT 'd' NOT NULL, "
+                 "twice INTEGER GENERATED ALWAYS AS (small * 2) STORED, at TIMESTAMP(3), small SMALLINT)",)
+TYPE_LIST = ", ".join("'" + name + "'" for name in BUILTIN_TYPES)
+SUITES["p01"] = (
+    Case("p01_probes", "p01", 3.9, feature="pg_type and information_schema probes", statements=(
+        "SELECT oid, typname FROM pg_catalog.pg_type WHERE typname = 'int4'",
+        "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'compat' ORDER BY table_name")),
+    Case("p01_pg_type", "p01", 3.9, feature="pg_type rows for every supported built-in type", statements=(
+        f"SELECT oid, typname, typlen, typcategory::text, typarray, typdelim::text, typinput::text FROM pg_type WHERE typname IN ({TYPE_LIST}) ORDER BY oid",
+        f"SELECT COUNT(*) FROM pg_catalog.pg_type WHERE typname IN ({TYPE_LIST}) AND typnamespace = 11 AND typtype = 'b'",
+        "SELECT t.typname, n.nspname FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE t.oid = 1700")),
+    Case("p01_typeinfo", "p01", 3.9, feature="psycopg TypeInfo.fetch for every supported built-in type",
+         statements=tuple((name, None, {"typeinfo": True}) for name in BUILTIN_TYPES + ("integer", "double precision", "nope"))),
+    Case("p01_regtype_format", "p01", 3.9, feature="regtype, to_regtype, format_type", statements=(
+        "SELECT 'int4'::regtype::text, 'numeric'::regtype::text, 'timestamptz'::regtype::text, 'bigint'::regtype::text",
+        "SELECT to_regtype('jsonb')::text, to_regtype('nope') IS NULL, to_regtype('integer') = 23::oid",
+        "SELECT format_type(1700, 655366), format_type(1184, 3), format_type(1114, NULL), format_type(23, -1)",
+        "SELECT 'nope'::regtype")),
+    Case("p01_class_index", "p01", 3.9, feature="pg_class / pg_index for a table, its PK index and identity sequence", setup=CATALOG_TABLE, statements=(
+        "SELECT relname, relkind::text, relnatts FROM pg_class WHERE relnamespace = 2200 ORDER BY relname",
+        "SELECT c.relname FROM pg_class c WHERE c.oid = 'compat'::regclass",
+        "SELECT 'compat'::regclass::text, 'compat_pkey'::regclass::text, 'compat_id_seq'::regclass::text, to_regclass('nope') IS NULL",
+        "SELECT i.indisprimary, i.indisunique, i.indkey::text, c.relname FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid WHERE i.indrelid = 'compat'::regclass",
+        "SELECT COUNT(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public'",
+        "SELECT 'nope'::regclass")),
+    Case("p01_attribute", "p01", 3.9, feature="pg_attribute, pg_attrdef and format_type for numeric/timestamptz/jsonb/identity/default/generated columns", setup=CATALOG_TABLE, statements=(
+        "SELECT attname, atttypid, atttypmod, attnum, attnotnull, attidentity::text, attgenerated::text, atthasdef FROM pg_attribute WHERE attrelid = 'compat'::regclass AND attnum > 0 ORDER BY attnum",
+        "SELECT a.attname, format_type(a.atttypid, a.atttypmod) FROM pg_attribute a JOIN pg_class c ON c.oid = a.attrelid WHERE c.relname = 'compat' AND a.attnum > 0 ORDER BY a.attnum",
+        "SELECT adnum, pg_get_expr(adbin, adrelid) FROM pg_attrdef WHERE adrelid = 'compat'::regclass ORDER BY adnum")),
+    Case("p01_columns", "p01", 3.9, feature="information_schema.columns spellings, precision, defaults and identity", setup=CATALOG_TABLE, statements=(
+        "SELECT column_name, ordinal_position, data_type::text, is_nullable::text, numeric_precision, numeric_scale FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'compat' ORDER BY ordinal_position",
+        "SELECT column_name, column_default::text, numeric_precision_radix, datetime_precision FROM information_schema.columns WHERE table_name = 'compat' ORDER BY ordinal_position",
+        "SELECT column_name, is_identity::text, identity_generation::text, is_generated::text, generation_expression::text FROM information_schema.columns WHERE table_name = 'compat' ORDER BY ordinal_position")),
+    Case("p01_tables_constraints", "p01", 3.9, feature="information_schema tables, table_constraints, key_column_usage, schemata, namespaces", setup=CATALOG_TABLE + ("CREATE TABLE aux (k TEXT)",), statements=(
+        "SELECT table_name, table_type::text FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name",
+        "SELECT constraint_name, constraint_type::text, table_name FROM information_schema.table_constraints WHERE table_schema = 'public' AND constraint_type = 'PRIMARY KEY' ORDER BY constraint_name",
+        "SELECT constraint_name, column_name, ordinal_position FROM information_schema.key_column_usage WHERE table_name = 'compat'",
+        "SELECT schema_name FROM information_schema.schemata WHERE schema_name IN ('public', 'pg_catalog', 'information_schema') ORDER BY schema_name",
+        "SELECT oid, nspname FROM pg_namespace WHERE nspname IN ('pg_catalog', 'public') ORDER BY oid",
+        "SELECT current_database(), current_schema()",
+        "SELECT table_catalog = current_database() FROM information_schema.tables WHERE table_name = 'aux'")),
+    Case("p01_sequences", "p01", 3.9, feature="pg_sequence for identity and standalone sequences", setup=CATALOG_TABLE + (
+            "CREATE SEQUENCE p01_seq INCREMENT BY 5 START WITH 10 MAXVALUE 1000 CYCLE",), sequences=("p01_seq",), statements=(
+        "SELECT seqtypid, seqstart, seqincrement, seqmax, seqmin, seqcache, seqcycle FROM pg_sequence WHERE seqrelid = 'compat_id_seq'::regclass",
+        "SELECT seqtypid, seqstart, seqincrement, seqmax, seqmin, seqcycle FROM pg_sequence WHERE seqrelid = 'p01_seq'::regclass",
+        "SELECT relkind::text FROM pg_class WHERE oid = 'p01_seq'::regclass")),
+    Case("p01_transactional", "p01", 3.9, feature="catalog views follow transactional DDL in one session", statements=(
+        "BEGIN", "CREATE TABLE aux (id INTEGER PRIMARY KEY)",
+        "SELECT relname FROM pg_class WHERE relname LIKE 'aux%' ORDER BY relname",
+        "ROLLBACK",
+        "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'aux'",
+        "BEGIN", "SAVEPOINT s", "CREATE TABLE aux (id INTEGER)", "ROLLBACK TO s",
+        "SELECT COUNT(*) FROM pg_class WHERE relname = 'aux'", "COMMIT",
+        "CREATE TABLE aux (id INTEGER)", "DROP TABLE aux",
+        "SELECT COUNT(*) FROM pg_attribute a JOIN pg_class c ON c.oid = a.attrelid WHERE c.relname = 'aux'")),
+    Case("p01_restart", "p01", 3.9, feature="catalog metadata (including OIDs) survives a durable restart", setup=CATALOG_TABLE + (
+            "CREATE TABLE aux (o OID, i OID)",
+            "INSERT INTO aux SELECT 'compat'::regclass, 'compat_pkey'::regclass"), statements=(
+        "SELECT a.o = c.oid FROM aux a JOIN pg_class c ON c.relname = 'compat'",), restart=(
+        "SELECT a.o = 'compat'::regclass, a.i = 'compat_pkey'::regclass FROM aux a",
+        "SELECT attname, atttypid, atttypmod, attidentity::text FROM pg_attribute WHERE attrelid = 'compat'::regclass AND attnum > 0 ORDER BY attnum",
+        "SELECT column_name, column_default::text FROM information_schema.columns WHERE table_name = 'compat' ORDER BY ordinal_position",
+        "SELECT relname, relkind::text FROM pg_class WHERE relnamespace = 2200 ORDER BY relname")),
+)
 SUITES["selfcheck"] = (
     Case("selfcheck_point_select", "selfcheck", 0.0, statements=("SELECT label FROM compat WHERE id = 3",)),
     Case("selfcheck_future_step", "selfcheck", 99.0, statements=("SELECT label FROM compat WHERE id = 1",)),
@@ -997,10 +1068,27 @@ def split_statement(statement):
 REPORTED = ("TimeZone", "DateStyle", "IntervalStyle")
 
 
+def type_info(connection, name):
+    """psycopg TypeInfo.fetch(connection, name) as comparable values."""
+    from psycopg.types import TypeInfo
+    try:
+        info = TypeInfo.fetch(connection, name)
+    except Exception as error:  # noqa: BLE001 - compared by SQLSTATE
+        return error_result(error)
+    if info is None:
+        return {"sqlstate": "00000", "typeinfo": None}
+    return {"sqlstate": "00000", "typeinfo": {"name": info.name, "oid": info.oid, "array_oid": info.array_oid,
+                                              "regtype": info.regtype, "delimiter": info.delimiter}}
+
+
 def run_statements(connection, statements):
     events = []
     for statement in statements:
         sql, parameters, options = split_statement(statement)
+        if options.get("typeinfo"):
+            outcome = type_info(connection, sql)
+            events.append({"sql": "TypeInfo.fetch(" + sql + ")", "outcome": outcome})
+            continue
         outcome = execute(connection, sql, parameters, binary=bool(options.get("binary")))
         status = {name: connection.info.parameter_status(name) for name in REPORTED}
         events.append({"sql": sql, "parameters": json_value(parameters), "binary": bool(options.get("binary")),

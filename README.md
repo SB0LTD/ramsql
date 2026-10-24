@@ -102,18 +102,41 @@ database='ramsql', autocommit=True, charset='utf8mb4'`.
 For python-tds use `server='127.0.0.1', port=1433, user='ramsql', password='',
 database='ramsql', autocommit=True, use_mars=False`.
 
-Not implemented: TLS, roles/authorization, system catalogs, replication,
-COPY/bulk loading, stored procedures, ORM-specific discovery, and complete SQL
-dialects. MySQL's binary prepared-statement protocol is not implemented;
+Not implemented: TLS, roles/authorization, the full system catalog (only the
+views listed under SQL and transactions), replication, COPY/bulk loading,
+stored procedures, ORM-specific discovery, and complete SQL dialects. MySQL's binary prepared-statement protocol is not implemented;
 PyMySQL parameters use its normal safe client-side encoding. Unsupported
 operations return errors; they do not silently succeed. SQL Server RPC supports bounded integer, boolean, NVARCHAR and NULL parameters
 for sp_executesql; other procedures and parameter types are rejected.
 
 ## SQL and transactions
 
-CREATE/DROP TABLE; single-row INSERT with optional columns and expression
-values; SELECT expressions or `*` from at most one table (or no table); UPDATE
-with expression SET; DELETE. Types are SMALLINT/INT2, INTEGER/INT/INT4,
+CREATE/DROP TABLE; CREATE/DROP SEQUENCE; INSERT [AS alias] with optional
+columns, multi-row VALUES (with DEFAULT items), INSERT ... SELECT or DEFAULT
+VALUES, `OVERRIDING SYSTEM|USER VALUE`, `ON CONFLICT [(pk) | ON CONSTRAINT
+<table>_pkey] DO NOTHING | DO UPDATE SET ... [WHERE ...]` with EXCLUDED;
+SELECT; UPDATE with expression SET (and `SET col = DEFAULT`); DELETE; and
+`RETURNING *`/`t.*`/expressions on INSERT, UPDATE and DELETE (new rows for
+INSERT/UPDATE, the deleted rows for DELETE, emitted exactly once even when the
+statement waits for a lock). Upsert arbitrates on the primary key only (the
+only unique index; `42P10` otherwise): a conflict with an in-progress inserter
+or deleter waits and re-checks, a row hit twice by one DO UPDATE is `21000`,
+and DO UPDATE ... WHERE false locks the row and skips it. Column DEFAULT
+expressions are evaluated per row; `GENERATED ALWAYS|BY DEFAULT AS IDENTITY
+[(sequence options)]` (one identity column per table) owns a sequence
+`<table>_<column>_seq` dropped with the table; ALWAYS rejects explicit values
+with `428C9` unless OVERRIDING SYSTEM VALUE; `GENERATED ALWAYS AS (expr)
+STORED` columns are recomputed on every insert and update (`428C9` when
+assigned). Sequences support INCREMENT, MINVALUE/MAXVALUE (NO ...), START,
+[NO] CYCLE and AS smallint|integer|bigint (CACHE other than 1 is `0A000`),
+`nextval`, `currval` (`55000` before the session's first nextval), `setval`
+and `lastval`; exhaustion is `2200H`; values are never rolled back and follow
+PostgreSQL's 32-value log-ahead, so identities and sequences resume at
+PostgreSQL's post-crash values (a SELECT that advances a sequence is durable
+before its reply; an aborted transaction's log-ahead value rides on the next
+commit record from any session). At most `Config.sequences` (16) sequences
+exist; there are no sequence locks (a concurrent DROP SEQUENCE waits only for
+another uncommitted DROP). Types are SMALLINT/INT2, INTEGER/INT/INT4,
 BIGINT/INT8, NUMERIC/DECIMAL[(p[,s])], REAL/FLOAT4, DOUBLE PRECISION/FLOAT8,
 BOOLEAN, TEXT, NAME, OID, DATE, TIMESTAMP[(p)] [WITHOUT TIME ZONE],
 TIMESTAMPTZ[(p)]/TIMESTAMP WITH TIME ZONE, INTERVAL, JSON and JSONB, plus NULL.
@@ -209,14 +232,33 @@ the reported session defaults; startup `options` accept `-c name=value`.
 Failed transactions and disconnected sessions cannot publish their changes.
 Cursors and two-phase commit do not exist.
 
+System views are computed at scan time from the versioned catalog and table
+definitions under the statement snapshot, so they follow transactional DDL:
+`pg_catalog.pg_type` (the 16 supported base types), `pg_namespace`,
+`pg_class` (tables, primary-key indexes `<table>_pkey`, sequences),
+`pg_attribute` (user columns), `pg_index`, `pg_attrdef`, `pg_sequence`, and
+`information_schema.schemata`, `tables`, `columns`, `table_constraints` and
+`key_column_usage` (primary keys). pg_catalog views resolve unqualified;
+information_schema views must be qualified. Columns PostgreSQL declares as
+`"char"`, `regproc`, `int2vector`, `character_data` or `yes_or_no` are TEXT
+here (cast them with `::text` for identical RowDescription OIDs); system
+columns, array/composite types, toast tables, NOT NULL constraints and other
+catalogs are absent. `current_database()`, `current_schema()`, `to_regtype`,
+`to_regclass`, `format_type(oid, typmod)`, `pg_get_expr` and the casts
+`::regclass`, `::regtype` and `::oid` are supported; regclass/regtype values
+are OIDs that print as names only through `::text` (flag F14). DEFAULT and
+generation expressions are shown in PostgreSQL's canonical form for literals,
+function calls, operators and casts.
+
 Foreign keys, secondary indexes, window functions and complete SQL-standard
 semantics remain release blockers. The committed finite differential gate report
 matches 19/37 probes against PostgreSQL 16 and 18, including integer OIDs/ranges,
 binary formats, and NULL ordering; development builds additionally match
 `or_predicate`, `read_committed`, `savepoint`, `numeric`, `timestamp`,
-`jsonb`, `distinct`, `aggregate`, `group_by`, `join` and `cte` (30/37), and the
-committed reports are refreshed at release.
-Catalogs and broader SQL behavior remain incompatible.
+`jsonb`, `distinct`, `aggregate`, `group_by`, `join`, `cte`, `returning`,
+`defaults`, `identity`, `upsert`, `pg_type` and `information_schema` (36/37),
+and the committed reports are refreshed at release. The catalog subset and
+broader SQL behavior remain incomplete.
 
 ## Memory and execution
 
@@ -263,7 +305,9 @@ returning anything, where PostgreSQL would spill to disk. Joins are nested
 loops; an ON conjunct `inner.pk = expression` of an INNER or LEFT join probes
 the inner table's primary-key index. A statement returns at most rows-per-table
 rows (`54000` beyond). Each query references at most 4 FROM items per block and
-16 query blocks (subqueries, CTE bodies, set-operation branches).
+16 query blocks (subqueries, CTE bodies, set-operation branches). RETURNING
+rows are staged in the same workspace; DEFAULT/generation expression text is
+at most `-Dtext-bytes` bytes.
 
 The WAL stores versioned kind-3 change records (row and DDL ops with explicit
 type OIDs). Logs written by alpha.1/alpha.2 (SQL-text kind 2) still recover through
