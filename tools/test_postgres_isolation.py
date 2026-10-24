@@ -139,9 +139,9 @@ SCHEDULES: dict[str, Schedule] = {schedule.id: schedule for schedule in (
                s("b", "UPDATE t SET v = v + 1 WHERE v < 5", "blocked"),
                s("c", "UPDATE t SET v = 7 WHERE id = 3", "ok"), s("c", "UPDATE t SET v = 1 WHERE id = 2", "ok"),
                s("a", "COMMIT", "ok")),
-    # RC14 in its non-RETURNING form (RETURNING arrives at step 3.6).
+    # RC14, RETURNING form (step 3.6): rows 1..3 in order, values and UPDATE 3.
     t_schedule("RC14", s("a", "BEGIN"), s("a", "UPDATE t SET v = 9 WHERE id = 2", "ok"),
-               s("b", "UPDATE t SET v = v + 1", "blocked"), s("a", "COMMIT", "ok")),
+               s("b", "UPDATE t SET v = v + 1 RETURNING id, v", "blocked"), s("a", "COMMIT", "ok")),
     # ---- T02 locks, waits and deadlocks ----
     t_schedule("LK1", s("a", "BEGIN"), s("b", "BEGIN"), s("a", "UPDATE t SET v = 1 WHERE id = 1", "ok"),
                s("b", "UPDATE t SET v = 2 WHERE id = 2", "ok"), s("a", "UPDATE t SET v = 1 WHERE id = 2", "blocked"),

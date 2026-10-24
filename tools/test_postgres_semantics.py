@@ -703,6 +703,86 @@ SUITES["q07"] = (
         "SELECT compat.id, aux.tag FROM compat JOIN aux USING (id) ORDER BY 1",
         "WITH j AS (SELECT id FROM aux) SELECT COUNT(*) FROM j")),
 )
+# Q09 (design §5.10(d), step 3.6): general DML and RETURNING. BASE rows:
+# (1, TRUE, 'one'), (2, FALSE, NULL), (3, NULL, 'three').
+ALL_ROWS = "SELECT id, flag, label FROM compat ORDER BY id"
+SUITES["q09"] = (
+    Case("q09_probe", "q09", 3.6, feature="returning probe", statements=(
+        "INSERT INTO compat VALUES (4, FALSE, 'four') RETURNING label",)),
+    Case("q09_returning_forms", "q09", 3.6, feature="RETURNING *, t.*, expressions and aliases", statements=(
+        "INSERT INTO compat VALUES (4, FALSE, 'four') RETURNING *",
+        "INSERT INTO compat VALUES (5, TRUE, 'five') RETURNING id * 2 AS twice, label || '!', NOT flag, compat.id",
+        "INSERT INTO compat (label, id) VALUES ('six', 6) RETURNING compat.*, id + 0.5",
+        "INSERT INTO compat VALUES (7, NULL, NULL) RETURNING id, label IS NULL AS missing, COALESCE(label, 'none') label",
+        ALL_ROWS)),
+    Case("q09_multirow", "q09", 3.6, feature="multi-row VALUES with RETURNING, tags and rowcount", statements=(
+        "INSERT INTO compat VALUES (4, TRUE, 'a'), (5, FALSE, 'b'), (6, NULL, NULL) RETURNING id, label",
+        "INSERT INTO compat (id, label) VALUES (7, 'c'), (8, 'd')",
+        "INSERT INTO compat (id) VALUES (9), (10), (11) RETURNING id",
+        ALL_ROWS)),
+    Case("q09_insert_select", "q09", 3.6, feature="INSERT ... SELECT with RETURNING", statements=(
+        "INSERT INTO compat SELECT id + 10, flag, label FROM compat WHERE id < 3 ORDER BY id DESC RETURNING id, label",
+        "INSERT INTO compat (id, label) SELECT 30, 'literal' RETURNING *",
+        "INSERT INTO compat (id) SELECT '40' RETURNING id",
+        "INSERT INTO compat (id, label) SELECT id + 100, UPPER_NOT_A_FUNCTION FROM compat",
+        "INSERT INTO compat (id, label) SELECT MAX(id) + 1, 'max' FROM compat RETURNING id, label",
+        "INSERT INTO compat SELECT * FROM compat WHERE id = 1",
+        ALL_ROWS)),
+    Case("q09_update_delete", "q09", 3.6, feature="UPDATE / DELETE RETURNING (new and old rows)", statements=(
+        "UPDATE compat SET label = label || '+', flag = NOT flag WHERE id >= 2 RETURNING id, label, flag",
+        "UPDATE compat SET label = 'none' WHERE id = 99 RETURNING id",
+        "UPDATE compat SET id = id + 10 WHERE id = 1 RETURNING id, label",
+        "DELETE FROM compat WHERE id = 3 RETURNING *",
+        "DELETE FROM compat WHERE id = 99 RETURNING id",
+        # Unordered scans after an UPDATE follow rowid order in RAMSQL and
+        # heap order in PostgreSQL; each remaining DELETE touches one row.
+        "DELETE FROM compat WHERE id > 5 RETURNING id, label IS NULL",
+        "DELETE FROM compat RETURNING id, label IS NULL",
+        ALL_ROWS)),
+    Case("q09_atomic_failures", "q09", 3.6, feature="a failing multi-row INSERT / RETURNING returns nothing and changes nothing", statements=(
+        "INSERT INTO compat VALUES (7, TRUE, 'a'), (8, TRUE, 'b'), (1, TRUE, 'c') RETURNING id",
+        ALL_ROWS,
+        "INSERT INTO compat (id) VALUES (9), (9) RETURNING id",
+        "UPDATE compat SET flag = TRUE RETURNING 10 / (id - 3)",
+        "DELETE FROM compat RETURNING 1 / (id - 2)",
+        "INSERT INTO compat VALUES (7, TRUE, 'a'), (8, 'x', 'b')",
+        ALL_ROWS)),
+    Case("q09_errors", "q09", 3.6, feature="RETURNING and VALUES error classes", statements=(
+        "INSERT INTO compat VALUES (7, TRUE, 'a') RETURNING nope",
+        "INSERT INTO compat VALUES (7, TRUE, 'a') RETURNING other.*",
+        "INSERT INTO compat VALUES (7, TRUE, 'a'), (8, TRUE)",
+        "INSERT INTO compat (id, label) VALUES (7, 'a', 'b')",
+        "INSERT INTO compat (id, label) SELECT id FROM compat",
+        "SELECT DEFAULT",
+        "UPDATE compat SET nope = 1 RETURNING id",
+        ALL_ROWS)),
+    Case("q09_default_keyword", "q09", 3.6, feature="DEFAULT items, DEFAULT VALUES and SET col = DEFAULT without declared defaults", statements=(
+        "INSERT INTO compat VALUES (7, DEFAULT, DEFAULT) RETURNING *",
+        "INSERT INTO compat (id) VALUES (8) RETURNING *",
+        "UPDATE compat SET label = DEFAULT WHERE id = 1 RETURNING *",
+        "INSERT INTO compat DEFAULT VALUES",
+        ALL_ROWS)),
+    Case("q09_prepared", "q09", 3.6, feature="extended-protocol RETURNING executes exactly once", statements=(
+        ("INSERT INTO compat VALUES (%s, %s, %s) RETURNING id, label", (5, True, "five")),
+        ("UPDATE compat SET label = %s WHERE id = %s RETURNING id, label", ("prepared", 1)),
+        ("DELETE FROM compat WHERE id = %s RETURNING id", (2,)),
+        ("INSERT INTO compat VALUES (%s, %s, %s) RETURNING id, flag", (6, False, "six"), {"binary": True}),
+        "SELECT COUNT(*), SUM(id) FROM compat",
+        ALL_ROWS)),
+    Case("q09_transaction", "q09", 3.6, feature="RETURNING inside a block, rollback discards", statements=(
+        "BEGIN",
+        "INSERT INTO compat VALUES (4, TRUE, 'tx') RETURNING id",
+        "UPDATE compat SET label = 'changed' WHERE id IN (1, 4) RETURNING id, label",
+        "SELECT id, label FROM compat ORDER BY id",
+        "ROLLBACK",
+        ALL_ROWS)),
+    Case("q09_restart", "q09", 3.6, feature="RETURNING mutations survive a durable restart", statements=(
+        "INSERT INTO compat VALUES (4, TRUE, 'a'), (5, NULL, 'b') RETURNING id",
+        "UPDATE compat SET label = 'u' WHERE id = 5 RETURNING label",
+        "DELETE FROM compat WHERE id = 2 RETURNING id",
+        "INSERT INTO compat SELECT id + 10, flag, label FROM compat WHERE id < 4 RETURNING id"), restart=(
+        ALL_ROWS,)),
+)
 SUITES["selfcheck"] = (
     Case("selfcheck_point_select", "selfcheck", 0.0, statements=("SELECT label FROM compat WHERE id = 3",)),
     Case("selfcheck_future_step", "selfcheck", 99.0, statements=("SELECT label FROM compat WHERE id = 1",)),
