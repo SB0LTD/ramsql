@@ -103,7 +103,8 @@ For python-tds use `server='127.0.0.1', port=1433, user='ramsql', password='',
 database='ramsql', autocommit=True, use_mars=False`.
 
 Not implemented: TLS, roles/authorization, the full system catalog (only the
-views listed under SQL and transactions), replication, COPY/bulk loading,
+views listed under SQL and transactions), replication, COPY to or from files
+or programs (only `FROM STDIN` / `TO STDOUT` over the simple query protocol),
 stored procedures, ORM-specific discovery, and complete SQL dialects. MySQL's binary prepared-statement protocol is not implemented;
 PyMySQL parameters use its normal safe client-side encoding. Unsupported
 operations return errors; they do not silently succeed. SQL Server RPC supports bounded integer, boolean, NVARCHAR and NULL parameters
@@ -250,13 +251,31 @@ are OIDs that print as names only through `::text` (flag F14). DEFAULT and
 generation expressions are shown in PostgreSQL's canonical form for literals,
 function calls, operators and casts.
 
+`COPY t [(columns)] FROM STDIN` and `COPY {t [(columns)] | (query)} TO STDOUT`
+run over the PostgreSQL simple query protocol with `FORMAT text|csv|binary`,
+`DELIMITER`, `NULL` (at most 64 bytes), `HEADER [true|false|match]`, `QUOTE`
+and `ESCAPE` (single bytes) and the pre-9.0 option spelling (`WITH CSV HEADER`,
+`BINARY`, ...). COPY FROM fills omitted columns with their DEFAULT or identity
+value (supplied identity values are kept, as PostgreSQL does; generated
+columns cannot be listed, `42P10`) and runs as one statement: malformed data
+(`22P04`, binary length errors `22P03`), an input-function error (`22P02`), a
+duplicate key (`23505`), a client CopyFail (`57014`) or a disconnect rolls the
+whole COPY back. A row whose key is held by an in-progress inserter waits for
+it like INSERT and is re-checked when that transaction ends. CopyData messages
+are streamed, so their size is not bounded by the 64 KiB receive buffer; one
+data row (text line, CSV record or binary tuple) is at most 8192 bytes
+(`54000` beyond). FORCE_QUOTE/FORCE_NOT_NULL/FORCE_NULL, `DEFAULT`, `ON_ERROR`,
+`WHERE`, encodings other than UTF-8 and COPY over the extended query protocol
+are not supported (`0A000`); option SQLSTATEs follow PostgreSQL 16.
+
 Foreign keys, secondary indexes, window functions and complete SQL-standard
 semantics remain release blockers. The committed finite differential gate report
 matches 19/37 probes against PostgreSQL 16 and 18, including integer OIDs/ranges,
 binary formats, and NULL ordering; development builds additionally match
 `or_predicate`, `read_committed`, `savepoint`, `numeric`, `timestamp`,
 `jsonb`, `distinct`, `aggregate`, `group_by`, `join`, `cte`, `returning`,
-`defaults`, `identity`, `upsert`, `pg_type` and `information_schema` (36/37),
+`defaults`, `identity`, `upsert`, `pg_type`, `information_schema` and `copy`
+(37/37),
 and the committed reports are refreshed at release. The catalog subset and
 broader SQL behavior remain incomplete.
 
@@ -283,9 +302,17 @@ transaction share that arena, so a transaction or statement that cannot fit
 its new versions fails with `VersionCapacity` (53200) where PostgreSQL would
 succeed. Transaction capacity limits, each `53200` with the statement rolled
 back: `clients + 2` concurrent transactions, `-Dtx-writes` (default 4096) rows
-changed per transaction (including every COPY row later), 256 FOR UPDATE/SHARE
-locked rows server-wide with at most 8 FOR SHARE holders per row, 32
-savepoints per transaction, and `-Dtransaction-bytes` per commit record.
+changed per transaction (every COPY FROM row counts, so one COPY loads at most
+that many rows), 256 FOR UPDATE/SHARE locked rows server-wide with at most 8
+FOR SHARE holders per row, 32 savepoints per transaction, and
+`-Dtransaction-bytes` per commit record (a durable COPY's whole change record
+must fit). A table holds at most `-Drows` rows (default 512), so at the default
+profile a COPY of more rows fails with `RowCapacity` (`54000`) and leaves the
+table unchanged where PostgreSQL succeeds; raise `-Drows`, `-Dtx-writes` and
+`-Dtransaction-bytes` together for bulk loads (30 000 rows are verified with
+`-Drows=32768 -Dtables=2 -Dtext-bytes=64 -Dtx-writes=32768
+-Dtransaction-bytes=4194304`). COPY TO returns at most rows-per-table rows,
+like any statement.
 Statements beyond 512 expression nodes or depth 64 fail with
 `StatementTooComplex` (54001). Value capacity limits: a NUMERIC holds at most 64
 significant decimal digits and a display scale of at most 120 (declared

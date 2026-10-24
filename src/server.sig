@@ -7,7 +7,11 @@
 //! lock_timeout, statement_timeout) is due, or a cancel request arrives.
 //! Woken clients run in wait-start order. The idle timeout is suspended
 //! while a client is parked, but its socket is still read, so a disconnect
-//! aborts its transaction and releases its locks. PostgreSQL cancel keys:
+//! aborts its transaction and releases its locks. A COPY FROM row parked on
+//! a key wait is already owned by the store: the reply consumes the input
+//! through that row, the rest stays buffered (read gating is the
+//! backpressure) and the woken client is dispatched even with no new input
+//! so the parked row is re-checked first. PostgreSQL cancel keys:
 //! pid = slot index + 1 with a 32-bit secret from the entropy source,
 //! compared in constant time; unknown keys are ignored silently.
 const sig = @import("sig");
@@ -123,7 +127,8 @@ const Client = struct {
             .mysql => MySQL.responseCapacity(),
             .mssql => TDS.responseCapacity(),
         };
-        if (self.blocked or self.output_sent != 0 or self.closing or self.input_len == 0 or self.output.len - self.output_len < required) return;
+        const parked_copy = self.connection.copyBlocked();
+        if (self.blocked or self.output_sent != 0 or self.closing or (self.input_len == 0 and !parked_copy) or self.output.len - self.output_len < required) return;
         const input = self.input[self.input_start..][0..self.input_len];
         const output = self.output[self.output_len..];
         store.now_ns = sig.os.clockMonotonicNs();
@@ -143,18 +148,24 @@ const Client = struct {
         };
         if (reply.consumed > self.input_len or reply.written > output.len) return error.InvalidReply;
         if (reply.blocked) {
-            if (reply.consumed != 0 or reply.written != 0 or !self.connection.blocked()) return error.InvalidReply;
+            // Only a parked COPY row consumes input (through that row).
+            if (reply.written != 0 or !self.connection.blocked() or (reply.consumed != 0 and !self.connection.copyBlocked())) return error.InvalidReply;
+            self.consume(reply.consumed);
             self.blocked = true;
             return;
         }
         if (reply.cancel) |key| cancelBackend(key);
         if (reply.consumed != 0) {
-            self.input_len -= reply.consumed;
-            self.input_start += reply.consumed;
-            if (self.input_len == 0) self.input_start = 0;
+            self.consume(reply.consumed);
         } else if (self.input_len == self.input.len) return error.RequestTooLarge;
         self.output_len += reply.written;
         self.closing = reply.close;
+    }
+
+    fn consume(self: *Client, count: usize) void {
+        self.input_len -= count;
+        self.input_start += count;
+        if (self.input_len == 0) self.input_start = 0;
     }
 
     fn flush(self: *Client) !void {

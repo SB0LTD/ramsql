@@ -7,7 +7,8 @@ steps keep running and their eventual outcome is collected before teardown.
 Per step the outcome (rows, columns, command tag, SQLSTATE), transaction status
 and blocked flag are compared with the reference. `expect` (None, "ok",
 "blocked" or a SQLSTATE) validates the schedule against the reference itself.
-Steps may instead be runner actions: `cancel` (psycopg cancel of the actor's
+Steps may run `copy` (COPY ... FROM STDIN with the step's text rows, through
+psycopg's copy API; CP1). Steps may instead be runner actions: `cancel` (psycopg cancel of the actor's
 running statement), `disconnect` (close the actor's connection) and `timed`
 (a statement whose completion under 100 ms is part of the outcome).
 `final` statements (by default the table's rows) run on a fresh connection once
@@ -60,6 +61,8 @@ class Step:
     sql: str
     expect: str | None = None
     action: str = "sql"
+    # action "copy": `sql` is COPY ... FROM STDIN and `data` its text rows.
+    data: str = ""
 
 
 @dataclass(frozen=True)
@@ -263,6 +266,15 @@ SCHEDULES: dict[str, Schedule] = {schedule.id: schedule for schedule in (
                after_restart=("SELECT m.o = c.oid FROM cat1_meta m JOIN pg_class c ON c.relname = 'cat1'",
                               "SELECT column_name, column_default::text FROM information_schema.columns WHERE table_name = 'cat1' ORDER BY ordinal_position",
                               "SELECT relname, relkind::text FROM pg_class WHERE relname LIKE 'cat1%' ORDER BY relname")),
+    # ---- P03 COPY under lock waits (design §5.17, step 5.1) ----
+    # (i) A commits key 5: B's parked COPY fails 23505 and only A's row
+    # exists; (ii) A rolls back key 8: B's COPY completes COPY 3.
+    t_schedule("CP1", s("a", "BEGIN"), s("a", "INSERT INTO t VALUES (5, 0)", "ok"),
+               Step("b", "COPY t (id, v) FROM STDIN", "blocked", action="copy", data="4\t0\n5\t0\n6\t0\n"),
+               s("a", "COMMIT", "ok"), s("c", ROWS, "ok"),
+               s("a", "BEGIN"), s("a", "INSERT INTO t VALUES (8, 0)", "ok"),
+               Step("b", "COPY t (id, v) FROM STDIN", "blocked", action="copy", data="7\t0\n8\t0\n9\t0\n"),
+               s("a", "ROLLBACK", "ok"), after_restart=(ROWS,)),
     # ---- M2 transactional DDL (each followed by a durable restart) ----
     t_schedule("DDL1", s("a", "BEGIN"), s("a", "CREATE TABLE ddl1 (id INTEGER PRIMARY KEY)", "ok"),
                s("a", "INSERT INTO ddl1 VALUES (1)", "ok"), s("b", "SELECT id FROM ddl1", "42P01"),
@@ -295,16 +307,20 @@ class Actor:
             job = self.jobs.get()
             if job is None:
                 return
-            sql, record = job
+            sql, record, data = job
             started = time.monotonic()
-            record["outcome"] = execute(self.connection, sql)
+            if data is None:
+                record["outcome"] = execute(self.connection, sql)
+            else:
+                from test_postgres_copy import copy_in
+                record["outcome"] = copy_in(self.connection, sql, data.encode())
             record["elapsed"] = time.monotonic() - started
             record["transaction_status"] = self.connection.info.transaction_status.name
             record["event"].set()
 
-    def submit(self, sql):
+    def submit(self, sql, data=None):
         record = {"event": threading.Event()}
-        self.jobs.put((sql, record))
+        self.jobs.put((sql, record, data))
         return record
 
     def close(self):
@@ -367,7 +383,7 @@ def run_schedule(psycopg, arguments, schedule, restart=None):
                 else:
                     if step.actor not in actors:
                         actors[step.actor] = Actor(psycopg, actor_arguments)
-                    record = actors[step.actor].submit(step.sql)
+                    record = actors[step.actor].submit(step.sql, step.data if step.action == "copy" else None)
                     record["blocked"] = not record["event"].wait(wait)
                 records.append((step, record))
             deadline = time.monotonic() + DRAIN_SECONDS
