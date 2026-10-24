@@ -457,6 +457,252 @@ SUITES["q04"] = (
         "SELECT id, payload::text, raw::text FROM compat ORDER BY id",
         "SELECT id FROM compat WHERE payload @> '{\"a\":2.5}' ORDER BY payload")),
 )
+# Q08 (design §5.7(d), step 3.3): sorting, DISTINCT, DISTINCT ON and
+# pagination. Ties are only ever projected through the tie column itself or
+# broken by id, because PostgreSQL's sort is not stable.
+SORTS = ("CREATE TABLE compat (id INTEGER PRIMARY KEY, flag BOOLEAN, label TEXT, n INTEGER)",
+         "INSERT INTO compat VALUES (1, TRUE, 'one', 10)", "INSERT INTO compat VALUES (2, FALSE, NULL, 20)",
+         "INSERT INTO compat VALUES (3, NULL, 'three', 10)", "INSERT INTO compat VALUES (4, TRUE, 'four', NULL)",
+         "INSERT INTO compat VALUES (5, FALSE, 'five', 20)", "INSERT INTO compat VALUES (6, TRUE, 'one', 30)")
+SUITES["q08"] = (
+    Case("q08_probe", "q08", 3.3, feature="distinct probe", statements=(
+        "SELECT DISTINCT flag FROM compat ORDER BY flag",
+        "SELECT DISTINCT flag FROM compat ORDER BY flag DESC")),
+    Case("q08_multi_column", "q08", 3.3, feature="multi-column DISTINCT", setup=SORTS, statements=(
+        "SELECT DISTINCT flag, n FROM compat ORDER BY flag, n",
+        "SELECT DISTINCT label FROM compat ORDER BY label NULLS FIRST",
+        "SELECT DISTINCT flag, label FROM compat ORDER BY label, flag",
+        "SELECT ALL flag FROM compat ORDER BY flag, id")),
+    Case("q08_nulls_collapse", "q08", 3.3, feature="NULLs collapse in DISTINCT", setup=SORTS, statements=(
+        "SELECT DISTINCT n FROM compat ORDER BY n",
+        "SELECT DISTINCT n, flag IS NULL FROM compat ORDER BY 1, 2",
+        "SELECT DISTINCT NULL::integer FROM compat",
+        "SELECT DISTINCT label IS NULL AS missing FROM compat ORDER BY missing")),
+    Case("q08_distinct_on", "q08", 3.3, feature="DISTINCT ON with ORDER BY", setup=SORTS, statements=(
+        "SELECT DISTINCT ON (n) n, id FROM compat ORDER BY n, id DESC",
+        "SELECT DISTINCT ON (flag) flag, label FROM compat ORDER BY flag, id",
+        "SELECT DISTINCT ON (n) id, label FROM compat ORDER BY n DESC NULLS LAST, id",
+        "SELECT DISTINCT ON (label) label, id FROM compat ORDER BY label, id DESC",
+        "SELECT DISTINCT ON (flag, n) flag, n, id FROM compat ORDER BY flag, n, id")),
+    Case("q08_order_keys", "q08", 3.3, feature="multiple keys, mixed directions, NULLS FIRST/LAST", setup=SORTS, statements=(
+        "SELECT id FROM compat ORDER BY flag DESC, n ASC NULLS LAST, id",
+        "SELECT id FROM compat ORDER BY n NULLS FIRST, id DESC",
+        "SELECT id, n FROM compat ORDER BY n DESC NULLS LAST, label ASC NULLS FIRST, id",
+        "SELECT label, n FROM compat ORDER BY 2 DESC, 1, id",
+        "SELECT id FROM compat ORDER BY label DESC, id")),
+    Case("q08_ordinal_expression", "q08", 3.3, feature="ordinal and expression ORDER BY", setup=SORTS, statements=(
+        "SELECT id, n FROM compat ORDER BY 2, 1 DESC",
+        "SELECT id FROM compat ORDER BY id % 3, id DESC",
+        "SELECT id, n * -1 AS m FROM compat ORDER BY m NULLS FIRST, id",
+        "SELECT label FROM compat ORDER BY COALESCE(n, 0) DESC, id",
+        "SELECT id FROM compat ORDER BY flag IS NULL, n IS NULL DESC, id")),
+    Case("q08_pagination", "q08", 3.3, feature="OFFSET, LIMIT ALL, FETCH FIRST, OFFSET past the end", setup=SORTS, statements=(
+        "SELECT id FROM compat ORDER BY id OFFSET 2",
+        "SELECT id FROM compat ORDER BY id LIMIT 2 OFFSET 3",
+        "SELECT id FROM compat ORDER BY id OFFSET 3 LIMIT 2",
+        "SELECT id FROM compat ORDER BY id LIMIT ALL",
+        "SELECT id FROM compat ORDER BY id OFFSET 1 ROWS FETCH FIRST 2 ROWS ONLY",
+        "SELECT id FROM compat ORDER BY id FETCH NEXT ROW ONLY",
+        "SELECT id FROM compat ORDER BY id OFFSET 10",
+        "SELECT id FROM compat ORDER BY id LIMIT 0",
+        "SELECT DISTINCT n FROM compat ORDER BY n LIMIT 2 OFFSET 1")),
+    Case("q08_ties", "q08", 3.3, feature="ties", setup=SORTS, statements=(
+        "SELECT n FROM compat ORDER BY n",
+        "SELECT n FROM compat ORDER BY n DESC LIMIT 3",
+        "SELECT flag FROM compat ORDER BY flag DESC OFFSET 1 LIMIT 3",
+        "SELECT label FROM compat ORDER BY label LIMIT 2")),
+    Case("q08_errors", "q08", 3.3, feature="42P10 and 2201W/2201X", setup=SORTS, statements=(
+        "SELECT DISTINCT flag FROM compat ORDER BY id",
+        "SELECT DISTINCT ON (n) id FROM compat ORDER BY id, n",
+        "SELECT DISTINCT ON (n) n FROM compat ORDER BY flag",
+        "SELECT id FROM compat LIMIT -1",
+        "SELECT id FROM compat ORDER BY id LIMIT -1",
+        "SELECT id FROM compat OFFSET -1",
+        "SELECT id FROM compat ORDER BY 7")),
+)
+# Q06 (design §5.5/§5.6(d), step 3.4): aggregates, GROUP BY and HAVING.
+KINDS = ("CREATE TABLE compat (id INTEGER PRIMARY KEY, s SMALLINT, i INTEGER, b BIGINT, d NUMERIC(12,3), r REAL, f DOUBLE PRECISION)",
+         "INSERT INTO compat VALUES (1, 1, 1, 9223372036854775807, 1.250, 1.5, 0.5)",
+         "INSERT INTO compat VALUES (2, 2, 2147483647, 9223372036854775807, 2.5, 2.25, 0.25)",
+         "INSERT INTO compat VALUES (3, 2, 2147483647, -1, NULL, NULL, '1e300')",
+         "INSERT INTO compat VALUES (4, NULL, NULL, NULL, 0.001, -0.5, NULL)")
+GROUPS = ("CREATE TABLE compat (id INTEGER PRIMARY KEY, g INTEGER, v INTEGER)",) + tuple(
+    f"INSERT INTO compat VALUES ({index}, 7, {index})" for index in range(512))
+SUITES["q06"] = (
+    Case("q06_probes", "q06", 3.4, feature="aggregate and group_by probes", statements=(
+        "SELECT COUNT(*), SUM(id) FROM compat",
+        "SELECT flag, COUNT(*) FROM compat GROUP BY flag ORDER BY flag")),
+    Case("q06_empty", "q06", 3.4, feature="empty input: COUNT 0, others NULL",
+         setup=("CREATE TABLE compat (id INTEGER PRIMARY KEY, v INTEGER, b BIGINT, d NUMERIC(10,2))",), statements=(
+        "SELECT COUNT(*), COUNT(v), SUM(v), AVG(v), MIN(v), MAX(d), SUM(b), BOOL_AND(v > 0) FROM compat",
+        "SELECT v, COUNT(*) FROM compat GROUP BY v",
+        "SELECT COUNT(*) FROM compat HAVING COUNT(*) = 0",
+        "SELECT SUM(d), AVG(d), AVG(b) FROM compat")),
+    Case("q06_nulls_ignored", "q06", 3.4, feature="NULLs ignored, COUNT(col)", setup=SORTS, statements=(
+        "SELECT COUNT(*), COUNT(n), COUNT(label), SUM(n), MIN(n), MAX(n), AVG(n) FROM compat",
+        "SELECT MIN(label), MAX(label), BOOL_AND(flag), BOOL_OR(flag), EVERY(id > 0) FROM compat",
+        "SELECT COUNT(flag), COUNT(NULL::integer), MIN(NULL::text) FROM compat")),
+    Case("q06_result_types", "q06", 3.4, feature="result OIDs: SUM int8/numeric, AVG numeric/float8, COUNT int8", setup=KINDS, statements=(
+        "SELECT SUM(s), SUM(i), SUM(b), SUM(d), SUM(r), SUM(f), COUNT(*) FROM compat",
+        "SELECT AVG(s), AVG(i), AVG(b), AVG(d), AVG(r) FROM compat",
+        # float8_accum overflows on Sxx (1e300 squared) -> 22003.
+        "SELECT AVG(f) FROM compat",
+        "SELECT AVG(f) FROM compat WHERE id < 3",
+        "SELECT MIN(s), MAX(i), MIN(b), MAX(d), MIN(r), MAX(f), COUNT(d) FROM compat")),
+    Case("q06_avg_scale", "q06", 3.4, feature="AVG scale (numeric division)", setup=SORTS, statements=(
+        "SELECT AVG(id), AVG(n), AVG(id) FILTER (WHERE id < 4) FROM compat",
+        "SELECT flag, AVG(id) FROM compat GROUP BY flag ORDER BY flag",
+        "SELECT AVG(n::numeric(10,3)), SUM(n::numeric(10,3)) FROM compat")),
+    Case("q06_sum_bigint_limit", "q06", 3.4, feature="SUM(bigint) near the limit is numeric", setup=KINDS, statements=(
+        "SELECT SUM(b), AVG(b), MAX(b), MIN(b) FROM compat",
+        "SELECT SUM(i), AVG(i) FROM compat",
+        "SELECT SUM(b) FILTER (WHERE id < 3) FROM compat",
+        "SELECT SUM(i::bigint * 4294967296) FROM compat")),
+    Case("q06_count_distinct", "q06", 3.4, feature="aggregate DISTINCT", setup=SORTS, statements=(
+        "SELECT COUNT(DISTINCT n), COUNT(DISTINCT label), COUNT(DISTINCT flag), SUM(DISTINCT n), AVG(DISTINCT n) FROM compat",
+        "SELECT flag, COUNT(DISTINCT n), COUNT(n) FROM compat GROUP BY flag ORDER BY flag",
+        "SELECT COUNT(DISTINCT label) FILTER (WHERE id > 1) FROM compat")),
+    Case("q06_filter", "q06", 3.4, feature="FILTER (WHERE)", setup=SORTS, statements=(
+        "SELECT COUNT(*) FILTER (WHERE flag), SUM(n) FILTER (WHERE id > 2), COUNT(label) FILTER (WHERE n = 10) FROM compat",
+        "SELECT flag, COUNT(*) FILTER (WHERE n IS NULL), MAX(id) FILTER (WHERE n > 10) FROM compat GROUP BY flag ORDER BY flag")),
+    Case("q06_group_forms", "q06", 3.4, feature="multi-column, expression, ordinal and alias GROUP BY", setup=SORTS, statements=(
+        "SELECT flag, n, COUNT(*) FROM compat GROUP BY flag, n ORDER BY flag, n",
+        "SELECT n % 20, COUNT(*) FROM compat GROUP BY n % 20 ORDER BY 1",
+        "SELECT n, COUNT(*) FROM compat GROUP BY 1 ORDER BY 1 DESC",
+        "SELECT n + 1 AS k, SUM(id) FROM compat GROUP BY k ORDER BY k",
+        "SELECT label IS NULL, COUNT(*) FROM compat GROUP BY label IS NULL ORDER BY 1",
+        "SELECT n FROM compat GROUP BY n, flag ORDER BY n, flag")),
+    Case("q06_having", "q06", 3.4, feature="HAVING", setup=SORTS, statements=(
+        "SELECT n, COUNT(*) FROM compat GROUP BY n HAVING COUNT(*) > 1 ORDER BY n",
+        "SELECT flag FROM compat GROUP BY flag HAVING SUM(n) >= 30 ORDER BY flag",
+        "SELECT COUNT(*) FROM compat HAVING COUNT(*) > 100",
+        "SELECT n FROM compat GROUP BY n HAVING n > 10 ORDER BY n",
+        "SELECT MAX(id) FROM compat HAVING MIN(id) = 1")),
+    Case("q06_order_by_aggregate", "q06", 3.4, feature="ORDER BY aggregates", setup=SORTS, statements=(
+        "SELECT flag FROM compat GROUP BY flag ORDER BY COUNT(*) DESC, flag",
+        "SELECT n, MAX(id) FROM compat GROUP BY n ORDER BY MAX(id)",
+        "SELECT DISTINCT COUNT(*) FROM compat GROUP BY n ORDER BY 1")),
+    Case("q06_grouping_errors", "q06", 3.4, feature="ungrouped column / misplaced aggregate -> 42803", setup=SORTS, statements=(
+        "SELECT id, COUNT(*) FROM compat",
+        "SELECT label FROM compat GROUP BY flag",
+        "SELECT id FROM compat WHERE COUNT(*) > 1",
+        "SELECT SUM(COUNT(*)) FROM compat",
+        "SELECT n FROM compat GROUP BY n ORDER BY id",
+        "SELECT COUNT(*) FROM compat GROUP BY COUNT(*)",
+        "SELECT SUM(label) FROM compat",
+        "SELECT SUM('1') FROM compat")),
+    Case("q06_large", "q06", 3.4, feature="one group of 512 rows and 512 groups of one (default profile)", setup=GROUPS, statements=(
+        "SELECT g, COUNT(*), SUM(v), MIN(v), MAX(v), AVG(v) FROM compat GROUP BY g",
+        "SELECT v, COUNT(*) FROM compat GROUP BY v ORDER BY v DESC",
+        "SELECT COUNT(DISTINCT v), COUNT(DISTINCT g) FROM compat",
+        "SELECT v % 7, COUNT(*), SUM(v) FROM compat GROUP BY 1 ORDER BY 1")),
+    Case("q06_restart", "q06", 3.4, feature="aggregates over replayed rows", setup=SORTS, statements=(
+        "INSERT INTO compat VALUES (7, NULL, 'seven', 40)",), restart=(
+        "SELECT flag, COUNT(*), SUM(n), MIN(label) FROM compat GROUP BY flag ORDER BY flag",)),
+)
+# Q07 (design §5.8/§5.9(d), step 3.5): joins, subqueries, CTEs and set operations.
+JOINS = SORTS + ("CREATE TABLE aux (id INTEGER PRIMARY KEY, tag TEXT)", "INSERT INTO aux VALUES (1, 'joined')",
+                 "INSERT INTO aux VALUES (3, 'three')", "INSERT INTO aux VALUES (9, 'nine')",
+                 "CREATE TABLE extra (k INTEGER, id INTEGER)", "INSERT INTO extra VALUES (1, 1)",
+                 "INSERT INTO extra VALUES (2, 1)", "INSERT INTO extra VALUES (3, NULL)")
+JOIN_TABLES = ("extra", "aux", "compat")
+PAIRS = ("CREATE TABLE compat (id INTEGER PRIMARY KEY, v INTEGER)", "CREATE TABLE aux (id INTEGER PRIMARY KEY, w INTEGER)") + tuple(
+    f"INSERT INTO compat VALUES ({index}, {index})" for index in range(512)) + tuple(
+    f"INSERT INTO aux VALUES ({511 - index}, {index})" for index in range(512))
+SUITES["q07"] = (
+    Case("q07_probes", "q07", 3.5, feature="join and cte probes",
+         setup=BASE + ("CREATE TABLE aux (id INTEGER PRIMARY KEY, label TEXT)", "INSERT INTO aux VALUES (1, 'joined')"), statements=(
+        "SELECT compat.label, aux.label FROM compat JOIN aux ON compat.id = aux.id",
+        "WITH selected AS (SELECT label FROM compat WHERE id = 1) SELECT label FROM selected")),
+    Case("q07_inner_outer", "q07", 3.5, feature="INNER/LEFT/RIGHT/FULL/CROSS, null-extended rows", setup=JOINS, tables=JOIN_TABLES, statements=(
+        "SELECT compat.id, aux.tag FROM compat JOIN aux ON compat.id = aux.id ORDER BY 1",
+        "SELECT compat.id, aux.tag FROM compat LEFT JOIN aux ON aux.id = compat.id ORDER BY 1",
+        "SELECT compat.id, aux.id FROM compat RIGHT OUTER JOIN aux ON aux.id = compat.id ORDER BY aux.id",
+        "SELECT compat.id, aux.id FROM compat FULL JOIN aux ON aux.id = compat.id AND compat.id > 1 ORDER BY compat.id, aux.id",
+        "SELECT COUNT(*) FROM compat CROSS JOIN aux",
+        "SELECT COUNT(*) FROM compat, aux WHERE compat.id < aux.id",
+        "SELECT compat.id, aux.tag FROM compat LEFT JOIN aux ON aux.id = compat.id WHERE aux.id IS NULL ORDER BY 1")),
+    Case("q07_using", "q07", 3.5, feature="USING and merged columns", setup=JOINS, tables=JOIN_TABLES, statements=(
+        "SELECT id, tag FROM compat JOIN aux USING (id) ORDER BY id",
+        "SELECT * FROM aux FULL JOIN extra USING (id) ORDER BY id, k",
+        "SELECT * FROM aux LEFT JOIN extra USING (id) ORDER BY id, k",
+        "SELECT aux.id, extra.id FROM aux RIGHT JOIN extra USING (id) ORDER BY extra.k")),
+    Case("q07_duplicates_self", "q07", 3.5, feature="duplicate matches and self-joins with aliases", setup=JOINS, tables=JOIN_TABLES, statements=(
+        "SELECT aux.tag, extra.k FROM aux JOIN extra ON extra.id = aux.id ORDER BY extra.k",
+        "SELECT a.id, b.id FROM compat a JOIN compat b ON a.n = b.n AND a.id < b.id ORDER BY a.id, b.id",
+        "SELECT a.label, b.label FROM compat AS a JOIN compat AS b ON b.id = a.id + 1 ORDER BY a.id")),
+    Case("q07_three_table_nonequi", "q07", 3.5, feature="three-table and non-equi joins", setup=JOINS, tables=JOIN_TABLES, statements=(
+        "SELECT compat.id, aux.tag, extra.k FROM compat JOIN aux ON aux.id = compat.id LEFT JOIN extra ON extra.id = aux.id ORDER BY compat.id, extra.k",
+        "SELECT compat.id, aux.id FROM compat JOIN aux ON compat.id < aux.id AND aux.id < 4 ORDER BY 1, 2",
+        "SELECT c.id, a.id FROM compat c LEFT JOIN aux a ON a.id BETWEEN c.id AND c.id + 1 ORDER BY 1, 2")),
+    Case("q07_name_errors", "q07", 3.5, feature="42702 ambiguous, 42P01 unknown qualifier", setup=JOINS, tables=JOIN_TABLES, statements=(
+        "SELECT id FROM compat JOIN aux ON compat.id = aux.id",
+        "SELECT x.id FROM compat JOIN aux ON compat.id = aux.id",
+        "SELECT compat.id FROM compat c",
+        "SELECT * FROM compat JOIN aux ON compat.id = aux.nope",
+        "SELECT * FROM compat JOIN aux USING (nope)")),
+    Case("q07_scalar_subquery", "q07", 3.5, feature="scalar subqueries (more than one row -> 21000)", setup=JOINS, tables=JOIN_TABLES, statements=(
+        "SELECT id, (SELECT tag FROM aux WHERE aux.id = compat.id) FROM compat ORDER BY id",
+        "SELECT (SELECT MAX(id) FROM aux), (SELECT COUNT(*) FROM compat WHERE n = 10)",
+        "SELECT id FROM compat WHERE n = (SELECT MAX(n) FROM compat) ORDER BY id",
+        "SELECT (SELECT id FROM aux)",
+        "SELECT id, (SELECT k FROM extra WHERE extra.id = compat.id) FROM compat ORDER BY id")),
+    Case("q07_in_subquery", "q07", 3.5, feature="IN / NOT IN with NULLs", setup=JOINS, tables=JOIN_TABLES, statements=(
+        "SELECT id FROM compat WHERE id IN (SELECT id FROM aux) ORDER BY id",
+        "SELECT id FROM compat WHERE id NOT IN (SELECT id FROM extra) ORDER BY id",
+        "SELECT id FROM compat WHERE id NOT IN (SELECT id FROM extra WHERE id IS NOT NULL) ORDER BY id",
+        "SELECT id, id IN (SELECT id FROM extra), NULL IN (SELECT id FROM aux WHERE id > 100), n NOT IN (SELECT n FROM compat WHERE id > 4) FROM compat WHERE id < 4 ORDER BY id",
+        "SELECT id FROM compat WHERE id IN (SELECT id, tag FROM aux)")),
+    Case("q07_exists", "q07", 3.5, feature="correlated and uncorrelated EXISTS / NOT EXISTS", setup=JOINS, tables=JOIN_TABLES, statements=(
+        "SELECT id FROM compat WHERE EXISTS (SELECT 1 FROM extra WHERE extra.id = compat.id) ORDER BY id",
+        "SELECT id FROM compat WHERE NOT EXISTS (SELECT 1 FROM aux WHERE aux.id = compat.id) ORDER BY id",
+        "SELECT id, EXISTS (SELECT 1 FROM aux WHERE aux.id > compat.n) FROM compat ORDER BY id",
+        "SELECT COUNT(*) FROM compat WHERE EXISTS (SELECT 1 FROM aux WHERE id = 9)")),
+    Case("q07_derived", "q07", 3.5, feature="derived tables", setup=JOINS, tables=JOIN_TABLES, statements=(
+        "SELECT s.x FROM (SELECT id * 2 AS x FROM compat WHERE id > 3) s ORDER BY x",
+        "SELECT s.n, s.c FROM (SELECT n, COUNT(*) AS c FROM compat GROUP BY n) s WHERE s.c > 1 ORDER BY s.n",
+        "SELECT t.id, a.tag FROM (SELECT id FROM compat WHERE flag) t LEFT JOIN aux a ON a.id = t.id ORDER BY t.id",
+        "SELECT * FROM (SELECT id, label FROM compat ORDER BY id DESC LIMIT 2) s ORDER BY id")),
+    Case("q07_ctes", "q07", 3.5, feature="multiple and chained CTEs", setup=JOINS, tables=JOIN_TABLES, statements=(
+        "WITH a AS (SELECT id, n FROM compat WHERE id > 2), b AS (SELECT id FROM a WHERE n IS NOT NULL) SELECT b.id FROM b ORDER BY 1",
+        "WITH x AS (SELECT n FROM compat) SELECT COUNT(*) FROM x p JOIN x q ON p.n = q.n",
+        "WITH counts(n, c) AS (SELECT n, COUNT(*) FROM compat GROUP BY n) SELECT n, c FROM counts ORDER BY c DESC, n",
+        "WITH t AS (SELECT tag FROM aux WHERE id = 9) SELECT compat.id, (SELECT tag FROM t) FROM compat WHERE id = 1")),
+    Case("q07_recursive", "q07", 3.5, feature="WITH RECURSIVE: UNION ALL to 10, UNION cycle termination", setup=JOINS, tables=JOIN_TABLES, statements=(
+        "WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c WHERE x < 10) SELECT x FROM c ORDER BY x",
+        "WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c WHERE x < 10) SELECT SUM(x), COUNT(*) FROM c",
+        "WITH RECURSIVE c(x) AS (SELECT 1 UNION SELECT (x % 3) + 1 FROM c) SELECT x FROM c ORDER BY x",
+        "WITH RECURSIVE walk(id, depth) AS (SELECT 1, 0 UNION SELECT compat.id, walk.depth + 1 FROM walk JOIN compat ON compat.id = walk.id + 2 WHERE walk.depth < 5) SELECT id, depth FROM walk ORDER BY id")),
+    Case("q07_set_operations", "q07", 3.5, feature="UNION/INTERSECT/EXCEPT [ALL]", setup=JOINS, tables=JOIN_TABLES, statements=(
+        "SELECT n FROM compat UNION SELECT k FROM extra ORDER BY 1",
+        "SELECT n FROM compat UNION ALL SELECT n FROM compat ORDER BY n LIMIT 5",
+        "SELECT n FROM compat INTERSECT SELECT 10 ORDER BY 1",
+        "SELECT n FROM compat INTERSECT ALL SELECT n FROM compat WHERE id > 2 ORDER BY 1",
+        "SELECT n FROM compat EXCEPT SELECT 20 ORDER BY 1",
+        "SELECT n FROM compat EXCEPT ALL SELECT n FROM compat WHERE id < 3 ORDER BY 1",
+        "SELECT 'a' UNION SELECT 'b' ORDER BY 1",
+        "SELECT 1 UNION SELECT 2::bigint ORDER BY 1 DESC")),
+    Case("q07_set_errors", "q07", 3.5, feature="set-operation arity and type errors", setup=JOINS, tables=JOIN_TABLES, statements=(
+        "SELECT 1 UNION SELECT 1, 2",
+        "SELECT 1 UNION SELECT TRUE",
+        "SELECT id, label FROM compat UNION SELECT id, tag FROM aux ORDER BY 1, 2")),
+    Case("q07_transaction_join", "q07", 3.5, feature="a join in a transaction sees its own uncommitted rows", setup=JOINS, tables=JOIN_TABLES, statements=(
+        "BEGIN",
+        "INSERT INTO aux VALUES (2, 'mine')",
+        "SELECT compat.id, aux.tag FROM compat JOIN aux ON aux.id = compat.id ORDER BY 1",
+        "SELECT COUNT(*) FROM compat WHERE id IN (SELECT id FROM aux)",
+        "ROLLBACK",
+        "SELECT compat.id, aux.tag FROM compat JOIN aux ON aux.id = compat.id ORDER BY 1")),
+    Case("q07_large_join", "q07", 3.5, feature="512 x 512 primary-key equi-join (default profile)", setup=PAIRS, statements=(
+        "SELECT COUNT(*), SUM(compat.v + aux.w) FROM compat JOIN aux ON aux.id = compat.id",
+        "SELECT compat.id, aux.w FROM compat JOIN aux ON aux.id = compat.id ORDER BY compat.id DESC LIMIT 5",
+        "SELECT COUNT(aux.id), COUNT(*) FROM compat LEFT JOIN aux ON aux.id = compat.v + 256",
+        "SELECT COUNT(*) FROM compat a JOIN aux b ON b.id = 511 - a.id WHERE b.w = a.v")),
+    Case("q07_restart", "q07", 3.5, feature="joins and CTEs over replayed rows", setup=JOINS, tables=JOIN_TABLES, statements=(
+        "INSERT INTO aux VALUES (5, 'five')",), restart=(
+        "SELECT compat.id, aux.tag FROM compat JOIN aux USING (id) ORDER BY 1",
+        "WITH j AS (SELECT id FROM aux) SELECT COUNT(*) FROM j")),
+)
 SUITES["selfcheck"] = (
     Case("selfcheck_point_select", "selfcheck", 0.0, statements=("SELECT label FROM compat WHERE id = 3",)),
     Case("selfcheck_future_step", "selfcheck", 99.0, statements=("SELECT label FROM compat WHERE id = 1",)),

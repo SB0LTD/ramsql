@@ -147,13 +147,27 @@ with three-valued logic, comparisons, IS [NOT] NULL/TRUE/FALSE/UNKNOWN,
 `+ - * / %`, CASE, COALESCE, NULLIF and `::`/CAST, with PostgreSQL SQLSTATEs
 (42804 for `WHERE id`, 42883 for `label + 1`, 22P02, 22003, 22012). A statement
 that fails after changing many rows changes none. ORDER BY accepts expressions,
-output positions and names with ASC/DESC and NULLS FIRST/LAST, then LIMIT.
+output positions and names with ASC/DESC and NULLS FIRST/LAST, then LIMIT
+[ALL], OFFSET and FETCH FIRST|NEXT n ROW|ROWS ONLY (negative counts give
+`2201W`/`2201X`). Queries support SELECT DISTINCT and DISTINCT ON (NULLs equal;
+PostgreSQL's `42P10` rules); COUNT(*), COUNT, SUM, AVG, MIN, MAX, BOOL_AND,
+BOOL_OR/EVERY with DISTINCT and FILTER (WHERE), GROUP BY (columns, expressions,
+positions, output names) and HAVING, with PostgreSQL result types (SUM of
+int2/int4 is int8, SUM(int8) and AVG of integers are NUMERIC, COUNT is int8;
+`42803` for ungrouped columns); INNER, LEFT, RIGHT, FULL and CROSS joins with
+ON or USING, comma joins, aliases and self-joins (`42702` for an ambiguous
+column, `42P01` for an unknown qualifier); scalar subqueries (`21000` for more
+than one row), [NOT] IN and [NOT] EXISTS subqueries (correlated or not) and
+derived tables; WITH CTEs (at most 4 per statement), WITH RECURSIVE over
+UNION [ALL] to a fixpoint, and UNION, INTERSECT and EXCEPT [ALL]. AVG(interval),
+LATERAL, NATURAL joins, parenthesized join trees, window functions (flag F6)
+and data-modifying CTEs (flag F7) are not provided.
 Default ordering follows PostgreSQL: ASC NULLS LAST, DESC NULLS FIRST. A WHERE
 holds at most 8 leaf predicates and a statement at most 512 expression nodes
 nested 64 deep. Unquoted names are ASCII and case insensitive, quoted names keep
 case; text is bytewise and text bounds count bytes (including `||` results).
 Apostrophes are doubled in SQL text. Each execute call accepts one statement.
-Other functions (including `pg_typeof`), aggregates, joins, subqueries,
+Other functions (including `pg_typeof`), window functions,
 arrays, JSON (non-B) operators, jsonpath, zone abbreviations (`EST`),
 non-ISO DateStyle and non-postgres IntervalStyle are not supported. MySQL and
 TDS clients receive NUMERIC, REAL/DOUBLE, temporal and JSON values as text
@@ -195,12 +209,13 @@ the reported session defaults; startup `options` accept `-c name=value`.
 Failed transactions and disconnected sessions cannot publish their changes.
 Cursors and two-phase commit do not exist.
 
-Joins, aggregates, foreign keys, secondary indexes and complete SQL-standard
+Foreign keys, secondary indexes, window functions and complete SQL-standard
 semantics remain release blockers. The committed finite differential gate report
 matches 19/37 probes against PostgreSQL 16 and 18, including integer OIDs/ranges,
 binary formats, and NULL ordering; development builds additionally match
-`or_predicate`, `read_committed`, `savepoint`, `numeric`, `timestamp` and
-`jsonb` (25/37), and the committed reports are refreshed at release.
+`or_predicate`, `read_committed`, `savepoint`, `numeric`, `timestamp`,
+`jsonb`, `distinct`, `aggregate`, `group_by`, `join` and `cte` (30/37), and the
+committed reports are refreshed at release.
 Catalogs and broader SQL behavior remain incompatible.
 
 ## Memory and execution
@@ -239,7 +254,16 @@ deep (`54001`); a statement returns at most 8 columns. TIMESTAMP(p) above 6 is
 clamped to 6 without PostgreSQL's warning.
 LIMIT without ORDER BY stops scanning once enough rows match. A top-level
 `pk = constant` conjunct uses the index; other filters remain scans, and
-ordering uses a stable merge sort.
+ordering uses a stable merge sort. Sorting, DISTINCT, grouping, joins, CTEs,
+derived tables and set operations are bounded by one statement-scoped query
+workspace of `-Dwork-rows` (default: rows) rows of up to 16 cells; a query that
+needs more (for example a large non-equi or cross join, or a WITH RECURSIVE
+that does not terminate) fails with `WorkspaceCapacity` (`54000`) before
+returning anything, where PostgreSQL would spill to disk. Joins are nested
+loops; an ON conjunct `inner.pk = expression` of an INNER or LEFT join probes
+the inner table's primary-key index. A statement returns at most rows-per-table
+rows (`54000` beyond). Each query references at most 4 FROM items per block and
+16 query blocks (subqueries, CTE bodies, set-operation branches).
 
 The WAL stores versioned kind-3 change records (row and DDL ops with explicit
 type OIDs). Logs written by alpha.1/alpha.2 (SQL-text kind 2) still recover through

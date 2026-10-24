@@ -86,11 +86,12 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     const tx_writes = ctx.option(usize, "tx-writes", "Write-set entries (rows changed) per transaction") orelse 4096;
     const versions = ctx.option(usize, "versions", "Row-version slots per table (must exceed rows)") orelse rows * 2;
     const timezones = ctx.option(usize, "timezones", "Cached named time zones (16 KiB each)") orelse 8;
-    if (clients == 0 or clients > 60 or rows == 0 or tables == 0 or text_bytes == 0 or text_bytes > 65535 or transaction_bytes < 65540 or tx_writes == 0 or versions <= rows or timezones == 0 or timezones > 256) return error.BufferTooSmall;
+    const work_rows = ctx.option(usize, "work-rows", "Query workspace rows for sorts, groups, joins and CTEs (2 x 8 cells each)") orelse rows;
+    if (clients == 0 or clients > 60 or rows == 0 or tables == 0 or text_bytes == 0 or text_bytes > 65535 or transaction_bytes < 65540 or tx_writes == 0 or versions <= rows or timezones == 0 or timezones > 256 or work_rows == 0) return error.BufferTooSmall;
     var profile_buf: [512]u8 = undefined;
-    const profile = try std.fmt.bufPrint(&profile_buf, "pub const clients={d}; pub const rows={d}; pub const tables={d}; pub const text_bytes={d}; pub const transaction_bytes={d}; pub const tx_writes={d}; pub const versions={d}; pub const transactions={d}; pub const timezones={d};\n", .{ clients, rows, tables, text_bytes, transaction_bytes, tx_writes, versions, clients + 2, timezones });
+    const profile = try std.fmt.bufPrint(&profile_buf, "pub const clients={d}; pub const rows={d}; pub const tables={d}; pub const text_bytes={d}; pub const transaction_bytes={d}; pub const tx_writes={d}; pub const versions={d}; pub const transactions={d}; pub const timezones={d}; pub const work_rows={d};\n", .{ clients, rows, tables, text_bytes, transaction_bytes, tx_writes, versions, clients + 2, timezones, work_rows });
     var profile_path_buf: [256]u8 = undefined;
-    const profile_path = try std.fmt.bufPrint(&profile_path_buf, ".sig-cache/profile-{d}-{d}-{d}-{d}-{d}-{d}-{d}-{d}.sig", .{ clients, rows, tables, text_bytes, transaction_bytes, tx_writes, versions, timezones });
+    const profile_path = try std.fmt.bufPrint(&profile_path_buf, ".sig-cache/profile-{d}-{d}-{d}-{d}-{d}-{d}-{d}-{d}-{d}.sig", .{ clients, rows, tables, text_bytes, transaction_bytes, tx_writes, versions, timezones, work_rows });
     try sig_build.sig_io.Dir.cwd().createDirPath(.{}, ".sig-cache");
     const profile_file = try sig_build.sig_io.Dir.cwd().createFile(.{}, profile_path, .{});
     try profile_file.writeStreamingAll(.{}, profile);
@@ -199,7 +200,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     const benchmark = try ctx.addStep("benchmark", "ramsql-bench", &runBinary);
     try ctx.addDependency(benchmark, bench);
     var test_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
-    inline for (.{ "postgres", "mysql", "tds", "db_store", "tcp_server", "sql_index", "scram", "durable_log", "db_file", "entropy", "db_stream", "pg_stream", "sql_storage", "sql_change_log", "sql_expr", "sql_mvcc", "sql_types", "wall_clock" }) |name| {
+    inline for (.{ "postgres", "mysql", "tds", "db_store", "tcp_server", "sql_index", "scram", "durable_log", "db_file", "entropy", "db_stream", "pg_stream", "sql_storage", "sql_change_log", "sql_expr", "sql_mvcc", "sql_types", "sql_query", "wall_clock" }) |name| {
         const path = try zpm.modulePath("tests/test_" ++ name ++ ".sig", &test_buf);
         const compiled = try ctx.addCompileStep(.{
             .source_path = path,

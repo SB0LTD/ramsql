@@ -57,6 +57,7 @@ const Raw = sql.Database(.{
     .versions_per_table = profile.versions,
     .tx_writes = profile.tx_writes,
     .transactions = profile.transactions,
+    .work_rows = profile.work_rows,
 });
 const Store = stores.Store(Raw);
 const DB = Store.Connection;
