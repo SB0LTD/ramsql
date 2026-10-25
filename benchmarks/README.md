@@ -1,5 +1,11 @@
 # Benchmarks
 
+Latest infrastructure experiment:
+[streaming aggregation, IRDB 1.10.821 and PostgreSQL](streaming-aggregation-20261025/REPORT.md).
+It includes separate native/wire tiers, raw correctness-checked trials, fixed
+group-scratch evidence and a fresh preserved-binary baseline. Production and
+all-workload performance targets remain open.
+
 ## Durable comparison with native PostgreSQL
 
 [Current durable measurements](durable-boundary.json) compare the selected shared SQL

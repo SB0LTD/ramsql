@@ -67,8 +67,29 @@ separate milestones.
 - A default-small-profile compile-time overflow in WAL scratch size inference was
   discovered by the new contract and fixed by making the intermediate a `usize`.
 
-Platform/release CI and final benchmark evidence are recorded separately when
-available. The legacy ZPM Sig 0.5.9 root workflow continues to fail the same four
+### Measured benchmark follow-up
+
+The [new benchmark pack](../benchmarks/streaming-aggregation-20261025/REPORT.md)
+retains raw results, stream counters, binary/source hashes and a fresh rerun of
+the preserved pre-change native binary. All six selected cases now produce
+correct results at 512, 100,000 and 1,000,000 rows in each engine/boundary tier.
+The native million-row COUNT/SUM case rises from 36 to 78 ops/s in that fresh
+comparison. The 64-group case changes from WorkspaceCapacity to 35 ops/s.
+Recorded group scratch stays at 512 Cells and 1,460 reference slots for all
+three sizes; these are partial operator counters, not total process memory.
+
+IRDB 1.10.821 still leads million-row scalar/group aggregates at 488/436 ops/s.
+PostgreSQL still leads the filtered ordered wire read at 4,118 versus 30 ops/s.
+The million-row native backing remains 537,165,824 bytes. These results support
+the scoped capacity fix and scalar improvement; ordered access and compact
+typed storage remain necessary. Five sequential exploratory trials do not
+establish statistical significance for small differences or all-workload wins.
+
+Platform/release CI qualification is still required for the final revision. One
+RAMSQL macOS CI attempt passed build/contracts/CLI/server, then failed installing
+independent test clients because `files.pythonhosted.org` DNS resolution failed;
+the skipped tests are not counted as passed. The legacy ZPM Sig 0.5.9 root
+workflow continues to fail the same four
 historical non-database targets (`test-sabr-loop`, `test-manifest-sabr`,
 `test-tls-client`, `test-tts-gpu`). Do not describe repository-wide CI as green.
 
@@ -77,7 +98,7 @@ historical non-database targets (`test-sabr-loop`, `test-manifest-sabr`,
 | Plan step | Status | Remaining evidence/work |
 | --- | --- | --- |
 | D0: observability | Partial | Streaming counters and benchmark Cell/version/backing sizes added; full plan, residency and physical-operator accounting still open. |
-| D1: streaming aggregates | Candidate subset | Final-pin live/matrix/benchmark qualification; DISTINCT, joins/derived sources and remaining lazy LIMIT shapes still need bounded paths. |
+| D1: streaming aggregates | Candidate subset | Local final-pin live/benchmark evidence passes; full matrix pending. DISTINCT, joins/derived sources and remaining lazy LIMIT shapes still need bounded paths. |
 | D2: ordered/composite indexes | Open | Ordered index, maintenance/rollback/replay, physical planning and measured access reduction. |
 | D3: compact variable storage | Open | Typed pages, variable values/wider schemas, retention-safe compaction, format migration and peak-memory evidence. |
 | D4: resumable/session/result budgets | Open | Yield/resume ownership, fairness, portals, backpressure and byte-budgeted sessions. |

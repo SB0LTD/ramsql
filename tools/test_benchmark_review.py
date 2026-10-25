@@ -1,6 +1,6 @@
 """Integrity checks for comparative benchmark results; no synthetic speed claims."""
 import unittest
-from benchmark_review import digest,expected,validate_samples,MASK
+from benchmark_review import digest,expected,validate_samples,validate_stream_samples,MASK
 
 class Contracts(unittest.TestCase):
     def test_models_against_materialized_rows(self):
@@ -29,5 +29,16 @@ class Contracts(unittest.TestCase):
                 bad=[dict(s) for s in samples];bad[0][field]=value
                 with self.assertRaises(AssertionError):validate_samples('sort_limit',bad,512,iterations)
         with self.assertRaises(AssertionError):validate_samples('sort_limit',samples[:4],512,iterations)
+
+    def test_stream_evidence_cannot_hide_missing_input_or_stale_work(self):
+        samples=[dict(stream_rows=1000000,stream_groups=64,stream_probes=1000000,group_cells=512,group_refs=1460) for _ in range(5)]
+        validate_stream_samples('group_aggregate',samples,1000000)
+        for field,value in [('stream_rows',512),('stream_groups',63),('stream_probes',0),('group_cells',-1),('group_refs',None)]:
+            with self.subTest(field=field):
+                bad=[dict(s) for s in samples];bad[0][field]=value
+                with self.assertRaises(AssertionError):validate_stream_samples('group_aggregate',bad,1000000)
+        with self.assertRaises(AssertionError):validate_stream_samples('primary_key_hot',samples,1000000)
+        validate_stream_samples('aggregate',[dict(stream_rows=1000000,stream_groups=1,stream_probes=0,group_cells=2,group_refs=0) for _ in range(5)],1000000)
+        validate_stream_samples('group_aggregate',[{} for _ in range(5)],1000000) # preserved old binary
 
 if __name__=='__main__': unittest.main(verbosity=2)

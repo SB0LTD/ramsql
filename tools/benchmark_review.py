@@ -88,6 +88,27 @@ def validate_samples(name, samples, n, iterations):
     return wanted
 
 
+def validate_stream_samples(name, samples, n):
+    """Check optional executor evidence; older baseline binaries omit it."""
+    fields=("stream_rows","stream_groups","stream_probes","group_cells","group_refs")
+    if not any(field in sample for sample in samples for field in fields):
+        return
+    for sample in samples:
+        assert all(type(sample.get(field)) is int and sample[field]>=0 for field in fields),"incomplete/invalid stream evidence"
+        if name in ("aggregate","group_aggregate"):
+            assert sample["stream_rows"]==n,"stream did not examine the modeled input"
+            assert sample["stream_groups"]==(1 if name=="aggregate" else 64),"wrong streamed group count"
+            assert sample["group_cells"]>0,"missing aggregate state evidence"
+            if name=="aggregate":
+                assert sample["stream_probes"]==sample["group_refs"]==0,"scalar aggregate materialized hash state"
+            else:
+                assert sample["stream_probes"]>=n and sample["group_refs"]>0,"missing grouped hash evidence"
+        else:
+            assert all(sample[field]==0 for field in fields),"stale stream counters on a different workload"
+    for field in fields:
+        assert len({sample[field] for sample in samples})==1,"stream evidence changed between identical trials"
+
+
 def native_measure(binary,n,iterations,log):
     raw,wall=run_process([binary,n,iterations],log)
     records=[json.loads(line) for line in raw.splitlines() if line.startswith("{")]
@@ -102,6 +123,7 @@ def native_measure(binary,n,iterations,log):
             measurements.append({"name":name,"passed":False,"error":samples[0]["error"]})
         else:
             wanted=validate_samples(name,samples,n,iterations)
+            validate_stream_samples(name,samples,n)
             assert all(x["expected_digest"]==wanted for x in samples),"native model differs"
             measurements.append({"name":name,"passed":True,"samples":samples})
     assert {r.get("case") for r in records if "case" in r}==set(CASES),"unknown native case"
