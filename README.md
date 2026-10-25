@@ -56,13 +56,27 @@ Back up using the offline command below, and test restoration before relying on 
 `--max-clients N` selects active connections within the compiled profile;
 `--idle-ms N` controls expiry (30,000 ms default). The default profile contains
 16 clients, 8 tables, 8 columns, 512 rows per table, 63-byte names, 128-byte text
-cells, and 1 MiB of SQL log storage per transaction. Configure an explicit profile:
+cells, and 1 MiB of change-record storage per transaction. Configure an explicit profile:
 
 ```sh
 sig build -Doptimize=ReleaseFast -Dclients=32 -Drows=4096 -Dtables=16 -Dtext-bytes=512 -Dtransaction-bytes=4194304
 ```
 
-Storage, results and transaction workspaces are dense and preallocated, so larger
+`-Dtx-writes=N` (rows changed per transaction, default 4096) and `-Dversions=N`
+(row-version slots per table, default 2 x rows) size the transaction engine.
+`-Dtimezones=N` (default 8) sizes the named time-zone cache (16 KiB each).
+
+`--timezone-dir PATH` names a zoneinfo (TZif) directory for named time zones
+(`SET TIME ZONE 'America/New_York'`, `... AT TIME ZONE 'Europe/Paris'`); the
+default is `/usr/share/zoneinfo` on Linux and macOS and none on Windows and
+native SB0, where only `UTC`, numeric offsets and POSIX TZ strings (`UTC+3`)
+work. Zone names must match `[A-Za-z0-9_+\-/]{1,64}`. Case-insensitive names
+(`america/new_york`, reported as `America/New_York`) need a
+`ramsql-zones.idx` index in that directory; `python tools/fetch_tzdata.py
+--image postgres:18-alpine` copies a reference image's zoneinfo with its index
+into `.sig-cache/tzdata/<image-id>`. Without an index, a case-mismatched name is
+`22023` where PostgreSQL accepts it.
+Storage, results, version arenas and transaction tables are dense and preallocated, so larger
 profiles increase memory significantly. These configurable bounds still fall short
 of PostgreSQL's capacity and concurrency model; they are tracked as a release gap.
 The Windows reactor currently permits at most 60 compiled client slots.
@@ -88,48 +102,186 @@ database='ramsql', autocommit=True, charset='utf8mb4'`.
 For python-tds use `server='127.0.0.1', port=1433, user='ramsql', password='',
 database='ramsql', autocommit=True, use_mars=False`.
 
-Not implemented: TLS, roles/authorization, system catalogs, replication,
-COPY/bulk loading, stored procedures, ORM-specific discovery, and complete SQL
-dialects. MySQL's binary prepared-statement protocol is not implemented;
+Not implemented: TLS, roles/authorization, the full system catalog (only the
+views listed under SQL and transactions), replication, COPY to or from files
+or programs (only `FROM STDIN` / `TO STDOUT` over the simple query protocol),
+stored procedures, ORM-specific discovery, and complete SQL dialects. MySQL's binary prepared-statement protocol is not implemented;
 PyMySQL parameters use its normal safe client-side encoding. Unsupported
 operations return errors; they do not silently succeed. SQL Server RPC supports bounded integer, boolean, NVARCHAR and NULL parameters
 for sp_executesql; other procedures and parameter types are rejected.
 
 ## SQL and transactions
 
-CREATE/DROP TABLE; single-row INSERT with optional columns; SELECT projection
-or `*`; UPDATE literal assignments; DELETE. Server/default CLI types are signed
-32-bit INTEGER/INT, signed 64-bit BIGINT/INT8,
-BOOLEAN and TEXT, plus NULL. NOT NULL and one single-column PRIMARY KEY are
-supported. WHERE supports typed comparisons, bounded AND conjunctions and
-IS [NOT] NULL. SELECT supports one ORDER BY column, NULLS FIRST/LAST and LIMIT.
-Default ordering follows PostgreSQL: ASC NULLS LAST, DESC NULLS FIRST. Names are ASCII
-and case insensitive; text is bytewise and text bounds count bytes. Apostrophes
-are doubled in SQL text. Each execute call accepts one statement.
+CREATE/DROP TABLE; CREATE/DROP SEQUENCE; INSERT [AS alias] with optional
+columns, multi-row VALUES (with DEFAULT items), INSERT ... SELECT or DEFAULT
+VALUES, `OVERRIDING SYSTEM|USER VALUE`, `ON CONFLICT [(pk) | ON CONSTRAINT
+<table>_pkey] DO NOTHING | DO UPDATE SET ... [WHERE ...]` with EXCLUDED;
+SELECT; UPDATE with expression SET (and `SET col = DEFAULT`); DELETE; and
+`RETURNING *`/`t.*`/expressions on INSERT, UPDATE and DELETE (new rows for
+INSERT/UPDATE, the deleted rows for DELETE, emitted exactly once even when the
+statement waits for a lock). Upsert arbitrates on the primary key only (the
+only unique index; `42P10` otherwise): a conflict with an in-progress inserter
+or deleter waits and re-checks, a row hit twice by one DO UPDATE is `21000`,
+and DO UPDATE ... WHERE false locks the row and skips it. Column DEFAULT
+expressions are evaluated per row; `GENERATED ALWAYS|BY DEFAULT AS IDENTITY
+[(sequence options)]` (one identity column per table) owns a sequence
+`<table>_<column>_seq` dropped with the table; ALWAYS rejects explicit values
+with `428C9` unless OVERRIDING SYSTEM VALUE; `GENERATED ALWAYS AS (expr)
+STORED` columns are recomputed on every insert and update (`428C9` when
+assigned). Sequences support INCREMENT, MINVALUE/MAXVALUE (NO ...), START,
+[NO] CYCLE and AS smallint|integer|bigint (CACHE other than 1 is `0A000`),
+`nextval`, `currval` (`55000` before the session's first nextval), `setval`
+and `lastval`; exhaustion is `2200H`; values are never rolled back and follow
+PostgreSQL's 32-value log-ahead, so identities and sequences resume at
+PostgreSQL's post-crash values (a SELECT that advances a sequence is durable
+before its reply; an aborted transaction's log-ahead value rides on the next
+commit record from any session). At most `Config.sequences` (16) sequences
+exist; there are no sequence locks (a concurrent DROP SEQUENCE waits only for
+another uncommitted DROP). Types are SMALLINT/INT2, INTEGER/INT/INT4,
+BIGINT/INT8, NUMERIC/DECIMAL[(p[,s])], REAL/FLOAT4, DOUBLE PRECISION/FLOAT8,
+BOOLEAN, TEXT, NAME, OID, DATE, TIMESTAMP[(p)] [WITHOUT TIME ZONE],
+TIMESTAMPTZ[(p)]/TIMESTAMP WITH TIME ZONE, INTERVAL, JSON and JSONB, plus NULL.
+NOT NULL and one single-column PRIMARY KEY are supported.
 
-The server additionally accepts boolean integer literals 0/1 for common
-MySQL/BIT client encodings. Raw library configurations remain strictly typed
-unless this option is enabled. Raw library configurations retain the ZPM defaults
-(64-bit INTEGER and ASC NULLS FIRST); select `integer_bits = 32` and
-`nulls_first_ascending = false` for PostgreSQL scalar semantics.
+Values follow PostgreSQL where implemented: NUMERIC rounds half away from
+zero, uses PostgreSQL's division/AVG scales and NUMERIC(p,s) typmods (negative
+scales allowed, `22003` on overflow), and supports NaN/Infinity (NaN sorts
+last); REAL/DOUBLE accept the measured `float8in` grammar (decimal, `0x..p`
+hex, Infinity/inf/NaN) and print shortest round-trip digits like `float8out`;
+float-to-integer casts round half to even, numeric-to-integer half away.
+Temporal input is ISO 8601 (`T` or space, fractions, `Z`/`+-HH[:MM[:SS]]`, a
+trailing zone name, `BC`), `infinity`/`-infinity`/`epoch`, with PostgreSQL's
+range limits (`22008`) and `22007` for malformed text; output uses DateStyle
+ISO and IntervalStyle postgres. `+ -` on dates, timestamps and intervals,
+`AT TIME ZONE`, `now()`/`CURRENT_TIMESTAMP`/`transaction_timestamp()` (the
+transaction start), `statement_timestamp()`, `clock_timestamp()` and
+`CURRENT_DATE` are supported; nonexistent and ambiguous local times resolve as
+PostgreSQL's Appendix B.1 describes. `SET TIME ZONE` accepts UTC, a number of
+hours, zone names and POSIX TZ strings, is transactional (ROLLBACK, ROLLBACK
+TO, SET LOCAL, reverted by an error in a block) and is reported through
+ParameterStatus with DateStyle, IntervalStyle and application_name. JSON keeps
+its validated text; JSONB is canonical (sorted keys, last duplicate wins,
+NUMERIC numbers, PostgreSQL output spacing) with `-> ->> #> #>> @> <@ ?`,
+equality and btree ordering, `jsonb_typeof` and `jsonb_array_length`.
+PostgreSQL binary results and parameters are supported for every type.
 
-BEGIN/COMMIT/ROLLBACK use separate caller-owned transaction snapshots. Readers
-continue to see committed data while other connections hold private changes.
-A writing transaction commits only if the global committed generation has not
-changed since BEGIN; otherwise it receives PostgreSQL SQLSTATE `40001` and must
-roll back/retry. Read-only commits do not conflict. Failed transactions and
-disconnected sessions cannot publish their changes. This is conservative snapshot
-isolation and differs from PostgreSQL's default READ COMMITTED behavior.
+Expressions follow PostgreSQL precedence and typing for that type set: AND/OR/NOT
+with three-valued logic, comparisons, IS [NOT] NULL/TRUE/FALSE/UNKNOWN,
+[NOT] IN lists, [NOT] BETWEEN, [NOT] LIKE/ILIKE, `||`, checked integer
+`+ - * / %`, CASE, COALESCE, NULLIF and `::`/CAST, with PostgreSQL SQLSTATEs
+(42804 for `WHERE id`, 42883 for `label + 1`, 22P02, 22003, 22012). A statement
+that fails after changing many rows changes none. ORDER BY accepts expressions,
+output positions and names with ASC/DESC and NULLS FIRST/LAST, then LIMIT
+[ALL], OFFSET and FETCH FIRST|NEXT n ROW|ROWS ONLY (negative counts give
+`2201W`/`2201X`). Queries support SELECT DISTINCT and DISTINCT ON (NULLs equal;
+PostgreSQL's `42P10` rules); COUNT(*), COUNT, SUM, AVG, MIN, MAX, BOOL_AND,
+BOOL_OR/EVERY with DISTINCT and FILTER (WHERE), GROUP BY (columns, expressions,
+positions, output names) and HAVING, with PostgreSQL result types (SUM of
+int2/int4 is int8, SUM(int8) and AVG of integers are NUMERIC, COUNT is int8;
+`42803` for ungrouped columns); INNER, LEFT, RIGHT, FULL and CROSS joins with
+ON or USING, comma joins, aliases and self-joins (`42702` for an ambiguous
+column, `42P01` for an unknown qualifier); scalar subqueries (`21000` for more
+than one row), [NOT] IN and [NOT] EXISTS subqueries (correlated or not) and
+derived tables; WITH CTEs (at most 4 per statement), WITH RECURSIVE over
+UNION [ALL] to a fixpoint, and UNION, INTERSECT and EXCEPT [ALL]. AVG(interval),
+LATERAL, NATURAL joins, parenthesized join trees, window functions (flag F6)
+and data-modifying CTEs (flag F7) are not provided.
+Default ordering follows PostgreSQL: ASC NULLS LAST, DESC NULLS FIRST. A WHERE
+holds at most 8 leaf predicates and a statement at most 512 expression nodes
+nested 64 deep. Unquoted names are ASCII and case insensitive, quoted names keep
+case; text is bytewise and text bounds count bytes (including `||` results).
+Apostrophes are doubled in SQL text. Each execute call accepts one statement.
+Other functions (including `pg_typeof`), window functions,
+arrays, JSON (non-B) operators, jsonpath, zone abbreviations (`EST`),
+non-ISO DateStyle and non-postgres IntervalStyle are not supported. MySQL and
+TDS clients receive NUMERIC, REAL/DOUBLE, temporal and JSON values as text
+columns (no native DECIMAL/DOUBLE/DATETIME metadata).
 
-Joins, aggregates, general expressions, foreign keys, secondary indexes and
-complete SQL-standard semantics remain release blockers. The finite differential
-gate now matches 19/37 probes against PostgreSQL 16 and 18, including integer
-OIDs/ranges, binary formats, and NULL ordering. Catalogs and broader SQL behavior
-remain incompatible.
+MySQL and TDS sessions additionally accept integer 0/1 when assigning BOOLEAN
+values (INSERT/UPDATE), for common BIT client encodings; expressions are typed
+identically on every listener. Raw library configurations retain the ZPM
+defaults (ASC NULLS FIRST, 64-bit INTEGER outside the PostgreSQL dialect);
+select `integer_bits = 32` and `nulls_first_ascending = false` for PostgreSQL
+scalar semantics.
+
+Transactions are READ COMMITTED only, over row versions in one shared store
+(no per-connection copies). Every statement takes a new snapshot, so it sees
+everything committed before it started plus its own transaction's earlier
+writes. A write that meets a row being changed by another live transaction
+waits for it, then re-checks the row's newest committed version
+(PostgreSQL's EvalPlanQual), so concurrent `v = v + 1` updates are never lost;
+an INSERT waits for a live inserter or deleter of the same key, then gets
+`23505` or proceeds. `SELECT ... FOR UPDATE|SHARE [NOWAIT|SKIP LOCKED]` takes
+row locks; DROP TABLE takes an exclusive table lock that waits for readers and
+writers (and that readers then wait for). Deadlocks are detected once per wait
+after 1 s (`40P01`, the detecting waiter is the victim); `lock_timeout` gives
+`55P03`, `statement_timeout` and PostgreSQL cancel requests give `57014`.
+Waiting never blocks the reactor; other sessions keep running.
+`BEGIN`/`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ|SERIALIZABLE` is
+rejected with `0A000` instead of silently giving READ COMMITTED;
+`SHOW transaction_isolation` reports `read committed`. DDL is transactional:
+an uncommitted CREATE TABLE is invisible to other sessions and ROLLBACK of a
+DROP TABLE restores the table and its rows. SAVEPOINT, RELEASE [SAVEPOINT] and
+ROLLBACK TO [SAVEPOINT] nest (a repeated name refers to the newest; `3B001` for
+an unknown name, `25P01` outside a block); ROLLBACK TO undoes rows, DDL, row
+locks and SET values after the savepoint and recovers a failed block. An error
+inside a block discards the work since the innermost savepoint, releases its
+locks at once and fails the block (`25P02`) until ROLLBACK or ROLLBACK TO, as
+PostgreSQL does. SET [SESSION|LOCAL], SHOW and RESET [ALL] support
+`lock_timeout`, `statement_timeout`, `application_name` and read-only views of
+the reported session defaults; startup `options` accept `-c name=value`.
+Failed transactions and disconnected sessions cannot publish their changes.
+Cursors and two-phase commit do not exist.
+
+System views are computed at scan time from the versioned catalog and table
+definitions under the statement snapshot, so they follow transactional DDL:
+`pg_catalog.pg_type` (the 16 supported base types), `pg_namespace`,
+`pg_class` (tables, primary-key indexes `<table>_pkey`, sequences),
+`pg_attribute` (user columns), `pg_index`, `pg_attrdef`, `pg_sequence`, and
+`information_schema.schemata`, `tables`, `columns`, `table_constraints` and
+`key_column_usage` (primary keys). pg_catalog views resolve unqualified;
+information_schema views must be qualified. Columns PostgreSQL declares as
+`"char"`, `regproc`, `int2vector`, `character_data` or `yes_or_no` are TEXT
+here (cast them with `::text` for identical RowDescription OIDs); system
+columns, array/composite types, toast tables, NOT NULL constraints and other
+catalogs are absent. `current_database()`, `current_schema()`, `to_regtype`,
+`to_regclass`, `format_type(oid, typmod)`, `pg_get_expr` and the casts
+`::regclass`, `::regtype` and `::oid` are supported; regclass/regtype values
+are OIDs that print as names only through `::text` (flag F14). DEFAULT and
+generation expressions are shown in PostgreSQL's canonical form for literals,
+function calls, operators and casts.
+
+`COPY t [(columns)] FROM STDIN` and `COPY {t [(columns)] | (query)} TO STDOUT`
+run over the PostgreSQL simple query protocol with `FORMAT text|csv|binary`,
+`DELIMITER`, `NULL` (at most 64 bytes), `HEADER [true|false|match]`, `QUOTE`
+and `ESCAPE` (single bytes) and the pre-9.0 option spelling (`WITH CSV HEADER`,
+`BINARY`, ...). COPY FROM fills omitted columns with their DEFAULT or identity
+value (supplied identity values are kept, as PostgreSQL does; generated
+columns cannot be listed, `42P10`) and runs as one statement: malformed data
+(`22P04`, binary length errors `22P03`), an input-function error (`22P02`), a
+duplicate key (`23505`), a client CopyFail (`57014`) or a disconnect rolls the
+whole COPY back. A row whose key is held by an in-progress inserter waits for
+it like INSERT and is re-checked when that transaction ends. CopyData messages
+are streamed, so their size is not bounded by the 64 KiB receive buffer; one
+data row (text line, CSV record or binary tuple) is at most 8192 bytes
+(`54000` beyond). FORCE_QUOTE/FORCE_NOT_NULL/FORCE_NULL, `DEFAULT`, `ON_ERROR`,
+`WHERE`, encodings other than UTF-8 and COPY over the extended query protocol
+are not supported (`0A000`); option SQLSTATEs follow PostgreSQL 16.
+
+Foreign keys, secondary indexes, window functions and complete SQL-standard
+semantics remain release blockers. The committed finite differential gate
+reports ([PostgreSQL 18](compatibility/postgres-report.json),
+[PostgreSQL 16](compatibility/postgres16-report.json)) match 37/37 probes, and
+the same 37 match in durable+SCRAM mode; the differential semantics,
+isolation, COPY and crash suites also match both versions (see
+[the gap-closing plan](compatibility/GAP_CLOSING_PLAN.md#gap-closing-run-evidence-24-october-2026)).
+37 probes are a finite gate, not PostgreSQL parity: the catalog subset and
+broader SQL behavior remain incomplete, and `postgres_compatibility` stays
+false in the release gates.
 
 ## Memory and execution
 
-The database, primary-key hash indexes, per-connection transaction snapshots, connection slots,
+The database, primary-key hash indexes, version arenas, the transaction and lock tables, connection slots,
 prepared statements, receive buffers and response buffers all have fixed owners
 and bounds. Runtime source is `.sig`; there is no SQLite/C database dependency,
 heap allocator API, language runtime or garbage collector.
@@ -143,12 +295,56 @@ The current implementation uses one reactor thread, not multiple CPU workers.
 
 Primary-key equality queries and duplicate checks use a bounded hash index.
 Unused result capacity is not cleared for each statement; only active ranges
-are valid. Durable autocommit and single-statement recovery avoid database
-snapshots. Explicit transactions and multi-statement recovery still copy live
-schemas/rows/indices. CREATE/DROP/DELETE leave inactive row payloads alone.
-LIMIT without ORDER BY stops scanning once enough rows match.
-Deletion compaction and primary-key changes rebuild index references. General
-filters remain scans, and ordering currently uses bounded insertion sorting.
+are valid. Rows have stable rowids and versions in a fixed arena per table
+(`-Dversions`, default 2 x rows); superseded versions are reclaimed once no
+waiting statement's snapshot can see them. Uncommitted changes of every open
+transaction share that arena, so a transaction or statement that cannot fit
+its new versions fails with `VersionCapacity` (53200) where PostgreSQL would
+succeed. Transaction capacity limits, each `53200` with the statement rolled
+back: `clients + 2` concurrent transactions, `-Dtx-writes` (default 4096) rows
+changed per transaction (every COPY FROM row counts, so one COPY loads at most
+that many rows), 256 FOR UPDATE/SHARE locked rows server-wide with at most 8
+FOR SHARE holders per row, 32 savepoints per transaction, and
+`-Dtransaction-bytes` per commit record (a durable COPY's whole change record
+must fit). A table holds at most `-Drows` rows (default 512), so at the default
+profile a COPY of more rows fails with `RowCapacity` (`54000`) and leaves the
+table unchanged where PostgreSQL succeeds; raise `-Drows`, `-Dtx-writes` and
+`-Dtransaction-bytes` together for bulk loads (30 000 rows are verified with
+`-Drows=32768 -Dtables=2 -Dtext-bytes=64 -Dtx-writes=32768
+-Dtransaction-bytes=4194304`). COPY TO returns at most rows-per-table rows,
+like any statement. Large `-Drows` profiles were verified with a ReleaseFast
+server build: a debug build at `-Drows=8192` overflows the main-thread stack
+at startup.
+Statements beyond 512 expression nodes or depth 64 fail with
+`StatementTooComplex` (54001). Value capacity limits: a NUMERIC holds at most 64
+significant decimal digits and a display scale of at most 120 (declared
+precision above 64, results needing more digits, and literals such as `1e100`
+fail with `54000`; `1e100::float8` is parsed as a float); a TEXT, JSON or
+encoded JSONB value is at most `-Dtext-bytes` bytes and JSONB nests at most 64
+deep (`54001`); a statement returns at most 8 columns. TIMESTAMP(p) above 6 is
+clamped to 6 without PostgreSQL's warning.
+LIMIT without ORDER BY stops scanning once enough rows match. A top-level
+`pk = constant` conjunct uses the index; other filters remain scans, and
+ordering uses a stable merge sort. Sorting, DISTINCT, grouping, joins, CTEs,
+derived tables and set operations are bounded by one statement-scoped query
+workspace of `-Dwork-rows` (default: rows) rows of up to 16 cells; a query that
+needs more (for example a large non-equi or cross join, or a WITH RECURSIVE
+that does not terminate) fails with `WorkspaceCapacity` (`54000`) before
+returning anything, where PostgreSQL would spill to disk. Joins are nested
+loops; an ON conjunct `inner.pk = expression` of an INNER or LEFT join probes
+the inner table's primary-key index. A statement returns at most rows-per-table
+rows (`54000` beyond). Each query references at most 4 FROM items per block and
+16 query blocks (subqueries, CTE bodies, set-operation branches). RETURNING
+rows are staged in the same workspace; DEFAULT/generation expression text is
+at most `-Dtext-bytes` bytes.
+
+The WAL stores versioned kind-3 change records (row and DDL ops with explicit
+type OIDs). Logs written by alpha.1/alpha.2 (SQL-text kind 2) still recover through
+an alpha-grammar-only replay mode and continue with kind-3 records; a legacy record
+containing anything outside the alpha grammar, or appearing after a kind-3 record,
+stops recovery with `UnsupportedLogVersion` before any listener binds. Older
+binaries cannot read kind-3 records. The per-transaction log bound
+(`-Dtransaction-bytes`) also sizes the recovery buffer.
 
 ## Layers
 
@@ -268,7 +464,10 @@ delegated channel traps used by the PostgreSQL tests. This validates the SB0S
 image and process ABI without private repository credentials. It is separate
 from integration testing a complete SB0S kernel distribution. SB0K tests execute
 the privileged image directly. Failed native compilation or execution blocks
-publication.
+publication. The current engine compiles with the pinned native compiler
+(Sig 0.6.4 source revision `90a898dc`; the earlier native backend defects are
+described in
+[the gap-closing plan](compatibility/GAP_CLOSING_PLAN.md#native-build-blocker-resolved)).
 
 ```sh
 python tools/test_release.py

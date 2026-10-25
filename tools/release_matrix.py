@@ -17,7 +17,7 @@ SIG_ASSET = "sig-0.6.3-zig0.17.0.ac9b716-x86_64-linux.tar.xz"
 SIG_SHA256 = "e1c1560fc7be0d6b1a0b04ffbdbc899023d64ded0bf65a654f61ffbbc9200277"
 # Full source pin for the native compiler candidate. Database and loader QEMU
 # probes must pass before it can produce a release bundle; never use a branch.
-NATIVE_SIG_REVISION = "8b4908bb8917e3c1c04dfc410f4673ce7f0699b1"
+NATIVE_SIG_REVISION = "90a898dcbe088455f07449b7de1feaea763c42a0"
 
 # SLS .github/workflows/release.yaml publishes these six hosted architectures
 # plus an aarch64-sb0 SB0X app. RAMSQL also packages the requested SB0K image.
