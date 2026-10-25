@@ -46,10 +46,11 @@ def startup_packet(user="ramsql"):
 
 
 class Server:
-    def __init__(self, binary, idle_ms=30000, max_clients=16):
+    def __init__(self, binary, idle_ms=30000, max_clients=16, max_query_work=0):
         self.binary = binary
         self.idle_ms = idle_ms
         self.max_clients = max_clients
+        self.max_query_work = max_query_work
         self.errors = deque(maxlen=100)
         self.process = None
         self.port = None
@@ -57,7 +58,8 @@ class Server:
     def __enter__(self):
         self.process = subprocess.Popen(
             [str(self.binary), "--serve", "--memory", "--insecure-local", "--protocol", "postgres", "--port", "0",
-             "--idle-ms", str(self.idle_ms), "--max-clients", str(self.max_clients)],
+             "--idle-ms", str(self.idle_ms), "--max-clients", str(self.max_clients),
+             *(["--max-query-work", str(self.max_query_work)] if self.max_query_work else [])],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1,
         )
         lines = queue.Queue()
@@ -505,6 +507,98 @@ def test_idle_expiry(binary):
         live_probe(server)
 
 
+def test_running_query_controls(binary):
+    # Correlated aggregates do substantial CPU work with bounded intermediate
+    # storage. This must be interruptible without waiting for a row lock.
+    slow = ("SELECT a.id FROM running_work a WHERE "
+            "(SELECT COUNT(*) FROM running_work b WHERE b.id < "
+            "(SELECT COUNT(*) FROM running_work c WHERE c.id < a.id)) < 0")
+    with Server(binary, max_clients=1) as server:
+        pg = PG(server.raw())
+        try:
+            startup = pg.startup()
+            keys = [struct.unpack("!II", body) for tag, body in startup if tag == b"K"]
+            check(len(keys) == 1, "missing cancellation key")
+            pg.ok("CREATE TABLE running_work (id INT PRIMARY KEY, value INT)")
+            values = ",".join(f"({i},{i})" for i in range(128))
+            pg.ok("INSERT INTO running_work VALUES " + values)
+            pg.ok("SET statement_timeout = 5")
+            started = time.monotonic()
+            expect_error(pg.query(slow), "57014")
+            check(time.monotonic() - started < 2, "CPU statement deadline was not enforced")
+            pg.ok("SET statement_timeout = 0")
+            pg.ok("SELECT COUNT(*) FROM running_work", [["128"]])
+
+            # All SQL slots are occupied: cancellation uses the separate,
+            # header-only pool and still accepts a fragmented CancelRequest.
+            pg.sock.sendall(query_packet(slow))
+            time.sleep(0.01)
+            with server.raw() as invalid:
+                invalid.sendall(struct.pack("!IIII", 16, 80877102, keys[0][0], keys[0][1] ^ 1))
+                check(invalid.recv(1) == b"", "invalid cancel key must be ignored silently")
+            pg.sock.settimeout(0.01)
+            try:
+                unexpected = pg.sock.recv(1)
+                raise AssertionError(f"invalid key interrupted active CPU work: {unexpected!r}")
+            except socket.timeout:
+                pass
+            finally:
+                pg.sock.settimeout(3)
+            with server.raw() as cancel:
+                data = struct.pack("!IIII", 16, 80877102, *keys[0])
+                cancel.sendall(data[:5])
+                time.sleep(0.005)
+                cancel.sendall(data[5:])
+                check(cancel.recv(1) == b"", "CancelRequest must close without a response")
+            expect_error(pg.ready(), "57014")
+            pg.ok("SELECT COUNT(*) FROM running_work", [["128"]])
+            pg.ok("BEGIN", status=b"T")
+            pg.ok("SET LOCAL statement_timeout = 5", status=b"T")
+            messages = pg.query(slow)
+            expect_error(messages, "57014")
+            check(messages[-1] == (b"Z", b"E"), "interrupted transaction must enter failed state")
+            pg.ok("ROLLBACK")
+            pg.ok("SELECT COUNT(*) FROM running_work", [["128"]])
+        finally:
+            pg.close()
+
+    # A normal startup accepted by the interrupt hook must retain its bytes
+    # and resume in the outer reactor after the active statement is canceled.
+    with Server(binary, max_clients=2) as server:
+        with connection(server) as pg:
+            pg.ok("CREATE TABLE running_work (id INT PRIMARY KEY, value INT)")
+            pg.ok("INSERT INTO running_work VALUES " + ",".join(f"({i},{i})" for i in range(128)))
+            # Deadline ends the CPU query; no SQL from the new socket may run
+            # recursively while its workspace belongs to this statement.
+            pg.ok("SET statement_timeout = 5")
+            pg.sock.sendall(query_packet(slow))
+            with server.raw() as sock:
+                pending = PG(sock)
+                data = startup_packet()
+                sock.sendall(data[:11])
+                time.sleep(0.001)
+                sock.sendall(data[11:])
+                expect_error(pg.ready(), "57014")
+                ready = pending.ready()
+                check((b"R", b"\0\0\0\0") in ready and ready[-1] == (b"Z", b"I"),
+                      "ordinary startup was lost during interrupt polling")
+                pending.ok("SELECT 1", [["1"]])
+
+    with Server(binary, max_query_work=100) as server:
+        with connection(server) as pg:
+            pg.ok("CREATE TABLE budgeted (id INT PRIMARY KEY, value INT)")
+            for i in range(32):
+                pg.ok(f"INSERT INTO budgeted VALUES ({i},{i})")
+            expect_error(pg.query("UPDATE budgeted SET value = value + 1"), "54000")
+            pg.ok("SELECT value FROM budgeted WHERE id = 0", [["0"]])
+            pg.ok("SELECT value FROM budgeted WHERE id = 31", [["31"]])
+            pg.ok("BEGIN", status=b"T")
+            expect_error(pg.query("DELETE FROM budgeted WHERE value + 1 > 0"), "54000")
+            expect_error(pg.query("SELECT 1"), "25P02")
+            pg.ok("ROLLBACK")
+            pg.ok("SELECT value FROM budgeted WHERE id = 0", [["0"]])
+
+
 def main():
     global cases
     parser = argparse.ArgumentParser(description=__doc__)
@@ -522,6 +616,8 @@ def main():
             check(server.process.poll() is None, f"server exited after {test.__name__}: {list(server.errors)!r}")
             cases += 1
     test_idle_expiry(binary)
+    cases += 1
+    test_running_query_controls(binary)
     cases += 1
     print(json.dumps({"suite": "server", "pass": True, "cases": cases,
                       "assertions": assertions, "seconds": round(time.monotonic() - started, 3)}))

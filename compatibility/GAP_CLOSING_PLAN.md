@@ -79,8 +79,12 @@ clients, SCRAM and 58 crash/backup cases. The updated eight-target release
 qualification passed in run 40174568211, including exact hosted artifact tests
 and native SB0X/SB0K QEMU. The new reusable PostgreSQL qualification workflow runs
 PG16/PG18 × memory/durable+SCRAM, retains raw reports/logs and requires all suites
-against the exact Linux release artifact before assembly. New qualification on
-hosted Sig 0.6.4 must pass before publishing alpha.3; gates remain unchanged.
+against the exact Linux release artifact before assembly. Hosted Sig 0.6.4 baseline qualification passed in
+[run 40188819921](https://github.com/SB0LTD/ramsql/actions/runs/40188819921),
+including all eight targets, exact artifact tests and all four PostgreSQL cells;
+[CI 40188819914](https://github.com/SB0LTD/ramsql/actions/runs/40188819914) also
+passed. Baseline changes merged as `b8551d4`. Further engine changes require a
+fresh qualification before publishing alpha.3; production gates remain unchanged.
 
 ### Current limits that applications will encounter
 
@@ -768,16 +772,23 @@ flush-before-publication/acknowledgement guarantee by accident.
 
 ### O02 — Cancellation, deadlines and resource control
 
-**Status:** Partial (flag F-O02). PostgreSQL cancel requests (BackendKeyData/CancelRequest), `statement_timeout` and `lock_timeout` work for lock waits; no idle-in-transaction timeout, transaction deadlines or query budgets. **Owner:** ZPM interruptible execution/lock waits; RAMSQL request/session policy.
+**Status:** Partial (flag F-O02). Running SQL now has caller-owned execution
+accounting, live statement deadlines and cancellation checkpoints in ZPM. RAMSQL
+polls bounded startup/cancel I/O without reentering SQL; valid cancel keys work
+with a full connection pool. Work-budget exhaustion is `54000`; cancellation and
+statement timeout are `57014`. Local Linux/Windows live tests and core rollback
+contracts pass; exact release qualification of this change remains required.
+**Owner:** ZPM interruptible execution/lock waits; RAMSQL request/session policy.
 
-Cancellation keys and deadlines now interrupt parked lock waits. A running scan,
-join, sort or recursive query still executes synchronously, so the reactor cannot
-receive a cancellation request during that work. Resumable execution, query work
-budgets and bounded result batches are required to close this gap.
+- [x] Implement cancellation keys and a safe connection-to-query lookup.
+- [x] Interrupt running evaluation and parked lock waits; retain the original statement deadline through waits.
+- [x] Add configurable execution-work budgets and prove that errors undo private versions and preserve prior results.
+- [ ] Add transaction and idle-in-transaction deadlines, with compatible errors.
+- [ ] Add resumable/fair scheduling, streaming results and comprehensive session/result budgets.
+- [ ] Interrupt or safely bound remaining lifecycle/COPY/disconnect paths; durable publication and rollback currently finish synchronously.
 
-- [ ] Implement authenticated cancellation keys and a safe connection-to-query lookup.
-- [ ] Add statement, lock, transaction and idle-in-transaction deadlines with compatible errors.
-- [ ] Enforce query/session/workspace/result budgets and release resources on timeout/disconnect.
+See [execution-control contract and limits](EXECUTION_CONTROL.md). This is an
+interruption milestone; O01's scheduling and S01's compact storage remain open.
 
 **Closed when:** an expensive query or lock wait can be interrupted promptly,
 one client cannot cancel another without valid credentials, and aborted work

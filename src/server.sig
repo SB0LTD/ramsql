@@ -42,6 +42,8 @@ pub const Options = struct {
     auth_user: []const u8 = "postgres",
     auth_verifier_file: ?[]const u8 = null,
     idle_ms: u32 = 30000,
+    /// Execution checkpoints per statement; zero disables the work limit.
+    max_query_work: u64 = 0,
     /// zoneinfo directory for named time zones (null: UTC, offsets and
     /// POSIX TZ strings only).
     timezone_dir: ?[]const u8 = default_timezone_dir,
@@ -228,10 +230,155 @@ fn cancelBackend(key: pg.Cancel) void {
     target.connection.requestCancel();
 }
 
+fn monotonicClock() i64 {
+    return sig.os.clockMonotonicNs();
+}
+
+var interrupt_listener: tcp.Socket = tcp.invalid_socket;
+var interrupt_max_clients: usize = 0;
+var next_interrupt_poll: i64 = 0;
+
+// These slots admit only a CancelRequest header when the SQL client pool is
+// full. Ordinary overflow connections retain the reactor's rejection policy.
+const OverflowCancel = struct {
+    socket: tcp.Socket = tcp.invalid_socket,
+    bytes: [16]u8 = undefined,
+    used: usize = 0,
+    deadline: i64 = 0,
+
+    fn close(self: *OverflowCancel) void {
+        if (self.socket != tcp.invalid_socket) tcp.close(self.socket);
+        self.socket = tcp.invalid_socket;
+    }
+};
+var overflow_cancels: [4]OverflowCancel = @splat(.{});
+
+fn queueOverflowCancel(socket: tcp.Socket) bool {
+    for (&overflow_cancels) |*pending| if (pending.socket == tcp.invalid_socket) {
+        pending.* = .{ .socket = socket, .deadline = monotonicClock() + 1000000000 };
+        return true;
+    };
+    return false;
+}
+
+fn pollOverflowCancels(now: i64) void {
+    for (&overflow_cancels) |*pending| {
+        if (pending.socket == tcp.invalid_socket) continue;
+        if (now >= pending.deadline) {
+            pending.close();
+            continue;
+        }
+        const n = tcp.recv(pending.socket, pending.bytes[pending.used..]) catch {
+            pending.close();
+            continue;
+        } orelse continue;
+        pending.used += n;
+        if (n == 0 or (pending.used >= 8 and !pg.isCancelHeader(pending.bytes[0..pending.used]))) {
+            pending.close();
+            continue;
+        }
+        if (pg.parseCancel(pending.bytes[0..pending.used])) |key| {
+            cancelBackend(key);
+            pending.close();
+        }
+    }
+}
+
+/// Execution hook: bounded nonblocking control I/O, at most once per millisecond.
+/// Preserve ordinary startup bytes for the reactor; never dispatch another SQL
+/// statement or touch the executing client's shared database/session here.
+fn pollInterrupts(_: ?*anyopaque, _: u64) void {
+    const now = monotonicClock();
+    if (now < next_interrupt_poll) return;
+    next_interrupt_poll = now + 1000000;
+    if (interrupt_listener != tcp.invalid_socket)
+        acceptConnections(interrupt_listener, .postgres, interrupt_max_clients, 4) catch {};
+    pollOverflowCancels(now);
+    for (clients[0..interrupt_max_clients]) |*client| {
+        if (client.socket == tcp.invalid_socket or client.session != .postgres or client.session.postgres.startup or client.closing or client.input_start != 0) continue;
+        if (client.input_len < 16) {
+            // Startup connections have not consumed any input yet.
+            const n = tcp.recv(client.socket, client.input[client.input_len..16]) catch continue orelse continue;
+            client.input_len += n;
+        }
+        if (pg.parseCancel(client.input[0..client.input_len])) |key| {
+            cancelBackend(key);
+            tcp.close(client.socket);
+            client.socket = tcp.invalid_socket;
+        }
+    }
+}
+
+// Bounded connection setup shared by the reactor and interrupt polling. No SQL
+// is dispatched here; a fresh connection owns no transaction or shared session.
+fn acceptConnections(listener: tcp.Socket, protocol: Protocol, max_clients: usize, limit: usize) !void {
+    for (0..limit) |_| {
+        const socket = tcp.accept(listener) catch break orelse break;
+        var free: ?usize = null;
+        for (clients[0..max_clients], 0..) |*candidate, index| if (candidate.socket == tcp.invalid_socket) {
+            free = index;
+            break;
+        };
+        const slot = free orelse {
+            if (protocol != .postgres or !queueOverflowCancel(socket)) tcp.close(socket);
+            continue;
+        };
+        const client = &clients[slot];
+        client.socket = socket;
+        client.blocked = false;
+        client.connection = .{ .store = &store, .id = next_id };
+        next_id +%= 1;
+        if (next_id == 0) next_id = 1;
+        client.session = switch (protocol) {
+            .postgres => .{ .postgres = .{} },
+            .mysql => .{ .mysql = .{} },
+            .mssql => .{ .mssql = .{} },
+        };
+        if (protocol == .postgres) {
+            // BackendKeyData: pid = slot + 1, fresh 32-bit secret.
+            var secret: [4]u8 = undefined;
+            entropy.fill(&secret) catch {
+                client.close();
+                continue;
+            };
+            client.cancel_secret = std.mem.readInt(u32, &secret, .little);
+            client.session.postgres.configureBackendKey(@intCast(slot + 1), client.cancel_secret);
+            if (verifier) |*credential| {
+                var random: [24]u8 = undefined;
+                entropy.fill(&random) catch {
+                    client.close();
+                    continue;
+                };
+                var nonce: [32]u8 = undefined;
+                _ = std.base64.standard.Encoder.encode(&nonce, &random);
+                client.session.postgres.configureAuthentication(credential, &nonce) catch {
+                    client.close();
+                    continue;
+                };
+            }
+        }
+        client.input_len = 0;
+        client.input_start = 0;
+        client.output_len = 0;
+        client.output_sent = 0;
+        client.closing = false;
+        client.touched = sig.os.clockMonotonicNs();
+        client.output_len = switch (client.session) {
+            .postgres => 0,
+            .mysql => |*session| try session.begin(&client.output),
+            .mssql => |*session| try session.begin(&client.output),
+        };
+    }
+}
+
 pub fn run(options: Options) !void {
     if (options.max_clients == 0 or options.max_clients > capacity or options.idle_ms == 0) return error.InvalidServerOptions;
     for (&clients) |*client| client.socket = tcp.invalid_socket;
     if (wall_clock.available) store.wall_clock = &wallClock;
+    store.monotonic_clock = &monotonicClock;
+    store.max_query_work = options.max_query_work;
+    store.interrupt_poll = &pollInterrupts;
+    interrupt_max_clients = options.max_clients;
     zones.directory = options.timezone_dir;
     zones.in_use = &zoneInUse;
     store.zone_provider = .{ .context = @ptrCast(&zones), .lookup = &Zones.lookup };
@@ -279,6 +426,9 @@ pub fn run(options: Options) !void {
         listeners[count] = try tcp.listen(.{ 127, 0, 0, 1 }, port);
         count += 1;
     }
+    interrupt_listener = if (options.protocol == .postgres) listeners[0] else tcp.invalid_socket;
+    defer interrupt_listener = tcp.invalid_socket;
+    defer for (&overflow_cancels) |*pending| pending.close();
     for (listeners[0..count], protocols[0..count]) |listener, protocol| {
         var buffer: [128]u8 = undefined;
         const line = try sig.fmt.bufPrint(&buffer, "RAMSQL {s} 127.0.0.1:{d}\n", .{ @tagName(protocol), try tcp.localPort(listener) });
@@ -290,64 +440,9 @@ pub fn run(options: Options) !void {
     while (true) {
         // Bound accept work so connection churn cannot monopolize the reactor.
         for (listeners[0..count], protocols[0..count]) |listener, protocol| {
-            for (0..capacity) |_| {
-                const socket = tcp.accept(listener) catch break orelse break;
-                var free: ?usize = null;
-                for (clients[0..options.max_clients], 0..) |*candidate, index| if (candidate.socket == tcp.invalid_socket) {
-                    free = index;
-                    break;
-                };
-                const slot = free orelse {
-                    tcp.close(socket);
-                    continue;
-                };
-                const client = &clients[slot];
-                client.socket = socket;
-                client.blocked = false;
-                client.connection = .{ .store = &store, .id = next_id };
-                next_id +%= 1;
-                if (next_id == 0) next_id = 1;
-                client.session = switch (protocol) {
-                    .postgres => .{ .postgres = .{} },
-                    .mysql => .{ .mysql = .{} },
-                    .mssql => .{ .mssql = .{} },
-                };
-                if (protocol == .postgres) {
-                    // BackendKeyData: pid = slot + 1, fresh 32-bit secret.
-                    var secret: [4]u8 = undefined;
-                    entropy.fill(&secret) catch {
-                        client.close();
-                        continue;
-                    };
-                    client.cancel_secret = std.mem.readInt(u32, &secret, .little);
-                    client.session.postgres.configureBackendKey(@intCast(slot + 1), client.cancel_secret);
-                    if (verifier) |*credential| {
-                        var random: [24]u8 = undefined;
-                        entropy.fill(&random) catch {
-                            client.close();
-                            continue;
-                        };
-                        var nonce: [32]u8 = undefined;
-                        _ = std.base64.standard.Encoder.encode(&nonce, &random);
-                        client.session.postgres.configureAuthentication(credential, &nonce) catch {
-                            client.close();
-                            continue;
-                        };
-                    }
-                }
-                client.input_len = 0;
-                client.input_start = 0;
-                client.output_len = 0;
-                client.output_sent = 0;
-                client.closing = false;
-                client.touched = sig.os.clockMonotonicNs();
-                client.output_len = switch (client.session) {
-                    .postgres => 0,
-                    .mysql => |*session| try session.begin(&client.output),
-                    .mssql => |*session| try session.begin(&client.output),
-                };
-            }
+            try acceptConnections(listener, protocol, options.max_clients, capacity);
         }
+        pollOverflowCancels(sig.os.clockMonotonicNs());
         var sockets: [capacity + 2]tcp.Socket = @splat(tcp.invalid_socket);
         var readable: [capacity + 2]bool = @splat(false);
         var writable: [capacity + 2]bool = @splat(false);

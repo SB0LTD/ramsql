@@ -54,7 +54,9 @@ Back up using the offline command below, and test restoration before relying on 
 
 `--port 0` chooses an ephemeral port and prints the actual listener address.
 `--max-clients N` selects active connections within the compiled profile;
-`--idle-ms N` controls expiry (30,000 ms default). The default profile contains
+`--idle-ms N` controls expiry (30,000 ms default).
+`--max-query-work N` caps execution checkpoints per statement (0 disables the
+work limit); exhaustion returns `54000` and rolls back the statement. The default profile contains
 16 clients, 8 tables, 8 columns, 512 rows per table, 63-byte names, 128-byte text
 cells, and 1 MiB of change-record storage per transaction. Configure an explicit profile:
 
@@ -216,7 +218,12 @@ row locks; DROP TABLE takes an exclusive table lock that waits for readers and
 writers (and that readers then wait for). Deadlocks are detected once per wait
 after 1 s (`40P01`, the detecting waiter is the victim); `lock_timeout` gives
 `55P03`, `statement_timeout` and PostgreSQL cancel requests give `57014`.
-Waiting never blocks the reactor; other sessions keep running.
+Waiting never blocks the reactor; other sessions keep running. Running scans,
+joins, expression evaluation, sorts and mutations also check statement deadlines
+and cancellation. Cancel requests use bounded control polling, including when the
+SQL connection pool is full. Rollback and synchronous durable publication are
+not interrupted. Execution remains synchronous; fair scheduling, streaming results
+and concurrent CPU execution remain open. See [execution controls](compatibility/EXECUTION_CONTROL.md).
 `BEGIN`/`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ|SERIALIZABLE` is
 rejected with `0A000` instead of silently giving READ COMMITTED;
 `SHOW transaction_isolation` reports `read committed`. DDL is transactional:
