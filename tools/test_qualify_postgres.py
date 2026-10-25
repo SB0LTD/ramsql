@@ -1,6 +1,7 @@
 """Contracts for fail-closed qualification evidence; synthetic data is test-only."""
 import copy
 import unittest
+from unittest.mock import MagicMock, call, patch
 
 import qualify_postgres as qualification
 
@@ -87,6 +88,14 @@ class QualificationContracts(unittest.TestCase):
         bad["entries"][0]["reports"]["copy"]["divergences"].append({"name": "new-incompatibility", "as_documented": True})
         with self.assertRaisesRegex(ValueError, "divergence changed"):
             self.validate(bad)
+
+    def test_reference_crash_never_sends_a_clean_shutdown_signal(self):
+        from test_postgres_compat import restart_native
+        connection = {"port": 1234}
+        with patch("test_postgres_compat.docker", side_effect=["owned", "owned", "127.0.0.1:9876"]) as docker:
+            restart_native(connection, {"container_id": "test-owned-id"}, MagicMock())
+        self.assertEqual(docker.call_args_list[:2], [call("kill", "--signal=KILL", "test-owned-id"), call("start", "test-owned-id")])
+        self.assertEqual(connection["port"], 9876)
 
 
 if __name__ == "__main__":

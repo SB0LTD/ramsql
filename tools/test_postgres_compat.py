@@ -230,7 +230,12 @@ def restart_native(connection, metadata, psycopg):
     container = metadata.get("container_id")
     if container is None:
         raise RuntimeError("reference restart requires the Docker reference")
-    docker("restart", "--time", "0", container)
+    # restart --time 0 still sends the image's stop signal first. A small
+    # cluster can finish a shutdown checkpoint before Docker kills it, which
+    # makes sequence log-ahead tests nondeterministically test clean shutdown.
+    # Kill without a preceding stop signal, then start only our recorded ID.
+    docker("kill", "--signal=KILL", container)
+    docker("start", container)
     connection["port"] = int(docker("port", container, "5432/tcp").splitlines()[0].rsplit(":", 1)[1])
     deadline = time.monotonic() + 40
     while True:
