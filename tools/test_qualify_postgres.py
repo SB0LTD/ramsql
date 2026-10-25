@@ -99,7 +99,7 @@ class QualificationContracts(unittest.TestCase):
 
     def test_reference_survives_kill_and_is_removed_only_on_context_exit(self):
         from test_postgres_compat import native_postgres
-        inspection = '[{"Id":"sha256:test", "RepoDigests":[]}]'
+        inspection = '[{"Id":"sha256:test", "RepoDigests":[], "Os":"linux", "Architecture":"amd64"}]'
         with patch("test_postgres_compat.docker", side_effect=[inspection, "test-owned-id", "127.0.0.1:9876"]) as docker, \
                 patch("test_postgres_compat.subprocess.run") as cleanup:
             with native_postgres("pinned-test-image", MagicMock()):
