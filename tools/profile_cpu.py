@@ -5,6 +5,7 @@ diagnostic run, not a throughput comparison: keep separate unprofiled timings.
 No profiler or Python dependency is linked into RAMSQL.
 """
 import argparse
+import gzip
 import hashlib
 import json
 import os
@@ -17,6 +18,7 @@ import tempfile
 import time
 
 from benchmark_review import CASES, validate_samples, validate_stream_samples
+from profile_reports import compact_report
 
 
 def main():
@@ -27,6 +29,7 @@ def main():
     parser.add_argument("--rows", type=int, default=1000000)
     parser.add_argument("--iterations", type=int, default=50)
     parser.add_argument("--frequency", type=int, default=499)
+    parser.add_argument("--permuted", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     folder = args.output.resolve()
@@ -40,6 +43,8 @@ def main():
     ack_fd = os.open(ack, os.O_RDWR | os.O_NONBLOCK)
     command = [str(args.binary.resolve()), str(args.rows), str(args.iterations), "--profile-ready"]
     command += ["--load-only"] if args.case == "load" else ["--case", args.case]
+    if args.permuted:
+        command.append("--permuted")
     profiled = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT, text=True, bufsize=1)
     recorder = None
@@ -75,16 +80,18 @@ def main():
             assert all(s.get("passed") is True and s["case"] == args.case for s in samples)
             validate_samples(args.case, samples, args.rows, args.iterations)
             validate_stream_samples(args.case, samples, args.rows)
-        with (folder/"self.txt").open("w") as out:
-            subprocess.run([str(args.perf.resolve()), "report", "--stdio", "--no-children",
-                "-g", "none", "--percent-limit", "0.5", "--sort", "symbol", "-i", str(folder/"perf.data")],
-                stdout=out, stderr=subprocess.STDOUT, check=True)
+        flat = subprocess.run([str(args.perf.resolve()), "report", "--stdio", "--no-children",
+            "-g", "none", "--percent-limit", "0.5", "--sort", "symbol", "-i", str(folder/"perf.data")],
+            capture_output=True, text=True, check=True).stdout
+        (folder/"self-full.txt.gz").write_bytes(gzip.compress(flat.encode(),mtime=0))
+        (folder/"self.txt").write_text(compact_report(flat))
         with (folder/"callgraph.txt").open("w") as out:
             subprocess.run([str(args.perf.resolve()), "report", "--stdio", "--children",
                 "--percent-limit", "1", "-i", str(folder/"perf.data")],
                 stdout=out, stderr=subprocess.STDOUT, check=True)
         (folder/"metadata.json").write_text(json.dumps({"command":command,"case":args.case,
             "rows":args.rows,"iterations":args.iterations,"frequency":args.frequency,
+            "layout":"permuted" if args.permuted else "ordered",
             "event":"cpu-clock:u","hardware_PMU_sampled":False,"control_directory":str(controls),
             "os":platform.platform(),"binary_sha256":hashlib.sha256(args.binary.read_bytes()).hexdigest(),
             "dependency_manifest":(Path(__file__).resolve().parents[1]/"build.sig.zon").read_text(),

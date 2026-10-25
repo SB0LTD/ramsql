@@ -1,0 +1,37 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 345 of event 'cpu-clock:u'
+# Event count (approx.): 691382760
+#
+# Overhead Symbol IPC [IPC Coverage]
+#
+26.96% [.] sql.Database(config).insertProgress - -
+13.91% [.] sql.Database(config).execute - -
+11.59% [.] sql.lexer.Tokenizer.next - -
+9.86% [.] sql.dml.Dml(config).store - -
+9.57% [.] sql.Database(config).body - -
+6.38% [.] sql.parser.Parser(config).primary - -
+5.22% [.] compiler_rt.memcpy.memcpyFast - -
+1.74% [.] main - -
+1.74% [.] sql.types.Values(config).hash - -
+1.45% [.] sql.value.Io(config).applyTypmod - -
+1.16% [.] sql.binder.Binder(config).typeExpr - -
+1.16% [.] sql.expr.Eval(config).eval - -
+1.16% [.] sql.parser.Parser(config).multiplicative - -
+1.16% [.] sql.parser.Parser(config).notExpr - -
+1.16% [.] sql.parser.Parser(config).pattern - -
+0.87% [.] sql.Database(config).reclaimTables - -
+0.87% [.] sql.parser.Parser(config).atZone - -
+0.87% [.] sql.parser.Parser(config).unary - -
+0.58% [.] sql.Database(config).lockTable - -
+0.58% [.] sql.binder.Binder(config).bindDefaults - -
+0.58% [.] sql.binder.Binder(config).bindReturning - -
+0.58% [.] sql.parser.Parser(config).andExpr - -
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

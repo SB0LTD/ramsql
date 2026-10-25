@@ -211,7 +211,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     const benchmark = try ctx.addStep("benchmark", "ramsql-bench", &runBinary);
     try ctx.addDependency(benchmark, bench);
     var test_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
-    inline for (.{ "postgres", "mysql", "tds", "db_store", "tcp_server", "sql_index", "scram", "durable_log", "db_file", "entropy", "db_stream", "pg_stream", "sql_storage", "sql_change_log", "sql_expr", "sql_mvcc", "sql_types", "sql_query", "sql_stream_group", "sql_dml", "sql_catalog", "wall_clock", "pg_copy" }) |name| {
+    inline for (.{ "postgres", "mysql", "tds", "db_store", "tcp_server", "sql_index", "scram", "durable_log", "db_file", "entropy", "db_stream", "pg_stream", "sql_storage", "sql_change_log", "sql_expr", "sql_mvcc", "sql_types", "sql_query", "sql_stream_group", "sql_integer_topk", "sql_layout_order", "sql_dml", "sql_catalog", "wall_clock", "pg_copy" }) |name| {
         const path = try zpm.modulePath("tests/test_" ++ name ++ ".sig", &test_buf);
         const compiled = try ctx.addCompileStep(.{
             .source_path = path,

@@ -1,0 +1,722 @@
+{
+  "adapter_sha256": "0cab3f4cbed3e83371b2cd5d44bf07ff7a2fcd27a2ae68bb6097d21afbab3e61",
+  "library_sha256": "8b75d636c639972e8988661c518ee3648535b48dc575a3c2d3270b29ace47f3b",
+  "runs": [
+    {
+      "schema": 1,
+      "engine": "InMemory.Net.irdb",
+      "package_version": "1.10.821",
+      "assembly": "1.10.821.0",
+      "runtime": ".NET 10.0.13",
+      "os": "Ubuntu 24.04.3 LTS",
+      "boundary": "in-process public API; result values consumed; no DataTable conversion in timing",
+      "durability": "volatile memory; no per-commit durable flush",
+      "import_compiled": true,
+      "id_clustered_index": true,
+      "id_index_after_workload": true,
+      "rows": 1000000,
+      "load_ms": 2199.1632,
+      "working_set": 454291456,
+      "measurements": [
+        {
+          "name": "primary_key_hot",
+          "sql": [
+            "SELECT id, value FROM bench WHERE id = 500000"
+          ],
+          "passed": true,
+          "expected_digest": 550079070523783401,
+          "iterations": 1046,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 179371
+            },
+            {
+              "iterations": 1046,
+              "elapsed_ns": 316626900
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 1046,
+              "elapsed_ns": 376535218,
+              "ops_per_second": 2777.9605996908367,
+              "checksum": 3533641482881337350
+            },
+            {
+              "trial": 1,
+              "operations": 1046,
+              "elapsed_ns": 317626367,
+              "ops_per_second": 3293.1774835934825,
+              "checksum": 3533641482881337350
+            },
+            {
+              "trial": 2,
+              "operations": 1046,
+              "elapsed_ns": 230740029,
+              "ops_per_second": 4533.240307428409,
+              "checksum": 3533641482881337350
+            },
+            {
+              "trial": 3,
+              "operations": 1046,
+              "elapsed_ns": 234326998,
+              "ops_per_second": 4463.847567406638,
+              "checksum": 3533641482881337350
+            },
+            {
+              "trial": 4,
+              "operations": 1046,
+              "elapsed_ns": 248713115,
+              "ops_per_second": 4205.648745141566,
+              "checksum": 3533641482881337350
+            }
+          ]
+        },
+        {
+          "name": "filtered_limit",
+          "sql": [
+            "SELECT id, value FROM bench WHERE category = 7 ORDER BY id LIMIT 16"
+          ],
+          "passed": true,
+          "expected_digest": 16877769350814151312,
+          "iterations": 50,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 3808966
+            },
+            {
+              "iterations": 50,
+              "elapsed_ns": 181523700
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 50,
+              "elapsed_ns": 188670280,
+              "ops_per_second": 265.0125923383375,
+              "checksum": 13784984223777742880
+            },
+            {
+              "trial": 1,
+              "operations": 50,
+              "elapsed_ns": 179622798,
+              "ops_per_second": 278.36110202447685,
+              "checksum": 13784984223777742880
+            },
+            {
+              "trial": 2,
+              "operations": 50,
+              "elapsed_ns": 188423250,
+              "ops_per_second": 265.3600338599403,
+              "checksum": 13784984223777742880
+            },
+            {
+              "trial": 3,
+              "operations": 50,
+              "elapsed_ns": 188471069,
+              "ops_per_second": 265.2927065426684,
+              "checksum": 13784984223777742880
+            },
+            {
+              "trial": 4,
+              "operations": 50,
+              "elapsed_ns": 74012339,
+              "ops_per_second": 675.5630301050207,
+              "checksum": 13784984223777742880
+            }
+          ]
+        },
+        {
+          "name": "sort_limit",
+          "sql": [
+            "SELECT id, value FROM bench ORDER BY value, id LIMIT 16"
+          ],
+          "passed": true,
+          "expected_digest": 13849903797762968464,
+          "iterations": 11,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 17607677
+            },
+            {
+              "iterations": 11,
+              "elapsed_ns": 197922321
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 11,
+              "elapsed_ns": 183176604,
+              "ops_per_second": 60.051337123817405,
+              "checksum": 4774989185716240176
+            },
+            {
+              "trial": 1,
+              "operations": 11,
+              "elapsed_ns": 184443012,
+              "ops_per_second": 59.63901738928445,
+              "checksum": 4774989185716240176
+            },
+            {
+              "trial": 2,
+              "operations": 11,
+              "elapsed_ns": 204475463,
+              "ops_per_second": 53.79618580445518,
+              "checksum": 4774989185716240176
+            },
+            {
+              "trial": 3,
+              "operations": 11,
+              "elapsed_ns": 170499200,
+              "ops_per_second": 64.51643174865336,
+              "checksum": 4774989185716240176
+            },
+            {
+              "trial": 4,
+              "operations": 11,
+              "elapsed_ns": 176306565,
+              "ops_per_second": 62.39132388518828,
+              "checksum": 4774989185716240176
+            }
+          ]
+        },
+        {
+          "name": "aggregate",
+          "sql": [
+            "SELECT COUNT(*), SUM(value) FROM bench"
+          ],
+          "passed": true,
+          "expected_digest": 1100468703048916169,
+          "iterations": 150,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 1251968
+            },
+            {
+              "iterations": 150,
+              "elapsed_ns": 253803795
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 150,
+              "elapsed_ns": 230529833,
+              "ops_per_second": 650.6750039592489,
+              "checksum": 17496352867661012422
+            },
+            {
+              "trial": 1,
+              "operations": 150,
+              "elapsed_ns": 233677064,
+              "ops_per_second": 641.9115228185168,
+              "checksum": 17496352867661012422
+            },
+            {
+              "trial": 2,
+              "operations": 150,
+              "elapsed_ns": 233130884,
+              "ops_per_second": 643.415395791147,
+              "checksum": 17496352867661012422
+            },
+            {
+              "trial": 3,
+              "operations": 150,
+              "elapsed_ns": 226628487,
+              "ops_per_second": 661.8761921134831,
+              "checksum": 17496352867661012422
+            },
+            {
+              "trial": 4,
+              "operations": 150,
+              "elapsed_ns": 223329076,
+              "ops_per_second": 671.6545945857941,
+              "checksum": 17496352867661012422
+            }
+          ]
+        },
+        {
+          "name": "group_aggregate",
+          "sql": [
+            "SELECT category, COUNT(*), SUM(value) FROM bench GROUP BY category ORDER BY category"
+          ],
+          "passed": true,
+          "expected_digest": 2208213101017210112,
+          "iterations": 107,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 1759803
+            },
+            {
+              "iterations": 107,
+              "elapsed_ns": 226248230
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 107,
+              "elapsed_ns": 220357056,
+              "ops_per_second": 485.5755560647897,
+              "checksum": 14917872924326862592
+            },
+            {
+              "trial": 1,
+              "operations": 107,
+              "elapsed_ns": 206274671,
+              "ops_per_second": 518.7258303759456,
+              "checksum": 14917872924326862592
+            },
+            {
+              "trial": 2,
+              "operations": 107,
+              "elapsed_ns": 215625379,
+              "ops_per_second": 496.23101184207076,
+              "checksum": 14917872924326862592
+            },
+            {
+              "trial": 3,
+              "operations": 107,
+              "elapsed_ns": 206648117,
+              "ops_per_second": 517.7884103342689,
+              "checksum": 14917872924326862592
+            },
+            {
+              "trial": 4,
+              "operations": 107,
+              "elapsed_ns": 204618873,
+              "ops_per_second": 522.9234157691798,
+              "checksum": 14917872924326862592
+            }
+          ]
+        },
+        {
+          "name": "mixed",
+          "sql": [
+            "SELECT id, value FROM bench WHERE id = 500000",
+            "SELECT id, value FROM bench WHERE category = 7 ORDER BY id LIMIT 16",
+            "SELECT id, value FROM bench ORDER BY value, id LIMIT 16",
+            "UPDATE bench SET value = 7 WHERE id = 500000"
+          ],
+          "passed": true,
+          "expected_digest": 7176734394069529758,
+          "iterations": 4,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 57487710
+            },
+            {
+              "iterations": 4,
+              "elapsed_ns": 187547449
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 16,
+              "elapsed_ns": 164809560,
+              "ops_per_second": 97.08174695691197,
+              "checksum": 10260193502568567416
+            },
+            {
+              "trial": 1,
+              "operations": 16,
+              "elapsed_ns": 148099227,
+              "ops_per_second": 108.0356752976165,
+              "checksum": 10260193502568567416
+            },
+            {
+              "trial": 2,
+              "operations": 16,
+              "elapsed_ns": 167713085,
+              "ops_per_second": 95.4010237185727,
+              "checksum": 10260193502568567416
+            },
+            {
+              "trial": 3,
+              "operations": 16,
+              "elapsed_ns": 162374224,
+              "ops_per_second": 98.53780733079901,
+              "checksum": 10260193502568567416
+            },
+            {
+              "trial": 4,
+              "operations": 16,
+              "elapsed_ns": 160501511,
+              "ops_per_second": 99.68753502887583,
+              "checksum": 10260193502568567416
+            }
+          ]
+        }
+      ],
+      "wall_seconds": 12.854836797999951
+    },
+    {
+      "schema": 1,
+      "engine": "InMemory.Net.irdb",
+      "package_version": "1.10.821",
+      "assembly": "1.10.821.0",
+      "runtime": ".NET 10.0.13",
+      "os": "Ubuntu 24.04.3 LTS",
+      "boundary": "in-process public API; result values consumed; no DataTable conversion in timing",
+      "durability": "volatile memory; no per-commit durable flush",
+      "import_compiled": true,
+      "id_clustered_index": true,
+      "id_index_after_workload": true,
+      "rows": 1000000,
+      "load_ms": 2221.2189,
+      "working_set": 481177600,
+      "measurements": [
+        {
+          "name": "primary_key_hot",
+          "sql": [
+            "SELECT id, value FROM bench WHERE id = 500000"
+          ],
+          "passed": true,
+          "expected_digest": 550079070523783401,
+          "iterations": 1174,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 159783
+            },
+            {
+              "iterations": 1174,
+              "elapsed_ns": 358918278
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 1174,
+              "elapsed_ns": 363793412,
+              "ops_per_second": 3227.1062676638026,
+              "checksum": 156786215087406214
+            },
+            {
+              "trial": 1,
+              "operations": 1174,
+              "elapsed_ns": 361394918,
+              "ops_per_second": 3248.5238212453223,
+              "checksum": 156786215087406214
+            },
+            {
+              "trial": 2,
+              "operations": 1174,
+              "elapsed_ns": 331330911,
+              "ops_per_second": 3543.2854618264096,
+              "checksum": 156786215087406214
+            },
+            {
+              "trial": 3,
+              "operations": 1174,
+              "elapsed_ns": 294448685,
+              "ops_per_second": 3987.1123893794943,
+              "checksum": 156786215087406214
+            },
+            {
+              "trial": 4,
+              "operations": 1174,
+              "elapsed_ns": 376674226,
+              "ops_per_second": 3116.7516091212465,
+              "checksum": 156786215087406214
+            }
+          ]
+        },
+        {
+          "name": "filtered_limit",
+          "sql": [
+            "SELECT id, value FROM bench WHERE category = 7 ORDER BY id LIMIT 16"
+          ],
+          "passed": true,
+          "expected_digest": 16877769350814151312,
+          "iterations": 51,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 3690229
+            },
+            {
+              "iterations": 51,
+              "elapsed_ns": 188294262
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 51,
+              "elapsed_ns": 190782474,
+              "ops_per_second": 267.32015226933265,
+              "checksum": 12216009500882342576
+            },
+            {
+              "trial": 1,
+              "operations": 51,
+              "elapsed_ns": 192037835,
+              "ops_per_second": 265.5726669695063,
+              "checksum": 12216009500882342576
+            },
+            {
+              "trial": 2,
+              "operations": 51,
+              "elapsed_ns": 175378909,
+              "ops_per_second": 290.7989352357073,
+              "checksum": 12216009500882342576
+            },
+            {
+              "trial": 3,
+              "operations": 51,
+              "elapsed_ns": 77064966,
+              "ops_per_second": 661.7793096800951,
+              "checksum": 12216009500882342576
+            },
+            {
+              "trial": 4,
+              "operations": 51,
+              "elapsed_ns": 70492094,
+              "ops_per_second": 723.48538830468,
+              "checksum": 12216009500882342576
+            }
+          ]
+        },
+        {
+          "name": "sort_limit",
+          "sql": [
+            "SELECT id, value FROM bench ORDER BY value, id LIMIT 16"
+          ],
+          "passed": true,
+          "expected_digest": 13849903797762968464,
+          "iterations": 10,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 19135506
+            },
+            {
+              "iterations": 10,
+              "elapsed_ns": 181058638
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 10,
+              "elapsed_ns": 190910788,
+              "ops_per_second": 52.38048674336832,
+              "checksum": 9371829461662823328
+            },
+            {
+              "trial": 1,
+              "operations": 10,
+              "elapsed_ns": 166112251,
+              "ops_per_second": 60.20025578968284,
+              "checksum": 9371829461662823328
+            },
+            {
+              "trial": 2,
+              "operations": 10,
+              "elapsed_ns": 170031736,
+              "ops_per_second": 58.812550146520884,
+              "checksum": 9371829461662823328
+            },
+            {
+              "trial": 3,
+              "operations": 10,
+              "elapsed_ns": 174025348,
+              "ops_per_second": 57.46289327920206,
+              "checksum": 9371829461662823328
+            },
+            {
+              "trial": 4,
+              "operations": 10,
+              "elapsed_ns": 176014783,
+              "ops_per_second": 56.81340981456086,
+              "checksum": 9371829461662823328
+            }
+          ]
+        },
+        {
+          "name": "aggregate",
+          "sql": [
+            "SELECT COUNT(*), SUM(value) FROM bench"
+          ],
+          "passed": true,
+          "expected_digest": 1100468703048916169,
+          "iterations": 117,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 1609302
+            },
+            {
+              "iterations": 117,
+              "elapsed_ns": 200369528
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 117,
+              "elapsed_ns": 198082261,
+              "ops_per_second": 590.6636940094297,
+              "checksum": 18074373814465882077
+            },
+            {
+              "trial": 1,
+              "operations": 117,
+              "elapsed_ns": 194544407,
+              "ops_per_second": 601.4051074724549,
+              "checksum": 18074373814465882077
+            },
+            {
+              "trial": 2,
+              "operations": 117,
+              "elapsed_ns": 182663562,
+              "ops_per_second": 640.521835438641,
+              "checksum": 18074373814465882077
+            },
+            {
+              "trial": 3,
+              "operations": 117,
+              "elapsed_ns": 185399883,
+              "ops_per_second": 631.0683594120715,
+              "checksum": 18074373814465882077
+            },
+            {
+              "trial": 4,
+              "operations": 117,
+              "elapsed_ns": 180494353,
+              "ops_per_second": 648.219725743996,
+              "checksum": 18074373814465882077
+            }
+          ]
+        },
+        {
+          "name": "group_aggregate",
+          "sql": [
+            "SELECT category, COUNT(*), SUM(value) FROM bench GROUP BY category ORDER BY category"
+          ],
+          "passed": true,
+          "expected_digest": 2208213101017210112,
+          "iterations": 75,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 2531369
+            },
+            {
+              "iterations": 75,
+              "elapsed_ns": 158580552
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 75,
+              "elapsed_ns": 160315156,
+              "ops_per_second": 467.82850649504405,
+              "checksum": 18042029986614345472
+            },
+            {
+              "trial": 1,
+              "operations": 75,
+              "elapsed_ns": 139158303,
+              "ops_per_second": 538.9545458886488,
+              "checksum": 18042029986614345472
+            },
+            {
+              "trial": 2,
+              "operations": 75,
+              "elapsed_ns": 144753172,
+              "ops_per_second": 518.1233610549135,
+              "checksum": 18042029986614345472
+            },
+            {
+              "trial": 3,
+              "operations": 75,
+              "elapsed_ns": 141431497,
+              "ops_per_second": 530.2920607564523,
+              "checksum": 18042029986614345472
+            },
+            {
+              "trial": 4,
+              "operations": 75,
+              "elapsed_ns": 141648211,
+              "ops_per_second": 529.4807429654018,
+              "checksum": 18042029986614345472
+            }
+          ]
+        },
+        {
+          "name": "mixed",
+          "sql": [
+            "SELECT id, value FROM bench WHERE id = 500000",
+            "SELECT id, value FROM bench WHERE category = 7 ORDER BY id LIMIT 16",
+            "SELECT id, value FROM bench ORDER BY value, id LIMIT 16",
+            "UPDATE bench SET value = 7 WHERE id = 500000"
+          ],
+          "passed": true,
+          "expected_digest": 7176734394069529758,
+          "iterations": 3,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 62857565
+            },
+            {
+              "iterations": 3,
+              "elapsed_ns": 152545098
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 12,
+              "elapsed_ns": 164121886,
+              "ops_per_second": 73.11639107047552,
+              "checksum": 3083459108499037658
+            },
+            {
+              "trial": 1,
+              "operations": 12,
+              "elapsed_ns": 155218064,
+              "ops_per_second": 77.31058931388296,
+              "checksum": 3083459108499037658
+            },
+            {
+              "trial": 2,
+              "operations": 12,
+              "elapsed_ns": 162464678,
+              "ops_per_second": 73.86220899043668,
+              "checksum": 3083459108499037658
+            },
+            {
+              "trial": 3,
+              "operations": 12,
+              "elapsed_ns": 160549279,
+              "ops_per_second": 74.74340635313597,
+              "checksum": 3083459108499037658
+            },
+            {
+              "trial": 4,
+              "operations": 12,
+              "elapsed_ns": 127703120,
+              "ops_per_second": 93.9679469068571,
+              "checksum": 3083459108499037658
+            }
+          ]
+        }
+      ],
+      "wall_seconds": 12.202122396999926
+    }
+  ]
+}

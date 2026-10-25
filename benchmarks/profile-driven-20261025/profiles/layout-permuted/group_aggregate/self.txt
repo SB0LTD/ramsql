@@ -1,0 +1,20 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 3K of event 'cpu-clock:u'
+# Event count (approx.): 7374749440
+#
+# Overhead Symbol IPC [IPC Coverage]
+#
+62.39% [.] sql.exec.Exec(config).Query.run - -
+14.84% [.] sql.types.Values(config).hash - -
+9.84% [.] sql.types.Values(config).compare - -
+7.85% [.] sql.exec.Exec(config).Query.addAggregates - -
+5.03% [.] sql.exec.Exec(config).Query.accumulate - -
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

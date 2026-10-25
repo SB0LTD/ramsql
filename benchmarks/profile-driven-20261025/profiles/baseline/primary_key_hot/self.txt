@@ -1,0 +1,43 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 612 of event 'cpu-clock:u'
+# Event count (approx.): 1226452896
+#
+# Overhead Symbol IPC [IPC Coverage]
+#
+19.93% [.] sql.Database(config).body - -
+16.18% [.] sql.lexer.Tokenizer.next - -
+7.84% [.] sql.parser.Parser(config).expression - -
+6.37% [.] compiler_rt.memcpy.memcpyFast - -
+5.56% [.] sql.binder.Binder(config).resolveColumn - -
+4.90% [.] sql.parser.Parser(config).setPrimary - -
+3.92% [.] sql.parser.Parser(config).primary - -
+3.27% [.] sql.expr.Eval(config).truth - -
+2.94% [.] sql.binder.Binder(config).figure - -
+2.78% [.] sql.Database(config).execute - -
+2.45% [.] sql.storage.Storage(config).lookupKeyAt - -
+1.96% [.] review_benchmark.run - -
+1.96% [.] sql.parser.Parser(config).notExpr - -
+1.47% [.] sql.catalog.Catalog(config).find - -
+1.47% [.] sql.parser.Parser(config).fromItem - -
+1.31% [.] sql.binder.Binder(config).typeExpr - -
+1.31% [.] sql.lexer.reserved - -
+1.14% [.] sql.Database(config).lockTable - -
+1.14% [.] sql.binder.Binder(config).bindColumn - -
+1.14% [.] sql.binder.Binder(config).resolveQualified - -
+1.14% [.] sql.parser.Parser(config).query - -
+1.14% [.] sql.types.Values(config).hash - -
+0.98% [.] sql.binder.Binder(config).comparable - -
+0.98% [.] sql.types.Values(config).compare - -
+0.82% [.] sql.binder.Binder(config).findColumn - -
+0.65% [.] sql.binder.Binder(config).viewOf - -
+0.65% [.] sql.parser.Parser(config).additive - -
+0.65% [.] sql.parser.Parser(config).unary - -
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

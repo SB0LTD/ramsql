@@ -1,0 +1,1 @@
+{"suite": "auth-live", "pass": true, "assertions": 8506, "unique_authenticated_nonces": 128, "clients": ["psycopg", "independent Python SCRAM"], "tls_supported": false}

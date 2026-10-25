@@ -1,0 +1,33 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 22 of event 'cpu-clock:u'
+# Event count (approx.): 44088176
+#
+# Overhead Symbol IPC [IPC Coverage]
+#
+13.64% [.] sql.lexer.Tokenizer.next - -
+9.09% [.] main.main - -
+9.09% [.] sql.Database(config).reclaimTables - -
+4.55% [.] __vdso_clock_gettime - -
+4.55% [.] durable_log.appendKind__func_1029 - -
+4.55% [.] postgres.Session(store.Store(sql.Database(config)).Connection).dispatch - -
+4.55% [.] server.acceptConnections - -
+4.55% [.] sql.Database(config).control - -
+4.55% [.] sql.Database(config).publishCommit - -
+4.55% [.] sql.binder.Binder(config).bind - -
+4.55% [.] sql.binder.Binder(config).bindReturning - -
+4.55% [.] sql.binder.Binder(config).findColumn - -
+4.55% [.] sql.catalog.Catalog(config).find - -
+4.55% [.] sql.expr.Eval(config).eval - -
+4.55% [.] sql.parser.Parser(config).notExpr - -
+4.55% [.] sql.storage.Storage(config).lookupKeyAt - -
+4.55% [.] sql.storage.Storage(config).reclaimVersion - -
+4.55% [.] store.Store(sql.Database(config)).Connection.execute - -
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

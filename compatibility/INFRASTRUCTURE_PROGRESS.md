@@ -6,6 +6,27 @@ This record tracks implemented scope separately from the
 [research/design plan](DEEP_INFRASTRUCTURE_RESEARCH.md) and the
 [broader production gaps](GAP_CLOSING_PLAN.md).
 
+## Profile-driven follow-up (25–26 October)
+
+The [profile report and raw evidence](../benchmarks/profile-driven-20261025/REPORT.md)
+record four allocator-free ZPM iterations: primitive-word hashing, cached integer
+top-K, conservative physical-order proofs, and lazy rejection of losing top-K
+candidates. ZPM PR 26 passes database-platform CI on Linux, Windows and macOS.
+These are development candidates; alpha.4 remains the published reviewer release.
+
+Longer alternating native trials show point reads effectively tied and grouped
+aggregation improving from about 35 to 40 ops/s at one million rows. Proven
+ordered layouts produce much larger filtered/sort gains; permuted data retains
+full scans and is reported separately. Fresh PostgreSQL 16.15 wire comparisons
+still lose aggregate and mixed workloads. Latest IRDB 1.10.821 remains far ahead
+on scalar/group aggregation (643/518 ops/s versus native RAMSQL about 72/40).
+
+Actual server CPU probes and durable reopen checks were added, with low sample
+counts explicitly retained. Off-CPU attribution, compact typed storage, maintained
+ordered access, concurrent scaling and the remaining compatibility/capacity gaps
+are still open. The legacy ZPM root CI run 40237517617 retains the four historical
+non-database failures; it is not a green repository-wide run.
+
 ## Merge and qualification
 
 ZPM PRs 24 and 25 merged to `main` (latest merge `b6039cf`); RAMSQL

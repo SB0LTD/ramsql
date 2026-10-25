@@ -1,8 +1,16 @@
 """Integrity checks for comparative benchmark results; no synthetic speed claims."""
 import unittest
+from profile_reports import compact_report
 from benchmark_review import digest,expected,validate_samples,validate_stream_samples,MASK
 
 class Contracts(unittest.TestCase):
+    def test_profile_compaction_keeps_every_cpu_row(self):
+        report='10.00% [.] outer(.{ .inner=.{ .text="{quoted}" }, .n=3 }).scan\n20.00% [.] '+('long_symbol'*100)+'\n'
+        compact=compact_report(report)
+        self.assertIn('10.00% [.] outer(config).scan',compact)
+        self.assertIn('20.00% [.]',compact)
+        self.assertEqual(compact.count('%'),2)
+
     def test_models_against_materialized_rows(self):
         for n in (64,128,512,8192):
             for changed in (False,True):

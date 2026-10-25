@@ -1,0 +1,22 @@
+{
+  "command": [
+    "/home/sb/.cache/ramsql-qualification/profile-baseline/bin/ramsql-review-bench",
+    "1000000",
+    "30",
+    "--profile-ready",
+    "--case",
+    "filtered_limit"
+  ],
+  "case": "filtered_limit",
+  "rows": 1000000,
+  "iterations": 30,
+  "frequency": 499,
+  "event": "cpu-clock:u",
+  "hardware_PMU_sampled": false,
+  "control_directory": "/tmp/ramsql-perf-control-1xau9l0j",
+  "os": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "binary_sha256": "80f552ec6b4718568170d7162f842719b064315fc70ae9a7ec0b04965071069e",
+  "started_unix": 1792961921.3450768,
+  "duration_seconds": 4.216376066207886,
+  "scope": "Sampled user CPU after acknowledged barrier; profiling overhead included; not comparison throughput."
+}

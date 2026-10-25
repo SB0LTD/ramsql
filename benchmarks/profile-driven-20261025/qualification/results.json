@@ -1,0 +1,64 @@
+[
+  {
+    "suite": "cli",
+    "command": [
+      "/home/sb/.cache/ramsql-qualification-venv/bin/python",
+      "/mnt/c/Just-Things/Projects/sb0/ramsql/tools/test_cli.py",
+      "--binary",
+      "/home/sb/.cache/ramsql-qualification/profile-lazy/bin/ramsql"
+    ],
+    "exit_code": 0
+  },
+  {
+    "suite": "server",
+    "command": [
+      "/home/sb/.cache/ramsql-qualification-venv/bin/python",
+      "/mnt/c/Just-Things/Projects/sb0/ramsql/tools/test_server.py",
+      "--binary",
+      "/home/sb/.cache/ramsql-qualification/profile-lazy/bin/ramsql"
+    ],
+    "exit_code": 0
+  },
+  {
+    "suite": "clients",
+    "command": [
+      "/home/sb/.cache/ramsql-qualification-venv/bin/python",
+      "/mnt/c/Just-Things/Projects/sb0/ramsql/tools/test_clients.py",
+      "--binary",
+      "/home/sb/.cache/ramsql-qualification/profile-lazy/bin/ramsql"
+    ],
+    "exit_code": 0
+  },
+  {
+    "suite": "auth",
+    "command": [
+      "/home/sb/.cache/ramsql-qualification-venv/bin/python",
+      "/mnt/c/Just-Things/Projects/sb0/ramsql/tools/test_auth.py",
+      "--binary",
+      "/home/sb/.cache/ramsql-qualification/profile-lazy/bin/ramsql"
+    ],
+    "exit_code": 0
+  },
+  {
+    "suite": "persistence",
+    "command": [
+      "/home/sb/.cache/ramsql-qualification-venv/bin/python",
+      "/mnt/c/Just-Things/Projects/sb0/ramsql/tools/test_persistence.py",
+      "--binary",
+      "/home/sb/.cache/ramsql-qualification/profile-lazy/bin/ramsql",
+      "--artifacts",
+      "/home/sb/.cache/ramsql-qualification/profile-live-persistence"
+    ],
+    "exit_code": 0
+  },
+  {
+    "suite": "capacity",
+    "command": [
+      "/home/sb/.cache/ramsql-qualification-venv/bin/python",
+      "/mnt/c/Just-Things/Projects/sb0/ramsql/tools/test_capacity.py",
+      "--binary",
+      "/home/sb/.cache/ramsql-qualification/profile-lazy/bin/ramsql"
+    ],
+    "exit_code": 0
+  }
+]
