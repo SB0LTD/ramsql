@@ -1,4 +1,4 @@
-# RAMSQL 0.3.0-alpha.3 development candidate
+# RAMSQL 0.3.0-alpha.4 development candidate
 
 This is an explicitly scoped development prerelease, with six hosted builds
 (x86_64/AArch64 Linux, macOS and Windows), plus native SB0X and SB0K images.
@@ -6,47 +6,39 @@ Hosted binaries retain synchronous WAL and PostgreSQL SCRAM. SB0 images expose
 the PostgreSQL wire subset over trusted memory-only channels/UART; they have no
 TCP, durable files or SCRAM. Every exact image must pass its runtime tests.
 
-This candidate is not the published alpha.2 binary. It includes the merged
-transactional SQL engine and requires qualification on checksum-verified hosted
-Sig 0.6.4. Production gates remain blocked.
+This candidate follows published alpha.3 and requires fresh qualification on
+checksum-verified hosted Sig 0.6.4. Production gates remain blocked.
 
-Changes since the published alpha.2:
+Changes since alpha.3:
 
-- Shared MVCC storage, READ COMMITTED, row/table lock waits, deadlock handling,
-  savepoints and transactional DDL, without per-connection database copies.
-- Typed expressions and numeric/temporal/JSON types, joins, aggregates, CTEs,
-  DISTINCT/pagination, RETURNING, upserts, defaults, identity/sequences, a catalog
-  subset and streamed COPY. Documented capacity/feature limits still apply.
-- Running SQL cancellation and live statement deadlines, plus optional
-  `--max-query-work` budgets. Interruptions roll back private changes; explicit
-  transactions retain failed-block semantics. See [execution-control limits](EXECUTION_CONTROL.md).
-- Kind-3 typed change records with flush-before-publication and frozen-grammar
-  replay of legacy alpha SQL logs.
-- Required PG16/PG18 × memory/durable+SCRAM qualification of the exact Linux
-  release image. Every probe, semantic case, isolation schedule, COPY case and
-  durable crash case is checked, with raw reports and logs retained. Missing,
-  duplicated or failing cases block release assembly. The documented default
-  COPY capacity divergence remains explicit and is not counted as parity.
-- Checksummed, attested release artifacts and matched durable benchmarks of the
-  exact Linux release image against an isolated native PostgreSQL process.
+- Hosted row/version/index storage can use caller-owned page regions with runtime
+  `--rows` / `--versions` budgets. Recovery checks the actual bound capacity;
+  result/workspace/text/schema/session capacities are still separate and bounded.
+- Stable bounded top-K selection for eligible column ORDER BY/LIMIT and direct
+  cell comparisons. This does not add ordered/secondary indexes or scalable
+  streaming/vectorized aggregation.
+- A reproducible comparison adapter pinned to current IRDB 1.10.821, with separate
+  native-API and PostgreSQL-wire tiers, correctness checks and visible failures.
+- Required larger-than-inline-profile durable restart/restore tests in hosted
+  CI and exact release-artifact qualification.
 
-The local Linux experiment in `benchmarks/durable-boundary.json` checks 60
-measurements (five workloads, 1/4 clients, three trials, two engines), all results,
-and abrupt-stop recovery. The published alpha.1 comparison is retained in
-`benchmarks/durable-boundary-baseline.json`. Results include host/storage
-variability; PostgreSQL still wins multiple durable-write workloads. Reopening
-and validating the same 2.17 MB WAL took 698 ms for alpha.1 and 27 ms for alpha.2
-on this host. These are small SQL-subset experiments, not a production
-PostgreSQL replacement or a general superiority claim. The release additionally
-ships `benchmark-postgres.json`, measured from its exact Linux artifact in CI.
+Inherited alpha.3 features include shared MVCC/READ COMMITTED storage, row/table
+lock waits, savepoints, transactional DDL, typed values/expressions, joins,
+aggregates/CTEs, COPY, typed change records and running-query interruption.
+Full PostgreSQL behavior and production scale remain open.
+
+This candidate has no published performance-superiority claim. Review actual
+comparative results and every blocked case before deciding the next release.
+IRDB native-API timings and server/client timings have different call boundaries.
+Durable benchmark results remain separate from volatile-memory comparisons.
 
 **WAL compatibility:** framing remains version 1; new commits use payload kind 3
 with typed row/catalog changes. Legacy kind-1/2 SQL-text records recover through
 the frozen alpha grammar, then subsequent commits use kind 3. A legacy record
 following a kind-3 record, or unsupported legacy syntax, fails closed. Older alpha
 binaries cannot read kind 3. Preserve the old binary and backup before upgrading;
-a general release upgrade/downgrade matrix and migration policy remain open.
-Restore requires compatible schema semantics and adequate capacity.
+a general release upgrade/downgrade matrix remains open. Reopen and restore must
+have sufficient runtime row/version budgets; insufficient capacity fails closed.
 
 ## Production release requirements
 

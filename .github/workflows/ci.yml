@@ -80,6 +80,9 @@ jobs:
           python tools/test_release.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/test_qualify_postgres.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/test_benchmark_review.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build RAMSQL
         run: |
@@ -117,6 +120,9 @@ jobs:
 
       - name: Test durable commits, process crashes, corruption and offline restore
         run: python tools/test_persistence.py
+
+      - name: Require larger runtime storage, durable reopen and restore
+        run: python tools/test_capacity.py
 
       - name: Build and run native performance smoke benchmark
         run: |
