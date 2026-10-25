@@ -13,6 +13,7 @@ from unittest.mock import patch
 
 import package_release as package
 import release_matrix as matrix
+from test_qualify_postgres import synthetic_bundle
 
 
 def synthetic_binary(entry: dict) -> bytes:
@@ -137,9 +138,12 @@ class ReleaseContracts(unittest.TestCase):
                                 tests=package.HOSTED_RUNTIME_TESTS))
             evidence = synthetic_benchmark(revision, package.sha256(synthetic_binary(matrix.target("x86_64-linux"))))
             (first / "benchmark-postgres.json").write_text(json.dumps(evidence))
+            qualification = synthetic_bundle(revision, package.sha256(synthetic_binary(matrix.target("x86_64-linux"))))
+            (first / "postgres-qualification.json").write_text(json.dumps(qualification))
             result = package.assemble(args)
             self.assertEqual(len(result["targets"]), 8)
             self.assertFalse(result["production_ready"])
+            self.assertEqual(result["postgres_qualification_evidence"], "postgres-qualification.json")
             checksums = (first / "SHA256SUMS.txt").read_text()
             self.assertIn("release-manifest.json", checksums)
             self.assertNotIn("SHA256SUMS.txt", checksums)

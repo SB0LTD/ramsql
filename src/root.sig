@@ -1,7 +1,7 @@
 //! RAMSQL: allocator-free in-memory SQL, backed by ZPM Layer 0.
 const sql = @import("sql");
 
-pub const version = "0.3.0-alpha.2";
+pub const version = "0.3.0-alpha.3";
 pub const Config = sql.Config;
 pub const Error = sql.Error;
 pub const Database = sql.Database;

@@ -1,0 +1,81 @@
+name: PostgreSQL differential qualification
+
+on:
+  workflow_call:
+    inputs:
+      artifact_name:
+        description: 'Optional exact Linux release artifact; otherwise build this revision'
+        type: string
+        default: ''
+      revision:
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  differential:
+    name: PG${{ matrix.reference }} ${{ matrix.mode }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        reference: ['16', '18']
+        mode: [memory, durable-scram]
+    env:
+      SOURCE_REVISION: ${{ inputs.revision || github.sha }}
+      TZ: UTC
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_REVISION }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install independent clients
+        run: python -m pip install -r tools/requirements-test.txt
+      - uses: actions/download-artifact@v4
+        if: inputs.artifact_name != ''
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: .sig-cache/qualification-input
+      - name: Verify and install exact release artifact
+        if: inputs.artifact_name != ''
+        run: |
+          python tools/package_release.py verify --input .sig-cache/qualification-input \
+            --target x86_64-linux --revision "$SOURCE_REVISION" --install-bin sig-out/bin
+      - name: Install checksum-verified hosted Sig
+        if: inputs.artifact_name == ''
+        shell: pwsh
+        run: |
+          $identity = python tools/release_matrix.py --compiler-host Linux/X64 | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $archive = Join-Path $env:RUNNER_TEMP $identity.asset
+          $destination = Join-Path $env:RUNNER_TEMP 'sig-postgres'
+          Invoke-WebRequest "https://github.com/SB0LTD/sig/releases/download/$($identity.tag)/$($identity.asset)" -OutFile $archive
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne $identity.sha256) { throw 'Sig checksum mismatch' }
+          New-Item -ItemType Directory -Path $destination | Out-Null
+          tar -xf $archive -C $destination
+          if ($LASTEXITCODE -ne 0) { throw 'Sig extraction failed' }
+          $compiler = Get-ChildItem -LiteralPath $destination -Recurse -File | Where-Object Name -eq sig | Select-Object -First 1
+          $library = Get-ChildItem -LiteralPath $destination -Recurse -Directory | Where-Object { $_.Name -eq 'lib' -and (Test-Path (Join-Path $_.FullName 'std/std.sig')) } | Select-Object -First 1
+          if ($null -eq $compiler -or $null -eq $library) { throw 'Compiler/matched library missing' }
+          "SIG=$($compiler.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "SIG_LIB_DIR=$($library.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Build qualification binary
+        if: inputs.artifact_name == ''
+        run: '"$SIG" build -Doptimize=ReleaseSafe -j2'
+      - name: Require complete differential, isolation, COPY and crash evidence
+        run: |
+          python tools/qualify_postgres.py run --reference '${{ matrix.reference }}' --mode '${{ matrix.mode }}' \
+            --revision "$SOURCE_REVISION" --binary sig-out/bin/ramsql --pull-reference \
+            --output 'qualification/pg${{ matrix.reference }}-${{ matrix.mode }}'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: postgres-qualification-${{ matrix.reference }}-${{ matrix.mode }}-${{ inputs.artifact_name != '' && 'release' || 'ci' }}
+          path: qualification/**
+          if-no-files-found: error
+          retention-days: 30

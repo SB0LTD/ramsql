@@ -22,8 +22,9 @@ RAMSQL is a pure Sig, allocator-free in-memory database server and library.
   `ramsql --demo` for a terminating example. Tests must execute assertions.
 - Preserve flush-before-publication, exclusive writer locking and fail-closed
   recovery. Offline backups validate existing source data and never overwrite
-  destinations. Scratch database workspaces are uninitialized reserved storage;
-  every read must follow a complete committed-state copy.
+  destinations. Connections share MVCC storage; do not reintroduce per-client
+  database snapshots. Scratch/result ranges must be initialized before reading;
+  versions remain owned until no active snapshot can observe them.
 - Verify protocol changes with independent clients; wire framing compatibility
   does not imply complete SQL dialect, catalog, authentication or extension support.
 - Benchmark ReleaseFast with correctness checks and recorded environment. Report

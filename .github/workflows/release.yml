@@ -83,6 +83,16 @@ jobs:
     name: Native operating system validation
     needs: metadata
     uses: ./.github/workflows/ci.yml
+    with:
+      skip_differential: true
+
+  postgres-qualification:
+    name: Qualify exact Linux release against PostgreSQL
+    needs: [metadata, build]
+    uses: ./.github/workflows/postgres.yml
+    with:
+      artifact_name: release-x86_64-linux
+      revision: ${{ needs.metadata.outputs.revision }}
 
   build:
     name: Cross-build hosted ${{ matrix.slug }}
@@ -405,7 +415,7 @@ jobs:
 
   assemble:
     name: Verify full matrix and attest release bundle
-    needs: [metadata, native-tests, build, native-toolchain, hosted-runtime, benchmark]
+    needs: [metadata, native-tests, build, native-toolchain, hosted-runtime, benchmark, postgres-qualification]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -434,6 +444,15 @@ jobs:
         with:
           name: benchmark-evidence
           path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: postgres-qualification-*-release
+          path: .sig-cache/qualification-evidence
+      - name: Bind complete PostgreSQL qualification to the release image
+        run: |
+          binary_sha=$(python -c 'import json; print(json.load(open("dist/runtime-x86_64-linux.json"))["image_sha256"])')
+          python tools/qualify_postgres.py merge --input .sig-cache/qualification-evidence \
+            --output dist/postgres-qualification.json --revision "$SOURCE_REVISION" --binary-sha256 "$binary_sha"
       - name: Record native CI evidence
         shell: bash
         run: |

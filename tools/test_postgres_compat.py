@@ -132,7 +132,7 @@ def local_postgres(binary_directory, psycopg, work_directory):
     process = None
     connection = dict(host="127.0.0.1", port=port, user="ramsql", dbname="postgres", password="",
                       sslmode="disable", connect_timeout=3, autocommit=True,
-                      application_name="ramsql-postgres-compat", options="-c statement_timeout=4000")
+                      application_name="ramsql-postgres-compat", options="-c statement_timeout=4000 -c TimeZone=UTC")
     with (directory / "server.log").open("wb") as log:
         try:
             process = subprocess.Popen([str(binary_directory / "postgres"), "-D", str(data),
@@ -197,7 +197,7 @@ def native_postgres(image, psycopg, *, binary_directory=None, work_directory=Non
         port = int(endpoint.rsplit(":", 1)[1])
         connection = dict(host="127.0.0.1", port=port, user="ramsql", dbname="ramsql", password=password,
                           sslmode="disable", connect_timeout=3, autocommit=True,
-                          application_name="ramsql-postgres-compat", options="-c statement_timeout=4000")
+                          application_name="ramsql-postgres-compat", options="-c statement_timeout=4000 -c TimeZone=UTC")
         deadline = time.monotonic() + 40
         while True:
             try:
