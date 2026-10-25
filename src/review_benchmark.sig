@@ -8,6 +8,7 @@ const DB = sql.Database(.{ .external_storage = true, .tables = 1, .columns = 4, 
 var db: DB = .{};
 var result: DB.Result = .{};
 const Case = enum { primary_key_hot, filtered_limit, sort_limit, aggregate, group_aggregate, mixed };
+const cases = [_]Case{ .primary_key_hot, .filtered_limit, .sort_limit, .aggregate, .group_aggregate, .mixed };
 const filtered = "SELECT id, value FROM bench WHERE category = 7 ORDER BY id LIMIT 16";
 const sorted = "SELECT id, value FROM bench ORDER BY value, id LIMIT 16";
 const aggregated = "SELECT COUNT(*), SUM(value) FROM bench";
@@ -70,6 +71,22 @@ fn model(which: Case, n: usize, changed: bool) u64 {
     return digest;
 }
 fn write(line: []const u8) !void { try sig.io.File.stdout().writeStreamingAll(.{}, line); }
+fn profileReady() !void {
+    try write("# profile-ready\n");
+    var input: [1]u8 = undefined;
+    var reader = sig.io.File.stdin().reader(.{}, &.{});
+    if (try reader.interface.readSliceShort(&input) != 1 or input[0] != '\n') return error.InvalidProfileTrigger;
+}
+
+fn caseOf(name: []const u8) !Case {
+    inline for (cases) |which| if (std.mem.eql(u8, name, @tagName(which))) return which;
+    return error.InvalidArguments;
+}
+fn gcd(a: usize,b: usize) usize {
+    var x=a;var y=b;
+    while(y!=0) {const r=x%y;x=y;y=r;}
+    return x;
+}
 fn measure(which: Case, n: usize, iterations: usize) !void {
     if (which == .mixed) _ = try answer(update);
     const expected = model(which, n, which == .mixed);
@@ -97,18 +114,45 @@ pub fn main(init: std.process.Init.Minimal) !void {
     const n = if (try args.next()) |arg| try sig.fmt.parseInt(usize, arg, 10) else 512;
     if (n < 64 or n > 10000000) return error.InvalidArguments;
     const iterations = if (try args.next()) |arg| try sig.fmt.parseInt(usize, arg, 10) else if (n <= 512) @as(usize, 2000) else if (n <= 100000) @as(usize, 100) else 10;
-    if (iterations == 0 or try args.next() != null) return error.InvalidArguments;
+    if (iterations == 0) return error.InvalidArguments;
+    var selected: ?Case = null;
+    var profile_ready = false;
+    var load_only = false;
+    var permuted = false;
+    while (try args.next()) |arg| {
+        if (std.mem.eql(u8, arg, "--case")) {
+            if (selected != null) return error.InvalidArguments;
+            selected = try caseOf((try args.next()) orelse return error.InvalidArguments);
+        } else if (std.mem.eql(u8, arg, "--profile-ready")) {
+            profile_ready = true;
+        } else if (std.mem.eql(u8, arg, "--load-only")) {
+            load_only = true;
+        } else if (std.mem.eql(u8, arg, "--permuted")) {
+            permuted = true;
+        } else return error.InvalidArguments;
+    }
+    if (load_only and selected != null) return error.InvalidArguments;
     var memory = try pages.reserve(try DB.backingBytes(n, n * 2, @max(n * 4, 512 * 32))); defer memory.close();
     try db.bindMemory(memory.bytes, n, n * 2, @max(n * 4, 512 * 32));
+    if (profile_ready and load_only) try profileReady();
     const load_start = sig.os.clockMonotonicNs();
     try db.execute("CREATE TABLE bench (id INT PRIMARY KEY, value INT, category INT, label TEXT)", &result);
     var buffer: [512]u8 = undefined;
-    for (0..n) |id| try db.execute(try sig.fmt.bufPrint(&buffer, "INSERT INTO bench VALUES ({d}, {d}, {d}, 'value')", .{ id, n - id, id % 64 }), &result);
+    // Coprime modular multiplication is a bijection: identical rows/answers,
+    // different physical order. No random runtime or allocation is required.
+    var stride: usize=131071;
+    while(gcd(stride,n)!=1 or stride%n==1 or stride%n==n-1) stride+=2;
+    for (0..n) |slot| {
+        const id: usize=if(permuted) @intCast((@as(u64,slot)*stride)%n) else slot;
+        try db.execute(try sig.fmt.bufPrint(&buffer, "INSERT INTO bench VALUES ({d}, {d}, {d}, 'value')", .{ id, n - id, id % 64 }), &result);
+    }
     pk = try sig.fmt.bufPrint(&pk_buf, "SELECT id, value FROM bench WHERE id = {d}", .{n / 2});
     update = try sig.fmt.bufPrint(&update_buf, "UPDATE bench SET value = 7 WHERE id = {d}", .{n / 2});
-    try write(try sig.fmt.bufPrint(&buffer, "{{\"engine\":\"ramsql-native\",\"rows\":{d},\"backing_bytes\":{d},\"metadata_bytes\":{d},\"cell_bytes\":{d},\"version_bytes\":{d},\"query_ref_capacity\":{d},\"load_ns\":{d}}}\n", .{ n, memory.bytes.len, @sizeOf(DB), @sizeOf(DB.Cell), @sizeOf(DB.StorageVersion), db.workspace.query.refs.len, sig.os.clockMonotonicNs() - load_start }));
-    inline for (.{ Case.primary_key_hot, Case.filtered_limit, Case.sort_limit, Case.aggregate, Case.group_aggregate, Case.mixed }) |which| {
-        measure(which, n, iterations) catch |err| {
+    try write(try sig.fmt.bufPrint(&buffer, "{{\"engine\":\"ramsql-native\",\"layout\":\"{s}\",\"rows\":{d},\"backing_bytes\":{d},\"metadata_bytes\":{d},\"cell_bytes\":{d},\"version_bytes\":{d},\"query_ref_capacity\":{d},\"load_ns\":{d}}}\n", .{ if(permuted) "permuted" else "ordered", n, memory.bytes.len, @sizeOf(DB), @sizeOf(DB.Cell), @sizeOf(DB.StorageVersion), db.workspace.query.refs.len, sig.os.clockMonotonicNs() - load_start }));
+    if (load_only) return;
+    if (profile_ready) try profileReady();
+    inline for (cases) |which| {
+        if (selected == null or selected.? == which) measure(which, n, iterations) catch |err| {
             try write(try sig.fmt.bufPrint(&buffer, "{{\"engine\":\"ramsql-native\",\"case\":\"{s}\",\"rows\":{d},\"passed\":false,\"error\":\"{s}\"}}\n", .{ @tagName(which), n, @errorName(err) }));
         };
     }

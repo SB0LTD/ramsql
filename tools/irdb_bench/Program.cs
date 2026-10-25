@@ -7,6 +7,8 @@ using irdb;
 
 int n = args.Length > 0 ? int.Parse(args[0]) : 512;
 int iterations = args.Length > 1 ? int.Parse(args[1]) : n <= 512 ? 2000 : n <= 100000 ? 100 : 10;
+int minimumMs = args.Length == 4 && args[2] == "--minimum-ms" ? int.Parse(args[3]) : 0;
+if(args.Length > 2 && (args.Length != 4 || args[2] != "--minimum-ms" || minimumMs < 1)) throw new ArgumentException("invalid calibration arguments");
 const int trials = 5;
 if(n < 64 || n > 10000000 || iterations < 1) throw new ArgumentException("invalid workload");
 var load = Stopwatch.StartNew();
@@ -70,16 +72,31 @@ foreach(var (name,sql) in cases) {
   ulong expected=mixed ? unchecked(Expected("primary_key_hot",true)+Expected("filtered_limit",true)+Expected("sort_limit",true)+1) : Expected(name,false);
   ulong Run() => mixed ? unchecked(Query(cases[0].Item2)+Query(cases[1].Item2)+Query(cases[2].Item2)+Query(update,true)) : Query(sql);
   for(int warm=0;warm<10;warm++) if(Run()!=expected) throw new Exception("warmup result mismatch");
+  int count=iterations;
+  var calibration=new List<object>();
+  if(minimumMs>0) {
+   bool converged=false;
+   for(int attempt=0;attempt<8;attempt++) {
+    long began=Stopwatch.GetTimestamp();
+    for(int i=0;i<count;i++) if(Run()!=expected) throw new Exception("calibration result mismatch");
+    double elapsedNs=(Stopwatch.GetTimestamp()-began)*1e9/Stopwatch.Frequency;
+    calibration.Add(new {iterations=count,elapsed_ns=elapsedNs});
+    if(elapsedNs>=minimumMs*1e6) {converged=true;break;}
+    count=Math.Max(count+1,checked((int)Math.Ceiling(count*minimumMs*1e6/Math.Max(elapsedNs,1)*1.25)));
+    if(count>10000000) throw new Exception("calibration iteration limit");
+   }
+   if(!converged) throw new Exception("calibration did not converge");
+  }
   var samples=new List<object>();
   for(int trial=0;trial<trials;trial++) {
    ulong checksum=0;
    long start=Stopwatch.GetTimestamp();
-   for(int i=0;i<iterations;i++) {ulong answer=Run();if(answer!=expected) throw new Exception("timed result mismatch");checksum=unchecked(checksum+answer);}
+   for(int i=0;i<count;i++) {ulong answer=Run();if(answer!=expected) throw new Exception("timed result mismatch");checksum=unchecked(checksum+answer);}
    long elapsed=Stopwatch.GetTimestamp()-start;
-   long operations=(long)iterations*(mixed?4:1);
+   long operations=(long)count*(mixed?4:1);
    samples.Add(new {trial,operations,elapsed_ns=(double)elapsed*1e9/Stopwatch.Frequency,ops_per_second=operations*(double)Stopwatch.Frequency/elapsed,checksum});
   }
-  measurements.Add(new{name,sql=mixed?new[]{cases[0].Item2,cases[1].Item2,cases[2].Item2,update}:new[]{sql},passed=true,expected_digest=expected,samples});
+  measurements.Add(new{name,sql=mixed?new[]{cases[0].Item2,cases[1].Item2,cases[2].Item2,update}:new[]{sql},passed=true,expected_digest=expected,iterations=count,calibration,samples});
  } catch(Exception e) {measurements.Add(new{name,passed=false,error=e.GetType().Name+": "+e.Message});}
 }
 Console.WriteLine();

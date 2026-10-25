@@ -1,0 +1,64 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 305 of event 'cpu-clock:u'
+# Event count (approx.): 611222440
+#
+# Overhead Symbol IPC [IPC Coverage]
+#
+10.16% [.] sql.lexer.Tokenizer.next - -
+8.52% [.] main.main - -
+4.26% [.] __vdso_clock_gettime - -
+3.93% [.] postgres.Session(store.Store(sql.Database(config)).Connection).dispatch - -
+3.61% [.] sql.Database(config).statement - -
+3.28% [.] postgres.Session(store.Store(sql.Database(config)).Connection).ready - -
+2.30% [.] server.Client.flush - -
+2.30% [.] sql.binder.Binder(config).typeExpr - -
+1.97% [.] clock_gettime - -
+1.97% [.] sql.Database(config).publishCommit - -
+1.97% [.] sql.binder.Binder(config).bind - -
+1.97% [.] sql.expr.Eval(config).eval - -
+1.97% [.] sql.parser.Parser(config).expression - -
+1.97% [.] sql.parser.Parser(config).primary - -
+1.97% [.] sql.storage.Storage(config).lookupKeyAt - -
+1.97% [.] store.Store(sql.Database(config)).Connection.execute - -
+1.64% [.] postgres.Session(store.Store(sql.Database(config)).Connection).commandFor - -
+1.64% [.] postgres.Session(store.Store(sql.Database(config)).Connection).execute - -
+1.64% [.] postgres.Session(store.Store(sql.Database(config)).Connection).handle - -
+1.64% [.] postgres.word - -
+1.64% [.] sql.Database(config).control - -
+1.64% [.] sql.binder.Binder(config).resolveColumn - -
+1.64% [.] sql.catalog.Catalog(config).find - -
+1.64% [.] sql.parser.Parser(config).setPrimary - -
+1.64% [.] 0x0000000000188a91 - -
+1.31% [.] postgres.Session(store.Store(sql.Database(config)).Connection).description - -
+1.31% [.] server.pollInterrupts - -
+1.31% [.] sql.Database(config).lockTable - -
+1.31% [.] 0x0000000000188ad9 - -
+1.31% [.] 0x0000000000188d87 - -
+0.98% [.] postgres.Session(store.Store(sql.Database(config)).Connection).rows - -
+0.98% [.] server.acceptConnections - -
+0.98% [.] sql.lexer.reserved - -
+0.98% [.] sql.parser.Parser(config).multiplicative - -
+0.98% [.] sql.parser.Parser(config).notExpr - -
+0.98% [.] sql.parser.Parser(config).other - -
+0.98% [.] sql.parser.Parser(config).query - -
+0.98% [.] store.Store(sql.Database(config)).Connection.db - -
+0.98% [.] 0x0000000000188a84 - -
+0.98% [.] 0x0000000000188c33 - -
+0.66% [.] memcpy@plt - -
+0.66% [.] server.pollOverflowCancels - -
+0.66% [.] sql.binder.Binder(config).bindWhere - -
+0.66% [.] sql.binder.Binder(config).primaryKey - -
+0.66% [.] sql.binder.Binder(config).viewOf - -
+0.66% [.] sql.expr.Eval(config).truth - -
+0.66% [.] store.Store(sql.Database(config)).Connection.pollExecution - -
+0.66% [.] store.Store(sql.Database(config)).Connection.run - -
+0.66% [.] 0x0000000000188c4a - -
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

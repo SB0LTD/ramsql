@@ -1,0 +1,4 @@
+Events disabled
+Events enabled
+[ perf record: Woken up 96 times to write data ]
+[ perf record: Captured and wrote 23.677 MB /home/sb/.cache/ramsql-profiling/word-hash/group_aggregate/perf.data (2938 samples) ]

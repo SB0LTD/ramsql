@@ -1,0 +1,1 @@
+{"suite": "runtime-capacity", "pass": true, "rows": 2048, "durable_restart": true, "offline_restore": true, "small_budget_fail_closed": true, "artifacts": "/mnt/c/Just-Things/Projects/sb0/ramsql/.sig-cache/runtime-capacity-adc01404784242e08c8e9624681b949f"}

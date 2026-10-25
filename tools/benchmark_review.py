@@ -8,6 +8,7 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import platform
@@ -130,8 +131,10 @@ def native_measure(binary,n,iterations,log):
     return {"engine":"ramsql-native","boundary":"in-process public API","durability":"volatile memory",**metadata[0],"wall_seconds":wall,"measurements":measurements}
 
 
-def irdb_measure(dotnet,dll,n,iterations,log):
-    raw,wall=run_process([dotnet,dll,n,iterations],log)
+def irdb_measure(dotnet,dll,n,iterations,log,minimum_ms=0):
+    command=[dotnet,dll,n,iterations]
+    if minimum_ms: command += ["--minimum-ms",minimum_ms]
+    raw,wall=run_process(command,log)
     records=[json.loads(line) for line in raw.splitlines() if line.startswith("{")]
     assert len(records)==1,"missing IRDB report"
     result=records[0]
@@ -139,13 +142,14 @@ def irdb_measure(dotnet,dll,n,iterations,log):
     assert len(result["measurements"])==len(CASES) and {x["name"] for x in result["measurements"]}==set(CASES)
     for case in result["measurements"]:
         if case["passed"]:
-            wanted=validate_samples(case["name"],case["samples"],n,iterations)
+            count=case["iterations"] if minimum_ms else iterations
+            wanted=validate_samples(case["name"],case["samples"],n,count)
             assert case["expected_digest"]==wanted,"IRDB model differs"
     result["wall_seconds"]=wall
     return result
 
 
-def wire_measure(psycopg,arguments,n,iterations,engine,unlogged=False):
+def wire_measure(psycopg,arguments,n,iterations,engine,unlogged=False,minimum_ms=0):
     with psycopg.connect(**arguments) as connection:
         connection.execute("SET statement_timeout = 30000",prepare=False)
         if unlogged: connection.execute("SET synchronous_commit = off",prepare=False)
@@ -173,18 +177,30 @@ def wire_measure(psycopg,arguments,n,iterations,engine,unlogged=False):
                 def one():
                     return sum(request(i) for i in (0,1,2,5))&MASK if changed else request(CASES.index(name))
                 for _ in range(10): assert one()==wanted,"warmup differs from model"
+                count=iterations
+                calibration=[]
+                if minimum_ms:
+                    for _ in range(8):
+                        began=time.perf_counter_ns()
+                        for _ in range(count): assert one()==wanted,"calibration differs from model"
+                        elapsed=time.perf_counter_ns()-began
+                        calibration.append({"iterations":count,"elapsed_ns":elapsed})
+                        if elapsed>=minimum_ms*1000000: break
+                        count=max(count+1,math.ceil(count*minimum_ms*1000000/max(elapsed,1)*1.25))
+                        assert count<=10000000,"calibration iteration limit"
+                    else: raise RuntimeError("calibration did not converge")
                 samples=[]
                 for trial in range(5):
                     checksum=0
                     began=time.perf_counter_ns()
-                    for _ in range(iterations):
+                    for _ in range(count):
                         answer=one()
                         assert answer==wanted,"timed answer differs from model"
                         checksum=(checksum+answer)&MASK
                     elapsed=time.perf_counter_ns()-began
-                    samples.append({"trial":trial,"operations":iterations*(4 if changed else 1),"elapsed_ns":elapsed,"checksum":checksum})
-                validate_samples(name,samples,n,iterations)
-                measurements.append({"name":name,"passed":True,"samples":samples})
+                    samples.append({"trial":trial,"operations":count*(4 if changed else 1),"elapsed_ns":elapsed,"checksum":checksum})
+                validate_samples(name,samples,n,count)
+                measurements.append({"name":name,"passed":True,"iterations":count,"calibration":calibration,"samples":samples})
             except Exception as error:
                 measurements.append({"name":name,"passed":False,"error":type(error).__name__+": "+str(error)[:1000],"sqlstate":getattr(error,"sqlstate",None)})
         return {"engine":engine,"rows":n,"boundary":"loopback PostgreSQL simple query via psycopg; fetch and digest included","durability":"unlogged table, synchronous_commit=off" if unlogged else "RAMSQL --memory; no durable commit flush","load_seconds":loaded,"measurements":measurements}

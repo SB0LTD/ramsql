@@ -1,0 +1,17 @@
+{
+  "mode": "read",
+  "iterations": 100000,
+  "rows": 64,
+  "passed": true,
+  "event": "cpu-clock:u",
+  "frequency": 499,
+  "os": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "binary_sha256": "837a9cf3d71d5b0a3a95a0988db2a26d8933982ef206aae422f01c6674c4b542",
+  "dependency_manifest": ".{\n    .name = .@\"ramsql\",\n    .version = \"0.3.0-alpha.4\",\n    .fingerprint = 0x0,\n    .dependencies = .{\n        .zpm = .{\n            .url = \"https://github.com/SB0LTD/zpm/archive/c3a00ab039259e9834e01f04dc91c3107a0484fe.tar.gz\",\n            .hash = \"8044e0493be351256db1a1718fbd6f749bd6c4e27de7c33090874287e21bd06b\",\n        },\n    },\n    .paths = .{\n        \"build.sig\",\n        \"build.sig.zon\",\n        \"src\",\n        \"zpm.pkg.zon\", \"tests\", \"examples\", \"README.md\", \"LICENSE\", \"AGENTS.md\", \"tools\", \"compatibility\", \"benchmarks\",\n    },\n}\n",
+  "started_unix": 1792965662.1141133,
+  "profiled_request_wall_ns": 8141880099,
+  "server_user_system_cpu_seconds": 3.15,
+  "control_directory": "/tmp/ramsql-server-perf-3yai0ebx",
+  "reopen_verified": false,
+  "scope": "Owned server user-CPU samples after seed; one psycopg client, simple protocol; no TLS/SCRAM; profiler overhead included. Wall minus CPU includes client/network/scheduling/waits and is not attributed to fsync. Process-crash reopen is not a power-loss test."
+}

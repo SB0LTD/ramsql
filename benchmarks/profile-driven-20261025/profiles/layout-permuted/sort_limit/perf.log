@@ -1,0 +1,4 @@
+Events disabled
+Events enabled
+[ perf record: Woken up 112 times to write data ]
+[ perf record: Captured and wrote 27.544 MB /home/sb/.cache/ramsql-profiling/layout-permuted/sort_limit/perf.data (3418 samples) ]

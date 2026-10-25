@@ -1,0 +1,30 @@
+{
+  "final_zpm": "c3a00ab039259e9834e01f04dc91c3107a0484fe",
+  "archive_sha256": "8044e0493be351256db1a1718fbd6f749bd6c4e27de7c33090874287e21bd06b",
+  "sig": "0.6.4",
+  "compiler": "0.17.0.90a898d",
+  "optimization": "ReleaseFast",
+  "source_sha256": {
+    "src/review_benchmark.sig": "6f7833b355e2e9c15cfeff7ed8adb2c68bbf53969f17a0275f83ec18fdb526f1",
+    "tools/compare_native.py": "794e6faa5e815161cff0863197f38ba2dbc7e956963b52351737aa94003947dc",
+    "tools/compare_wire.py": "340cf9d2dfac058e3ce6e44c8952540111b109537bceb2f1de79dee17d44e9a4",
+    "tools/profile_cpu.py": "fb38c06bba9705fdcba48a172f8f2267fd7815a5cf7ff3f78c272fd71bbb6c03",
+    "tools/profile_server_cpu.py": "486c612bee94090217dfc1213437f32822c9e5fbc05a68985b6cb95f9cb7c7bf",
+    "tools/profile_reports.py": "de45265fcf64e49c2aba721d27daee3778a215b4a54d2c009d0714d2f8ace430",
+    "tools/benchmark_review.py": "e79db0aa00768ba963f44493a6bc646cec8f347ddc6246aeb2a2b3c9d32d9c02",
+    "tools/irdb_bench/Program.cs": "f2a246dffc14a5e492947744f6211a9a746c3a1899a5ca8f40ff0e5a66d942c7",
+    "tools/irdb_bench/packages.lock.json": "e334183e2aa920b896e79cbe831579ff22b838f1b1df3024ec8fc523f4c794ee",
+    "build.sig.zon": "9d2065360d53edcd6aec9c748e23b86f4c80bcaa7f38ec5079f0f8fa3181879a",
+    "build.sig": "fc25a43a05b52082f1e99fcd0d491bec7f28880a4b8138023e9a48404712d535"
+  },
+  "binaries": {
+    "ramsql": {
+      "path": "/home/sb/.cache/ramsql-qualification/profile-lazy/bin/ramsql",
+      "sha256": "837a9cf3d71d5b0a3a95a0988db2a26d8933982ef206aae422f01c6674c4b542"
+    },
+    "ramsql-review-bench": {
+      "path": "/home/sb/.cache/ramsql-qualification/profile-lazy/bin/ramsql-review-bench",
+      "sha256": "20cc9c5eae17fef01e60d0b8397b9635f758d79a6fee452aa55ea6722338daed"
+    }
+  }
+}
