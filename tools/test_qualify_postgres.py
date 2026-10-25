@@ -97,6 +97,17 @@ class QualificationContracts(unittest.TestCase):
         self.assertEqual(docker.call_args_list[:2], [call("kill", "--signal=KILL", "test-owned-id"), call("start", "test-owned-id")])
         self.assertEqual(connection["port"], 9876)
 
+    def test_reference_survives_kill_and_is_removed_only_on_context_exit(self):
+        from test_postgres_compat import native_postgres
+        inspection = '[{"Id":"sha256:test", "RepoDigests":[]}]'
+        with patch("test_postgres_compat.docker", side_effect=[inspection, "test-owned-id", "127.0.0.1:9876"]) as docker, \
+                patch("test_postgres_compat.subprocess.run") as cleanup:
+            with native_postgres("pinned-test-image", MagicMock()):
+                run = docker.call_args_list[1].args
+                self.assertNotIn("--rm", run)
+                cleanup.assert_not_called()
+            self.assertEqual(cleanup.call_args.args[0], ["docker", "rm", "--force", "--volumes", "test-owned-id"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

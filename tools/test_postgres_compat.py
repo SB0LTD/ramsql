@@ -186,7 +186,9 @@ def native_postgres(image, psycopg, *, binary_directory=None, work_directory=Non
         # Pass only the environment variable NAME on the command line, so the
         # generated password never appears in process arguments or the report.
         container = docker(
-            "run", "--detach", "--rm", "--name", name,
+            # Keep the owned container across SIGKILL/start crash tests. The
+            # finally block always removes this exact ID and its volume.
+            "run", "--detach", "--name", name,
             "--publish", "127.0.0.1::5432",
             "--env", "POSTGRES_PASSWORD", "--env", "POSTGRES_USER=ramsql",
             "--env", "POSTGRES_DB=ramsql",
