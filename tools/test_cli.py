@@ -39,7 +39,7 @@ def main():
         unknown = run(arguments, "")
         assert unknown.returncode == 2, (arguments, unknown.returncode, unknown.stderr)
 
-    for invalid in (["--port"], ["--port", "65536"], ["--protocol", "oracle"], ["--max-clients", "0"], ["--max-clients", "61"], ["--idle-ms", "0"], ["--max-query-work"], ["--max-query-work", "-1"], ["--max-query-work", "18446744073709551616"], ["--demo", "--port", "0"]):
+    for invalid in (["--port"], ["--port", "65536"], ["--protocol", "oracle"], ["--max-clients", "0"], ["--max-clients", "61"], ["--idle-ms", "0"], ["--rows"], ["--rows", "0"], ["--rows", "18446744073709551615"], ["--versions"], ["--versions", "1"], ["--max-query-work"], ["--max-query-work", "-1"], ["--max-query-work", "18446744073709551616"], ["--demo", "--port", "0"]):
         bad = run(invalid)
         assert bad.returncode == 2, (invalid, bad.returncode, bad.stderr)
     demo = run(["--demo"])

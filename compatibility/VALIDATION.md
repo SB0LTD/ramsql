@@ -99,3 +99,27 @@ the lifecycle suite; these cases are part of every hosted CI/release-artifact ru
 ZPM store tests also cancel after private versions have been created and use a
 fake live clock to make deadline/rollback checks deterministic. See
 [execution controls](EXECUTION_CONTROL.md) for limits.
+
+## Alpha.4 runtime capacity and IRDB comparison candidate
+
+ZPM commit `20dea8b148d68cb5894c32dc9cb2d48f09fba00b` adds optional external
+row/version/index buffers, independent query reference storage, checked binding
+and copying, actual-capacity recovery validation and bounded stable top-K.
+Linux SQL/database contracts pass; focused Windows contracts cover 100,000 rows,
+copy/index masks, invalid layouts and replay beyond the compiled inline profile.
+Database-platform CI passed on Linux, macOS and Windows. The unrelated legacy
+Sig 0.5.9 root CI still fails the same four historical targets.
+
+The hosted candidate exposes `--rows` / `--versions`. Required
+`tools/test_capacity.py` inserts 2,048 rows, verifies ordering, reopens durable
+state, rejects too-small recovery capacity without modifying the source WAL,
+and verifies an offline restore. It is included in hosted CI and exact-artifact
+runtime evidence. Windows execution passed locally; full RAMSQL candidate matrix
+qualification remains required before release.
+
+The [IRDB comparison pack](../benchmarks/irdb-review-20261025/REPORT.md) uses
+IRDB 1.10.821 with its public id clustered index and records one million stored
+rows in the candidate. The aggregate support/correctness flag is false because
+large grouped queries hit WorkspaceCapacity. Native-API and server/client
+boundaries are separate. No production, all-workload or universal efficiency
+claim follows from the selected small-data wins.

@@ -76,6 +76,9 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     var wall_clock_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
     const wall_clock_path = try zpm.modulePath("src/platform/wall_clock.sig", &wall_clock_buf);
     _ = try ctx.addModule("wall_clock", wall_clock_path);
+    var pages_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    const pages_path = try zpm.modulePath("src/platform/page_region.sig", &pages_buf);
+    _ = try ctx.addModule("page_region", pages_path);
     const pg_module = try ctx.addModule("postgres", pg_path);
     try ctx.addImport(pg_module, "scram", scram_path);
     const clients = ctx.option(usize, "clients", "Preallocated connection slots (1..60)") orelse 16;
@@ -122,6 +125,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
             importEntry("entropy", entropy_path),
             importEntry("wall_clock", wall_clock_path),
             importEntry("profile", profile_path),
+            importEntry("page_region", pages_path),
         },
         .compiler_path = "",
     });
@@ -197,6 +201,13 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
         .imports = &.{ importEntry("sql", sql_path), importEntry("sig", runtime_path) },
         .compiler_path = "",
     });
+    const review_bench = try ctx.addCompileStep(.{
+        .source_path = "src/review_benchmark.sig", .output_name = "ramsql-review-bench",
+        .cache_dir = ctx.cache_dir[0..ctx.cache_dir_len], .optimize = ctx.optimize,
+        .target = null, .imports = &.{ importEntry("sql", sql_path), importEntry("sig", runtime_path), importEntry("page_region", pages_path) }, .compiler_path = "",
+    });
+    const review_step = try ctx.addStep("benchmark-review", "ramsql-review-bench", &runBinary);
+    try ctx.addDependency(review_step, review_bench);
     const benchmark = try ctx.addStep("benchmark", "ramsql-bench", &runBinary);
     try ctx.addDependency(benchmark, bench);
     var test_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;

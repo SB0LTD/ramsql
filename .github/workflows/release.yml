@@ -354,11 +354,14 @@ jobs:
         run: python tools/test_auth.py
       - name: Test synchronous durability, corruption and crash recovery
         run: python tools/test_persistence.py
+
+      - name: Require runtime row capacity and durable restore beyond the inline profile
+        run: python tools/test_capacity.py
       - name: Bind passed runtime tests to exact archive and binary hashes
         run: |
           python tools/package_release.py runtime-report --verification .sig-cache/verified-artifact.json `
             --report "runtime-evidence/runtime-$env:TARGET_SLUG.json" `
-            --tests tools/test_cli.py tools/test_server.py tools/test_clients.py tools/test_auth.py tools/test_persistence.py
+            --tests tools/test_cli.py tools/test_server.py tools/test_clients.py tools/test_auth.py tools/test_persistence.py tools/test_capacity.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         with:

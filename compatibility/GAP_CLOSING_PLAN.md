@@ -92,7 +92,7 @@ fresh qualification before publishing alpha.3; production gates remain unchanged
 | --- | --- | --- |
 | Connection slots | 16 by default; compiled hosted profile currently capped at 60 | Ordinary connection pools can exhaust the server. |
 | Tables / columns | 8 tables; 8 columns per table in the server | Normal schemas exceed this immediately. |
-| Rows | 512 per table by default | Small demonstrations fit; real datasets do not. |
+| Rows | Published alpha.3 defaults to 512 per table; alpha.4 candidate adds runtime `--rows` / `--versions` backed by caller-owned buffers | The candidate removes the compiled row-array ceiling, but compact values, shared page budgets and streaming remain open. |
 | Text | 128 bytes per value by default | Common names, documents and JSON exceed it. |
 | Identifiers | 63 bytes in the server, ASCII and case-insensitive | Quoted names, schemas and name semantics are incomplete. |
 | Transaction SQL log | 1 MiB per connection by default | Larger write transactions fail. |
@@ -163,6 +163,15 @@ cannot close C02 or the production compatibility gate.
 ### S01 — Replace dense database-shaped storage and transaction copies
 
 **Status:** Partial (flag F-S01). Stable rowids, row versions in a fixed per-table arena, a multi-entry PK index and reclamation are implemented, and per-connection database copies are gone (one shared store). There is still no variable-length value store or caller-owned pages: cells stay inline at `text_bytes` and the version arena is preallocated at 2 × rows. [Evidence](#gap-closing-run-evidence-24-october-2026).
+**Alpha.4 candidate progress:** optional external row/version/index buffers,
+runtime index masks/capacities and separately bound reference workspace now exist
+in ZPM. A compiled four-row inline profile passes a 100,000-row test. RAMSQL
+binds hosted OS page regions through `--rows` / `--versions`; a 2,048-row Windows
+WAL restart and offline restore pass. Recovery validates actual bound capacity and
+sizes its per-record overlay from the transaction write budget. These changes
+are under qualification; published alpha.3 is unchanged. Inline cell/text storage,
+equal per-table reservations and materialized results still block efficient scale.
+
 **Owner:** ZPM storage/SQL/store; RAMSQL configures resource budgets.
 
 Per-connection database copies have been removed. Remaining storage uses fixed
@@ -182,7 +191,7 @@ within a configured RAM budget, with no runtime heap allocation or atomicity reg
 
 ### S02 — Add useful indexes and scalable execution algorithms
 
-**Status:** Partial (flag F-S02, unchanged). Only the PK hash index exists; insertion sort was replaced by a stable merge sort and statement-bounded workspaces. **Owner:** ZPM SQL/planner/index packages.
+**Status:** Partial (flag F-S02). The alpha.4 candidate adds stable bounded top-K selection for eligible column ORDER BY/LIMIT and direct cell comparisons. Merge sort and full lock-row behavior remain where pruning is ineligible. Only the PK hash index exists; secondary/ordered indexes, hash joins and streaming/vectorized aggregates remain open. **Owner:** ZPM SQL/planner/index packages.
 
 Only a single-column primary-key hash index exists. Other filters scan rows;
 sorting now uses stable merge sort, joins use nested loops and general queries
@@ -1041,3 +1050,30 @@ version rather than an unversioned moving target.
 - [PostgreSQL backup and restore](https://www.postgresql.org/docs/18/backup.html): logical/file backup, archiving and point-in-time recovery expectations.
 - [PostgreSQL regression tests](https://www.postgresql.org/docs/18/regress.html): broader SQL/TAP coverage and evaluation discipline.
 - [PostgreSQL pgbench](https://www.postgresql.org/docs/18/pgbench.html): reference benchmark tooling; running it successfully is itself a compatibility requirement to test.
+
+## Latest comparative evidence — 25 October 2026, alpha.4 candidate
+
+[IRDB 1.10.821 comparison pack](../benchmarks/irdb-review-20261025/REPORT.md)
+contains three dataset sizes through one million rows, raw trials, verified result
+digests and exact package/binary/source identities. IRDB's table is compiled and
+its id clustered index is enabled. Native API and server/client tables are
+separate. The candidate does not pass the overall workload-support gate.
+
+The measured blockers determine the next engineering work:
+
+1. **Streaming/hash aggregation:** grouped aggregation with only 64 groups fails
+   at 100,000 and 1,000,000 input rows. Workspace must follow group state rather
+   than materializing one key/cell set per input row.
+2. **Ordered/secondary indexes and planning:** the filtered ordered read scans
+   the entire RAMSQL table while PostgreSQL can use an ordered access path.
+   Index maintenance must preserve MVCC, rollback and recovery correctness.
+3. **Compact page/value storage and vectorized scans:** million-row aggregate
+   and sort costs remain behind IRDB. External typed buffers remove the compiled
+   row-array ceiling but retain inline cells and equal per-table reservations.
+4. **Streaming results and byte-based session/resource budgets:** fixed text,
+   schema, packet, result and connection limits are still production blockers.
+5. **Scheduling and safe durable batching:** volatile-memory comparisons do not
+   close the earlier concurrent durable-write gap or lifecycle requirements.
+
+Do not mark production or efficiency gates passed merely because a million rows
+can now be inserted or because the selected 512-row workloads favor RAMSQL.

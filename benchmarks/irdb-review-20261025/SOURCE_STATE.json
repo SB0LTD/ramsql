@@ -1,0 +1,19 @@
+{
+  "candidate": "0.3.0-alpha.4-unreleased",
+  "sig": "sig-0.6.4-zig0.17.0.90a898d",
+  "optimize": "ReleaseFast",
+  "zpm_commit": "20dea8b148d68cb5894c32dc9cb2d48f09fba00b",
+  "zpm_archive_sha256": "f666d38e7cd1cb58fc9eebca6b87901fc6a0117a44dc53321d0b5095e462cebd",
+  "source_sha256": {
+    "build.sig": "11dc0fbcb26cd4d967438313b993954778e525dda835e15e7598123321343b60",
+    "build.sig.zon": "c5bbb7ee6ed1ad31aea60c52e757a2fbc934ffd4c0f8544579d5259e66b63350",
+    "src/main.sig": "0ec56f55d8661f03681230459b58d572d964330b3a96eaac5ed2dd19614204d0",
+    "src/root.sig": "3e5b16123bfb78cb09c3c577caf4284aa56e7c14dd044bd1b0c368e5d03b4b8d",
+    "src/server.sig": "6ad915e9757911c60d198053224e288e2627aeb342ff472f448085be92f42c5c",
+    "src/review_benchmark.sig": "44a5f7ffb2743d57fe5cbf8cac30965e1226ad100f80d9b43aa963bbbc7e2389",
+    "tools/benchmark_review.py": "78b8c40d561384948f2e5e8d2fc5c4605c0c39397dbeccf3977266f1fd6b24d9",
+    "tools/irdb_bench/Program.cs": "8318a95a70d7cac7495c188304d29cbe289760096122a235285fda735a46f55d",
+    "tools/irdb_bench/IrdbBench.csproj": "27344b0711d625adabf6d89d4a8839a7b6a74fd9fa16aec4aabd4f2f37348d77",
+    "tools/irdb_bench/packages.lock.json": "e334183e2aa920b896e79cbe831579ff22b838f1b1df3024ec8fc523f4c794ee"
+  }
+}

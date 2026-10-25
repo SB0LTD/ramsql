@@ -23,7 +23,7 @@ from release_matrix import ROOT, SIG_ASSET, SIG_SHA256, SIG_TAG, TARGETS, NATIVE
 from qualify_postgres import validate_bundle as validate_qualification_bundle
 
 HOSTED_RUNTIME_TESTS = ["tools/test_cli.py", "tools/test_server.py", "tools/test_clients.py",
-                        "tools/test_auth.py", "tools/test_persistence.py"]
+                        "tools/test_auth.py", "tools/test_persistence.py", "tools/test_capacity.py"]
 
 
 def sha256(data: bytes) -> str:

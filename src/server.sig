@@ -28,6 +28,7 @@ const tds = @import("tds");
 const stores = @import("db_store");
 const wall_clock = @import("wall_clock");
 const timezones = @import("timezones.sig");
+const pages = @import("page_region");
 
 pub const Protocol = enum { postgres, mysql, mssql };
 pub const Options = struct {
@@ -44,6 +45,9 @@ pub const Options = struct {
     idle_ms: u32 = 30000,
     /// Execution checkpoints per statement; zero disables the work limit.
     max_query_work: u64 = 0,
+    /// Runtime storage budget, independent of result/query workspace sizes.
+    storage_rows: usize = profile.rows,
+    storage_versions: ?usize = null,
     /// zoneinfo directory for named time zones (null: UTC, offsets and
     /// POSIX TZ strings only).
     timezone_dir: ?[]const u8 = default_timezone_dir,
@@ -53,6 +57,7 @@ pub const default_timezone_dir: ?[]const u8 = if (@import("builtin").os.tag == .
 // set Store.Connection.dialect themselves; PostgreSQL keeps the default.
 // Every client plus two spare slots can hold a transaction at once.
 const Raw = sql.Database(.{
+    .external_storage = true,
     .tables = profile.tables,
     .columns = 8,
     .rows_per_table = profile.rows,
@@ -371,9 +376,22 @@ fn acceptConnections(listener: tcp.Socket, protocol: Protocol, max_clients: usiz
     }
 }
 
+fn openStorage(options: Options) !pages.Region {
+    if (options.storage_rows == 0 or options.storage_rows > 0x3fffffff) return error.InvalidServerOptions;
+    const version_count = options.storage_versions orelse if (options.storage_rows == profile.rows) profile.versions else options.storage_rows * 2;
+    if (version_count <= options.storage_rows or version_count > 0x7fffffff) return error.InvalidServerOptions;
+    const ref_count = @max(options.storage_rows * 4, profile.work_rows * 32);
+    var backing = try pages.reserve(try Raw.backingBytes(options.storage_rows, version_count, ref_count));
+    errdefer backing.close();
+    try store.database.bindMemory(backing.bytes, options.storage_rows, version_count, ref_count);
+    return backing;
+}
+
 pub fn run(options: Options) !void {
     if (options.max_clients == 0 or options.max_clients > capacity or options.idle_ms == 0) return error.InvalidServerOptions;
     for (&clients) |*client| client.socket = tcp.invalid_socket;
+    var backing = try openStorage(options);
+    defer backing.close();
     if (wall_clock.available) store.wall_clock = &wallClock;
     store.monotonic_clock = &monotonicClock;
     store.max_query_work = options.max_query_work;
@@ -532,6 +550,8 @@ pub fn run(options: Options) !void {
 /// Offline backup validates/replays the existing source before publishing a copy.
 pub fn backup(options: Options, target: []const u8) !void {
     if (options.memory) return error.InvalidServerOptions;
+    var backing = try openStorage(options);
+    defer backing.close();
     _ = try persistence.initExisting(options.data, &store, &recovery_buffer);
     defer persistence.close();
     try @import("backup.sig").create(&persistence.file, target, &recovery_buffer);

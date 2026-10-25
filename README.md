@@ -53,6 +53,13 @@ committed changes; recovery needs capacity for historical states and transaction
 Back up using the offline command below, and test restoration before relying on it.
 
 `--port 0` chooses an ephemeral port and prints the actual listener address.
+The alpha.4 candidate adds hosted `--rows N` and `--versions N` runtime storage
+budgets. They bind caller-owned OS page buffers rather than changing the binary's
+row-array type. The default remains the build profile; result, query workspace,
+text, column and session budgets remain separate. This is a capacity foundation,
+not completion of the compact-storage or production-scale work. A larger WAL must
+be reopened/restored with adequate runtime row/version budgets.
+
 `--max-clients N` selects active connections within the compiled profile;
 `--idle-ms N` controls expiry (30,000 ms default).
 `--max-query-work N` caps execution checkpoints per statement (0 disables the
@@ -493,3 +500,15 @@ same pinned source. Executable compiler regressions and the PostgreSQL QEMU
 sessions must pass before packaging. Provenance records both compiler identities
 and the source revision. For local native builds, set `SIG` and `SIG_LIB_DIR` to
 that compiler and its matching library before running the commands above.
+
+### IRDB comparison and scale evidence (alpha.4 candidate)
+
+The [25 October comparison pack](benchmarks/irdb-review-20261025/REPORT.md)
+contains latest-verified IRDB 1.10.821 results, with a compiled table and clustered
+id index, plus separate PostgreSQL/RAMSQL server-client measurements at 512,
+100,000 and 1,000,000 rows. Sources, hashes, raw trials and checksums are retained.
+The candidate stores one million rows with runtime buffers, but it does not meet
+the production/performance target: large grouped aggregation is capacity-blocked,
+and other large scans/aggregates still lose. The remaining text/schema/session
+and streaming limits are explicitly open. These new workloads do not reproduce
+the reviewer's unavailable alpha.2 scripts.
