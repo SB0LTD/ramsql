@@ -46,8 +46,11 @@ path immediately so volatile evaluation cannot repeat. The 350-group/seven-
 aggregate regression and a nextval WHERE test preserve old capacity and prove
 one sequence evaluation per source row. The contract now has **1,197 assertions**.
 All six Linux/Windows live suites and local PG16 durable+SCRAM 37/37 probes also
-pass against this hardened pin. Full Linux SQL/database revalidation and fresh
-benchmark capture are in progress; earlier results below remain identified with
+pass against this hardened pin. Full Linux SQL/database revalidation also passes,
+including the expanded 1,197-assertion contract. The
+[hardened-pin benchmark pack](../benchmarks/streaming-budget-20261025/REPORT.md)
+retains its own fresh baseline, raw native/IRDB trials, exact source hashes and
+same-binary PG16 durable report. Earlier results below remain identified with
 their original streaming pin.
 
 ### Evidence
@@ -80,7 +83,18 @@ their original streaming pin.
 - A default-small-profile compile-time overflow in WAL scratch size inference was
   discovered by the new contract and fixed by making the intermediate a `usize`.
 
-### Measured benchmark follow-up
+### Current measured benchmark
+
+The hardened pin passes all selected cases at all three sizes. Its fresh
+million-row native scalar aggregate rises from **39 to 72 ops/s**, while the
+64-group query changes from WorkspaceCapacity to **31 ops/s**. Group scratch
+remains 512 Cells/1,460 references. IRDB leads at 542/478 scalar/group ops/s;
+PostgreSQL leads the filtered ordered wire read at 3,721 versus 31 ops/s.
+These final-pin results supersede earlier numbers for the current integration;
+all captures remain available. Performance variation on unchanged workloads
+prevents attributing small differences to this patch without more controlled runs.
+
+### Earlier streaming benchmark
 
 The [initial streaming benchmark pack](../benchmarks/streaming-aggregation-20261025/REPORT.md),
 using dependency `de897ae55a0e5678c7d8811b161457fefc2f7cc9`,

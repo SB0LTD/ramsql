@@ -509,9 +509,9 @@ id index, plus separate PostgreSQL/RAMSQL server-client measurements at 512,
 100,000 and 1,000,000 rows. Sources, hashes, raw trials and checksums are retained.
 That earlier candidate stores one million rows with runtime buffers but its
 large grouped aggregation is capacity-blocked. The
-[streaming aggregation follow-up](benchmarks/streaming-aggregation-20261025/REPORT.md)
+[capacity-safe streaming follow-up](benchmarks/streaming-budget-20261025/REPORT.md)
 now completes those selected cases with group-sized scratch; million-row native
-COUNT/SUM improves about 2.2x in a fresh before/after run. IRDB still leads the
+COUNT/SUM improves from 39 to 72 ops/s in its fresh before/after run. IRDB still leads the
 large aggregate tests and PostgreSQL still leads filtered ordered reads. The
 production/performance target and remaining text/schema/session, compact-storage
 and streaming gaps stay open; see the

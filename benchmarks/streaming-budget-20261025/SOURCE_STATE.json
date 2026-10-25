@@ -1,0 +1,9 @@
+{
+  "ramsql_commit": "8ac8d74a4f60b1695308f14eed3a6d389dfb8fed",
+  "zpm_commit": "d99db721beb3ca4f43d7941685a6973f0e608884",
+  "zpm_archive_sha256": "b3d47bf983deaa1de01d8bb5a007f39f0d3de35e27759578d7b11b532c3db013",
+  "compiled_dependency_source": "immutable archive cache paths and hashes in results.json",
+  "before_binary_sha256": "c7a84680c11ebb3d0fc381d4a1728a8478b3502e8b6c9da3539361867b274998",
+  "before_identity_evidence": "../irdb-review-20261025/results.json binaries.native.sha256",
+  "note": "Fresh sequential preserved-binary baseline followed by full comparison. No local builds or validation ran during timing. Reports added after build; no runtime source changed during timing."
+}
