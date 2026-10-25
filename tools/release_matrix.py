@@ -12,9 +12,15 @@ from pathlib import Path
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
-SIG_TAG = "sig-0.6.3-zig0.17.0.ac9b716"
-SIG_ASSET = "sig-0.6.3-zig0.17.0.ac9b716-x86_64-linux.tar.xz"
-SIG_SHA256 = "e1c1560fc7be0d6b1a0b04ffbdbc899023d64ded0bf65a654f61ffbbc9200277"
+SIG_TAG = "sig-0.6.4-zig0.17.0.90a898d"
+SIG_ASSET = SIG_TAG + "-x86_64-linux.tar.xz"
+SIG_SHA256 = "8dd32622531b5f81dbb12502c78e187141dd42ea3553f4d9e2c09c3e82d64a89"
+COMPILER_HOSTS = {
+    "Linux/X64": ("x86_64-linux.tar.xz", SIG_SHA256),
+    "Linux/ARM64": ("aarch64-linux.tar.xz", "5b1d4e2e748a362f1379a3f5a597b9bb9d401505bcb7b506503fa73226d1d001"),
+    "macOS/ARM64": ("aarch64-macos.tar.xz", "75ae868e63b6a90ffd3e282f410b18e5098ea87d02cbdc0fd95224f5e922491f"),
+    "Windows/X64": ("x86_64-windows.zip", "49fc99ac20af7841a5b686c68a8720515deda9c28dcad0cb9191fa0de30e33a0"),
+}
 # Full source pin for the native compiler candidate. Database and loader QEMU
 # probes must pass before it can produce a release bundle; never use a branch.
 NATIVE_SIG_REVISION = "90a898dcbe088455f07449b7de1feaea763c42a0"
@@ -44,6 +50,11 @@ def target(slug: str) -> dict:
         if entry["slug"] == slug:
             return dict(entry)
     raise ValueError(f"unknown release target: {slug}")
+
+
+def compiler_host(host: str) -> dict:
+    suffix, digest = COMPILER_HOSTS[host]
+    return {"tag": SIG_TAG, "asset": SIG_TAG + "-" + suffix, "sha256": digest}
 
 
 def source_version(root: Path = ROOT) -> str:
@@ -77,7 +88,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tag")
     parser.add_argument("--github-output", type=Path)
+    parser.add_argument("--compiler-host", choices=COMPILER_HOSTS)
     args = parser.parse_args()
+    if args.compiler_host:
+        print(json.dumps(compiler_host(args.compiler_host)))
+        return
     data = metadata(args.tag)
     if args.github_output:
         with args.github_output.open("a", encoding="utf-8", newline="\n") as output:

@@ -7,14 +7,14 @@ listeners use the same bounded database.
 **Development version. Production PostgreSQL drop-in compatibility is a release
 requirement and is currently blocked.** See [release gates](compatibility/RELEASE.md)
 and the [native PostgreSQL differential report](compatibility/postgres-report.json).
-The `0.3.0-alpha.2` subset has synchronous persistence and PostgreSQL SCRAM authentication;
+The `0.3.0-alpha.3` development candidate has synchronous persistence and PostgreSQL SCRAM authentication;
 it does not provide complete PostgreSQL behavior.
 The [detailed gap-closing plan](compatibility/GAP_CLOSING_PLAN.md) explains the
 remaining work, its practical impact, implementation layers and closing tests.
 
 ## Run
 
-Use the complete [Sig 0.6.3 release](https://github.com/SB0LTD/sig/releases/tag/sig-0.6.3-zig0.17.0.ac9b716).
+Use the complete [Sig 0.6.4 release](https://github.com/SB0LTD/sig/releases/tag/sig-0.6.4-zig0.17.0.90a898d).
 The source and SHA-256 for ZPM are pinned in `build.sig.zon` and fetched by Sig.
 Current-source ZPM delegates `zpm build` / `zpm run` to the same native build.
 

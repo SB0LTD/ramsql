@@ -1,11 +1,13 @@
 # RAMSQL gap-closing plan
 
-Review baseline: 22 October 2026, development candidate `0.3.0-alpha.2`.
+Current review: 25 October 2026, development candidate `0.3.0-alpha.3` (unpublished).
+Original review baseline: 22 October 2026, `0.3.0-alpha.2`.
 Status update: 24 October 2026, gap-closing run (RAMSQL branch
 `gap-closing-measured-probes`, ZPM `dba76e1`, [ZPM PR 21](https://github.com/SB0LTD/zpm/pull/21));
 see [Gap-closing run evidence](#gap-closing-run-evidence-24-october-2026).
-The baseline descriptions below are kept for review; each touched gap's
-**Status** line records the result.
+The measured probes are now passing; the work is focused on scalable storage,
+interruptible execution, durable lifecycle and production qualification. Broad
+feature families remain partial even when their measured examples pass.
 
 This document explains what still separates RAMSQL from the requested product:
 a production database server that keeps its working data in RAM, persists commits,
@@ -52,29 +54,33 @@ Primary evidence:
 
 ## What already works, and must keep working
 
-The current hosted server implements a small shared SQL engine behind PostgreSQL,
-MySQL and TDS listeners. It supports basic table creation/deletion, single-row
-inserts, literal updates, deletes, projections, comparisons joined by AND, one
-ORDER BY column, LIMIT, INTEGER/BIGINT/BOOLEAN/TEXT/NULL, NOT NULL and a
-single-column primary key. PostgreSQL has tested simple/extended queries,
-text/binary values, prepared statements, failed-transaction handling and SCRAM.
+The current hosted server has a typed parser/binder/executor pipeline behind
+PostgreSQL, MySQL and TDS listeners. It supports expressions, numeric/temporal/JSON
+types, joins, grouping/aggregates, CTEs, DISTINCT/pagination, multi-row DML,
+RETURNING, upserts, defaults, identity/sequences, a catalog-view subset and
+streamed COPY. The detailed feature limits are in the individual gaps and README.
+PostgreSQL has tested simple/extended queries, text/binary values, prepared
+statements, failed-transaction handling and SCRAM.
 
 The durable subset has synchronous WAL flushing before acknowledgement, exclusive
 writer locking, checksummed records, incomplete-tail recovery, fail-closed corrupt
 recovery and validated offline whole-WAL backups. These are useful foundations;
 they do not establish complete PostgreSQL durability or operational compatibility.
 
-The alpha.2 foundation removes whole-database copies from durable autocommit and
-single-statement replay. Explicit transactions and multi-statement replay still
-use private database snapshots. Primary-key point updates avoid unrelated row
-scans, and small WAL records use one bounded write before their synchronous flush.
-Failure atomicity, old-state visibility at the commit boundary and restoration
-of a WAL produced by the published alpha.1 binary are tested.
+Connections now share one MVCC database with statement snapshots and private
+version/write sets. Per-connection database copies and global-generation write
+conflicts are gone. READ COMMITTED, savepoints, row/table waits, deadlock handling
+and transactional DDL have differential tests. Commits prepare kind-3 typed change
+records, synchronously persist them, then publish. Legacy kind-1/2 records replay
+with the frozen alpha grammar; multi-statement recovery does not copy a database.
 
 Live Windows/Linux tests include independent psycopg, PyMySQL and python-tds
-clients, SCRAM and 49 crash/backup cases. Native SB0X/SB0K QEMU tests exercise the
-shared SQL/store/PostgreSQL engine. The release pipeline builds eight targets
-and checks exact artifacts; that coverage must survive every architectural change.
+clients, SCRAM and 58 crash/backup cases. The updated eight-target release
+qualification passed in run 40174568211, including exact hosted artifact tests
+and native SB0X/SB0K QEMU. The new reusable PostgreSQL qualification workflow runs
+PG16/PG18 × memory/durable+SCRAM, retains raw reports/logs and requires all suites
+against the exact Linux release artifact before assembly. New qualification on
+hosted Sig 0.6.4 must pass before publishing alpha.3; gates remain unchanged.
 
 ### Current limits that applications will encounter
 
@@ -155,9 +161,10 @@ cannot close C02 or the production compatibility gate.
 **Status:** Partial (flag F-S01). Stable rowids, row versions in a fixed per-table arena, a multi-entry PK index and reclamation are implemented, and per-connection database copies are gone (one shared store). There is still no variable-length value store or caller-owned pages: cells stay inline at `text_bytes` and the version arena is preallocated at 2 × rows. [Evidence](#gap-closing-run-evidence-24-october-2026).
 **Owner:** ZPM storage/SQL/store; RAMSQL configures resource budgets.
 
-Every transaction currently reserves a private database-shaped workspace. Inline
-text capacity also makes even integer-heavy rows expensive. More data and more
-connections multiply these costs.
+Per-connection database copies have been removed. Remaining storage uses fixed
+per-table row/version arrays and inline text capacity, making integer-heavy rows
+and large profiles expensive. Page-backed compact values and independently
+budgeted result/session workspaces remain the scale bottleneck.
 
 - [ ] Introduce caller-owned pages and compact typed values, with a bounded variable-length value store.
 - [ ] Give rows stable identities so compaction, indexes and versions do not depend on a row's current array position.
@@ -173,9 +180,10 @@ within a configured RAM budget, with no runtime heap allocation or atomicity reg
 
 **Status:** Partial (flag F-S02, unchanged). Only the PK hash index exists; insertion sort was replaced by a stable merge sort and statement-bounded workspaces. **Owner:** ZPM SQL/planner/index packages.
 
-Only a single-column primary-key hash index exists. Other filters scan rows,
-sorting uses insertion sort, and deletion compacts rows and rebuilds references.
-These costs grow quickly as S01 removes today's small dataset limits.
+Only a single-column primary-key hash index exists. Other filters scan rows;
+sorting now uses stable merge sort, joins use nested loops and general queries
+materialize intermediate rows in a bounded workspace. Stable row identities and
+version reclamation replace the previous dense-row compaction model.
 
 - [ ] Add secondary, composite and ordered indexes, including uniqueness and NULL rules.
 - [ ] Introduce planning that chooses indexed lookup, range scan, scan, sort and join strategies from actual query requirements.
@@ -206,10 +214,10 @@ every held page, version, cursor and session resource.
 
 **Status:** Closed for READ COMMITTED. `read_committed` probe `match: true (PG18+PG16, memory and durable+SCRAM)`; isolation schedules RC1–RC14 match (statement snapshots, own writes, concurrent update/delete with EvalPlanQual, unique-key races, aborts, disconnects). [Evidence](#gap-closing-run-evidence-24-october-2026). **Owner:** ZPM transaction/storage/execution.
 
-Today BEGIN copies a snapshot and a writing COMMIT fails if *any* committed write
-changed the global generation. PostgreSQL's default READ COMMITTED instead takes
-a new committed view for each statement, while also showing the transaction its
-own changes. A fresh SELECT can therefore see another connection's new commit.
+This gap was closed for the supported READ COMMITTED feature set: each statement
+has a fresh committed snapshot plus the transaction's own earlier writes. Writers
+wait and recheck conflicting rows. Preserve RC1–RC14 and expand their coverage as
+new query/storage features are added; do not regress to whole-database snapshots.
 
 - [ ] Implement row versions and statement snapshots, including transaction-own writes.
 - [ ] Add visibility rules for insert, update, delete, rollback and commit.
@@ -225,9 +233,10 @@ predicates can select different rows and change the transaction's meaning.
 
 **Status:** Candidate addressed (flag F18). Row/table locks, waits that never block the reactor, FOR UPDATE/SHARE [NOWAIT|SKIP LOCKED], deadlock detection (40P01), lock_timeout and cancel; schedules LK1–LK9, UP1–UP4 and CP1 match. FOR NO KEY UPDATE/KEY SHARE and multi-core fair scheduling (O01) remain. [Evidence](#gap-closing-run-evidence-24-october-2026). **Owner:** ZPM lock/transaction engine; RAMSQL schedules suspended work.
 
-Transactions modifying unrelated data currently conflict, and there is no real
-row-lock wait model. Updating the same row requires coordination; rejecting every
-intervening write does not match PostgreSQL behavior.
+Independent writers now progress without a global-generation conflict. Row/table
+lock waits park a client without blocking the reactor; deadlocks, cancellation and
+lock deadlines are tested. Remaining work includes additional PostgreSQL lock
+modes and fair scheduling of running work across cores.
 
 - [ ] Add row/key/schema lock ownership and compatible wait queues.
 - [ ] Implement waiting writers, predicate reevaluation where required, SELECT FOR UPDATE/SHARE and related lock modes.
@@ -274,13 +283,14 @@ mechanism as PostgreSQL Serializable or complete Repeatable Read.
 
 **Status:** Closed for the implemented type set. `or_predicate` probe `match: true (PG18+PG16, memory and durable+SCRAM)`; suite q01 matches (precedence, three-valued logic, typing and SQLSTATEs, numeric promotion). [Evidence](#gap-closing-run-evidence-24-october-2026). **Owner:** ZPM parser/type checker/executor.
 
-Applications need arithmetic, OR/NOT, parentheses, casts, parameters, expressions
-in projections/updates, CASE, IN, BETWEEN, LIKE and subexpressions. Currently an
-update assigns literals and a WHERE clause is a bounded AND list.
+Typed expressions now provide arithmetic, OR/NOT, parentheses, casts,
+parameters, CASE, IN, BETWEEN, LIKE and expressions in projections/updates for
+the supported type set. Keep their precedence, NULL and failure-atomicity tests
+as shared contracts for every later executor/storage change.
 
-- [ ] Add a bounded typed expression representation with correct precedence and binding.
-- [ ] Implement PostgreSQL's true/false/unknown NULL logic, casts, overflow and evaluation errors.
-- [ ] Share the expression machinery across filters, projections, defaults, assignments and constraints.
+- [x] Add a bounded typed expression representation with correct precedence and binding.
+- [x] Implement PostgreSQL's true/false/unknown NULL logic, casts, overflow and evaluation errors for supported types.
+- [x] Share expression machinery across filters, projections, defaults and assignments. CHECK constraints remain Q11 work.
 
 **Closed when:** reference cases include mixed AND/OR/NOT, nested parentheses,
 NULLs, invalid types, overflow and failures after many matching rows, with no
@@ -536,8 +546,10 @@ rewrites, and failures are represented in the gap inventory. Requires broad Q/P 
 
 **Status:** Partial (flag F-D01). New WALs hold versioned kind-3 typed change records; alpha.1/alpha.2 kind 1/2 logs recover through a frozen alpha-grammar replay; older binaries cannot read kind 3. No release upgrade/downgrade matrix yet. **Owner:** ZPM canonical record/schema formats; RAMSQL upgrade/replay policy.
 
-The WAL currently stores SQL text. A future parser, type or name-resolution change
-can interpret old text differently. Faster replay does not remove that risk.
+New WAL records contain typed changes rather than executable SQL text. Legacy
+SQL logs are interpreted only by the frozen alpha grammar. The remaining gap is
+a supported release upgrade/restore matrix and crash-safe migration procedures;
+the typed format does not by itself prove future upgrade compatibility.
 
 - [ ] Design a versioned, architecture-independent representation for committed schema/data changes, including explicit sequence and compatibility rules.
 - [ ] Keep old readers/migrations until supported upgrade paths are verified; refuse incompatible formats without modifying source data.
@@ -758,9 +770,10 @@ flush-before-publication/acknowledgement guarantee by accident.
 
 **Status:** Partial (flag F-O02). PostgreSQL cancel requests (BackendKeyData/CancelRequest), `statement_timeout` and `lock_timeout` work for lock waits; no idle-in-transaction timeout, transaction deadlines or query budgets. **Owner:** ZPM interruptible execution/lock waits; RAMSQL request/session policy.
 
-The PostgreSQL codec currently recognizes CancelRequest and closes that connection
-without interrupting work. Idle expiry exists, but it is not statement cancellation
-or a limit on CPU, lock waits, transactions and result retention.
+Cancellation keys and deadlines now interrupt parked lock waits. A running scan,
+join, sort or recursive query still executes synchronously, so the reactor cannot
+receive a cancellation request during that work. Resumable execution, query work
+budgets and bounded result batches are required to close this gap.
 
 - [ ] Implement authenticated cancellation keys and a safe connection-to-query lookup.
 - [ ] Add statement, lock, transaction and idle-in-transaction deadlines with compatible errors.
@@ -934,14 +947,12 @@ SB0X 15,223,806 bytes, 599 assertions; SB0K 15,223,956 bytes, 585 assertions.
 This is the same ABI-fixture evidence as before, over the UART delegated channel:
 there is still no native TCP, durable storage or SCRAM, so N01 stays open.
 
-Not covered by this evidence: the QEMU runs were local (WSL), not the hosted
-release pipeline, and the compiler was built from the merged tree rather than
-downloaded from a release asset. The hosted compilers used by this repository
-are still pinned to Sig 0.6.3 (`SIG_TAG`); Sig 0.6.4 changes only the
-`aarch64-sb0` backend, but this repository has not been re-qualified on the
-0.6.4 hosted binaries. Sig's known limits (atomics, vectors, some 128-bit
-builtins, `@intCast` above 64 bits in ReleaseSafe) apply to anything this
-engine adds later.
+Subsequent evidence supersedes the local-only limitation: release-matrix run
+[40174568211](https://github.com/SB0LTD/ramsql/actions/runs/40174568211) passed all
+eight targets and main CI run 40175410496 passed. The prior hosted compiler was
+0.6.3; alpha.3 now pins checksum-verified hosted Sig 0.6.4 and requires the full
+matrix and PostgreSQL qualification before release. Native full OS TCP, storage
+and entropy integration remains open regardless of compiler/QEMU qualification.
 
 ## Proposed delivery order and exit criteria
 

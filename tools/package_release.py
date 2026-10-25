@@ -20,6 +20,7 @@ import tarfile
 import zipfile
 
 from release_matrix import ROOT, SIG_ASSET, SIG_SHA256, SIG_TAG, TARGETS, NATIVE_SIG_REVISION, source_version, target
+from qualify_postgres import validate_bundle as validate_qualification_bundle
 
 HOSTED_RUNTIME_TESTS = ["tools/test_cli.py", "tools/test_server.py", "tools/test_clients.py",
                         "tools/test_auth.py", "tools/test_persistence.py"]
@@ -386,9 +387,12 @@ def assemble(args: argparse.Namespace) -> dict:
     benchmark = json.loads((args.output / "benchmark-postgres.json").read_text(encoding="utf-8"))
     linux = next(record for record in records if record["target"] == "x86_64-linux")
     validate_benchmark(benchmark, args.revision, linux["hosted_runtime_evidence"]["image_sha256"])
+    qualification = json.loads((args.output / "postgres-qualification.json").read_text(encoding="utf-8"))
+    validate_qualification_bundle(qualification, args.revision, linux["hosted_runtime_evidence"]["image_sha256"])
     manifest = {"schema": 1, "project": "ramsql", "version": source_version(),
                 "revision": args.revision, "production_ready": False, "targets": records,
-                "benchmark_evidence": "benchmark-postgres.json"}
+                "benchmark_evidence": "benchmark-postgres.json",
+                "postgres_qualification_evidence": "postgres-qualification.json"}
     manifest_path = args.output / "release-manifest.json"
     manifest_path.write_bytes(json_bytes(manifest))
     # Include artifact records and evidence as well as binaries. The checksum

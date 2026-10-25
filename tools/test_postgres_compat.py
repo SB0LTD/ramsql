@@ -132,7 +132,7 @@ def local_postgres(binary_directory, psycopg, work_directory):
     process = None
     connection = dict(host="127.0.0.1", port=port, user="ramsql", dbname="postgres", password="",
                       sslmode="disable", connect_timeout=3, autocommit=True,
-                      application_name="ramsql-postgres-compat", options="-c statement_timeout=4000")
+                      application_name="ramsql-postgres-compat", options="-c statement_timeout=4000 -c TimeZone=UTC")
     with (directory / "server.log").open("wb") as log:
         try:
             process = subprocess.Popen([str(binary_directory / "postgres"), "-D", str(data),
@@ -186,7 +186,9 @@ def native_postgres(image, psycopg, *, binary_directory=None, work_directory=Non
         # Pass only the environment variable NAME on the command line, so the
         # generated password never appears in process arguments or the report.
         container = docker(
-            "run", "--detach", "--rm", "--name", name,
+            # Keep the owned container across SIGKILL/start crash tests. The
+            # finally block always removes this exact ID and its volume.
+            "run", "--detach", "--name", name,
             "--publish", "127.0.0.1::5432",
             "--env", "POSTGRES_PASSWORD", "--env", "POSTGRES_USER=ramsql",
             "--env", "POSTGRES_DB=ramsql",
@@ -197,7 +199,7 @@ def native_postgres(image, psycopg, *, binary_directory=None, work_directory=Non
         port = int(endpoint.rsplit(":", 1)[1])
         connection = dict(host="127.0.0.1", port=port, user="ramsql", dbname="ramsql", password=password,
                           sslmode="disable", connect_timeout=3, autocommit=True,
-                          application_name="ramsql-postgres-compat", options="-c statement_timeout=4000")
+                          application_name="ramsql-postgres-compat", options="-c statement_timeout=4000 -c TimeZone=UTC")
         deadline = time.monotonic() + 40
         while True:
             try:
@@ -230,7 +232,12 @@ def restart_native(connection, metadata, psycopg):
     container = metadata.get("container_id")
     if container is None:
         raise RuntimeError("reference restart requires the Docker reference")
-    docker("restart", "--time", "0", container)
+    # restart --time 0 still sends the image's stop signal first. A small
+    # cluster can finish a shutdown checkpoint before Docker kills it, which
+    # makes sequence log-ahead tests nondeterministically test clean shutdown.
+    # Kill without a preceding stop signal, then start only our recorded ID.
+    docker("kill", "--signal=KILL", container)
+    docker("start", container)
     connection["port"] = int(docker("port", container, "5432/tcp").splitlines()[0].rsplit(":", 1)[1])
     deadline = time.monotonic() + 40
     while True:

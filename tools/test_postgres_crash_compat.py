@@ -104,7 +104,7 @@ class OwnedReference:
             info["Id"], env=environment)
         self.connection = dict(host="127.0.0.1", port=self.port(), user="ramsql", dbname="ramsql", password=password,
                                sslmode="disable", connect_timeout=3, autocommit=True,
-                               application_name="ramsql-crash-compat", options="-c statement_timeout=4000")
+                               application_name="ramsql-crash-compat", options="-c statement_timeout=4000 -c TimeZone=UTC")
         wait_ready(self.psycopg, self.connection, "native PostgreSQL")
         with self.psycopg.connect(**self.connection) as session:
             version = session.execute("SELECT version()").fetchone()[0]
