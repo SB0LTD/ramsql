@@ -1,0 +1,16 @@
+{
+  "ramsql_commit": "345f13d859d85ef9056702f452438b6b308737ae",
+  "zpm_commit": "de897ae55a0e5678c7d8811b161457fefc2f7cc9",
+  "zpm_archive_sha256": "b6bc534017220d0a48f7bf26cd7c56380f3dda4b659569fbf84e34142f779387",
+  "compiled_dependency_source": "immutable archive cache recorded in results.json source_sha256",
+  "before_binary_verified_against": "../irdb-review-20261025/results.json binaries.native.sha256",
+  "source_status_at_capture": [
+    "?? .agents/",
+    "?? .worktrees/",
+    "?? benchmarks/streaming-aggregation-20261025/",
+    "?? compatibility/postgres-0.2-baseline.json",
+    "?? tests/test_db_store.sig",
+    "?? tests/test_sql_storage.sig"
+  ],
+  "note": "Documentation/report files are added after the runtime build. The native before run used the previously preserved binary and was completed before the new comparison. Engines run sequentially; no local builds or validation were running during timing."
+}

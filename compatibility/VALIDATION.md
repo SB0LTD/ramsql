@@ -1,8 +1,12 @@
 # Validation evidence and reproducible qualification
 
 Review: 25 October 2026. Source and published releases are different artifacts:
-the published `v0.3.0-alpha.2` predates the new transactional engine. Current
-development is `0.3.0-alpha.3`; publication requires all checks below.
+the latest published version is `v0.3.0-alpha.3`; current development is
+`0.3.0-alpha.4`. Historical sections below retain their original candidate
+context. Publication requires the checks for the exact new revision.
+
+Current infrastructure work and scoped validation:
+[streaming aggregation progress](INFRASTRUCTURE_PROGRESS.md).
 
 ## Established transactional-engine baseline
 

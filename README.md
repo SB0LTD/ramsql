@@ -507,8 +507,13 @@ The [25 October comparison pack](benchmarks/irdb-review-20261025/REPORT.md)
 contains latest-verified IRDB 1.10.821 results, with a compiled table and clustered
 id index, plus separate PostgreSQL/RAMSQL server-client measurements at 512,
 100,000 and 1,000,000 rows. Sources, hashes, raw trials and checksums are retained.
-The candidate stores one million rows with runtime buffers, but it does not meet
-the production/performance target: large grouped aggregation is capacity-blocked,
-and other large scans/aggregates still lose. The remaining text/schema/session
-and streaming limits are explicitly open. These new workloads do not reproduce
-the reviewer's unavailable alpha.2 scripts.
+That earlier candidate stores one million rows with runtime buffers but its
+large grouped aggregation is capacity-blocked. The
+[capacity-safe streaming follow-up](benchmarks/streaming-budget-20261025/REPORT.md)
+now completes those selected cases with group-sized scratch; million-row native
+COUNT/SUM improves from 39 to 72 ops/s in its fresh before/after run. IRDB still leads the
+large aggregate tests and PostgreSQL still leads filtered ordered reads. The
+production/performance target and remaining text/schema/session, compact-storage
+and streaming gaps stay open; see the
+[implementation evidence](compatibility/INFRASTRUCTURE_PROGRESS.md).
+These workloads do not reproduce the reviewer's unavailable alpha.2 scripts.
