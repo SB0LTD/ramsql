@@ -78,7 +78,7 @@ evidence-completeness, identity, matrix and deterministic packaging contracts.
 
 Finite suites are not PostgreSQL conformance, real-application qualification or
 proof of production scaling. TLS, roles, authenticated MySQL/TDS, compact storage,
-running-query cancellation, checkpoint/online-backup lifecycle, operational
+resumable query scheduling, checkpoint/online-backup lifecycle, operational
 qualification and physical power-loss testing remain open. Production gates stay
 blocked. ZPM's unrelated legacy Sig 0.5.9 CI failures remain separately reported;
 green database-platform checks do not erase those failures.
@@ -88,3 +88,14 @@ release benchmarks use their exact Linux image and retain all trials, durability
 settings, correctness/recovery checks and provenance. The latest assessed
 transactional-engine CI benchmark still favors PostgreSQL for durable
 INSERT/UPDATE; no universal speed or efficiency claim is supported.
+
+## Running statement controls (25 October 2026)
+
+`tools/test_server.py` now requires CPU-bound statement timeout and cancellation,
+fragmented CancelRequest handling with a full SQL client pool, rejection of an
+invalid key, preservation of a new ordinary startup during CPU work, work-budget
+errors, data rollback and failed-transaction recovery. Run the same command as
+the lifecycle suite; these cases are part of every hosted CI/release-artifact run.
+ZPM store tests also cancel after private versions have been created and use a
+fake live clock to make deadline/rollback checks deterministic. See
+[execution controls](EXECUTION_CONTROL.md) for limits.
