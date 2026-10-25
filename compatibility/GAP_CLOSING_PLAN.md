@@ -1,6 +1,7 @@
 # RAMSQL gap-closing plan
 
-Current review: 25 October 2026, development candidate `0.3.0-alpha.3` (unpublished).
+Current review: 25 October 2026, development candidate `0.3.0-alpha.4` (unpublished).
+Latest published prerelease: `0.3.0-alpha.3`.
 Original review baseline: 22 October 2026, `0.3.0-alpha.2`.
 Status update: 24 October 2026, gap-closing run (RAMSQL branch
 `gap-closing-measured-probes`, ZPM `dba76e1`, [ZPM PR 21](https://github.com/SB0LTD/zpm/pull/21));

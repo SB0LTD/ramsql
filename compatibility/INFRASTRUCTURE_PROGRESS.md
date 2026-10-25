@@ -6,6 +6,27 @@ This record tracks implemented scope separately from the
 [research/design plan](DEEP_INFRASTRUCTURE_RESEARCH.md) and the
 [broader production gaps](GAP_CLOSING_PLAN.md).
 
+## Merge and qualification
+
+ZPM PRs 24 and 25 merged to `main` (latest merge `b6039cf`); RAMSQL
+[PR 9](https://github.com/SB0LTD/ramsql/pull/9) merged as `95c688c`.
+The qualified RAMSQL head is `311c671aecee6b4774cd6e6d977a9bc0a33413d8`;
+the merge retains that implementation and pinned dependency.
+
+- [Final RAMSQL CI](https://github.com/SB0LTD/ramsql/actions/runs/40218084723)
+  passed all four hosted runners and PG16/PG18 memory/durable+SCRAM cells.
+- [Final eight-target qualification](https://github.com/SB0LTD/ramsql/actions/runs/40218084772)
+  passed all cross-builds, six exact hosted artifacts, SB0X/SB0K ABI/QEMU
+  fixtures, exact Linux artifact PG16/PG18 qualification, durable benchmark,
+  bundle verification and provenance attestation. Native fixtures do not
+  establish deployment on a complete SB0 OS with real TCP/durable storage.
+- [ZPM budget-safety platform CI](https://github.com/SB0LTD/zpm/actions/runs/40217079153)
+  passed Linux, macOS and Windows database contracts.
+
+Source remains a development alpha.4 candidate. This qualification establishes
+the tested scope, not complete PostgreSQL compatibility, all-benchmark superiority
+or production readiness. Production release gates remain blocked.
+
 ## Streaming aggregation candidate
 
 Reusable implementation: [ZPM PR 24](https://github.com/SB0LTD/zpm/pull/24),
@@ -57,8 +78,9 @@ their original streaming pin.
 
 - New ZPM contract: 100,000 caller-backed rows with **1,024 query-reference
   slots**, independently modeled 64-group COUNT/SUM at 512 and 100,000 rows,
-  and equal measured group scratch at both scales. The final focused run executes
-  **844 assertions**. Real collisions exercise full-key verification.
+  and equal measured group scratch at both scales. The final contract executes
+  **1,197 assertions** including the capacity/volatile safety regressions.
+  Real collisions exercise full-key verification.
 - Tests include scalar empty input, empty groups, all-filtered input, composite
   integer/text keys, FILTER/HAVING, ordered LIMIT/OFFSET, scalar LIMIT, numeric
   scale equivalence, signed float zero/NaN, equivalent intervals and JSONB.
@@ -66,11 +88,10 @@ their original streaming pin.
   after work begins, work-budget exhaustion, poisoned scratch and unchanged prior
   results. Transaction tests distinguish another writer's pending version from
   the writer's own view and verify abort restores subsequent aggregates.
-- Initial full Linux SQL/database suites passed, including 63,417 query,
-  239,606 index and 3,154 store assertions. Windows focused SQL and all database
-  contracts passed; RAMSQL's complete Windows contract build also passed.
-  After column-borrowing/empty-reservation refinement, Linux query/type/store/new
-  aggregate suites and Windows query/new aggregate suites passed again.
+- Full Linux SQL/database suites passed, including 63,417 query, 239,606 index
+  and 3,154 store assertions. The complete final-pin Windows RAMSQL contract
+  build passed, including the 1,197-assertion stream contract. Optimized Linux
+  ReleaseFast query and stream contracts also passed. Platform CI is linked above.
 - Live Linux and Windows CLI/server/independent-client/SCRAM/persistence/capacity
   suites passed for the initial pin: 3,996 server assertions, 8,506 auth
   assertions, 58 persistence cases with 1,757 assertions and five forced kills.
@@ -113,10 +134,10 @@ the scoped capacity fix and scalar improvement; ordered access and compact
 typed storage remain necessary. Five sequential exploratory trials do not
 establish statistical significance for small differences or all-workload wins.
 
-Platform/release CI qualification is still required for the final revision. One
-RAMSQL macOS CI attempt passed build/contracts/CLI/server, then failed installing
+One earlier RAMSQL macOS CI attempt passed build/contracts/CLI/server, then failed installing
 independent test clients because `files.pythonhosted.org` DNS resolution failed;
-the skipped tests are not counted as passed. The legacy ZPM Sig 0.5.9 root
+the skipped tests were not counted as passed. Final macOS CI and exact-artifact
+qualification subsequently passed. The legacy ZPM Sig 0.5.9 root
 workflow continues to fail the same four
 historical non-database targets (`test-sabr-loop`, `test-manifest-sabr`,
 `test-tls-client`, `test-tts-gpu`). Do not describe repository-wide CI as green.
@@ -126,7 +147,7 @@ historical non-database targets (`test-sabr-loop`, `test-manifest-sabr`,
 | Plan step | Status | Remaining evidence/work |
 | --- | --- | --- |
 | D0: observability | Partial | Streaming counters and benchmark Cell/version/backing sizes added; full plan, residency and physical-operator accounting still open. |
-| D1: streaming aggregates | Candidate subset | Local final-pin live/benchmark evidence passes; full matrix pending. DISTINCT, joins/derived sources and remaining lazy LIMIT shapes still need bounded paths. |
+| D1: streaming aggregates | Implemented eligible subset | Final-pin live/benchmark/full matrix evidence passes. DISTINCT, function/subquery, joins/derived sources and remaining lazy LIMIT shapes still need bounded paths. |
 | D2: ordered/composite indexes | Open | Ordered index, maintenance/rollback/replay, physical planning and measured access reduction. |
 | D3: compact variable storage | Open | Typed pages, variable values/wider schemas, retention-safe compaction, format migration and peak-memory evidence. |
 | D4: resumable/session/result budgets | Open | Yield/resume ownership, fairness, portals, backpressure and byte-budgeted sessions. |
