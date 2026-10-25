@@ -20,6 +20,13 @@ The plan is intended for a gap-by-gap discussion. The order below reflects
 dependencies, not a proposal to lower the final target. Every unchecked item
 remains open until its implementation and closing evidence exist.
 
+For the 25 October infrastructure investigation, see
+[allocator-free infrastructure research and engineering decisions](DEEP_INFRASTRUCTURE_RESEARCH.md).
+It connects the million-row IRDB comparison to streaming aggregation, ordered
+indexes, compact storage, scheduling and durable commits, with recent primary
+research, explicit memory contracts and implementation acceptance gates. Its
+proposed algorithms remain open work; the research document does not close gaps.
+
 ## How to use this plan
 
 For each numbered gap, review four things: the practical problem, where the fix
