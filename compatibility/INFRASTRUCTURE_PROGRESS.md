@@ -9,9 +9,10 @@ This record tracks implemented scope separately from the
 ## Streaming aggregation candidate
 
 Reusable implementation: [ZPM PR 24](https://github.com/SB0LTD/zpm/pull/24),
-commit `de897ae55a0e5678c7d8811b161457fefc2f7cc9`.
+with [budget-safety follow-up PR 25](https://github.com/SB0LTD/zpm/pull/25).
+The current dependency commit is `d99db721beb3ca4f43d7941685a6973f0e608884`.
 RAMSQL consumes its immutable commit archive with SHA-256
-`b6bc534017220d0a48f7bf26cd7c56380f3dda4b659569fbf84e34142f779387`.
+`b3d47bf983deaa1de01d8bb5a007f39f0d3de35e27759578d7b11b532c3db013`.
 
 Eligible single-base-table aggregates now walk visible versions directly. Scalar
 aggregates keep bounded local state. Hash grouping owns one key and aggregate
@@ -36,6 +37,18 @@ finite unordered grouped LIMIT retain their existing materializing paths. Scalar
 positive LIMIT and ordered grouped LIMIT can use streaming. Execution still runs
 synchronously; cursor yielding, multicore and protocol result streaming are
 separate milestones.
+
+At high cardinality, several aggregate states per group can exceed the hash
+budget even though the previous sort operator fits. Pure queries release private
+hash scratch and retry that operator on WorkspaceCapacity, retaining all charged
+execution work. Plans with function/subquery nodes conservatively use the existing
+path immediately so volatile evaluation cannot repeat. The 350-group/seven-
+aggregate regression and a nextval WHERE test preserve old capacity and prove
+one sequence evaluation per source row. The contract now has **1,197 assertions**.
+All six Linux/Windows live suites and local PG16 durable+SCRAM 37/37 probes also
+pass against this hardened pin. Full Linux SQL/database revalidation and fresh
+benchmark capture are in progress; earlier results below remain identified with
+their original streaming pin.
 
 ### Evidence
 
@@ -69,7 +82,8 @@ separate milestones.
 
 ### Measured benchmark follow-up
 
-The [new benchmark pack](../benchmarks/streaming-aggregation-20261025/REPORT.md)
+The [initial streaming benchmark pack](../benchmarks/streaming-aggregation-20261025/REPORT.md),
+using dependency `de897ae55a0e5678c7d8811b161457fefc2f7cc9`,
 retains raw results, stream counters, binary/source hashes and a fresh rerun of
 the preserved pre-change native binary. All six selected cases now produce
 correct results at 512, 100,000 and 1,000,000 rows in each engine/boundary tier.
