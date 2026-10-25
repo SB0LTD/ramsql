@@ -536,7 +536,7 @@ def test_running_query_controls(binary):
             time.sleep(0.01)
             with server.raw() as invalid:
                 invalid.sendall(struct.pack("!IIII", 16, 80877102, keys[0][0], keys[0][1] ^ 1))
-                check(invalid.recv(1) == b"", "invalid cancel key must be ignored silently")
+                expect_closed(PG(invalid))
             pg.sock.settimeout(0.01)
             try:
                 unexpected = pg.sock.recv(1)
@@ -550,7 +550,7 @@ def test_running_query_controls(binary):
                 cancel.sendall(data[:5])
                 time.sleep(0.005)
                 cancel.sendall(data[5:])
-                check(cancel.recv(1) == b"", "CancelRequest must close without a response")
+                expect_closed(PG(cancel))
             expect_error(pg.ready(), "57014")
             pg.ok("SELECT COUNT(*) FROM running_work", [["256"]])
             pg.ok("BEGIN", status=b"T")
