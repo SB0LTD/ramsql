@@ -464,10 +464,10 @@ delegated channel traps used by the PostgreSQL tests. This validates the SB0S
 image and process ABI without private repository credentials. It is separate
 from integration testing a complete SB0S kernel distribution. SB0K tests execute
 the privileged image directly. Failed native compilation or execution blocks
-publication. The current engine does not yet compile with the pinned native
-compiler (native backend defects, see
-[the gap-closing plan](compatibility/GAP_CLOSING_PLAN.md#native-build-blocker)),
-so native SB0X/SB0K images are currently blocked.
+publication. The current engine compiles with the pinned native compiler
+(Sig 0.6.4 source revision `90a898dc`; the earlier native backend defects are
+described in
+[the gap-closing plan](compatibility/GAP_CLOSING_PLAN.md#native-build-blocker-resolved)).
 
 ```sh
 python tools/test_release.py

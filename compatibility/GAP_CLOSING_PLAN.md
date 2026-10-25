@@ -708,7 +708,7 @@ deterministic entropy and renamed Linux binaries cannot satisfy this gap.
 
 ### N02 — Test the full OS integration, not just an ABI fixture
 
-**Status:** Partial, **regressed** in the gap-closing run: native SB0X/SB0K images no longer build with the pinned native compiler (Sig `8b4908bb`) since the typed-expression change, so the QEMU tests below have not run on the current engine and native publication is blocked. See [Native build blocker](#native-build-blocker). **Owner:** RAMSQL/SB0 integration and release qualification.
+**Status:** Partial. The gap-closing run regressed it (native images stopped building with Sig `8b4908bb` once the typed-expression change landed), and the Sig 0.6.4 native-backend fix (`90a898dc`) restored it: both images build on the current engine and their QEMU loader tests pass again. This is still the ABI-fixture evidence described below, not a complete SB0S distribution or hardware deployment. See [Native build blocker](#native-build-blocker-resolved). **Owner:** RAMSQL/SB0 integration and release qualification.
 
 SB0X EL0 and SB0K EL1 QEMU tests pass. The SB0X loader is a public ABI conformance
 fixture, not proof of a complete supported SB0S distribution or hardware deployment.
@@ -916,20 +916,32 @@ reports are regenerated with the harness commands above (`--report`).
 `release-gates.json` is unchanged: `postgres_compatibility` and
 `capacity_concurrency` stay false, because 37/37 is necessary, not sufficient.
 
-### Native build blocker
+### Native build blocker (resolved)
 
-The release is blocked on the native build. With the pinned native compiler
-(`NATIVE_SIG_REVISION` 8b4908bb in `tools/release_matrix.py`), `main`
-(c57fe72) and the storage/WAL step build a 12.6 MB SB0X image, but later
-steps fail: `unimplemented mul_with_overflow` (`sql/expr.sig`), then
-`unimplemented tag_name` (`db/store.sig`) and an oversized aggregate load
-(`sql/catalog.sig`), and from the value-types step on the compiler itself
-overflows its stack. `tools/build_sb0.py` / `tools/test_sb0.py` therefore have
-no passing SB0X/SB0K evidence for this engine. These are native backend
-defects to fix in Sig; no gap that depends on native images is closed here.
-Do not merge this branch into `main` until the Sig native-backend fix lands
-and `tools/build_sb0.py` / `tools/test_sb0.py` pass for SB0X and SB0K on the
-pinned engine; merging earlier turns the native gate (N02) red on `main`.
+During the gap-closing run the native build broke. With the previously pinned
+native compiler (Sig `8b4908bb`), `main` (c57fe72) and the storage/WAL step built
+a 12.6 MB SB0X image, but later steps failed: `unimplemented mul_with_overflow`
+(`sql/expr.sig`), then `unimplemented tag_name` (`db/store.sig`) and an oversized
+aggregate load (`sql/catalog.sig`), and from the value-types step on the compiler
+itself overflowed its stack. These were native backend defects, so they were
+fixed in Sig rather than worked around in ZPM or RAMSQL
+([Sig PR 34](https://github.com/SB0LTD/sig/pull/34), released as Sig 0.6.4).
+
+`NATIVE_SIG_REVISION` in `tools/release_matrix.py` is now `90a898dc` (the merged
+Sig 0.6.4 release commit). On that source, with ZPM `dba76e1`, both images build
+from the verified archive and pass `tools/test_sb0.py` under QEMU 8.2.2 (WSL):
+SB0X 15,223,806 bytes, 599 assertions; SB0K 15,223,956 bytes, 585 assertions.
+This is the same ABI-fixture evidence as before, over the UART delegated channel:
+there is still no native TCP, durable storage or SCRAM, so N01 stays open.
+
+Not covered by this evidence: the QEMU runs were local (WSL), not the hosted
+release pipeline, and the compiler was built from the merged tree rather than
+downloaded from a release asset. The hosted compilers used by this repository
+are still pinned to Sig 0.6.3 (`SIG_TAG`); Sig 0.6.4 changes only the
+`aarch64-sb0` backend, but this repository has not been re-qualified on the
+0.6.4 hosted binaries. Sig's known limits (atomics, vectors, some 128-bit
+builtins, `@intCast` above 64 bits in ReleaseSafe) apply to anything this
+engine adds later.
 
 ## Proposed delivery order and exit criteria
 
