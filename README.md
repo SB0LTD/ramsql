@@ -485,7 +485,7 @@ python tools/test_sb0.py --format sb0k --image sig-out/bin/ramsql.sb0k
 ```
 
 The native build script verifies the same immutable ZPM archive as `sig build`.
-Hosted builds use published Sig 0.6.3. Native jobs bootstrap the exact Sig source
+Hosted builds use checksum-verified published Sig 0.6.4. Native jobs bootstrap the exact Sig source
 revision pinned in `tools/release_matrix.py`, including the AArch64 aggregate,
 error-return and exception-return fixes needed by the complete engine. The
 published compiler builds this toolchain; its standard library comes from the

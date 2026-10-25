@@ -17,6 +17,9 @@ Changes since the published alpha.2:
 - Typed expressions and numeric/temporal/JSON types, joins, aggregates, CTEs,
   DISTINCT/pagination, RETURNING, upserts, defaults, identity/sequences, a catalog
   subset and streamed COPY. Documented capacity/feature limits still apply.
+- Running SQL cancellation and live statement deadlines, plus optional
+  `--max-query-work` budgets. Interruptions roll back private changes; explicit
+  transactions retain failed-block semantics. See [execution-control limits](EXECUTION_CONTROL.md).
 - Kind-3 typed change records with flush-before-publication and frozen-grammar
   replay of legacy alpha SQL logs.
 - Required PG16/PG18 × memory/durable+SCRAM qualification of the exact Linux
@@ -37,12 +40,13 @@ on this host. These are small SQL-subset experiments, not a production
 PostgreSQL replacement or a general superiority claim. The release additionally
 ships `benchmark-postgres.json`, measured from its exact Linux artifact in CI.
 
-**WAL compatibility:** this version uses framing version 1, payload kind 2 for
-32-bit INTEGER semantics. It refuses earlier development kind-1 logs without
-modifying them. Preserve the old binary and backup; no automatic migration is
-provided. This alpha retains alpha.1's SQL interpretation and kind-2 framing;
-the release tests reopen alpha.1 WALs with the updated binary. Restore requires
-compatible schema semantics and adequate capacity.
+**WAL compatibility:** framing remains version 1; new commits use payload kind 3
+with typed row/catalog changes. Legacy kind-1/2 SQL-text records recover through
+the frozen alpha grammar, then subsequent commits use kind 3. A legacy record
+following a kind-3 record, or unsupported legacy syntax, fails closed. Older alpha
+binaries cannot read kind 3. Preserve the old binary and backup before upgrading;
+a general release upgrade/downgrade matrix and migration policy remain open.
+Restore requires compatible schema semantics and adequate capacity.
 
 ## Production release requirements
 
@@ -73,7 +77,7 @@ into individual review items, implementation tasks and closing evidence.
   isolation/lock modes and scalable worker scheduling. Fixed profiles remain a limit.
 - TLS/channel binding, roles/authorization, authenticated MySQL/TDS listeners.
 - Checkpoints/WAL compaction, online backup, upgrade/migration policy, monitoring,
-  operational cancellation and documented recovery under full storage failures.
+  complete lifecycle cancellation and documented recovery under full storage failures.
 - Matched efficiency evidence on equivalent semantics, operating systems and
   storage; complete supported-platform CI and real hardware power-loss testing.
 
