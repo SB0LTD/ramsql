@@ -520,14 +520,15 @@ def test_running_query_controls(binary):
             keys = [struct.unpack("!II", body) for tag, body in startup if tag == b"K"]
             check(len(keys) == 1, "missing cancellation key")
             pg.ok("CREATE TABLE running_work (id INT PRIMARY KEY, value INT)")
-            values = ",".join(f"({i},{i})" for i in range(128))
-            pg.ok("INSERT INTO running_work VALUES " + values)
+            for start in range(0, 256, 64):
+                values = ",".join(f"({i},{i})" for i in range(start, start + 64))
+                pg.ok("INSERT INTO running_work VALUES " + values)
             pg.ok("SET statement_timeout = 5")
             started = time.monotonic()
             expect_error(pg.query(slow), "57014")
             check(time.monotonic() - started < 2, "CPU statement deadline was not enforced")
             pg.ok("SET statement_timeout = 0")
-            pg.ok("SELECT COUNT(*) FROM running_work", [["128"]])
+            pg.ok("SELECT COUNT(*) FROM running_work", [["256"]])
 
             # All SQL slots are occupied: cancellation uses the separate,
             # header-only pool and still accepts a fragmented CancelRequest.
@@ -551,14 +552,14 @@ def test_running_query_controls(binary):
                 cancel.sendall(data[5:])
                 check(cancel.recv(1) == b"", "CancelRequest must close without a response")
             expect_error(pg.ready(), "57014")
-            pg.ok("SELECT COUNT(*) FROM running_work", [["128"]])
+            pg.ok("SELECT COUNT(*) FROM running_work", [["256"]])
             pg.ok("BEGIN", status=b"T")
             pg.ok("SET LOCAL statement_timeout = 5", status=b"T")
             messages = pg.query(slow)
             expect_error(messages, "57014")
             check(messages[-1] == (b"Z", b"E"), "interrupted transaction must enter failed state")
             pg.ok("ROLLBACK")
-            pg.ok("SELECT COUNT(*) FROM running_work", [["128"]])
+            pg.ok("SELECT COUNT(*) FROM running_work", [["256"]])
         finally:
             pg.close()
 
@@ -567,7 +568,8 @@ def test_running_query_controls(binary):
     with Server(binary, max_clients=2) as server:
         with connection(server) as pg:
             pg.ok("CREATE TABLE running_work (id INT PRIMARY KEY, value INT)")
-            pg.ok("INSERT INTO running_work VALUES " + ",".join(f"({i},{i})" for i in range(128)))
+            for start in range(0, 256, 64):
+                pg.ok("INSERT INTO running_work VALUES " + ",".join(f"({i},{i})" for i in range(start, start + 64)))
             # Deadline ends the CPU query; no SQL from the new socket may run
             # recursively while its workspace belongs to this statement.
             pg.ok("SET statement_timeout = 5")
