@@ -84,8 +84,10 @@ fn measure(which: Case, n: usize, iterations: usize) !void {
         }
         const elapsed: u64 = @intCast(sig.os.clockMonotonicNs() - start);
         const operations = iterations * (if (which == .mixed) @as(usize, 4) else 1);
+        const streaming = which == .aggregate or which == .group_aggregate;
+        const stats = db.workspace.query.stream_stats;
         var buffer: [512]u8 = undefined;
-        const line = try sig.fmt.bufPrint(&buffer, "{{\"engine\":\"ramsql-native\",\"case\":\"{s}\",\"passed\":true,\"rows\":{d},\"trial\":{d},\"operations\":{d},\"elapsed_ns\":{d},\"checksum\":{d},\"expected_digest\":{d}}}\n", .{ @tagName(which), n, trial, operations, elapsed, checksum, expected });
+        const line = try sig.fmt.bufPrint(&buffer, "{{\"engine\":\"ramsql-native\",\"case\":\"{s}\",\"passed\":true,\"rows\":{d},\"trial\":{d},\"operations\":{d},\"elapsed_ns\":{d},\"checksum\":{d},\"expected_digest\":{d},\"stream_rows\":{d},\"stream_groups\":{d},\"stream_probes\":{d},\"group_cells\":{d},\"group_refs\":{d}}}\n", .{ @tagName(which), n, trial, operations, elapsed, checksum, expected, if (streaming) stats.rows else 0, if (streaming) stats.groups else 0, if (streaming) stats.probes else 0, if (streaming) stats.scratch_cells else 0, if (streaming) stats.scratch_refs else 0 });
         try write(line);
     }
 }
@@ -104,7 +106,7 @@ pub fn main(init: std.process.Init.Minimal) !void {
     for (0..n) |id| try db.execute(try sig.fmt.bufPrint(&buffer, "INSERT INTO bench VALUES ({d}, {d}, {d}, 'value')", .{ id, n - id, id % 64 }), &result);
     pk = try sig.fmt.bufPrint(&pk_buf, "SELECT id, value FROM bench WHERE id = {d}", .{n / 2});
     update = try sig.fmt.bufPrint(&update_buf, "UPDATE bench SET value = 7 WHERE id = {d}", .{n / 2});
-    try write(try sig.fmt.bufPrint(&buffer, "{{\"engine\":\"ramsql-native\",\"rows\":{d},\"backing_bytes\":{d},\"metadata_bytes\":{d},\"load_ns\":{d}}}\n", .{ n, memory.bytes.len, @sizeOf(DB), sig.os.clockMonotonicNs() - load_start }));
+    try write(try sig.fmt.bufPrint(&buffer, "{{\"engine\":\"ramsql-native\",\"rows\":{d},\"backing_bytes\":{d},\"metadata_bytes\":{d},\"cell_bytes\":{d},\"version_bytes\":{d},\"query_ref_capacity\":{d},\"load_ns\":{d}}}\n", .{ n, memory.bytes.len, @sizeOf(DB), @sizeOf(DB.Cell), @sizeOf(DB.StorageVersion), db.workspace.query.refs.len, sig.os.clockMonotonicNs() - load_start }));
     inline for (.{ Case.primary_key_hot, Case.filtered_limit, Case.sort_limit, Case.aggregate, Case.group_aggregate, Case.mixed }) |which| {
         measure(which, n, iterations) catch |err| {
             try write(try sig.fmt.bufPrint(&buffer, "{{\"engine\":\"ramsql-native\",\"case\":\"{s}\",\"rows\":{d},\"passed\":false,\"error\":\"{s}\"}}\n", .{ @tagName(which), n, @errorName(err) }));

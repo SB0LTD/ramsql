@@ -11,6 +11,10 @@ This document supplements the [gap-closing plan](GAP_CLOSING_PLAN.md),
 [execution contract](EXECUTION_CONTROL.md), and
 [measured IRDB comparison](../benchmarks/irdb-review-20261025/REPORT.md).
 
+Implementation follow-up: [infrastructure progress and evidence](INFRASTRUCTURE_PROGRESS.md).
+The research snapshot below remains a design record; the progress record tracks
+which parts have actually been implemented and qualified.
+
 ## 1. Decision
 
 Build a **budgeted, resumable execution engine over compact, versioned storage**.

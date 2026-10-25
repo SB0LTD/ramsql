@@ -26,6 +26,8 @@ It connects the million-row IRDB comparison to streaming aggregation, ordered
 indexes, compact storage, scheduling and durable commits, with recent primary
 research, explicit memory contracts and implementation acceptance gates. Its
 proposed algorithms remain open work; the research document does not close gaps.
+The [implementation progress record](INFRASTRUCTURE_PROGRESS.md) tracks the
+streaming aggregation candidate and the still-open infrastructure milestones.
 
 ## How to use this plan
 
