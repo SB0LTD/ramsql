@@ -31,6 +31,7 @@ const timezones = @import("timezones.sig");
 const pages = @import("page_region");
 
 pub const Protocol = enum { postgres, mysql, mssql };
+pub const table_capacity = profile.tables;
 pub const Options = struct {
     protocol: Protocol = .postgres,
     port: ?u16 = null,
@@ -48,6 +49,8 @@ pub const Options = struct {
     /// Runtime storage budget, independent of result/query workspace sizes.
     storage_rows: usize = profile.rows,
     storage_versions: ?usize = null,
+    table_rows: ?[profile.tables]usize = null,
+    table_versions: ?[profile.tables]usize = null,
     work_rows: usize = profile.work_rows,
     result_rows: usize = profile.result_rows,
     /// zoneinfo directory for named time zones (null: UTC, offsets and
@@ -446,12 +449,20 @@ fn acceptConnections(listener: tcp.Socket, protocol: Protocol, max_clients: usiz
     }
 }
 
-fn storagePlan(options: Options) !struct { versions: usize, refs: usize, bytes: usize, workspace_bytes: usize, result_bytes: usize, response_bytes: usize } {
+fn storagePlan(options: Options) !struct { max_rows: usize, versions: usize, budgets: [profile.tables]Raw.TableBudget, refs: usize, bytes: usize, workspace_bytes: usize, result_bytes: usize, response_bytes: usize } {
     if (options.storage_rows == 0 or options.storage_rows > 0x3fffffff) return error.InvalidServerOptions;
-    const version_count = options.storage_versions orelse if (options.storage_rows == profile.rows) profile.versions else options.storage_rows * 2;
-    if (version_count <= options.storage_rows or version_count > 0x7fffffff) return error.InvalidServerOptions;
-    const ref_count = @max(options.storage_rows * 4, Raw.queryReferenceCount(options.work_rows) catch return error.InvalidServerOptions);
-    return .{ .versions = version_count, .refs = ref_count, .bytes = try Raw.backingBytes(options.storage_rows, version_count, ref_count),
+    var budgets: [profile.tables]Raw.TableBudget = undefined;
+    var max_rows: usize = 0; var max_versions: usize = 0;
+    for (&budgets,0..) |*budget,index| {
+        const rows = if (options.table_rows) |values| values[index] else options.storage_rows;
+        if (rows == 0 or rows > 0x3fffffff) return error.InvalidServerOptions;
+        const versions = if (options.table_versions) |values| values[index] else options.storage_versions orelse if (rows == profile.rows) profile.versions else rows * 2;
+        if (versions <= rows or versions > 0x7fffffff) return error.InvalidServerOptions;
+        budget.* = .{ .rows=rows, .versions=versions };
+        max_rows=@max(max_rows,rows); max_versions=@max(max_versions,versions);
+    }
+    const ref_count = @max(max_rows * 4, Raw.queryReferenceCount(options.work_rows) catch return error.InvalidServerOptions);
+    return .{ .max_rows=max_rows, .versions = max_versions, .budgets=budgets, .refs = ref_count, .bytes = try Raw.backingBytesFor(budgets, ref_count),
         .workspace_bytes = Raw.queryWorkspaceBytes(options.work_rows) catch return error.InvalidServerOptions,
         .result_bytes = Raw.Result.rowBytes(options.result_rows) catch return error.InvalidServerOptions,
         .response_bytes = responseBytes(options.result_rows) catch return error.InvalidServerOptions };
@@ -463,15 +474,28 @@ pub fn describe(options: Options) !void {
     var buffer: [4096]u8 = undefined;
     const message = try sig.fmt.bufPrint(&buffer,
         "{{\"schema\":1,\"version\":\"{s}\",\"release_stage\":\"beta\",\"production_ready\":false,\"default_protocol\":\"postgres\",\"bind\":\"127.0.0.1\",\"tls\":false,\"roles\":false,\"isolation\":\"read_committed\",\"workers\":1,\"rows_per_table\":{d},\"versions_per_table\":{d},\"tables\":{d},\"columns\":{d},\"result_rows\":{d},\"work_rows\":{d},\"text_bytes\":{d},\"name_bytes\":{d},\"clients\":{d},\"compiled_clients\":{d},\"transaction_bytes\":{d},\"tx_writes\":{d},\"row_locks\":{d},\"predicates\":{d},\"expr_nodes\":{d},\"expr_depth\":{d},\"relations\":{d},\"subqueries\":{d},\"ctes\":{d},\"savepoints\":{d},\"sequences\":{d},\"numeric_digits\":{d},\"json_depth\":{d},\"copy_line_bytes\":{d},\"pg_packet_bytes\":{d},\"pg_prepared_sql_bytes\":{d},\"pg_statements\":{d},\"pg_portals\":{d},\"pg_parameters\":{d},\"input_bytes\":{d},\"output_bytes_per_client\":{d},\"backing_bytes\":{d},\"query_workspace_bytes\":{d},\"result_bytes_per_client\":{d},\"client_metadata_bytes\":{d},\"summary_groups\":{d},\"compact_integral_scans\":{s},\"wal_checkpointing\":false,\"mysql_tds_authentication\":false}}\n",
-        .{ @import("ramsql").version, options.storage_rows, plan.versions, config.tables, config.columns, options.result_rows, options.work_rows, config.text_bytes, config.name_bytes, options.max_clients, capacity, profile.transaction_bytes, config.tx_writes, config.row_locks, config.predicates, config.expr_nodes, config.expr_depth, config.relations, config.subqueries, config.ctes, config.savepoints, config.sequences, config.numeric_digits, config.json_depth, config.copy_line_bytes, pg.max_packet, pg.sql_capacity, pg.statement_capacity, pg.portal_capacity, pg.parameter_capacity, input_capacity, plan.response_bytes, plan.bytes, plan.workspace_bytes, plan.result_bytes, options.max_clients * @sizeOf(Client), config.summary_groups, if(config.compact_integral_scans and config.columns <= 64) "true" else "false" });
-    try sig.io.File.stdout().writeStreamingAll(.{}, message);
+        .{ @import("ramsql").version, plan.max_rows, plan.versions, config.tables, config.columns, options.result_rows, options.work_rows, config.text_bytes, config.name_bytes, options.max_clients, capacity, profile.transaction_bytes, config.tx_writes, config.row_locks, config.predicates, config.expr_nodes, config.expr_depth, config.relations, config.subqueries, config.ctes, config.savepoints, config.sequences, config.numeric_digits, config.json_depth, config.copy_line_bytes, pg.max_packet, pg.sql_capacity, pg.statement_capacity, pg.portal_capacity, pg.parameter_capacity, input_capacity, plan.response_bytes, plan.bytes, plan.workspace_bytes, plan.result_bytes, options.max_clients * @sizeOf(Client), config.summary_groups, if(config.compact_integral_scans and config.columns <= 64) "true" else "false" });
+    const out = sig.io.File.stdout();
+    try out.writeStreamingAll(.{}, message[0..message.len-2]);
+    try out.writeStreamingAll(.{}, ",\"table_rows\":[");
+    var number: [32]u8 = undefined;
+    for (plan.budgets,0..) |budget,index| {
+        if (index!=0) try out.writeStreamingAll(.{},",");
+        try out.writeStreamingAll(.{},try sig.fmt.bufPrint(&number,"{d}",.{budget.rows}));
+    }
+    try out.writeStreamingAll(.{},"],\"table_versions\":[");
+    for (plan.budgets,0..) |budget,index| {
+        if (index!=0) try out.writeStreamingAll(.{},",");
+        try out.writeStreamingAll(.{},try sig.fmt.bufPrint(&number,"{d}",.{budget.versions}));
+    }
+    try out.writeStreamingAll(.{},"]}\n");
 }
 
 fn openStorage(options: Options) !pages.Region {
     const plan = try storagePlan(options);
     var backing = try pages.reserve(plan.bytes);
     errdefer backing.close();
-    try store.database.bindMemory(backing.bytes, options.storage_rows, plan.versions, plan.refs);
+    try store.database.bindMemoryFor(backing.bytes, plan.budgets, plan.refs);
     return backing;
 }
 

@@ -46,11 +46,12 @@ def startup_packet(user="ramsql"):
 
 
 class Server:
-    def __init__(self, binary, idle_ms=30000, max_clients=16, max_query_work=0):
+    def __init__(self, binary, idle_ms=30000, max_clients=16, max_query_work=0, extra_arguments=()):
         self.binary = binary
         self.idle_ms = idle_ms
         self.max_clients = max_clients
         self.max_query_work = max_query_work
+        self.extra_arguments = tuple(extra_arguments)
         self.errors = deque(maxlen=100)
         self.process = None
         self.port = None
@@ -59,7 +60,7 @@ class Server:
         self.process = subprocess.Popen(
             [str(self.binary), "--serve", "--memory", "--insecure-local", "--protocol", "postgres", "--port", "0",
              "--idle-ms", str(self.idle_ms), "--max-clients", str(self.max_clients),
-             *(["--max-query-work", str(self.max_query_work)] if self.max_query_work else [])],
+             *(["--max-query-work", str(self.max_query_work)] if self.max_query_work else []), *self.extra_arguments],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1,
         )
         lines = queue.Queue()

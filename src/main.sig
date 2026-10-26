@@ -137,6 +137,19 @@ fn same(a: []const u8, b: []const u8) bool {
     return true;
 }
 
+fn budgets(source: []const u8) ![server.table_capacity]usize {
+    var values: [server.table_capacity]usize = undefined;
+    var start: usize = 0; var used: usize = 0;
+    for (0..source.len+1) |position| {
+        if (position != source.len and source[position] != ',') continue;
+        if (used == values.len) return error.InvalidServerOptions;
+        values[used] = try fmt.parseInt(usize,std.mem.trim(u8,source[start..position]," "),10);
+        used+=1; start=position+1;
+    }
+    if (used != values.len) return error.InvalidServerOptions;
+    return values;
+}
+
 fn run(init: std.process.Init.Minimal) !u8 {
     var args_buf: [8192]u8 = undefined;
     var args = process.Argv_Iterator.init(init.args.vector, &args_buf);
@@ -165,8 +178,8 @@ fn run(init: std.process.Init.Minimal) !u8 {
             options.insecure_local = true;
             has_server_options = true;
         } else {
-            const option: enum { protocol, port, mysql_port, mssql_port, max_clients, idle_ms, max_query_work, storage_rows, storage_versions, work_rows, result_rows, data, verifier_file, auth_user, backup_to, timezone_dir } =
-                if (same(arg, "--work-rows")) .work_rows else if (same(arg, "--result-rows")) .result_rows else if (same(arg, "--rows")) .storage_rows else if (same(arg, "--versions")) .storage_versions else if (same(arg, "--protocol")) .protocol else if (same(arg, "--port")) .port else if (same(arg, "--mysql-port")) .mysql_port else if (same(arg, "--mssql-port")) .mssql_port else if (same(arg, "--max-clients")) .max_clients else if (same(arg, "--max-query-work")) .max_query_work else if (same(arg, "--idle-ms")) .idle_ms else if (same(arg, "--data")) .data else if (same(arg, "--auth-verifier-file")) .verifier_file else if (same(arg, "--auth-user")) .auth_user else if (same(arg, "--backup-to")) .backup_to else if (same(arg, "--timezone-dir")) .timezone_dir else return error.UnknownArgument;
+            const option: enum { protocol, port, mysql_port, mssql_port, max_clients, idle_ms, max_query_work, storage_rows, storage_versions, work_rows, result_rows, table_rows, table_versions, data, verifier_file, auth_user, backup_to, timezone_dir } =
+                if (same(arg, "--table-rows")) .table_rows else if (same(arg, "--table-versions")) .table_versions else if (same(arg, "--work-rows")) .work_rows else if (same(arg, "--result-rows")) .result_rows else if (same(arg, "--rows")) .storage_rows else if (same(arg, "--versions")) .storage_versions else if (same(arg, "--protocol")) .protocol else if (same(arg, "--port")) .port else if (same(arg, "--mysql-port")) .mysql_port else if (same(arg, "--mssql-port")) .mssql_port else if (same(arg, "--max-clients")) .max_clients else if (same(arg, "--max-query-work")) .max_query_work else if (same(arg, "--idle-ms")) .idle_ms else if (same(arg, "--data")) .data else if (same(arg, "--auth-verifier-file")) .verifier_file else if (same(arg, "--auth-user")) .auth_user else if (same(arg, "--backup-to")) .backup_to else if (same(arg, "--timezone-dir")) .timezone_dir else return error.UnknownArgument;
             const value = try args.next() orelse return error.UnknownArgument;
             has_server_options = true;
             switch (option) {
@@ -203,6 +216,8 @@ fn run(init: std.process.Init.Minimal) !u8 {
                 .max_clients => options.max_clients = try fmt.parseInt(usize, value, 10),
                 .storage_rows => options.storage_rows = try fmt.parseInt(usize, value, 10),
                 .storage_versions => options.storage_versions = try fmt.parseInt(usize, value, 10),
+                .table_rows => options.table_rows = try budgets(value),
+                .table_versions => options.table_versions = try budgets(value),
                 .work_rows => options.work_rows = try fmt.parseInt(usize, value, 10),
                 .result_rows => options.result_rows = try fmt.parseInt(usize, value, 10),
                 .max_query_work => options.max_query_work = try fmt.parseInt(u64, value, 10),

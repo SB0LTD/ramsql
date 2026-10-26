@@ -9,6 +9,7 @@ import socket
 import struct
 import subprocess
 import sys
+import tempfile
 from test_postgres_compat import running_ramsql
 from test_server import PG, startup_packet, expect_error
 
@@ -37,9 +38,20 @@ def main():
     assert caps['work_rows']==1000000 and caps['result_rows']==4096 and caps['clients']==32
     assert caps['query_workspace_bytes']>caps['result_bytes_per_client']
     assert binary.stat().st_size<100*1024*1024,'runtime budgets must not produce giant executable data'
+    large=['--capabilities','--rows','5000000','--work-rows','8192','--result-rows','4096']
+    uniform=json.loads(subprocess.check_output([str(binary),*large]))
+    asymmetric=json.loads(subprocess.check_output([str(binary),*large,'--table-rows','5000000,100000,64,1,1,1,1,1']))
+    assert asymmetric['table_rows']==[5000000,100000,64,1,1,1,1,1]
+    assert asymmetric['backing_bytes']<20*1024**3 and asymmetric['backing_bytes']<uniform['backing_bytes']/4
     with running_ramsql(binary,extra_arguments=('--rows','6000','--work-rows','128','--result-rows','4096')) as conn:
         with psycopg.connect(**conn,prepare_threshold=None) as db:
             seed(db)
+            for duplicate in (0,1,2047,4095,4999):
+                try:
+                    db.execute(f'INSERT INTO sales VALUES({duplicate},0,0,0)',prepare=False)
+                    raise AssertionError('runtime index admitted a duplicate key')
+                except psycopg.Error as error:
+                    assert error.sqlstate=='23505',error
             query='SELECT COUNT(*),SUM(s.amount) FROM sales s JOIN products p ON p.id=s.product JOIN shops t ON t.id=s.shop WHERE s.shop=3'
             selected=[i*7%1000 for i in range(5000) if i%40==3]
             assert db.execute(query,prepare=False).fetchone()==(125,sum(selected))
@@ -83,9 +95,26 @@ def main():
                     expect_error([(tag,body)],'53300')
                 finally:
                     raw.close(False)
+    bank_args=('--table-rows','6000,16,64,1,1,1,1,1','--work-rows','128','--result-rows','4096')
+    with tempfile.TemporaryDirectory(prefix='ramsql-reviewer-bank-') as directory:
+        wal=Path(directory)/'bank.wal'
+        with running_ramsql(binary,extra_arguments=bank_args,data_path=wal) as conn:
+            with psycopg.connect(**conn,prepare_threshold=None) as db:
+                seed(db)
+                try:
+                    db.execute('INSERT INTO products VALUES(16,99)',prepare=False)
+                    raise AssertionError('table bank capacity ignored')
+                except psycopg.Error as error:
+                    assert error.sqlstate in ('54000','53200'),error
+                assert db.execute('SELECT COUNT(*) FROM products').fetchone()==(16,)
+        with running_ramsql(binary,extra_arguments=bank_args,data_path=wal) as conn:
+            with psycopg.connect(**conn) as db:
+                assert db.execute('SELECT COUNT(*) FROM sales').fetchone()==(5000,)
+                assert db.execute('SELECT COUNT(*) FROM products').fetchone()==(16,)
     print(json.dumps(dict(suite='reviewer-runtime',passed=True,seed_rows=5000,
         runtime_result_rows=2000,small_workspace_join=True,bulk_rows_per_insert=500,
-        large_prepared_sql=True,oversize_sql_recoverable=True,connections=32)))
+        large_prepared_sql=True,oversize_sql_recoverable=True,connections=32,
+        asymmetric_bank_restart=True,runtime_unique_keys=True)))
 
 
 if __name__=='__main__':main()
