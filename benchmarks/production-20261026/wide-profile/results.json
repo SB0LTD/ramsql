@@ -1,0 +1,6551 @@
+{
+  "schema": 1,
+  "started_unix": 1793038215.472655,
+  "os": "Windows-10-10.0.26300-SP0",
+  "cpu": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+  "logical_cpus": 32,
+  "method": "Native SQL public API, volatile memory, single worker; same trace distribution; result checks and histogram included. No durability or server/concurrency superiority claim.",
+  "latency": "power-of-two nanosecond bucket upper bounds, including result consumption/validation; not exact quantiles",
+  "fixture_policy": "shuffled keys, randomized integer values, nullable variable payloads, genuine cyclic writes; fixed 64-group RAMSQL summary budget",
+  "minimum_speedup": 1.05,
+  "range_rule": "all observed RAMSQL rates exceed all observed IRDB rates; this is a finite screening rule, not a statistical confidence claim",
+  "source_sha256": {
+    "build.sig.zon": "bff3e87fbc67d360014b3ab7865938fa68fdcbb2e7769ff8ef0944e48b58b427",
+    "src/production_benchmark.sig": "e37da4596a20272dbb2e5d3bdb1dd6e4b44d1457084789cf0065eb4f37e5e12f",
+    "tools/production_workloads.py": "7e35dcd249b0cd997baaaaa7e51e2a36b482ef22f8a4879cc98608f0128ff11b",
+    "tools/benchmark_production.py": "9ea2d0e3eca3f20a97f07ca275231c8e3e4f24058cb3223c1a2c104c0272b57c",
+    "tools/irdb_bench/Program.cs": "f225f4b301193db62bba617fa673e50acd4f2f32e082c2623f098705c4cb2292",
+    "tools/irdb_bench/ProductionTrace.cs": "f804030e578027e32131e2386a631e4af48849051ed267c7cc24f5a76efaebc8"
+  },
+  "binaries": {
+    "native": {
+      "path": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-win-wide\\bin\\ramsql-production-bench.exe",
+      "sha256": "065a2c0b2aab3907f3e1edb8cc07dce46ff39134095b3612aede2d1b48da3cb2"
+    },
+    "dotnet_host": {
+      "path": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\dotnet-win-core-runtime\\dotnet.exe",
+      "sha256": "1e881ec1786c31ba712d052258b4ad4202ac155df5965794030037878abb822f"
+    },
+    "irdb": {
+      "path": "C:\\Just-Things\\Projects\\sb0\\ramsql\\tools\\irdb_bench\\bin\\Release\\net10.0\\IrdbBench.dll",
+      "sha256": "31ed0ec5919e62e73797ca87cee6227b1a173891d8dd35328fb18b2aeb3bdacc"
+    },
+    "irdb_library": {
+      "path": "C:\\Just-Things\\Projects\\sb0\\ramsql\\tools\\irdb_bench\\bin\\Release\\net10.0\\irdb.dll",
+      "sha256": "8b75d636c639972e8988661c518ee3648535b48dc575a3c2d3270b29ace47f3b"
+    }
+  },
+  "runs": [
+    {
+      "engine": "ramsql",
+      "cycle": 0,
+      "fixture": {
+        "case": "uniform_get",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 64,
+        "reads": 64,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "4481397c4c96ce58a359e6fa06b55a5ab5d3395434f3af10e69825755a0e39ab"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-win-wide\\bin\\ramsql-production-bench.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-uniform_get.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "ramsql-native",
+          "rows": 100000,
+          "requests": 64,
+          "load_ns": 284312300,
+          "warmup_ns": 1000016700,
+          "warmup_cycles": 16151,
+          "backing_bytes": 442445728,
+          "metadata_bytes": 17695360,
+          "cell_bytes": 528,
+          "work_rows": 4096,
+          "text_bytes": 512,
+          "compact_integral_scans": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 293568,
+          "cycles": 4587,
+          "elapsed_ns": 300009100,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 295680,
+          "cycles": 4620,
+          "elapsed_ns": 300008200,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 296000,
+          "cycles": 4625,
+          "elapsed_ns": 300041900,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 269248,
+          "cycles": 4207,
+          "elapsed_ns": 300067300,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 267264,
+          "cycles": 4176,
+          "elapsed_ns": 300063200,
+          "p50_upper_ns": 2048,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 293568,
+          "cycles": 4587,
+          "elapsed_ns": 300009100,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 295680,
+          "cycles": 4620,
+          "elapsed_ns": 300008200,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 296000,
+          "cycles": 4625,
+          "elapsed_ns": 300041900,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 269248,
+          "cycles": 4207,
+          "elapsed_ns": 300067300,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 267264,
+          "cycles": 4176,
+          "elapsed_ns": 300063200,
+          "p50_upper_ns": 2048,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ]
+    },
+    {
+      "engine": "irdb",
+      "cycle": 0,
+      "fixture": {
+        "case": "uniform_get",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 64,
+        "reads": 64,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "4481397c4c96ce58a359e6fa06b55a5ab5d3395434f3af10e69825755a0e39ab"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\dotnet-win-core-runtime\\dotnet.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\tools\\irdb_bench\\bin\\Release\\net10.0\\IrdbBench.dll",
+        "--trace",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-uniform_get.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "InMemory.Net.irdb",
+          "package_version": "1.10.821",
+          "runtime": ".NET 10.0.14",
+          "rows": 100000,
+          "requests": 64,
+          "load_ns": 674287400,
+          "warmup_ns": 1007851400,
+          "warmup_cycles": 50,
+          "import_compiled": true,
+          "id_clustered_index": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 896,
+          "cycles": 14,
+          "elapsed_ns": 301622200,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 4194304
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 768,
+          "cycles": 12,
+          "elapsed_ns": 314700000,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 4194304
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 960,
+          "cycles": 15,
+          "elapsed_ns": 309378200,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 4194304
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 1152,
+          "cycles": 18,
+          "elapsed_ns": 310605200,
+          "p50_upper_ns": 131072,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 1152,
+          "cycles": 18,
+          "elapsed_ns": 327697500,
+          "p50_upper_ns": 131072,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 4194304
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 896,
+          "cycles": 14,
+          "elapsed_ns": 301622200,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 4194304
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 768,
+          "cycles": 12,
+          "elapsed_ns": 314700000,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 4194304
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 960,
+          "cycles": 15,
+          "elapsed_ns": 309378200,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 4194304
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 1152,
+          "cycles": 18,
+          "elapsed_ns": 310605200,
+          "p50_upper_ns": 131072,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 1152,
+          "cycles": 18,
+          "elapsed_ns": 327697500,
+          "p50_upper_ns": 131072,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 4194304
+        }
+      ]
+    },
+    {
+      "engine": "irdb",
+      "cycle": 1,
+      "fixture": {
+        "case": "uniform_get",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 64,
+        "reads": 64,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "4481397c4c96ce58a359e6fa06b55a5ab5d3395434f3af10e69825755a0e39ab"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\dotnet-win-core-runtime\\dotnet.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\tools\\irdb_bench\\bin\\Release\\net10.0\\IrdbBench.dll",
+        "--trace",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-uniform_get.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "InMemory.Net.irdb",
+          "package_version": "1.10.821",
+          "runtime": ".NET 10.0.14",
+          "rows": 100000,
+          "requests": 64,
+          "load_ns": 624024000,
+          "warmup_ns": 1014329700,
+          "warmup_cycles": 45,
+          "import_compiled": true,
+          "id_clustered_index": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 960,
+          "cycles": 15,
+          "elapsed_ns": 332907200,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 4194304
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 768,
+          "cycles": 12,
+          "elapsed_ns": 316330000,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 704,
+          "cycles": 11,
+          "elapsed_ns": 300529700,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 1088,
+          "cycles": 17,
+          "elapsed_ns": 307091500,
+          "p50_upper_ns": 131072,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 4194304
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 1088,
+          "cycles": 17,
+          "elapsed_ns": 307298400,
+          "p50_upper_ns": 131072,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 960,
+          "cycles": 15,
+          "elapsed_ns": 332907200,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 4194304
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 768,
+          "cycles": 12,
+          "elapsed_ns": 316330000,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 704,
+          "cycles": 11,
+          "elapsed_ns": 300529700,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 1088,
+          "cycles": 17,
+          "elapsed_ns": 307091500,
+          "p50_upper_ns": 131072,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 4194304
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 1088,
+          "cycles": 17,
+          "elapsed_ns": 307298400,
+          "p50_upper_ns": 131072,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576
+        }
+      ]
+    },
+    {
+      "engine": "ramsql",
+      "cycle": 1,
+      "fixture": {
+        "case": "uniform_get",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 64,
+        "reads": 64,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "4481397c4c96ce58a359e6fa06b55a5ab5d3395434f3af10e69825755a0e39ab"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-win-wide\\bin\\ramsql-production-bench.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-uniform_get.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "ramsql-native",
+          "rows": 100000,
+          "requests": 64,
+          "load_ns": 282723600,
+          "warmup_ns": 1000032100,
+          "warmup_cycles": 16591,
+          "backing_bytes": 442445728,
+          "metadata_bytes": 17695360,
+          "cell_bytes": 528,
+          "work_rows": 4096,
+          "text_bytes": 512,
+          "compact_integral_scans": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 302080,
+          "cycles": 4720,
+          "elapsed_ns": 300052500,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 302848,
+          "cycles": 4732,
+          "elapsed_ns": 300038800,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 305216,
+          "cycles": 4769,
+          "elapsed_ns": 300043700,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 303616,
+          "cycles": 4744,
+          "elapsed_ns": 300020900,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 303168,
+          "cycles": 4737,
+          "elapsed_ns": 300041200,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 302080,
+          "cycles": 4720,
+          "elapsed_ns": 300052500,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 302848,
+          "cycles": 4732,
+          "elapsed_ns": 300038800,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 305216,
+          "cycles": 4769,
+          "elapsed_ns": 300043700,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 303616,
+          "cycles": 4744,
+          "elapsed_ns": 300020900,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 303168,
+          "cycles": 4737,
+          "elapsed_ns": 300041200,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ]
+    },
+    {
+      "engine": "ramsql",
+      "cycle": 0,
+      "fixture": {
+        "case": "hotspot_get",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 64,
+        "reads": 64,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "752a1df40c5e0d4914d0b610bfe94fb38d2d29bc78986aa2a04f2df19fb3c8c2"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-win-wide\\bin\\ramsql-production-bench.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-hotspot_get.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "ramsql-native",
+          "rows": 100000,
+          "requests": 64,
+          "load_ns": 281428300,
+          "warmup_ns": 1000027600,
+          "warmup_cycles": 16609,
+          "backing_bytes": 442445728,
+          "metadata_bytes": 17695360,
+          "cell_bytes": 528,
+          "work_rows": 4096,
+          "text_bytes": 512,
+          "compact_integral_scans": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 298816,
+          "cycles": 4669,
+          "elapsed_ns": 300048100,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 307200,
+          "cycles": 4800,
+          "elapsed_ns": 300005200,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 305856,
+          "cycles": 4779,
+          "elapsed_ns": 300054100,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 296000,
+          "cycles": 4625,
+          "elapsed_ns": 300040600,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 297216,
+          "cycles": 4644,
+          "elapsed_ns": 300051300,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 298816,
+          "cycles": 4669,
+          "elapsed_ns": 300048100,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 307200,
+          "cycles": 4800,
+          "elapsed_ns": 300005200,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 305856,
+          "cycles": 4779,
+          "elapsed_ns": 300054100,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 296000,
+          "cycles": 4625,
+          "elapsed_ns": 300040600,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 297216,
+          "cycles": 4644,
+          "elapsed_ns": 300051300,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ]
+    },
+    {
+      "engine": "irdb",
+      "cycle": 0,
+      "fixture": {
+        "case": "hotspot_get",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 64,
+        "reads": 64,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "752a1df40c5e0d4914d0b610bfe94fb38d2d29bc78986aa2a04f2df19fb3c8c2"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\dotnet-win-core-runtime\\dotnet.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\tools\\irdb_bench\\bin\\Release\\net10.0\\IrdbBench.dll",
+        "--trace",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-hotspot_get.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "InMemory.Net.irdb",
+          "package_version": "1.10.821",
+          "runtime": ".NET 10.0.14",
+          "rows": 100000,
+          "requests": 64,
+          "load_ns": 612936000,
+          "warmup_ns": 1020064200,
+          "warmup_cycles": 44,
+          "import_compiled": true,
+          "id_clustered_index": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 1024,
+          "cycles": 16,
+          "elapsed_ns": 311476800,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 896,
+          "cycles": 14,
+          "elapsed_ns": 316302500,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 1152,
+          "cycles": 18,
+          "elapsed_ns": 312097200,
+          "p50_upper_ns": 131072,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 1152,
+          "cycles": 18,
+          "elapsed_ns": 312013600,
+          "p50_upper_ns": 131072,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 1152,
+          "cycles": 18,
+          "elapsed_ns": 310058200,
+          "p50_upper_ns": 131072,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 4194304
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 1024,
+          "cycles": 16,
+          "elapsed_ns": 311476800,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 896,
+          "cycles": 14,
+          "elapsed_ns": 316302500,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 1152,
+          "cycles": 18,
+          "elapsed_ns": 312097200,
+          "p50_upper_ns": 131072,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 1152,
+          "cycles": 18,
+          "elapsed_ns": 312013600,
+          "p50_upper_ns": 131072,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 1152,
+          "cycles": 18,
+          "elapsed_ns": 310058200,
+          "p50_upper_ns": 131072,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 4194304
+        }
+      ]
+    },
+    {
+      "engine": "irdb",
+      "cycle": 1,
+      "fixture": {
+        "case": "hotspot_get",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 64,
+        "reads": 64,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "752a1df40c5e0d4914d0b610bfe94fb38d2d29bc78986aa2a04f2df19fb3c8c2"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\dotnet-win-core-runtime\\dotnet.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\tools\\irdb_bench\\bin\\Release\\net10.0\\IrdbBench.dll",
+        "--trace",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-hotspot_get.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "InMemory.Net.irdb",
+          "package_version": "1.10.821",
+          "runtime": ".NET 10.0.14",
+          "rows": 100000,
+          "requests": 64,
+          "load_ns": 599072200,
+          "warmup_ns": 1009968500,
+          "warmup_cycles": 52,
+          "import_compiled": true,
+          "id_clustered_index": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 768,
+          "cycles": 12,
+          "elapsed_ns": 305985400,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 832,
+          "cycles": 13,
+          "elapsed_ns": 317658000,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 4194304
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 832,
+          "cycles": 13,
+          "elapsed_ns": 326079700,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 1024,
+          "cycles": 16,
+          "elapsed_ns": 308686000,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 1152,
+          "cycles": 18,
+          "elapsed_ns": 314309600,
+          "p50_upper_ns": 131072,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 768,
+          "cycles": 12,
+          "elapsed_ns": 305985400,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 832,
+          "cycles": 13,
+          "elapsed_ns": 317658000,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 4194304
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 832,
+          "cycles": 13,
+          "elapsed_ns": 326079700,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 1024,
+          "cycles": 16,
+          "elapsed_ns": 308686000,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 1152,
+          "cycles": 18,
+          "elapsed_ns": 314309600,
+          "p50_upper_ns": 131072,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576
+        }
+      ]
+    },
+    {
+      "engine": "ramsql",
+      "cycle": 1,
+      "fixture": {
+        "case": "hotspot_get",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 64,
+        "reads": 64,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "752a1df40c5e0d4914d0b610bfe94fb38d2d29bc78986aa2a04f2df19fb3c8c2"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-win-wide\\bin\\ramsql-production-bench.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-hotspot_get.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "ramsql-native",
+          "rows": 100000,
+          "requests": 64,
+          "load_ns": 285875600,
+          "warmup_ns": 1000010000,
+          "warmup_cycles": 17318,
+          "backing_bytes": 442445728,
+          "metadata_bytes": 17695360,
+          "cell_bytes": 528,
+          "work_rows": 4096,
+          "text_bytes": 512,
+          "compact_integral_scans": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 318016,
+          "cycles": 4969,
+          "elapsed_ns": 300022000,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 1024,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 313920,
+          "cycles": 4905,
+          "elapsed_ns": 300039500,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 314432,
+          "cycles": 4913,
+          "elapsed_ns": 300032100,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 316416,
+          "cycles": 4944,
+          "elapsed_ns": 300007700,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 316416,
+          "cycles": 4944,
+          "elapsed_ns": 300034500,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 318016,
+          "cycles": 4969,
+          "elapsed_ns": 300022000,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 1024,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 313920,
+          "cycles": 4905,
+          "elapsed_ns": 300039500,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 314432,
+          "cycles": 4913,
+          "elapsed_ns": 300032100,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 316416,
+          "cycles": 4944,
+          "elapsed_ns": 300007700,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 316416,
+          "cycles": 4944,
+          "elapsed_ns": 300034500,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ]
+    },
+    {
+      "engine": "ramsql",
+      "cycle": 0,
+      "fixture": {
+        "case": "range_page",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 64,
+        "reads": 64,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "18028c37416bc02e20e2a00ac3adff893f6b823498de29a5b7ef40931a36093a"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-win-wide\\bin\\ramsql-production-bench.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-range_page.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "ramsql-native",
+          "rows": 100000,
+          "requests": 64,
+          "load_ns": 282375000,
+          "warmup_ns": 1000221600,
+          "warmup_cycles": 3382,
+          "backing_bytes": 442445728,
+          "metadata_bytes": 17695360,
+          "cell_bytes": 528,
+          "work_rows": 4096,
+          "text_bytes": 512,
+          "compact_integral_scans": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 62784,
+          "cycles": 981,
+          "elapsed_ns": 300205900,
+          "p50_upper_ns": 8192,
+          "p95_upper_ns": 8192,
+          "p99_upper_ns": 16384,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 64960,
+          "cycles": 1015,
+          "elapsed_ns": 300011500,
+          "p50_upper_ns": 8192,
+          "p95_upper_ns": 8192,
+          "p99_upper_ns": 8192,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 65600,
+          "cycles": 1025,
+          "elapsed_ns": 300116600,
+          "p50_upper_ns": 8192,
+          "p95_upper_ns": 8192,
+          "p99_upper_ns": 16384,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 62784,
+          "cycles": 981,
+          "elapsed_ns": 300279900,
+          "p50_upper_ns": 8192,
+          "p95_upper_ns": 8192,
+          "p99_upper_ns": 16384,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 63168,
+          "cycles": 987,
+          "elapsed_ns": 300264000,
+          "p50_upper_ns": 8192,
+          "p95_upper_ns": 8192,
+          "p99_upper_ns": 16384,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 62784,
+          "cycles": 981,
+          "elapsed_ns": 300205900,
+          "p50_upper_ns": 8192,
+          "p95_upper_ns": 8192,
+          "p99_upper_ns": 16384,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 64960,
+          "cycles": 1015,
+          "elapsed_ns": 300011500,
+          "p50_upper_ns": 8192,
+          "p95_upper_ns": 8192,
+          "p99_upper_ns": 8192,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 65600,
+          "cycles": 1025,
+          "elapsed_ns": 300116600,
+          "p50_upper_ns": 8192,
+          "p95_upper_ns": 8192,
+          "p99_upper_ns": 16384,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 62784,
+          "cycles": 981,
+          "elapsed_ns": 300279900,
+          "p50_upper_ns": 8192,
+          "p95_upper_ns": 8192,
+          "p99_upper_ns": 16384,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 63168,
+          "cycles": 987,
+          "elapsed_ns": 300264000,
+          "p50_upper_ns": 8192,
+          "p95_upper_ns": 8192,
+          "p99_upper_ns": 16384,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ]
+    },
+    {
+      "engine": "irdb",
+      "cycle": 0,
+      "fixture": {
+        "case": "range_page",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 64,
+        "reads": 64,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "18028c37416bc02e20e2a00ac3adff893f6b823498de29a5b7ef40931a36093a"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\dotnet-win-core-runtime\\dotnet.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\tools\\irdb_bench\\bin\\Release\\net10.0\\IrdbBench.dll",
+        "--trace",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-range_page.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "InMemory.Net.irdb",
+          "package_version": "1.10.821",
+          "runtime": ".NET 10.0.14",
+          "rows": 100000,
+          "requests": 64,
+          "load_ns": 605136100,
+          "warmup_ns": 1120150200,
+          "warmup_cycles": 4,
+          "import_compiled": true,
+          "id_clustered_index": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 587221200,
+          "p50_upper_ns": 8388608,
+          "p95_upper_ns": 16777216,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 361726200,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 33554432
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 256,
+          "cycles": 4,
+          "elapsed_ns": 394035500,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 4194304,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 256,
+          "cycles": 4,
+          "elapsed_ns": 377778200,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 4194304,
+          "p99_upper_ns": 33554432
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 256,
+          "cycles": 4,
+          "elapsed_ns": 357766900,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 4194304,
+          "p99_upper_ns": 8388608
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 587221200,
+          "p50_upper_ns": 8388608,
+          "p95_upper_ns": 16777216,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 361726200,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 33554432
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 256,
+          "cycles": 4,
+          "elapsed_ns": 394035500,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 4194304,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 256,
+          "cycles": 4,
+          "elapsed_ns": 377778200,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 4194304,
+          "p99_upper_ns": 33554432
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 256,
+          "cycles": 4,
+          "elapsed_ns": 357766900,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 4194304,
+          "p99_upper_ns": 8388608
+        }
+      ]
+    },
+    {
+      "engine": "irdb",
+      "cycle": 1,
+      "fixture": {
+        "case": "range_page",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 64,
+        "reads": 64,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "18028c37416bc02e20e2a00ac3adff893f6b823498de29a5b7ef40931a36093a"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\dotnet-win-core-runtime\\dotnet.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\tools\\irdb_bench\\bin\\Release\\net10.0\\IrdbBench.dll",
+        "--trace",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-range_page.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "InMemory.Net.irdb",
+          "package_version": "1.10.821",
+          "runtime": ".NET 10.0.14",
+          "rows": 100000,
+          "requests": 64,
+          "load_ns": 606585600,
+          "warmup_ns": 1134386400,
+          "warmup_cycles": 4,
+          "import_compiled": true,
+          "id_clustered_index": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 586964900,
+          "p50_upper_ns": 8388608,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 346293700,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 33554432
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 192,
+          "cycles": 3,
+          "elapsed_ns": 310679800,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 4194304,
+          "p99_upper_ns": 33554432
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 256,
+          "cycles": 4,
+          "elapsed_ns": 380850100,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 256,
+          "cycles": 4,
+          "elapsed_ns": 338904400,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 4194304,
+          "p99_upper_ns": 8388608
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 586964900,
+          "p50_upper_ns": 8388608,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 346293700,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 33554432
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 192,
+          "cycles": 3,
+          "elapsed_ns": 310679800,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 4194304,
+          "p99_upper_ns": 33554432
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 256,
+          "cycles": 4,
+          "elapsed_ns": 380850100,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 256,
+          "cycles": 4,
+          "elapsed_ns": 338904400,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 4194304,
+          "p99_upper_ns": 8388608
+        }
+      ]
+    },
+    {
+      "engine": "ramsql",
+      "cycle": 1,
+      "fixture": {
+        "case": "range_page",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 64,
+        "reads": 64,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "18028c37416bc02e20e2a00ac3adff893f6b823498de29a5b7ef40931a36093a"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-win-wide\\bin\\ramsql-production-bench.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-range_page.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "ramsql-native",
+          "rows": 100000,
+          "requests": 64,
+          "load_ns": 280662200,
+          "warmup_ns": 1000248800,
+          "warmup_cycles": 3491,
+          "backing_bytes": 442445728,
+          "metadata_bytes": 17695360,
+          "cell_bytes": 528,
+          "work_rows": 4096,
+          "text_bytes": 512,
+          "compact_integral_scans": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 66112,
+          "cycles": 1033,
+          "elapsed_ns": 300286200,
+          "p50_upper_ns": 8192,
+          "p95_upper_ns": 8192,
+          "p99_upper_ns": 8192,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 62528,
+          "cycles": 977,
+          "elapsed_ns": 300296200,
+          "p50_upper_ns": 8192,
+          "p95_upper_ns": 8192,
+          "p99_upper_ns": 16384,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 62784,
+          "cycles": 981,
+          "elapsed_ns": 300246200,
+          "p50_upper_ns": 8192,
+          "p95_upper_ns": 8192,
+          "p99_upper_ns": 16384,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 63296,
+          "cycles": 989,
+          "elapsed_ns": 300078800,
+          "p50_upper_ns": 8192,
+          "p95_upper_ns": 8192,
+          "p99_upper_ns": 8192,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 63424,
+          "cycles": 991,
+          "elapsed_ns": 300038300,
+          "p50_upper_ns": 8192,
+          "p95_upper_ns": 8192,
+          "p99_upper_ns": 16384,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 66112,
+          "cycles": 1033,
+          "elapsed_ns": 300286200,
+          "p50_upper_ns": 8192,
+          "p95_upper_ns": 8192,
+          "p99_upper_ns": 8192,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 62528,
+          "cycles": 977,
+          "elapsed_ns": 300296200,
+          "p50_upper_ns": 8192,
+          "p95_upper_ns": 8192,
+          "p99_upper_ns": 16384,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 62784,
+          "cycles": 981,
+          "elapsed_ns": 300246200,
+          "p50_upper_ns": 8192,
+          "p95_upper_ns": 8192,
+          "p99_upper_ns": 16384,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 63296,
+          "cycles": 989,
+          "elapsed_ns": 300078800,
+          "p50_upper_ns": 8192,
+          "p95_upper_ns": 8192,
+          "p99_upper_ns": 8192,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 63424,
+          "cycles": 991,
+          "elapsed_ns": 300038300,
+          "p50_upper_ns": 8192,
+          "p95_upper_ns": 8192,
+          "p99_upper_ns": 16384,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ]
+    },
+    {
+      "engine": "ramsql",
+      "cycle": 0,
+      "fixture": {
+        "case": "sort_score",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 1,
+        "reads": 1,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "65276e5ad8d36231c5febeb5981c6635ce7db1247d933a461d8d8cb02cec3f06"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-win-wide\\bin\\ramsql-production-bench.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-sort_score.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "ramsql-native",
+          "rows": 100000,
+          "requests": 1,
+          "load_ns": 287409000,
+          "warmup_ns": 1000648400,
+          "warmup_cycles": 750,
+          "backing_bytes": 442445728,
+          "metadata_bytes": 17695360,
+          "cell_bytes": 528,
+          "work_rows": 4096,
+          "text_bytes": 512,
+          "compact_integral_scans": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 241,
+          "cycles": 241,
+          "elapsed_ns": 301277300,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 2097152,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 241,
+          "cycles": 241,
+          "elapsed_ns": 300755900,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 4194304,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 263,
+          "cycles": 263,
+          "elapsed_ns": 300523200,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 4194304,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 174,
+          "cycles": 174,
+          "elapsed_ns": 302224700,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 4194304,
+          "p99_upper_ns": 8388608,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 237,
+          "cycles": 237,
+          "elapsed_ns": 301042000,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 4194304,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 241,
+          "cycles": 241,
+          "elapsed_ns": 301277300,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 2097152,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 241,
+          "cycles": 241,
+          "elapsed_ns": 300755900,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 4194304,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 263,
+          "cycles": 263,
+          "elapsed_ns": 300523200,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 4194304,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 174,
+          "cycles": 174,
+          "elapsed_ns": 302224700,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 4194304,
+          "p99_upper_ns": 8388608,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 237,
+          "cycles": 237,
+          "elapsed_ns": 301042000,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 4194304,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ]
+    },
+    {
+      "engine": "irdb",
+      "cycle": 0,
+      "fixture": {
+        "case": "sort_score",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 1,
+        "reads": 1,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "65276e5ad8d36231c5febeb5981c6635ce7db1247d933a461d8d8cb02cec3f06"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\dotnet-win-core-runtime\\dotnet.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\tools\\irdb_bench\\bin\\Release\\net10.0\\IrdbBench.dll",
+        "--trace",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-sort_score.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "InMemory.Net.irdb",
+          "package_version": "1.10.821",
+          "runtime": ".NET 10.0.14",
+          "rows": 100000,
+          "requests": 1,
+          "load_ns": 654006500,
+          "warmup_ns": 1003495000,
+          "warmup_cycles": 122,
+          "import_compiled": true,
+          "id_clustered_index": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 66,
+          "cycles": 66,
+          "elapsed_ns": 304077200,
+          "p50_upper_ns": 8388608,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 62,
+          "cycles": 62,
+          "elapsed_ns": 301695400,
+          "p50_upper_ns": 8388608,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 65,
+          "cycles": 65,
+          "elapsed_ns": 304175900,
+          "p50_upper_ns": 8388608,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 65,
+          "cycles": 65,
+          "elapsed_ns": 301137900,
+          "p50_upper_ns": 8388608,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 63,
+          "cycles": 63,
+          "elapsed_ns": 300596500,
+          "p50_upper_ns": 8388608,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 8388608
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 66,
+          "cycles": 66,
+          "elapsed_ns": 304077200,
+          "p50_upper_ns": 8388608,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 62,
+          "cycles": 62,
+          "elapsed_ns": 301695400,
+          "p50_upper_ns": 8388608,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 65,
+          "cycles": 65,
+          "elapsed_ns": 304175900,
+          "p50_upper_ns": 8388608,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 65,
+          "cycles": 65,
+          "elapsed_ns": 301137900,
+          "p50_upper_ns": 8388608,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 63,
+          "cycles": 63,
+          "elapsed_ns": 300596500,
+          "p50_upper_ns": 8388608,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 8388608
+        }
+      ]
+    },
+    {
+      "engine": "irdb",
+      "cycle": 1,
+      "fixture": {
+        "case": "sort_score",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 1,
+        "reads": 1,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "65276e5ad8d36231c5febeb5981c6635ce7db1247d933a461d8d8cb02cec3f06"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\dotnet-win-core-runtime\\dotnet.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\tools\\irdb_bench\\bin\\Release\\net10.0\\IrdbBench.dll",
+        "--trace",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-sort_score.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "InMemory.Net.irdb",
+          "package_version": "1.10.821",
+          "runtime": ".NET 10.0.14",
+          "rows": 100000,
+          "requests": 1,
+          "load_ns": 633137900,
+          "warmup_ns": 1001887300,
+          "warmup_cycles": 94,
+          "import_compiled": true,
+          "id_clustered_index": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 66,
+          "cycles": 66,
+          "elapsed_ns": 302622700,
+          "p50_upper_ns": 8388608,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 63,
+          "cycles": 63,
+          "elapsed_ns": 302981000,
+          "p50_upper_ns": 8388608,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 63,
+          "cycles": 63,
+          "elapsed_ns": 301259600,
+          "p50_upper_ns": 8388608,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 63,
+          "cycles": 63,
+          "elapsed_ns": 303175700,
+          "p50_upper_ns": 8388608,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 64,
+          "cycles": 64,
+          "elapsed_ns": 301092800,
+          "p50_upper_ns": 8388608,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 8388608
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 66,
+          "cycles": 66,
+          "elapsed_ns": 302622700,
+          "p50_upper_ns": 8388608,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 63,
+          "cycles": 63,
+          "elapsed_ns": 302981000,
+          "p50_upper_ns": 8388608,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 63,
+          "cycles": 63,
+          "elapsed_ns": 301259600,
+          "p50_upper_ns": 8388608,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 63,
+          "cycles": 63,
+          "elapsed_ns": 303175700,
+          "p50_upper_ns": 8388608,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 64,
+          "cycles": 64,
+          "elapsed_ns": 301092800,
+          "p50_upper_ns": 8388608,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 8388608
+        }
+      ]
+    },
+    {
+      "engine": "ramsql",
+      "cycle": 1,
+      "fixture": {
+        "case": "sort_score",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 1,
+        "reads": 1,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "65276e5ad8d36231c5febeb5981c6635ce7db1247d933a461d8d8cb02cec3f06"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-win-wide\\bin\\ramsql-production-bench.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-sort_score.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "ramsql-native",
+          "rows": 100000,
+          "requests": 1,
+          "load_ns": 280347200,
+          "warmup_ns": 1001954500,
+          "warmup_cycles": 606,
+          "backing_bytes": 442445728,
+          "metadata_bytes": 17695360,
+          "cell_bytes": 528,
+          "work_rows": 4096,
+          "text_bytes": 512,
+          "compact_integral_scans": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 167,
+          "cycles": 167,
+          "elapsed_ns": 301101600,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 4194304,
+          "p99_upper_ns": 4194304,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 234,
+          "cycles": 234,
+          "elapsed_ns": 300739000,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 4194304,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 228,
+          "cycles": 228,
+          "elapsed_ns": 301194700,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 4194304,
+          "p99_upper_ns": 4194304,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 144,
+          "cycles": 144,
+          "elapsed_ns": 300341400,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 4194304,
+          "p99_upper_ns": 4194304,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 147,
+          "cycles": 147,
+          "elapsed_ns": 301562600,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 4194304,
+          "p99_upper_ns": 4194304,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 167,
+          "cycles": 167,
+          "elapsed_ns": 301101600,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 4194304,
+          "p99_upper_ns": 4194304,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 234,
+          "cycles": 234,
+          "elapsed_ns": 300739000,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 4194304,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 228,
+          "cycles": 228,
+          "elapsed_ns": 301194700,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 4194304,
+          "p99_upper_ns": 4194304,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 144,
+          "cycles": 144,
+          "elapsed_ns": 300341400,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 4194304,
+          "p99_upper_ns": 4194304,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 147,
+          "cycles": 147,
+          "elapsed_ns": 301562600,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 4194304,
+          "p99_upper_ns": 4194304,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ]
+    },
+    {
+      "engine": "ramsql",
+      "cycle": 0,
+      "fixture": {
+        "case": "filtered_sum",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 16,
+        "reads": 16,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "c03d4076ebf7776613181c9557ace89aff85e9d72eea71f3e219f32a752efd5e"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-win-wide\\bin\\ramsql-production-bench.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-filtered_sum.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "ramsql-native",
+          "rows": 100000,
+          "requests": 16,
+          "load_ns": 290187200,
+          "warmup_ns": 1000074000,
+          "warmup_cycles": 4299,
+          "backing_bytes": 442445728,
+          "metadata_bytes": 17695360,
+          "cell_bytes": 528,
+          "work_rows": 4096,
+          "text_bytes": 512,
+          "compact_integral_scans": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 21136,
+          "cycles": 1321,
+          "elapsed_ns": 300036700,
+          "p50_upper_ns": 16384,
+          "p95_upper_ns": 32768,
+          "p99_upper_ns": 32768,
+          "compact_plans": 21136,
+          "compact_rows": 2113600000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 21008,
+          "cycles": 1313,
+          "elapsed_ns": 300204700,
+          "p50_upper_ns": 16384,
+          "p95_upper_ns": 32768,
+          "p99_upper_ns": 32768,
+          "compact_plans": 21008,
+          "compact_rows": 2100800000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 20576,
+          "cycles": 1286,
+          "elapsed_ns": 300201100,
+          "p50_upper_ns": 16384,
+          "p95_upper_ns": 16384,
+          "p99_upper_ns": 32768,
+          "compact_plans": 20576,
+          "compact_rows": 2057600000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 20704,
+          "cycles": 1294,
+          "elapsed_ns": 300003200,
+          "p50_upper_ns": 16384,
+          "p95_upper_ns": 32768,
+          "p99_upper_ns": 32768,
+          "compact_plans": 20704,
+          "compact_rows": 2070400000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 21104,
+          "cycles": 1319,
+          "elapsed_ns": 300156600,
+          "p50_upper_ns": 16384,
+          "p95_upper_ns": 32768,
+          "p99_upper_ns": 32768,
+          "compact_plans": 21104,
+          "compact_rows": 2110400000,
+          "streamed_wide_rows": 0
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 21136,
+          "cycles": 1321,
+          "elapsed_ns": 300036700,
+          "p50_upper_ns": 16384,
+          "p95_upper_ns": 32768,
+          "p99_upper_ns": 32768,
+          "compact_plans": 21136,
+          "compact_rows": 2113600000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 21008,
+          "cycles": 1313,
+          "elapsed_ns": 300204700,
+          "p50_upper_ns": 16384,
+          "p95_upper_ns": 32768,
+          "p99_upper_ns": 32768,
+          "compact_plans": 21008,
+          "compact_rows": 2100800000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 20576,
+          "cycles": 1286,
+          "elapsed_ns": 300201100,
+          "p50_upper_ns": 16384,
+          "p95_upper_ns": 16384,
+          "p99_upper_ns": 32768,
+          "compact_plans": 20576,
+          "compact_rows": 2057600000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 20704,
+          "cycles": 1294,
+          "elapsed_ns": 300003200,
+          "p50_upper_ns": 16384,
+          "p95_upper_ns": 32768,
+          "p99_upper_ns": 32768,
+          "compact_plans": 20704,
+          "compact_rows": 2070400000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 21104,
+          "cycles": 1319,
+          "elapsed_ns": 300156600,
+          "p50_upper_ns": 16384,
+          "p95_upper_ns": 32768,
+          "p99_upper_ns": 32768,
+          "compact_plans": 21104,
+          "compact_rows": 2110400000,
+          "streamed_wide_rows": 0
+        }
+      ]
+    },
+    {
+      "engine": "irdb",
+      "cycle": 0,
+      "fixture": {
+        "case": "filtered_sum",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 16,
+        "reads": 16,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "c03d4076ebf7776613181c9557ace89aff85e9d72eea71f3e219f32a752efd5e"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\dotnet-win-core-runtime\\dotnet.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\tools\\irdb_bench\\bin\\Release\\net10.0\\IrdbBench.dll",
+        "--trace",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-filtered_sum.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "InMemory.Net.irdb",
+          "package_version": "1.10.821",
+          "runtime": ".NET 10.0.14",
+          "rows": 100000,
+          "requests": 16,
+          "load_ns": 623294300,
+          "warmup_ns": 1004877700,
+          "warmup_cycles": 82,
+          "import_compiled": true,
+          "id_clustered_index": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 416,
+          "cycles": 26,
+          "elapsed_ns": 321739000,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 416,
+          "cycles": 26,
+          "elapsed_ns": 308879100,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 368,
+          "cycles": 23,
+          "elapsed_ns": 302917100,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 576,
+          "cycles": 36,
+          "elapsed_ns": 300054400,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 592,
+          "cycles": 37,
+          "elapsed_ns": 309195700,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 416,
+          "cycles": 26,
+          "elapsed_ns": 321739000,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 416,
+          "cycles": 26,
+          "elapsed_ns": 308879100,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 368,
+          "cycles": 23,
+          "elapsed_ns": 302917100,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 576,
+          "cycles": 36,
+          "elapsed_ns": 300054400,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 592,
+          "cycles": 37,
+          "elapsed_ns": 309195700,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        }
+      ]
+    },
+    {
+      "engine": "irdb",
+      "cycle": 1,
+      "fixture": {
+        "case": "filtered_sum",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 16,
+        "reads": 16,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "c03d4076ebf7776613181c9557ace89aff85e9d72eea71f3e219f32a752efd5e"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\dotnet-win-core-runtime\\dotnet.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\tools\\irdb_bench\\bin\\Release\\net10.0\\IrdbBench.dll",
+        "--trace",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-filtered_sum.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "InMemory.Net.irdb",
+          "package_version": "1.10.821",
+          "runtime": ".NET 10.0.14",
+          "rows": 100000,
+          "requests": 16,
+          "load_ns": 639915900,
+          "warmup_ns": 1001555800,
+          "warmup_cycles": 82,
+          "import_compiled": true,
+          "id_clustered_index": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 416,
+          "cycles": 26,
+          "elapsed_ns": 318667600,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 416,
+          "cycles": 26,
+          "elapsed_ns": 317582500,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 464,
+          "cycles": 29,
+          "elapsed_ns": 303037200,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 576,
+          "cycles": 36,
+          "elapsed_ns": 301346000,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 624,
+          "cycles": 39,
+          "elapsed_ns": 314925300,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 16777216
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 416,
+          "cycles": 26,
+          "elapsed_ns": 318667600,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 416,
+          "cycles": 26,
+          "elapsed_ns": 317582500,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 464,
+          "cycles": 29,
+          "elapsed_ns": 303037200,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 576,
+          "cycles": 36,
+          "elapsed_ns": 301346000,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 624,
+          "cycles": 39,
+          "elapsed_ns": 314925300,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 16777216
+        }
+      ]
+    },
+    {
+      "engine": "ramsql",
+      "cycle": 1,
+      "fixture": {
+        "case": "filtered_sum",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 16,
+        "reads": 16,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "c03d4076ebf7776613181c9557ace89aff85e9d72eea71f3e219f32a752efd5e"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-win-wide\\bin\\ramsql-production-bench.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-filtered_sum.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "ramsql-native",
+          "rows": 100000,
+          "requests": 16,
+          "load_ns": 285512400,
+          "warmup_ns": 1000138600,
+          "warmup_cycles": 4544,
+          "backing_bytes": 442445728,
+          "metadata_bytes": 17695360,
+          "cell_bytes": 528,
+          "work_rows": 4096,
+          "text_bytes": 512,
+          "compact_integral_scans": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 21920,
+          "cycles": 1370,
+          "elapsed_ns": 300113900,
+          "p50_upper_ns": 16384,
+          "p95_upper_ns": 16384,
+          "p99_upper_ns": 32768,
+          "compact_plans": 21920,
+          "compact_rows": 2192000000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 21888,
+          "cycles": 1368,
+          "elapsed_ns": 300086500,
+          "p50_upper_ns": 16384,
+          "p95_upper_ns": 16384,
+          "p99_upper_ns": 32768,
+          "compact_plans": 21888,
+          "compact_rows": 2188800000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 20960,
+          "cycles": 1310,
+          "elapsed_ns": 300019800,
+          "p50_upper_ns": 16384,
+          "p95_upper_ns": 16384,
+          "p99_upper_ns": 32768,
+          "compact_plans": 20960,
+          "compact_rows": 2096000000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 19776,
+          "cycles": 1236,
+          "elapsed_ns": 300053000,
+          "p50_upper_ns": 16384,
+          "p95_upper_ns": 32768,
+          "p99_upper_ns": 32768,
+          "compact_plans": 19776,
+          "compact_rows": 1977600000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 19504,
+          "cycles": 1219,
+          "elapsed_ns": 300014600,
+          "p50_upper_ns": 16384,
+          "p95_upper_ns": 16384,
+          "p99_upper_ns": 32768,
+          "compact_plans": 19504,
+          "compact_rows": 1950400000,
+          "streamed_wide_rows": 0
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 21920,
+          "cycles": 1370,
+          "elapsed_ns": 300113900,
+          "p50_upper_ns": 16384,
+          "p95_upper_ns": 16384,
+          "p99_upper_ns": 32768,
+          "compact_plans": 21920,
+          "compact_rows": 2192000000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 21888,
+          "cycles": 1368,
+          "elapsed_ns": 300086500,
+          "p50_upper_ns": 16384,
+          "p95_upper_ns": 16384,
+          "p99_upper_ns": 32768,
+          "compact_plans": 21888,
+          "compact_rows": 2188800000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 20960,
+          "cycles": 1310,
+          "elapsed_ns": 300019800,
+          "p50_upper_ns": 16384,
+          "p95_upper_ns": 16384,
+          "p99_upper_ns": 32768,
+          "compact_plans": 20960,
+          "compact_rows": 2096000000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 19776,
+          "cycles": 1236,
+          "elapsed_ns": 300053000,
+          "p50_upper_ns": 16384,
+          "p95_upper_ns": 32768,
+          "p99_upper_ns": 32768,
+          "compact_plans": 19776,
+          "compact_rows": 1977600000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 19504,
+          "cycles": 1219,
+          "elapsed_ns": 300014600,
+          "p50_upper_ns": 16384,
+          "p95_upper_ns": 16384,
+          "p99_upper_ns": 32768,
+          "compact_plans": 19504,
+          "compact_rows": 1950400000,
+          "streamed_wide_rows": 0
+        }
+      ]
+    },
+    {
+      "engine": "ramsql",
+      "cycle": 0,
+      "fixture": {
+        "case": "grouped",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 16,
+        "reads": 16,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "9ac85edcf31cc504180969d1b108b178cbb3a18f2150ed415643c5b25319e928"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-win-wide\\bin\\ramsql-production-bench.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-grouped.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "ramsql-native",
+          "rows": 100000,
+          "requests": 16,
+          "load_ns": 280058300,
+          "warmup_ns": 1003896000,
+          "warmup_cycles": 112,
+          "backing_bytes": 442445728,
+          "metadata_bytes": 17695360,
+          "cell_bytes": 528,
+          "work_rows": 4096,
+          "text_bytes": 512,
+          "compact_integral_scans": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 528,
+          "cycles": 33,
+          "elapsed_ns": 303050300,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 528,
+          "compact_rows": 52800000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 560,
+          "cycles": 35,
+          "elapsed_ns": 304659000,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 560,
+          "compact_rows": 56000000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 560,
+          "cycles": 35,
+          "elapsed_ns": 307223500,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 560,
+          "compact_rows": 56000000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 512,
+          "cycles": 32,
+          "elapsed_ns": 307832800,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 512,
+          "compact_rows": 51200000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 528,
+          "cycles": 33,
+          "elapsed_ns": 305070400,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 528,
+          "compact_rows": 52800000,
+          "streamed_wide_rows": 0
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 528,
+          "cycles": 33,
+          "elapsed_ns": 303050300,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 528,
+          "compact_rows": 52800000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 560,
+          "cycles": 35,
+          "elapsed_ns": 304659000,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 560,
+          "compact_rows": 56000000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 560,
+          "cycles": 35,
+          "elapsed_ns": 307223500,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 560,
+          "compact_rows": 56000000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 512,
+          "cycles": 32,
+          "elapsed_ns": 307832800,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 512,
+          "compact_rows": 51200000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 528,
+          "cycles": 33,
+          "elapsed_ns": 305070400,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 528,
+          "compact_rows": 52800000,
+          "streamed_wide_rows": 0
+        }
+      ]
+    },
+    {
+      "engine": "irdb",
+      "cycle": 0,
+      "fixture": {
+        "case": "grouped",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 16,
+        "reads": 16,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "9ac85edcf31cc504180969d1b108b178cbb3a18f2150ed415643c5b25319e928"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\dotnet-win-core-runtime\\dotnet.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\tools\\irdb_bench\\bin\\Release\\net10.0\\IrdbBench.dll",
+        "--trace",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-grouped.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "InMemory.Net.irdb",
+          "package_version": "1.10.821",
+          "runtime": ".NET 10.0.14",
+          "rows": 100000,
+          "requests": 16,
+          "load_ns": 631183100,
+          "warmup_ns": 1030505900,
+          "warmup_cycles": 41,
+          "import_compiled": true,
+          "id_clustered_index": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 208,
+          "cycles": 13,
+          "elapsed_ns": 300562200,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 208,
+          "cycles": 13,
+          "elapsed_ns": 309543100,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 224,
+          "cycles": 14,
+          "elapsed_ns": 300756700,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 368,
+          "cycles": 23,
+          "elapsed_ns": 307627400,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 400,
+          "cycles": 25,
+          "elapsed_ns": 318363800,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 208,
+          "cycles": 13,
+          "elapsed_ns": 300562200,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 208,
+          "cycles": 13,
+          "elapsed_ns": 309543100,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 224,
+          "cycles": 14,
+          "elapsed_ns": 300756700,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 368,
+          "cycles": 23,
+          "elapsed_ns": 307627400,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 400,
+          "cycles": 25,
+          "elapsed_ns": 318363800,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        }
+      ]
+    },
+    {
+      "engine": "irdb",
+      "cycle": 1,
+      "fixture": {
+        "case": "grouped",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 16,
+        "reads": 16,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "9ac85edcf31cc504180969d1b108b178cbb3a18f2150ed415643c5b25319e928"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\dotnet-win-core-runtime\\dotnet.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\tools\\irdb_bench\\bin\\Release\\net10.0\\IrdbBench.dll",
+        "--trace",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-grouped.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "InMemory.Net.irdb",
+          "package_version": "1.10.821",
+          "runtime": ".NET 10.0.14",
+          "rows": 100000,
+          "requests": 16,
+          "load_ns": 627657800,
+          "warmup_ns": 1004648700,
+          "warmup_cycles": 40,
+          "import_compiled": true,
+          "id_clustered_index": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 208,
+          "cycles": 13,
+          "elapsed_ns": 321034200,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 192,
+          "cycles": 12,
+          "elapsed_ns": 312286500,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 176,
+          "cycles": 11,
+          "elapsed_ns": 305076600,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 320,
+          "cycles": 20,
+          "elapsed_ns": 309201900,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 368,
+          "cycles": 23,
+          "elapsed_ns": 303484900,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 16777216
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 208,
+          "cycles": 13,
+          "elapsed_ns": 321034200,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 192,
+          "cycles": 12,
+          "elapsed_ns": 312286500,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 176,
+          "cycles": 11,
+          "elapsed_ns": 305076600,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 320,
+          "cycles": 20,
+          "elapsed_ns": 309201900,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 368,
+          "cycles": 23,
+          "elapsed_ns": 303484900,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 16777216
+        }
+      ]
+    },
+    {
+      "engine": "ramsql",
+      "cycle": 1,
+      "fixture": {
+        "case": "grouped",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 16,
+        "reads": 16,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "9ac85edcf31cc504180969d1b108b178cbb3a18f2150ed415643c5b25319e928"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-win-wide\\bin\\ramsql-production-bench.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-grouped.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "ramsql-native",
+          "rows": 100000,
+          "requests": 16,
+          "load_ns": 283429900,
+          "warmup_ns": 1002182300,
+          "warmup_cycles": 113,
+          "backing_bytes": 442445728,
+          "metadata_bytes": 17695360,
+          "cell_bytes": 528,
+          "work_rows": 4096,
+          "text_bytes": 512,
+          "compact_integral_scans": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 544,
+          "cycles": 34,
+          "elapsed_ns": 307254600,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 544,
+          "compact_rows": 54400000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 608,
+          "cycles": 38,
+          "elapsed_ns": 307705700,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 608,
+          "compact_rows": 60800000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 544,
+          "cycles": 34,
+          "elapsed_ns": 309072400,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 544,
+          "compact_rows": 54400000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 544,
+          "cycles": 34,
+          "elapsed_ns": 306894200,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 544,
+          "compact_rows": 54400000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 544,
+          "cycles": 34,
+          "elapsed_ns": 300400500,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 544,
+          "compact_rows": 54400000,
+          "streamed_wide_rows": 0
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 544,
+          "cycles": 34,
+          "elapsed_ns": 307254600,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 544,
+          "compact_rows": 54400000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 608,
+          "cycles": 38,
+          "elapsed_ns": 307705700,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 608,
+          "compact_rows": 60800000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 544,
+          "cycles": 34,
+          "elapsed_ns": 309072400,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 544,
+          "compact_rows": 54400000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 544,
+          "cycles": 34,
+          "elapsed_ns": 306894200,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 544,
+          "compact_rows": 54400000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 544,
+          "cycles": 34,
+          "elapsed_ns": 300400500,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 544,
+          "compact_rows": 54400000,
+          "streamed_wide_rows": 0
+        }
+      ]
+    },
+    {
+      "engine": "ramsql",
+      "cycle": 0,
+      "fixture": {
+        "case": "filtered_group",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 16,
+        "reads": 16,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "1c66f5edec5ecd3a5d77a04db6e983d64a815982aaa760c63f797b1ca9950616"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-win-wide\\bin\\ramsql-production-bench.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-filtered_group.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "ramsql-native",
+          "rows": 100000,
+          "requests": 16,
+          "load_ns": 281996500,
+          "warmup_ns": 1000714300,
+          "warmup_cycles": 235,
+          "backing_bytes": 442445728,
+          "metadata_bytes": 17695360,
+          "cell_bytes": 528,
+          "work_rows": 4096,
+          "text_bytes": 512,
+          "compact_integral_scans": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 1136,
+          "cycles": 71,
+          "elapsed_ns": 304115800,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 1136,
+          "compact_rows": 113600000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 1152,
+          "cycles": 72,
+          "elapsed_ns": 301516800,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 1152,
+          "compact_rows": 115200000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 1120,
+          "cycles": 70,
+          "elapsed_ns": 301020400,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 1120,
+          "compact_rows": 112000000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 1120,
+          "cycles": 70,
+          "elapsed_ns": 301898000,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 1120,
+          "compact_rows": 112000000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 1120,
+          "cycles": 70,
+          "elapsed_ns": 303197300,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 1120,
+          "compact_rows": 112000000,
+          "streamed_wide_rows": 0
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 1136,
+          "cycles": 71,
+          "elapsed_ns": 304115800,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 1136,
+          "compact_rows": 113600000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 1152,
+          "cycles": 72,
+          "elapsed_ns": 301516800,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 1152,
+          "compact_rows": 115200000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 1120,
+          "cycles": 70,
+          "elapsed_ns": 301020400,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 1120,
+          "compact_rows": 112000000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 1120,
+          "cycles": 70,
+          "elapsed_ns": 301898000,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 1120,
+          "compact_rows": 112000000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 1120,
+          "cycles": 70,
+          "elapsed_ns": 303197300,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 1120,
+          "compact_rows": 112000000,
+          "streamed_wide_rows": 0
+        }
+      ]
+    },
+    {
+      "engine": "irdb",
+      "cycle": 0,
+      "fixture": {
+        "case": "filtered_group",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 16,
+        "reads": 16,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "1c66f5edec5ecd3a5d77a04db6e983d64a815982aaa760c63f797b1ca9950616"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\dotnet-win-core-runtime\\dotnet.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\tools\\irdb_bench\\bin\\Release\\net10.0\\IrdbBench.dll",
+        "--trace",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-filtered_group.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "InMemory.Net.irdb",
+          "package_version": "1.10.821",
+          "runtime": ".NET 10.0.14",
+          "rows": 100000,
+          "requests": 16,
+          "load_ns": 573624300,
+          "warmup_ns": 1004124800,
+          "warmup_cycles": 48,
+          "import_compiled": true,
+          "id_clustered_index": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 272,
+          "cycles": 17,
+          "elapsed_ns": 312533700,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 256,
+          "cycles": 16,
+          "elapsed_ns": 306768600,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 208,
+          "cycles": 13,
+          "elapsed_ns": 304606700,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 4194304,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 304,
+          "cycles": 19,
+          "elapsed_ns": 305976800,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 448,
+          "cycles": 28,
+          "elapsed_ns": 308603200,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 272,
+          "cycles": 17,
+          "elapsed_ns": 312533700,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 256,
+          "cycles": 16,
+          "elapsed_ns": 306768600,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 208,
+          "cycles": 13,
+          "elapsed_ns": 304606700,
+          "p50_upper_ns": 2097152,
+          "p95_upper_ns": 4194304,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 304,
+          "cycles": 19,
+          "elapsed_ns": 305976800,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 448,
+          "cycles": 28,
+          "elapsed_ns": 308603200,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        }
+      ]
+    },
+    {
+      "engine": "irdb",
+      "cycle": 1,
+      "fixture": {
+        "case": "filtered_group",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 16,
+        "reads": 16,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "1c66f5edec5ecd3a5d77a04db6e983d64a815982aaa760c63f797b1ca9950616"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\dotnet-win-core-runtime\\dotnet.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\tools\\irdb_bench\\bin\\Release\\net10.0\\IrdbBench.dll",
+        "--trace",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-filtered_group.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "InMemory.Net.irdb",
+          "package_version": "1.10.821",
+          "runtime": ".NET 10.0.14",
+          "rows": 100000,
+          "requests": 16,
+          "load_ns": 644001600,
+          "warmup_ns": 1008237000,
+          "warmup_cycles": 47,
+          "import_compiled": true,
+          "id_clustered_index": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 256,
+          "cycles": 16,
+          "elapsed_ns": 313131900,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 240,
+          "cycles": 15,
+          "elapsed_ns": 308879100,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 208,
+          "cycles": 13,
+          "elapsed_ns": 303762000,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 4194304,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 416,
+          "cycles": 26,
+          "elapsed_ns": 301418800,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 448,
+          "cycles": 28,
+          "elapsed_ns": 312183600,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 256,
+          "cycles": 16,
+          "elapsed_ns": 313131900,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 240,
+          "cycles": 15,
+          "elapsed_ns": 308879100,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 2097152,
+          "p99_upper_ns": 8388608
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 208,
+          "cycles": 13,
+          "elapsed_ns": 303762000,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 4194304,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 416,
+          "cycles": 26,
+          "elapsed_ns": 301418800,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 448,
+          "cycles": 28,
+          "elapsed_ns": 312183600,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 16777216
+        }
+      ]
+    },
+    {
+      "engine": "ramsql",
+      "cycle": 1,
+      "fixture": {
+        "case": "filtered_group",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 16,
+        "reads": 16,
+        "writes": 0,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "1c66f5edec5ecd3a5d77a04db6e983d64a815982aaa760c63f797b1ca9950616"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-win-wide\\bin\\ramsql-production-bench.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-filtered_group.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "ramsql-native",
+          "rows": 100000,
+          "requests": 16,
+          "load_ns": 287420600,
+          "warmup_ns": 1000949100,
+          "warmup_cycles": 247,
+          "backing_bytes": 442445728,
+          "metadata_bytes": 17695360,
+          "cell_bytes": 528,
+          "work_rows": 4096,
+          "text_bytes": 512,
+          "compact_integral_scans": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 1264,
+          "cycles": 79,
+          "elapsed_ns": 303606400,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 1264,
+          "compact_rows": 126400000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 1232,
+          "cycles": 77,
+          "elapsed_ns": 301826200,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 1232,
+          "compact_rows": 123200000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 1136,
+          "cycles": 71,
+          "elapsed_ns": 302966900,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 1136,
+          "compact_rows": 113600000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 1184,
+          "cycles": 74,
+          "elapsed_ns": 301393500,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 1184,
+          "compact_rows": 118400000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 1168,
+          "cycles": 73,
+          "elapsed_ns": 301230700,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 1168,
+          "compact_rows": 116800000,
+          "streamed_wide_rows": 0
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 1264,
+          "cycles": 79,
+          "elapsed_ns": 303606400,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 1264,
+          "compact_rows": 126400000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 1232,
+          "cycles": 77,
+          "elapsed_ns": 301826200,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 1232,
+          "compact_rows": 123200000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 1136,
+          "cycles": 71,
+          "elapsed_ns": 302966900,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 1136,
+          "compact_rows": 113600000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 1184,
+          "cycles": 74,
+          "elapsed_ns": 301393500,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 1184,
+          "compact_rows": 118400000,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 1168,
+          "cycles": 73,
+          "elapsed_ns": 301230700,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 1168,
+          "compact_rows": 116800000,
+          "streamed_wide_rows": 0
+        }
+      ]
+    },
+    {
+      "engine": "ramsql",
+      "cycle": 0,
+      "fixture": {
+        "case": "mixed_95_5",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 40,
+        "reads": 38,
+        "writes": 2,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "e16750608d5f62238a2b1f7663a7b8c28a57c69f5336272c819a05aa52bf67ae"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-win-wide\\bin\\ramsql-production-bench.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-mixed_95_5.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "ramsql-native",
+          "rows": 100000,
+          "requests": 40,
+          "load_ns": 282477900,
+          "warmup_ns": 1000019900,
+          "warmup_cycles": 25300,
+          "backing_bytes": 442445728,
+          "metadata_bytes": 17695360,
+          "cell_bytes": 528,
+          "work_rows": 4096,
+          "text_bytes": 512,
+          "compact_integral_scans": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 286480,
+          "cycles": 7162,
+          "elapsed_ns": 300025200,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 289040,
+          "cycles": 7226,
+          "elapsed_ns": 300029100,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 286520,
+          "cycles": 7163,
+          "elapsed_ns": 300041400,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 281680,
+          "cycles": 7042,
+          "elapsed_ns": 300007300,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 275200,
+          "cycles": 6880,
+          "elapsed_ns": 300030200,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 286480,
+          "cycles": 7162,
+          "elapsed_ns": 300025200,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 289040,
+          "cycles": 7226,
+          "elapsed_ns": 300029100,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 286520,
+          "cycles": 7163,
+          "elapsed_ns": 300041400,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 281680,
+          "cycles": 7042,
+          "elapsed_ns": 300007300,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 275200,
+          "cycles": 6880,
+          "elapsed_ns": 300030200,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ]
+    },
+    {
+      "engine": "irdb",
+      "cycle": 0,
+      "fixture": {
+        "case": "mixed_95_5",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 40,
+        "reads": 38,
+        "writes": 2,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "e16750608d5f62238a2b1f7663a7b8c28a57c69f5336272c819a05aa52bf67ae"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\dotnet-win-core-runtime\\dotnet.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\tools\\irdb_bench\\bin\\Release\\net10.0\\IrdbBench.dll",
+        "--trace",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-mixed_95_5.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "InMemory.Net.irdb",
+          "package_version": "1.10.821",
+          "runtime": ".NET 10.0.14",
+          "rows": 100000,
+          "requests": 40,
+          "load_ns": 604121300,
+          "warmup_ns": 1032762600,
+          "warmup_cycles": 29,
+          "import_compiled": true,
+          "id_clustered_index": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 360,
+          "cycles": 9,
+          "elapsed_ns": 334431800,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 16777216,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 320,
+          "cycles": 8,
+          "elapsed_ns": 325160500,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 16777216,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 320,
+          "cycles": 8,
+          "elapsed_ns": 323924900,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 16777216,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 280,
+          "cycles": 7,
+          "elapsed_ns": 336297600,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 16777216,
+          "p99_upper_ns": 33554432
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 400,
+          "cycles": 10,
+          "elapsed_ns": 302947600,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 16777216
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 360,
+          "cycles": 9,
+          "elapsed_ns": 334431800,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 16777216,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 320,
+          "cycles": 8,
+          "elapsed_ns": 325160500,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 16777216,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 320,
+          "cycles": 8,
+          "elapsed_ns": 323924900,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 16777216,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 280,
+          "cycles": 7,
+          "elapsed_ns": 336297600,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 16777216,
+          "p99_upper_ns": 33554432
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 400,
+          "cycles": 10,
+          "elapsed_ns": 302947600,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 16777216
+        }
+      ]
+    },
+    {
+      "engine": "irdb",
+      "cycle": 1,
+      "fixture": {
+        "case": "mixed_95_5",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 40,
+        "reads": 38,
+        "writes": 2,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "e16750608d5f62238a2b1f7663a7b8c28a57c69f5336272c819a05aa52bf67ae"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\dotnet-win-core-runtime\\dotnet.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\tools\\irdb_bench\\bin\\Release\\net10.0\\IrdbBench.dll",
+        "--trace",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-mixed_95_5.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "InMemory.Net.irdb",
+          "package_version": "1.10.821",
+          "runtime": ".NET 10.0.14",
+          "rows": 100000,
+          "requests": 40,
+          "load_ns": 641022500,
+          "warmup_ns": 1009218400,
+          "warmup_cycles": 26,
+          "import_compiled": true,
+          "id_clustered_index": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 320,
+          "cycles": 8,
+          "elapsed_ns": 313302100,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 16777216,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 320,
+          "cycles": 8,
+          "elapsed_ns": 312267400,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 16777216,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 320,
+          "cycles": 8,
+          "elapsed_ns": 309790200,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 480,
+          "cycles": 12,
+          "elapsed_ns": 313220100,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 480,
+          "cycles": 12,
+          "elapsed_ns": 309143700,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 16777216
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 320,
+          "cycles": 8,
+          "elapsed_ns": 313302100,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 16777216,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 320,
+          "cycles": 8,
+          "elapsed_ns": 312267400,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 16777216,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 320,
+          "cycles": 8,
+          "elapsed_ns": 309790200,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 480,
+          "cycles": 12,
+          "elapsed_ns": 313220100,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 480,
+          "cycles": 12,
+          "elapsed_ns": 309143700,
+          "p50_upper_ns": 262144,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 16777216
+        }
+      ]
+    },
+    {
+      "engine": "ramsql",
+      "cycle": 1,
+      "fixture": {
+        "case": "mixed_95_5",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 40,
+        "reads": 38,
+        "writes": 2,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "e16750608d5f62238a2b1f7663a7b8c28a57c69f5336272c819a05aa52bf67ae"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-win-wide\\bin\\ramsql-production-bench.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-mixed_95_5.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "ramsql-native",
+          "rows": 100000,
+          "requests": 40,
+          "load_ns": 279292800,
+          "warmup_ns": 1000011300,
+          "warmup_cycles": 26691,
+          "backing_bytes": 442445728,
+          "metadata_bytes": 17695360,
+          "cell_bytes": 528,
+          "work_rows": 4096,
+          "text_bytes": 512,
+          "compact_integral_scans": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 304720,
+          "cycles": 7618,
+          "elapsed_ns": 300022300,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 304200,
+          "cycles": 7605,
+          "elapsed_ns": 300023900,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 302440,
+          "cycles": 7561,
+          "elapsed_ns": 300026700,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 305000,
+          "cycles": 7625,
+          "elapsed_ns": 300020800,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 300280,
+          "cycles": 7507,
+          "elapsed_ns": 300005000,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 304720,
+          "cycles": 7618,
+          "elapsed_ns": 300022300,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 304200,
+          "cycles": 7605,
+          "elapsed_ns": 300023900,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 302440,
+          "cycles": 7561,
+          "elapsed_ns": 300026700,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 305000,
+          "cycles": 7625,
+          "elapsed_ns": 300020800,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 300280,
+          "cycles": 7507,
+          "elapsed_ns": 300005000,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 1024,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ]
+    },
+    {
+      "engine": "ramsql",
+      "cycle": 0,
+      "fixture": {
+        "case": "mixed_50_50",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 64,
+        "reads": 32,
+        "writes": 32,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "cf8bf5c8afd6081a946612421794343793f8902f7b86b8aaeb3fc08b5a5de82b"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-win-wide\\bin\\ramsql-production-bench.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-mixed_50_50.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "ramsql-native",
+          "rows": 100000,
+          "requests": 64,
+          "load_ns": 287546500,
+          "warmup_ns": 1000011800,
+          "warmup_cycles": 17436,
+          "backing_bytes": 442445728,
+          "metadata_bytes": 17695360,
+          "cell_bytes": 528,
+          "work_rows": 4096,
+          "text_bytes": 512,
+          "compact_integral_scans": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 312192,
+          "cycles": 4878,
+          "elapsed_ns": 300024500,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 321088,
+          "cycles": 5017,
+          "elapsed_ns": 300052200,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 323904,
+          "cycles": 5061,
+          "elapsed_ns": 300018600,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 311360,
+          "cycles": 4865,
+          "elapsed_ns": 300015200,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 312704,
+          "cycles": 4886,
+          "elapsed_ns": 300008200,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 312192,
+          "cycles": 4878,
+          "elapsed_ns": 300024500,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 321088,
+          "cycles": 5017,
+          "elapsed_ns": 300052200,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 323904,
+          "cycles": 5061,
+          "elapsed_ns": 300018600,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 311360,
+          "cycles": 4865,
+          "elapsed_ns": 300015200,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 312704,
+          "cycles": 4886,
+          "elapsed_ns": 300008200,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ]
+    },
+    {
+      "engine": "irdb",
+      "cycle": 0,
+      "fixture": {
+        "case": "mixed_50_50",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 64,
+        "reads": 32,
+        "writes": 32,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "cf8bf5c8afd6081a946612421794343793f8902f7b86b8aaeb3fc08b5a5de82b"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\dotnet-win-core-runtime\\dotnet.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\tools\\irdb_bench\\bin\\Release\\net10.0\\IrdbBench.dll",
+        "--trace",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-mixed_50_50.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "InMemory.Net.irdb",
+          "package_version": "1.10.821",
+          "runtime": ".NET 10.0.14",
+          "rows": 100000,
+          "requests": 64,
+          "load_ns": 650897000,
+          "warmup_ns": 1112618900,
+          "warmup_cycles": 3,
+          "import_compiled": true,
+          "id_clustered_index": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 493143200,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 16777216,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 460779400,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 16777216,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 421152200,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 430651800,
+          "p50_upper_ns": 8388608,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 424735700,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 16777216
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 493143200,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 16777216,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 460779400,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 16777216,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 421152200,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 430651800,
+          "p50_upper_ns": 8388608,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 424735700,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 16777216
+        }
+      ]
+    },
+    {
+      "engine": "irdb",
+      "cycle": 1,
+      "fixture": {
+        "case": "mixed_50_50",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 64,
+        "reads": 32,
+        "writes": 32,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "cf8bf5c8afd6081a946612421794343793f8902f7b86b8aaeb3fc08b5a5de82b"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\dotnet-win-core-runtime\\dotnet.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\tools\\irdb_bench\\bin\\Release\\net10.0\\IrdbBench.dll",
+        "--trace",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-mixed_50_50.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "InMemory.Net.irdb",
+          "package_version": "1.10.821",
+          "runtime": ".NET 10.0.14",
+          "rows": 100000,
+          "requests": 64,
+          "load_ns": 604286100,
+          "warmup_ns": 1118287500,
+          "warmup_cycles": 3,
+          "import_compiled": true,
+          "id_clustered_index": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 479480800,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 456185400,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 451029300,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 16777216,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 442061100,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 16777216,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 429903300,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 16777216
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 479480800,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 456185400,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 451029300,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 16777216,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 442061100,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 16777216,
+          "p99_upper_ns": 16777216
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 128,
+          "cycles": 2,
+          "elapsed_ns": 429903300,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 8388608,
+          "p99_upper_ns": 16777216
+        }
+      ]
+    },
+    {
+      "engine": "ramsql",
+      "cycle": 1,
+      "fixture": {
+        "case": "mixed_50_50",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 64,
+        "reads": 32,
+        "writes": 32,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "cf8bf5c8afd6081a946612421794343793f8902f7b86b8aaeb3fc08b5a5de82b"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-win-wide\\bin\\ramsql-production-bench.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-mixed_50_50.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "ramsql-native",
+          "rows": 100000,
+          "requests": 64,
+          "load_ns": 286061400,
+          "warmup_ns": 1000027700,
+          "warmup_cycles": 17590,
+          "backing_bytes": 442445728,
+          "metadata_bytes": 17695360,
+          "cell_bytes": 528,
+          "work_rows": 4096,
+          "text_bytes": 512,
+          "compact_integral_scans": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 323392,
+          "cycles": 5053,
+          "elapsed_ns": 300044500,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 321280,
+          "cycles": 5020,
+          "elapsed_ns": 300017600,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 322624,
+          "cycles": 5041,
+          "elapsed_ns": 300008500,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 323840,
+          "cycles": 5060,
+          "elapsed_ns": 300042700,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 323456,
+          "cycles": 5054,
+          "elapsed_ns": 300036600,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 323392,
+          "cycles": 5053,
+          "elapsed_ns": 300044500,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 321280,
+          "cycles": 5020,
+          "elapsed_ns": 300017600,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 322624,
+          "cycles": 5041,
+          "elapsed_ns": 300008500,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 323840,
+          "cycles": 5060,
+          "elapsed_ns": 300042700,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 323456,
+          "cycles": 5054,
+          "elapsed_ns": 300036600,
+          "p50_upper_ns": 1024,
+          "p95_upper_ns": 2048,
+          "p99_upper_ns": 2048,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ]
+    },
+    {
+      "engine": "ramsql",
+      "cycle": 0,
+      "fixture": {
+        "case": "churn",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 64,
+        "reads": 32,
+        "writes": 32,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "d6024e08be39e972e4f2679592ae5e656a2732302e8674b6a296713631605c78"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-win-wide\\bin\\ramsql-production-bench.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-churn.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "ramsql-native",
+          "rows": 100000,
+          "requests": 64,
+          "load_ns": 284538800,
+          "warmup_ns": 1003530500,
+          "warmup_cycles": 126,
+          "backing_bytes": 442445728,
+          "metadata_bytes": 17695360,
+          "cell_bytes": 528,
+          "work_rows": 4096,
+          "text_bytes": 512,
+          "compact_integral_scans": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 2368,
+          "cycles": 37,
+          "elapsed_ns": 303229100,
+          "p50_upper_ns": 2048,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 2496,
+          "cycles": 39,
+          "elapsed_ns": 303362600,
+          "p50_upper_ns": 2048,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 2496,
+          "cycles": 39,
+          "elapsed_ns": 307381900,
+          "p50_upper_ns": 2048,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 2432,
+          "cycles": 38,
+          "elapsed_ns": 307414500,
+          "p50_upper_ns": 2048,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 2432,
+          "cycles": 38,
+          "elapsed_ns": 305988800,
+          "p50_upper_ns": 2048,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 2368,
+          "cycles": 37,
+          "elapsed_ns": 303229100,
+          "p50_upper_ns": 2048,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 2496,
+          "cycles": 39,
+          "elapsed_ns": 303362600,
+          "p50_upper_ns": 2048,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 2496,
+          "cycles": 39,
+          "elapsed_ns": 307381900,
+          "p50_upper_ns": 2048,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 2432,
+          "cycles": 38,
+          "elapsed_ns": 307414500,
+          "p50_upper_ns": 2048,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 2432,
+          "cycles": 38,
+          "elapsed_ns": 305988800,
+          "p50_upper_ns": 2048,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ]
+    },
+    {
+      "engine": "irdb",
+      "cycle": 0,
+      "fixture": {
+        "case": "churn",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 64,
+        "reads": 32,
+        "writes": 32,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "d6024e08be39e972e4f2679592ae5e656a2732302e8674b6a296713631605c78"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\dotnet-win-core-runtime\\dotnet.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\tools\\irdb_bench\\bin\\Release\\net10.0\\IrdbBench.dll",
+        "--trace",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-churn.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "InMemory.Net.irdb",
+          "package_version": "1.10.821",
+          "runtime": ".NET 10.0.14",
+          "rows": 100000,
+          "requests": 64,
+          "load_ns": 612624400,
+          "warmup_ns": 2054620600,
+          "warmup_cycles": 1,
+          "import_compiled": true,
+          "id_clustered_index": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 64,
+          "cycles": 1,
+          "elapsed_ns": 1775657800,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 134217728,
+          "p99_upper_ns": 134217728
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 64,
+          "cycles": 1,
+          "elapsed_ns": 1704443500,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 134217728,
+          "p99_upper_ns": 134217728
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 64,
+          "cycles": 1,
+          "elapsed_ns": 1732296000,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 134217728,
+          "p99_upper_ns": 134217728
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 64,
+          "cycles": 1,
+          "elapsed_ns": 1743293900,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 67108864,
+          "p99_upper_ns": 134217728
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 64,
+          "cycles": 1,
+          "elapsed_ns": 1827092800,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 134217728,
+          "p99_upper_ns": 134217728
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 64,
+          "cycles": 1,
+          "elapsed_ns": 1775657800,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 134217728,
+          "p99_upper_ns": 134217728
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 64,
+          "cycles": 1,
+          "elapsed_ns": 1704443500,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 134217728,
+          "p99_upper_ns": 134217728
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 64,
+          "cycles": 1,
+          "elapsed_ns": 1732296000,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 134217728,
+          "p99_upper_ns": 134217728
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 64,
+          "cycles": 1,
+          "elapsed_ns": 1743293900,
+          "p50_upper_ns": 1048576,
+          "p95_upper_ns": 67108864,
+          "p99_upper_ns": 134217728
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 64,
+          "cycles": 1,
+          "elapsed_ns": 1827092800,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 134217728,
+          "p99_upper_ns": 134217728
+        }
+      ]
+    },
+    {
+      "engine": "irdb",
+      "cycle": 1,
+      "fixture": {
+        "case": "churn",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 64,
+        "reads": 32,
+        "writes": 32,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "d6024e08be39e972e4f2679592ae5e656a2732302e8674b6a296713631605c78"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\dotnet-win-core-runtime\\dotnet.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\tools\\irdb_bench\\bin\\Release\\net10.0\\IrdbBench.dll",
+        "--trace",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-churn.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "InMemory.Net.irdb",
+          "package_version": "1.10.821",
+          "runtime": ".NET 10.0.14",
+          "rows": 100000,
+          "requests": 64,
+          "load_ns": 608928300,
+          "warmup_ns": 1978856200,
+          "warmup_cycles": 1,
+          "import_compiled": true,
+          "id_clustered_index": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 64,
+          "cycles": 1,
+          "elapsed_ns": 1785645300,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 134217728,
+          "p99_upper_ns": 134217728
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 64,
+          "cycles": 1,
+          "elapsed_ns": 1777857100,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 134217728,
+          "p99_upper_ns": 134217728
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 64,
+          "cycles": 1,
+          "elapsed_ns": 2052859400,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 134217728,
+          "p99_upper_ns": 134217728
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 64,
+          "cycles": 1,
+          "elapsed_ns": 1998149100,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 134217728,
+          "p99_upper_ns": 134217728
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 64,
+          "cycles": 1,
+          "elapsed_ns": 1977596500,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 134217728,
+          "p99_upper_ns": 134217728
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 64,
+          "cycles": 1,
+          "elapsed_ns": 1785645300,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 134217728,
+          "p99_upper_ns": 134217728
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 64,
+          "cycles": 1,
+          "elapsed_ns": 1777857100,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 134217728,
+          "p99_upper_ns": 134217728
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 64,
+          "cycles": 1,
+          "elapsed_ns": 2052859400,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 134217728,
+          "p99_upper_ns": 134217728
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 64,
+          "cycles": 1,
+          "elapsed_ns": 1998149100,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 134217728,
+          "p99_upper_ns": 134217728
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 64,
+          "cycles": 1,
+          "elapsed_ns": 1977596500,
+          "p50_upper_ns": 524288,
+          "p95_upper_ns": 134217728,
+          "p99_upper_ns": 134217728
+        }
+      ]
+    },
+    {
+      "engine": "ramsql",
+      "cycle": 1,
+      "fixture": {
+        "case": "churn",
+        "rows": 100000,
+        "groups": 2048,
+        "payload_bytes": 512,
+        "seed": 20261027,
+        "requests": 64,
+        "reads": 32,
+        "writes": 32,
+        "layout": "seeded Fisher-Yates permutation",
+        "sha256": "d6024e08be39e972e4f2679592ae5e656a2732302e8674b6a296713631605c78"
+      },
+      "command": [
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-win-wide\\bin\\ramsql-production-bench.exe",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\production-20261026\\windows-wide-production\\100000-churn.trace",
+        "300"
+      ],
+      "passed": true,
+      "returncode": 0,
+      "records": [
+        {
+          "metadata": true,
+          "engine": "ramsql-native",
+          "rows": 100000,
+          "requests": 64,
+          "load_ns": 296113800,
+          "warmup_ns": 1006795400,
+          "warmup_cycles": 118,
+          "backing_bytes": 442445728,
+          "metadata_bytes": 17695360,
+          "cell_bytes": 528,
+          "work_rows": 4096,
+          "text_bytes": 512,
+          "compact_integral_scans": true
+        },
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 2432,
+          "cycles": 38,
+          "elapsed_ns": 305809700,
+          "p50_upper_ns": 2048,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 2304,
+          "cycles": 36,
+          "elapsed_ns": 303787400,
+          "p50_upper_ns": 2048,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 2368,
+          "cycles": 37,
+          "elapsed_ns": 302576700,
+          "p50_upper_ns": 2048,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 2304,
+          "cycles": 36,
+          "elapsed_ns": 305280100,
+          "p50_upper_ns": 2048,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 2176,
+          "cycles": 34,
+          "elapsed_ns": 304915700,
+          "p50_upper_ns": 2048,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ],
+      "samples": [
+        {
+          "trial": 0,
+          "passed": true,
+          "operations": 2432,
+          "cycles": 38,
+          "elapsed_ns": 305809700,
+          "p50_upper_ns": 2048,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 1,
+          "passed": true,
+          "operations": 2304,
+          "cycles": 36,
+          "elapsed_ns": 303787400,
+          "p50_upper_ns": 2048,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 2,
+          "passed": true,
+          "operations": 2368,
+          "cycles": 37,
+          "elapsed_ns": 302576700,
+          "p50_upper_ns": 2048,
+          "p95_upper_ns": 524288,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 3,
+          "passed": true,
+          "operations": 2304,
+          "cycles": 36,
+          "elapsed_ns": 305280100,
+          "p50_upper_ns": 2048,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        },
+        {
+          "trial": 4,
+          "passed": true,
+          "operations": 2176,
+          "cycles": 34,
+          "elapsed_ns": 304915700,
+          "p50_upper_ns": 2048,
+          "p95_upper_ns": 1048576,
+          "p99_upper_ns": 1048576,
+          "compact_plans": 0,
+          "compact_rows": 0,
+          "streamed_wide_rows": 0
+        }
+      ]
+    }
+  ],
+  "summary": [
+    {
+      "rows": 100000,
+      "case": "uniform_get",
+      "engines": {
+        "ramsql": {
+          "median_ops_s": 996643.0161490799,
+          "minimum_ops_s": 890692.3608093228,
+          "maximum_ops_s": 1017238.4889267797,
+          "median_p99_upper_ns": 2048.0,
+          "trials": 10
+        },
+        "irdb": {
+          "median_ops_s": 3036.800915024859,
+          "minimum_ops_s": 2342.530538579049,
+          "maximum_ops_s": 3708.888325114969,
+          "median_p99_upper_ns": 4194304.0,
+          "trials": 10
+        }
+      },
+      "ramsql_median_faster": true,
+      "win_gate_passed": true
+    },
+    {
+      "rows": 100000,
+      "case": "hotspot_get",
+      "engines": {
+        "ramsql": {
+          "median_ops_s": 1035122.2465562175,
+          "minimum_ops_s": 986533.1558462421,
+          "maximum_ops_s": 1059975.601789202,
+          "median_p99_upper_ns": 2048.0,
+          "trials": 10
+        },
+        "irdb": {
+          "median_ops_s": 3302.425548328828,
+          "minimum_ops_s": 2509.9236760969643,
+          "maximum_ops_s": 3715.4314899589817,
+          "median_p99_upper_ns": 4194304.0,
+          "trials": 10
+        }
+      },
+      "ramsql_median_faster": true,
+      "win_gate_passed": true
+    },
+    {
+      "rows": 100000,
+      "case": "range_page",
+      "engines": {
+        "ramsql": {
+          "median_ops_s": 210653.06608473312,
+          "minimum_ops_s": 208221.08305066798,
+          "maximum_ops_s": 220163.29754747305,
+          "median_p99_upper_ns": 16384.0,
+          "trials": 10
+        },
+        "irdb": {
+          "median_ops_s": 633.8436401920183,
+          "minimum_ops_s": 217.97578152832358,
+          "maximum_ops_s": 755.3752621683283,
+          "median_p99_upper_ns": 16777216.0,
+          "trials": 10
+        }
+      },
+      "ramsql_median_faster": true,
+      "win_gate_passed": true
+    },
+    {
+      "rows": 100000,
+      "case": "sort_score",
+      "engines": {
+        "ramsql": {
+          "median_ops_s": 767.5343765504012,
+          "minimum_ops_s": 479.4543809145193,
+          "maximum_ops_s": 875.1404217710979,
+          "median_p99_upper_ns": 4194304.0,
+          "trials": 10
+        },
+        "irdb": {
+          "median_ops_s": 211.07116507129993,
+          "minimum_ops_s": 205.50528778363872,
+          "maximum_ops_s": 218.09335519113404,
+          "median_p99_upper_ns": 8388608.0,
+          "trials": 10
+        }
+      },
+      "ramsql_median_faster": true,
+      "win_gate_passed": true
+    },
+    {
+      "rows": 100000,
+      "case": "filtered_sum",
+      "engines": {
+        "ramsql": {
+          "median_ops_s": 69920.48674473127,
+          "minimum_ops_s": 65010.169505084086,
+          "maximum_ops_s": 73038.9362172162,
+          "median_p99_upper_ns": 32768.0,
+          "trials": 10
+        },
+        "irdb": {
+          "median_ops_s": 1438.98521087015,
+          "minimum_ops_s": 1214.8538329463738,
+          "maximum_ops_s": 1981.422261088582,
+          "median_p99_upper_ns": 16777216.0,
+          "trials": 10
+        }
+      },
+      "ramsql_median_faster": true,
+      "win_gate_passed": true
+    },
+    {
+      "rows": 100000,
+      "case": "grouped",
+      "engines": {
+        "ramsql": {
+          "median_ops_s": 1771.558252124134,
+          "minimum_ops_s": 1663.240564358314,
+          "maximum_ops_s": 1975.9139983432221,
+          "median_p99_upper_ns": 1048576.0,
+          "trials": 10
+        },
+        "irdb": {
+          "median_ops_s": 718.4122599611064,
+          "minimum_ops_s": 576.9042922334916,
+          "maximum_ops_s": 1256.424254265089,
+          "median_p99_upper_ns": 16777216.0,
+          "trials": 10
+        }
+      },
+      "ramsql_median_faster": true,
+      "win_gate_passed": true
+    },
+    {
+      "rows": 100000,
+      "case": "filtered_group",
+      "engines": {
+        "ramsql": {
+          "median_ops_s": 3785.1335770999667,
+          "minimum_ops_s": 3693.9642932176507,
+          "maximum_ops_s": 4163.285095439358,
+          "median_p99_upper_ns": 1048576.0,
+          "trials": 10
+        },
+        "irdb": {
+          "median_ops_s": 852.4056863000772,
+          "minimum_ops_s": 682.8477508866351,
+          "maximum_ops_s": 1451.7023802734386,
+          "median_p99_upper_ns": 16777216.0,
+          "trials": 10
+        }
+      },
+      "ramsql_median_faster": true,
+      "win_gate_passed": true
+    },
+    {
+      "rows": 100000,
+      "case": "mixed_95_5",
+      "engines": {
+        "ramsql": {
+          "median_ops_s": 982144.9354267612,
+          "minimum_ops_s": 917240.9977395609,
+          "maximum_ops_s": 1016596.1826646685,
+          "median_p99_upper_ns": 2048.0,
+          "trials": 10
+        },
+        "irdb": {
+          "median_ops_s": 1028.8599473324275,
+          "minimum_ops_s": 832.5958912582189,
+          "maximum_ops_s": 1552.675988545133,
+          "median_p99_upper_ns": 16777216.0,
+          "trials": 10
+        }
+      },
+      "ramsql_median_faster": true,
+      "win_gate_passed": true
+    },
+    {
+      "rows": 100000,
+      "case": "mixed_50_50",
+      "engines": {
+        "ramsql": {
+          "median_ops_s": 1073126.6865411624,
+          "minimum_ops_s": 1037814.0840864063,
+          "maximum_ops_s": 1079613.0639900325,
+          "median_p99_upper_ns": 2048.0,
+          "trials": 10
+        },
+        "irdb": {
+          "median_ops_s": 286.67402187289065,
+          "minimum_ops_s": 259.5594950918922,
+          "maximum_ops_s": 303.9281285957903,
+          "median_p99_upper_ns": 16777216.0,
+          "trials": 10
+        }
+      },
+      "ramsql_median_faster": true,
+      "win_gate_passed": true
+    },
+    {
+      "rows": 100000,
+      "case": "churn",
+      "engines": {
+        "ramsql": {
+          "median_ops_s": 7868.628803031809,
+          "minimum_ops_s": 7136.398683308206,
+          "maximum_ops_s": 8227.777583657313,
+          "median_p99_upper_ns": 1048576.0,
+          "trials": 10
+        },
+        "irdb": {
+          "median_ops_s": 35.9198892105188,
+          "minimum_ops_s": 31.176026960248713,
+          "maximum_ops_s": 37.548912592291856,
+          "median_p99_upper_ns": 134217728.0,
+          "trials": 10
+        }
+      },
+      "ramsql_median_faster": true,
+      "win_gate_passed": true
+    }
+  ],
+  "all_correct": true,
+  "all_ramsql_medians_faster": true,
+  "compiler": {
+    "path": "C:\\Users\\Shado\\AppData\\Local\\Programs\\Sig\\0.6.4\\bin\\sig.exe",
+    "version": "sig 0.6.4 (zig 0.17.0)",
+    "sha256": "564f545f94d8a9074682e357f79b62228d08767ad3efcdd590c94fbca8109f8f"
+  },
+  "performance_gate_passed": true,
+  "finished_unix": 1793038383.2424707
+}

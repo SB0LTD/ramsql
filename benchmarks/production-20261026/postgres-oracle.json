@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "cases": 10,
+  "cycles": 2,
+  "checks": 2038,
+  "reference": {
+    "deployment": "owned native process",
+    "server_version": "PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit",
+    "server_version_num": "160015",
+    "data_path": "/tmp/ramsql-production-model-h4b2wcvz/postgres-608a4962b7774f92abf7337a1e5f9132/data",
+    "postgres_binary": "/usr/lib/postgresql/16/bin/postgres",
+    "postgres_sha256": "201d8daff9a5bd9df70b820471b965c39f5a776d677f395232c477d051270722",
+    "authentication": "loopback trust, isolated benchmark cluster"
+  }
+}

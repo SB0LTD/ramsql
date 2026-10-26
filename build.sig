@@ -91,11 +91,12 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     const timezones = ctx.option(usize, "timezones", "Cached named time zones (16 KiB each)") orelse 8;
     const work_rows = ctx.option(usize, "work-rows", "Query workspace rows for sorts, groups, joins and CTEs (2 x 8 cells each)") orelse rows;
     const summary_groups = ctx.option(usize, "summary-groups", "Optional exact committed groups per supported column (0 disables group synopses; SQL falls back beyond budget)") orelse 64;
+    const compact_integral_scans = ctx.option(bool, "compact-integral-scans", "Maintain caller-backed committed integer columns for analytical scans") orelse true;
     if (clients == 0 or clients > 60 or rows == 0 or tables == 0 or text_bytes == 0 or text_bytes > 65535 or transaction_bytes < 65540 or tx_writes == 0 or versions <= rows or timezones == 0 or timezones > 256 or work_rows == 0) return error.BufferTooSmall;
     var profile_buf: [512]u8 = undefined;
-    const profile = try std.fmt.bufPrint(&profile_buf, "pub const clients={d}; pub const rows={d}; pub const tables={d}; pub const text_bytes={d}; pub const transaction_bytes={d}; pub const tx_writes={d}; pub const versions={d}; pub const transactions={d}; pub const timezones={d}; pub const work_rows={d}; pub const summary_groups={d};\n", .{ clients, rows, tables, text_bytes, transaction_bytes, tx_writes, versions, clients + 2, timezones, work_rows, summary_groups });
+    const profile = try std.fmt.bufPrint(&profile_buf, "pub const clients={d}; pub const rows={d}; pub const tables={d}; pub const text_bytes={d}; pub const transaction_bytes={d}; pub const tx_writes={d}; pub const versions={d}; pub const transactions={d}; pub const timezones={d}; pub const work_rows={d}; pub const summary_groups={d}; pub const compact_integral_scans={s};\n", .{ clients, rows, tables, text_bytes, transaction_bytes, tx_writes, versions, clients + 2, timezones, work_rows, summary_groups, if(compact_integral_scans) "true" else "false" });
     var profile_path_buf: [256]u8 = undefined;
-    const profile_path = try std.fmt.bufPrint(&profile_path_buf, ".sig-cache/profile-{d}-{d}-{d}-{d}-{d}-{d}-{d}-{d}-{d}-{d}.sig", .{ clients, rows, tables, text_bytes, transaction_bytes, tx_writes, versions, timezones, work_rows, summary_groups });
+    const profile_path = try std.fmt.bufPrint(&profile_path_buf, ".sig-cache/profile-{d}-{d}-{d}-{d}-{d}-{d}-{d}-{d}-{d}-{d}-{d}.sig", .{ clients, rows, tables, text_bytes, transaction_bytes, tx_writes, versions, timezones, work_rows, summary_groups, @intFromBool(compact_integral_scans) });
     try sig_build.sig_io.Dir.cwd().createDirPath(.{}, ".sig-cache");
     const profile_file = try sig_build.sig_io.Dir.cwd().createFile(.{}, profile_path, .{});
     try profile_file.writeStreamingAll(.{}, profile);
@@ -209,10 +210,15 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     });
     const review_step = try ctx.addStep("benchmark-review", "ramsql-review-bench", &runBinary);
     try ctx.addDependency(review_step, review_bench);
+    _ = try ctx.addCompileStep(.{
+        .source_path = "src/production_benchmark.sig", .output_name = "ramsql-production-bench",
+        .cache_dir = ctx.cache_dir[0..ctx.cache_dir_len], .optimize = ctx.optimize,
+        .target = null, .imports = &.{ importEntry("sql", sql_path), importEntry("sig", runtime_path), importEntry("page_region", pages_path), importEntry("db_file", db_file_path), importEntry("profile", profile_path) }, .compiler_path = "",
+    });
     const benchmark = try ctx.addStep("benchmark", "ramsql-bench", &runBinary);
     try ctx.addDependency(benchmark, bench);
     var test_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
-    inline for (.{ "postgres", "mysql", "tds", "db_store", "tcp_server", "sql_index", "scram", "durable_log", "db_file", "entropy", "db_stream", "pg_stream", "sql_storage", "sql_change_log", "sql_expr", "sql_mvcc", "sql_types", "sql_query", "sql_stream_group", "sql_integer_topk", "sql_layout_order", "sql_summary", "sql_dense_group", "sql_rollup", "sql_ordered_probes", "sql_dml", "sql_catalog", "wall_clock", "pg_copy" }) |name| {
+    inline for (.{ "postgres", "mysql", "tds", "db_store", "tcp_server", "sql_index", "scram", "durable_log", "db_file", "entropy", "db_stream", "pg_stream", "sql_storage", "sql_change_log", "sql_expr", "sql_mvcc", "sql_types", "sql_query", "sql_stream_group", "sql_integer_topk", "sql_layout_order", "sql_summary", "sql_dense_group", "sql_rollup", "sql_ordered_probes", "sql_compact_scan", "sql_dml", "sql_catalog", "wall_clock", "pg_copy" }) |name| {
         const path = try zpm.modulePath("tests/test_" ++ name ++ ".sig", &test_buf);
         const compiled = try ctx.addCompileStep(.{
             .source_path = path,

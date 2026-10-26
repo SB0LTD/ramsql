@@ -83,6 +83,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/test_benchmark_review.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/test_production_workloads.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build RAMSQL
         run: |
@@ -129,4 +131,14 @@ jobs:
           $arguments = @('build', 'benchmark', '-Doptimize=ReleaseFast')
           if ($env:RUNNER_OS -eq 'macOS') { $arguments += '-Dlink-libc=true' }
           & $env:SIG @arguments
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Validate production trace replay and corrupt input rejection
+        run: |
+          $arguments = @('build', 'ramsql-production-bench', '-Doptimize=ReleaseSafe', '-Dwork-rows=2048')
+          if ($env:RUNNER_OS -eq 'macOS') { $arguments += '-Dlink-libc=true' }
+          & $env:SIG @arguments
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $binary = if ($env:RUNNER_OS -eq 'Windows') { './sig-out/bin/ramsql-production-bench.exe' } else { './sig-out/bin/ramsql-production-bench' }
+          python tools/test_production_replay.py --binary $binary
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

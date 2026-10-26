@@ -70,6 +70,7 @@ const Raw = sql.Database(.{
     .transactions = profile.transactions,
     .work_rows = profile.work_rows,
     .summary_groups = profile.summary_groups,
+    .compact_integral_scans = profile.compact_integral_scans,
 });
 const Store = stores.Store(Raw);
 const DB = Store.Connection;

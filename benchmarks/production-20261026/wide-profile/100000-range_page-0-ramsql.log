@@ -1,0 +1,6 @@
+{"metadata":true,"engine":"ramsql-native","rows":100000,"requests":64,"load_ns":282375000,"warmup_ns":1000221600,"warmup_cycles":3382,"backing_bytes":442445728,"metadata_bytes":17695360,"cell_bytes":528,"work_rows":4096,"text_bytes":512,"compact_integral_scans":true}
+{"trial":0,"passed":true,"operations":62784,"cycles":981,"elapsed_ns":300205900,"p50_upper_ns":8192,"p95_upper_ns":8192,"p99_upper_ns":16384,"compact_plans":0,"compact_rows":0,"streamed_wide_rows":0}
+{"trial":1,"passed":true,"operations":64960,"cycles":1015,"elapsed_ns":300011500,"p50_upper_ns":8192,"p95_upper_ns":8192,"p99_upper_ns":8192,"compact_plans":0,"compact_rows":0,"streamed_wide_rows":0}
+{"trial":2,"passed":true,"operations":65600,"cycles":1025,"elapsed_ns":300116600,"p50_upper_ns":8192,"p95_upper_ns":8192,"p99_upper_ns":16384,"compact_plans":0,"compact_rows":0,"streamed_wide_rows":0}
+{"trial":3,"passed":true,"operations":62784,"cycles":981,"elapsed_ns":300279900,"p50_upper_ns":8192,"p95_upper_ns":8192,"p99_upper_ns":16384,"compact_plans":0,"compact_rows":0,"streamed_wide_rows":0}
+{"trial":4,"passed":true,"operations":63168,"cycles":987,"elapsed_ns":300264000,"p50_upper_ns":8192,"p95_upper_ns":8192,"p99_upper_ns":16384,"compact_plans":0,"compact_rows":0,"streamed_wide_rows":0}

@@ -5,6 +5,11 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using irdb;
 
+if(args.Length>0 && args[0]=="--column-api") {
+ foreach(var m in typeof(InMemoryColumn<int>).GetMethods(BindingFlags.Public|BindingFlags.Instance).Where(m=>m.Name.Contains("null",StringComparison.OrdinalIgnoreCase)||m.Name.Contains("Value"))) Console.WriteLine(m.ToString());
+ return;
+}
+if(args.Length>0 && args[0]=="--trace") { ProductionTrace.Run(args.Skip(1).ToArray());return; }
 int n = args.Length > 0 ? int.Parse(args[0]) : 512;
 int iterations = args.Length > 1 ? int.Parse(args[1]) : n <= 512 ? 2000 : n <= 100000 ? 100 : 10;
 int minimumMs = args.Length == 4 && args[2] == "--minimum-ms" ? int.Parse(args[3]) : 0;
