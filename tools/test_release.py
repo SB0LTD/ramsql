@@ -129,6 +129,14 @@ class ReleaseContracts(unittest.TestCase):
                     verified = output / (entry["slug"] + ".verified.json")
                     package.verify(argparse.Namespace(input=output, target=entry["slug"],
                         revision=revision, install_bin=None, report=verified))
+                    checked = package.verify_package(output, entry['slug'], revision)
+                    for name in ('README.md', 'CHANGELOG.md', 'ROADMAP.md', 'CAPACITY.md',
+                                 'OPERATIONS.md', 'SQL_REFERENCE.md', 'BETA_USABILITY.md', 'create_verifier.py'):
+                        self.assertIn(name, checked['files'])
+                    readme = checked['files']['README.md'][0].decode('utf-8')
+                    self.assertIn('](BETA_USABILITY.md)', readme)
+                    self.assertIn('](RELEASE.md)', readme)
+                    self.assertIn('/blob/' + revision + '/benchmarks/', readme)
                     if entry["kind"] == "hosted":
                         fixture_env = {"RUNNER_OS": {"linux": "Linux", "windows": "Windows", "macos": "macOS"}[entry["runtime"]],
                                        "RUNNER_ARCH": {"x86_64": "X64", "aarch64": "ARM64"}[entry["arch"]]}

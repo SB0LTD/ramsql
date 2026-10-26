@@ -1,44 +1,53 @@
-# RAMSQL 0.3.0-alpha.4 development candidate
+# RAMSQL 0.3.0-beta.1
 
-This is an explicitly scoped development prerelease, with six hosted builds
-(x86_64/AArch64 Linux, macOS and Windows), plus native SB0X and SB0K images.
-Hosted binaries retain synchronous WAL and PostgreSQL SCRAM. SB0 images expose
-the PostgreSQL wire subset over trusted memory-only channels/UART; they have no
-TCP, durable files or SCRAM. Every exact image must pass its runtime tests.
+A scoped prerelease for controlled beta testing, benchmarking and review.
+PostgreSQL remains the default. The real shared SQL/MVCC/store/WAL/SCRAM paths
+are implemented in allocator-free Sig; MySQL/TDS adapters remain experimental
+over that subset. This is not production PostgreSQL or complete SQL dialect parity.
 
-This candidate follows published alpha.3 and requires fresh qualification on
-checksum-verified hosted Sig 0.6.4. Production gates remain blocked.
+## What to try
 
-Changes since alpha.3:
+Download your native archive, verify `SHA256SUMS.txt`, read `CAPACITY.md` and run
+`ramsql --capabilities`. Follow the README's disposable SQL example, then use the
+packaged `create_verifier.py` for authenticated WAL/restart/backup tests.
+Use disposable copies of data and your actual client/schema/workload.
 
-- Hosted row/version/index storage can use caller-owned page regions with runtime
-  `--rows` / `--versions` budgets. Recovery checks the actual bound capacity;
-  result/workspace/text/schema/session capacities are still separate and bounded.
-- Stable bounded top-K selection for eligible column ORDER BY/LIMIT and direct
-  cell comparisons. This does not add ordered/secondary indexes or scalable
-  streaming/vectorized aggregation.
-- A reproducible comparison adapter pinned to current IRDB 1.10.821, with separate
-  native-API and PostgreSQL-wire tiers, correctness checks and visible failures.
-- Required larger-than-inline-profile durable restart/restore tests in hosted
-  CI and exact release-artifact qualification.
+This release adds inspectable capacity/security/protocol budgets, configurable
+column/result/lock/parser profiles, a live-tested SCRAM setup helper and complete
+reviewer/operator documentation. The custom profile suite verifies 12 columns,
+600 returned rows and 200-byte text. Hosted row/version storage is runtime-sized;
+it is independent of fixed result/workspace/value/connection bounds.
 
-Inherited alpha.3 features include shared MVCC/READ COMMITTED storage, row/table
-lock waits, savepoints, transactional DDL, typed values/expressions, joins,
-aggregates/CTEs, COPY, typed change records and running-query interruption.
-Full PostgreSQL behavior and production scale remain open.
+Since alpha.4, committed summaries, ordered probes and compact/vector/scalar
+integer scans materially improve the read path. The retained development IRDB
+1.10.821 evidence passes all 21 read comparisons at 10k/100k/1M rows and all ten
+wide-profile cases. The original long million-row churn comparison timed out in
+IRDB and remains unscored; a shorter trace completed. These are historical native
+single-worker measurements, not a claim about every beta binary or workload.
+The release bundle separately includes exact-image PostgreSQL qualification and
+durable benchmark results, including losses.
 
-This candidate has no published performance-superiority claim. Review actual
-comparative results and every blocked case before deciding the next release.
-IRDB native-API timings and server/client timings have different call boundaries.
-Durable benchmark results remain separate from volatile-memory comparisons.
+## Scope and limitations
 
-**WAL compatibility:** framing remains version 1; new commits use payload kind 3
-with typed row/catalog changes. Legacy kind-1/2 SQL-text records recover through
-the frozen alpha grammar, then subsequent commits use kind 3. A legacy record
-following a kind-3 record, or unsupported legacy syntax, fails closed. Older alpha
-binaries cannot read kind 3. Preserve the old binary and backup before upgrading;
-a general release upgrade/downgrade matrix remains open. Reopen and restore must
-have sufficient runtime row/version budgets; insufficient capacity fails closed.
+- Stock defaults remain 512 stored/returned rows, 8 columns, 128-byte text and
+  16 clients. Stored rows can be raised at runtime; other budgets need an
+  appropriate compiled profile. All are documented; none is advertised as unlimited.
+- Loopback only; no TLS/channel binding or role authorization. MySQL/TDS use
+  empty-password trust only under explicit insecure-local mode.
+- READ COMMITTED only, one reactor, incomplete catalogs/dialects and fixed
+  protocol/query/result budgets; no arbitrary streaming or disk spill.
+- No checkpoint/WAL compaction, online backup, replication or general migration
+  guarantee. Synchronous flush/process-crash tests do not prove every device's
+  physical power-loss behavior.
+- Six hosted x86_64/AArch64 Linux/macOS/Windows targets have TCP/WAL/SCRAM.
+  Native SB0X/SB0K targets use trusted memory-only process-channel/UART transport;
+  no hosted TCP, durable files or SCRAM is claimed for them.
+
+The README, CHANGELOG, ROADMAP, OPERATIONS, CAPACITY, SQL_REFERENCE and
+BETA_USABILITY documents ship in each package. Beta publication requires real
+exact-artifact execution and the complete platform qualification pipeline;
+synthetic packaging fixtures do not qualify binaries. Stable production gates
+remain closed and are not relaxed for this prerelease.
 
 ## Production release requirements
 

@@ -1,9 +1,11 @@
 """Exercise the built RAMSQL command line and its bounded stdin protocol."""
 
 import argparse
+import json
 import os
 from pathlib import Path
 import subprocess
+import tempfile
 from release_matrix import source_version
 
 
@@ -35,6 +37,18 @@ def main():
     assert help_result.returncode == 0 and not help_result.stderr, help_result
     assert b"ramsql" in help_result.stdout and b"--stdin" in help_result.stdout
     assert b"--version" in help_result.stdout
+    described = run(["--capabilities", "--rows", "1024", "--versions", "3072"])
+    assert described.returncode == 0 and not described.stderr, described
+    caps = json.loads(described.stdout)
+    assert caps['version'] == source_version() and caps['production_ready'] is False
+    assert caps['rows_per_table'] == 1024 and caps['versions_per_table'] == 3072
+    assert caps['backing_bytes'] > 0 and caps['columns'] > 0 and caps['result_rows'] > 0
+    assert caps['tls'] is False and caps['bind'] == '127.0.0.1'
+    with tempfile.TemporaryDirectory(prefix='ramsql-capabilities-') as directory:
+        wal = Path(directory) / 'must-not-be-created.wal'
+        inspected = subprocess.run([str(binary), '--capabilities', '--data', str(wal)],
+                                  capture_output=True, timeout=15)
+        assert inspected.returncode == 0 and not wal.exists(), inspected
     for arguments in (["--unknown"], ["--version", "extra"], ["--stdin", "--unknown"]):
         unknown = run(arguments, "")
         assert unknown.returncode == 2, (arguments, unknown.returncode, unknown.stderr)

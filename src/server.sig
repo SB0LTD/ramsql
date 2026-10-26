@@ -56,10 +56,15 @@ pub const default_timezone_dir: ?[]const u8 = if (@import("builtin").os.tag == .
 // Integer 0/1 BOOLEAN assignment is per session: the ZPM MySQL/TDS sessions
 // set Store.Connection.dialect themselves; PostgreSQL keeps the default.
 // Every client plus two spare slots can hold a transaction at once.
-const Raw = sql.Database(.{
+const config: sql.Config = .{
     .external_storage = true,
     .tables = profile.tables,
-    .columns = 8,
+    .columns = profile.columns,
+    .result_rows = profile.result_rows,
+    .row_locks = profile.row_locks,
+    .predicates = profile.predicates,
+    .expr_nodes = profile.expr_nodes,
+    .relations = profile.relations,
     .rows_per_table = profile.rows,
     .name_bytes = 63,
     .text_bytes = profile.text_bytes,
@@ -71,7 +76,8 @@ const Raw = sql.Database(.{
     .work_rows = profile.work_rows,
     .summary_groups = profile.summary_groups,
     .compact_integral_scans = profile.compact_integral_scans,
-});
+};
+const Raw = sql.Database(config);
 const Store = stores.Store(Raw);
 const DB = Store.Connection;
 const Zones = timezones.Timezones(Raw.Zone, profile.timezones);
@@ -378,14 +384,29 @@ fn acceptConnections(listener: tcp.Socket, protocol: Protocol, max_clients: usiz
     }
 }
 
-fn openStorage(options: Options) !pages.Region {
+fn storagePlan(options: Options) !struct { versions: usize, refs: usize, bytes: usize } {
     if (options.storage_rows == 0 or options.storage_rows > 0x3fffffff) return error.InvalidServerOptions;
     const version_count = options.storage_versions orelse if (options.storage_rows == profile.rows) profile.versions else options.storage_rows * 2;
     if (version_count <= options.storage_rows or version_count > 0x7fffffff) return error.InvalidServerOptions;
     const ref_count = @max(options.storage_rows * 4, profile.work_rows * 32);
-    var backing = try pages.reserve(try Raw.backingBytes(options.storage_rows, version_count, ref_count));
+    return .{ .versions = version_count, .refs = ref_count, .bytes = try Raw.backingBytes(options.storage_rows, version_count, ref_count) };
+}
+
+pub fn describe(options: Options) !void {
+    if (options.max_clients == 0 or options.max_clients > capacity or options.idle_ms == 0) return error.InvalidServerOptions;
+    const plan = try storagePlan(options);
+    var buffer: [4096]u8 = undefined;
+    const message = try sig.fmt.bufPrint(&buffer,
+        "{{\"schema\":1,\"version\":\"{s}\",\"release_stage\":\"beta\",\"production_ready\":false,\"default_protocol\":\"postgres\",\"bind\":\"127.0.0.1\",\"tls\":false,\"roles\":false,\"isolation\":\"read_committed\",\"workers\":1,\"rows_per_table\":{d},\"versions_per_table\":{d},\"tables\":{d},\"columns\":{d},\"result_rows\":{d},\"work_rows\":{d},\"text_bytes\":{d},\"name_bytes\":{d},\"clients\":{d},\"compiled_clients\":{d},\"transaction_bytes\":{d},\"tx_writes\":{d},\"row_locks\":{d},\"predicates\":{d},\"expr_nodes\":{d},\"expr_depth\":{d},\"relations\":{d},\"subqueries\":{d},\"ctes\":{d},\"savepoints\":{d},\"sequences\":{d},\"numeric_digits\":{d},\"json_depth\":{d},\"copy_line_bytes\":{d},\"pg_packet_bytes\":{d},\"pg_prepared_sql_bytes\":{d},\"pg_statements\":{d},\"pg_portals\":{d},\"pg_parameters\":{d},\"input_bytes\":{d},\"output_bytes_per_client\":{d},\"backing_bytes\":{d},\"summary_groups\":{d},\"compact_integral_scans\":{s},\"wal_checkpointing\":false,\"mysql_tds_authentication\":false}}\n",
+        .{ @import("ramsql").version, options.storage_rows, plan.versions, config.tables, config.columns, config.result_rows, config.work_rows, config.text_bytes, config.name_bytes, options.max_clients, capacity, profile.transaction_bytes, config.tx_writes, config.row_locks, config.predicates, config.expr_nodes, config.expr_depth, config.relations, config.subqueries, config.ctes, config.savepoints, config.sequences, config.numeric_digits, config.json_depth, config.copy_line_bytes, pg.max_packet, pg.sql_capacity, pg.statement_capacity, pg.portal_capacity, pg.parameter_capacity, input_capacity, output_capacity, plan.bytes, config.summary_groups, if(config.compact_integral_scans and config.columns <= 64) "true" else "false" });
+    try sig.io.File.stdout().writeStreamingAll(.{}, message);
+}
+
+fn openStorage(options: Options) !pages.Region {
+    const plan = try storagePlan(options);
+    var backing = try pages.reserve(plan.bytes);
     errdefer backing.close();
-    try store.database.bindMemory(backing.bytes, options.storage_rows, version_count, ref_count);
+    try store.database.bindMemory(backing.bytes, options.storage_rows, plan.versions, plan.refs);
     return backing;
 }
 
