@@ -213,7 +213,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     _ = try ctx.addCompileStep(.{
         .source_path = "src/production_benchmark.sig", .output_name = "ramsql-production-bench",
         .cache_dir = ctx.cache_dir[0..ctx.cache_dir_len], .optimize = ctx.optimize,
-        .target = null, .imports = &.{ importEntry("sql", sql_path), importEntry("sig", runtime_path), importEntry("page_region", pages_path), importEntry("profile", profile_path) }, .compiler_path = "",
+        .target = null, .imports = &.{ importEntry("sql", sql_path), importEntry("sig", runtime_path), importEntry("page_region", pages_path), importEntry("db_file", db_file_path), importEntry("profile", profile_path) }, .compiler_path = "",
     });
     const benchmark = try ctx.addStep("benchmark", "ramsql-bench", &runBinary);
     try ctx.addDependency(benchmark, bench);

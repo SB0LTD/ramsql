@@ -3,6 +3,7 @@ const std = @import("std");
 const sig = @import("sig");
 const sql = @import("sql");
 const pages = @import("page_region");
+const files = @import("db_file");
 const profile = @import("profile");
 const DB = sql.Database(.{ .external_storage=true,.tables=1,.columns=4,.rows_per_table=4,
     .text_bytes=profile.text_bytes,.result_rows=2048,.work_rows=profile.work_rows,.tx_writes=64,.integer_bits=32,.nulls_first_ascending=false,.summary_groups=64,.compact_integral_scans=profile.compact_integral_scans });
@@ -59,13 +60,12 @@ fn run(init:std.process.Init.Minimal) !void {
     const path=path_buffer[0..path_arg.len];
     const minimum_ms=try sig.fmt.parseInt(u64,(try args.next()) orelse "200",10);
     if(minimum_ms==0 or minimum_ms>10000 or try args.next()!=null) return error.InvalidArguments;
-    const file=try sig.io.Dir.cwd().openFile(.{},path,.{});defer file.close(.{});
-    const length=file.stat().size;if(length<36 or length>1024*1024*1024) return error.InvalidTrace;
+    var file=try files.File.openReadOnly(path);defer file.close();
+    const length=try file.length();if(length<36 or length>1024*1024*1024) return error.InvalidTrace;
     var input=try pages.reserve(@intCast(length));defer input.close();
-    var stream=file.reader(.{},&.{});
     var loaded:usize=0;
     while(loaded<length) {
-        const got=try stream.interface.readSliceShort(input.bytes[loaded..@intCast(length)]);
+        const got=try file.readAt(loaded,input.bytes[loaded..@intCast(length)]);
         if(got==0) return error.TruncatedTrace;
         loaded+=got;
     }
