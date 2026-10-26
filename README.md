@@ -74,6 +74,12 @@ sig build -Doptimize=ReleaseFast -Dclients=32 -Drows=4096 -Dtables=16 -Dtext-byt
 `-Dtx-writes=N` (rows changed per transaction, default 4096) and `-Dversions=N`
 (row-version slots per table, default 2 x rows) size the transaction engine.
 `-Dtimezones=N` (default 8) sizes the named time-zone cache (16 KiB each).
+`-Dsummary-groups=N` (default 64; 0 disables) budgets optional exact committed
+group summaries per column. Supported unfiltered COUNT/SUM/integral AVG reads
+can use them without scanning rows. Larger group domains fall back to scans;
+this budget does not limit stored rows or SQL group counts. Summaries add
+bounded table metadata and write work. Older snapshots and transactions with
+own writes use ordinary execution.
 
 `--timezone-dir PATH` names a zoneinfo (TZif) directory for named time zones
 (`SET TIME ZONE 'America/New_York'`, `... AT TIME ZONE 'Europe/Paris'`); the
@@ -502,6 +508,12 @@ and the source revision. For local native builds, set `SIG` and `SIG_LIB_DIR` to
 that compiler and its matching library before running the commands above.
 
 ### IRDB comparison and scale evidence (alpha.4 candidate)
+
+The [26 October read-path follow-up](benchmarks/read-20261026/REPORT.md)
+adds committed aggregate summaries, dense-key ordered probes and measured
+server syscall reductions. It records separate native and wire comparisons,
+ordered and shuffled data, memory/import costs and remaining losses. The
+published alpha.4 binary predates these development changes.
 
 The [25 October comparison pack](benchmarks/irdb-review-20261025/REPORT.md)
 contains latest-verified IRDB 1.10.821 results, with a compiled table and clustered

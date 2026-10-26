@@ -1,0 +1,112 @@
+dep 'zpm': resolved -> /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_sql.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql
+compile: tests/backup.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-backup (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-backup
+compile: tests/persistence.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-persistence (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-persistence
+compile: tests/api.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-ramsql (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-ramsql
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_postgres.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-postgres (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-postgres
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_mysql.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-mysql (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-mysql
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_tds.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-tds (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-tds
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_db_store.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-db_store (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-db_store
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_tcp_server.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-tcp_server (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-tcp_server
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_sql_index.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_index (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_index
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_scram.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-scram (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-scram
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_durable_log.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-durable_log (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-durable_log
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_db_file.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-db_file (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-db_file
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_entropy.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-entropy (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-entropy
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_db_stream.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-db_stream (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-db_stream
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_pg_stream.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-pg_stream (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-pg_stream
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_sql_storage.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_storage (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_storage
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_sql_change_log.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_change_log (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_change_log
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_sql_expr.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_expr (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_expr
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_sql_mvcc.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_mvcc (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_mvcc
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_sql_types.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_types (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_types
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_sql_query.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_query (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_query
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_sql_stream_group.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_stream_group (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_stream_group
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_sql_integer_topk.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_integer_topk (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_integer_topk
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_sql_layout_order.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_layout_order (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_layout_order
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_sql_summary.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_summary (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_summary
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_sql_dense_group.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_dense_group (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_dense_group
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_sql_rollup.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_rollup (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_rollup
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_sql_ordered_probes.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_ordered_probes (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_ordered_probes
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_sql_dml.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_dml (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_dml
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_sql_catalog.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_catalog (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-sql_catalog
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_wall_clock.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-wall_clock (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-wall_clock
+compile: /home/sb/.cache/sig/p/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/tests/test_pg_copy.sig -> /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-pg_copy (18 modules)
+compile: executable verified at /home/sb/.cache/ramsql-qualification/read-safe/bin/contract-pg_copy
+{"suite":"sql","pass":true,"cases":14,"assertions":8431,"statements":1426,"fuzz_inputs":1313,"database_bytes":229360}
+{"suite":"backup","pass":true,"assertions":11}
+{"suite":"persistence","pass":true,"assertions":112}
+{"suite":"postgres","pass":true,"assertions":15056,"packets":271,"fuzz_inputs":4096,"session_bytes":80032}
+{"suite":"mysql","pass":true,"assertions":1168,"fuzz_inputs":1024}
+{"suite":"tds","pass":true,"assertions":2661,"fuzz_inputs":1337}
+store: 3154 assertions passed
+
+{"suite":"tcp_server","pass":true,"assertions":76}
+{"suite":"sql-index","pass":true,"assertions":239606,"statements":50218,"model_steps":8192,"rejected":1928}
+{"suite":"scram","pass":true,"assertions":24759,"fuzz_inputs":8192,"server_bytes":1792}
+{"suite":"durable_log","pass":true,"assertions":4834}
+{"suite":"db_file","pass":true,"assertions":27}
+{"suite":"entropy","pass":true,"assertions":1042,"os":"linux"}
+{"suite":"db-stream","assertions":39}
+
+{"suite":"postgres-stream","pass":true,"assertions":749}
+
+{"suite":"sql-storage","pass":true,"assertions":619,"small_bytes":211568,"server_profile_bytes":12683152,"server_versions_per_table":1024}
+{"suite":"sql-change-log","pass":true,"assertions":876,"rejected_flips":202,"accepted_flips":52}
+{"suite":"sql-expr","pass":true,"assertions":359,"database_bytes":314544,"wide_bytes":620672}
+{"suite":"sql-mvcc","pass":true,"assertions":122,"database_bytes":204464}
+
+{"suite":"sql-types","pass":true,"assertions":311,"database_bytes":562656}
+{"suite":"sql-query","pass":true,"assertions":63417,"database_bytes":478880,"big_bytes":1253392,"work_rows":512}
+{"suite":"sql-stream-group","pass":true,"assertions":1197,"rows":100000,"query_refs":1024}
+
+{"suite":"sql-integer-topk","pass":true,"assertions":3140}
+
+{"suite":"sql-layout-order","pass":true,"assertions":108}
+
+{"suite":"sql-summary","pass":true,"assertions":4136}
+
+{"suite":"sql-dense-group","pass":true,"assertions":610}
+
+{"suite":"sql-rollup","pass":true,"assertions":6409}
+
+{"suite":"sql-ordered-probes","pass":true,"assertions":188}
+
+{"suite":"sql-dml","pass":true,"assertions":220,"database_bytes":288336}
+{"suite":"sql-catalog","pass":true,"assertions":36,"database_bytes":268736}
+{"suite":"wall_clock","pass":true,"assertions":4002,"os":"linux"}
+{"suite":"pg-copy","pass":true,"assertions":478,"session_bytes":295600}
+
+Build summary: 74 total, 67 succeeded, 0 cached, 0 failed, 7 skipped in 554277 ms

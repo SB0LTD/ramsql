@@ -1061,7 +1061,23 @@ version rather than an unversioned moving target.
 - [PostgreSQL regression tests](https://www.postgresql.org/docs/18/regress.html): broader SQL/TAP coverage and evaluation discipline.
 - [PostgreSQL pgbench](https://www.postgresql.org/docs/18/pgbench.html): reference benchmark tooling; running it successfully is itself a compatibility requirement to test.
 
-## Latest comparative evidence — 25 October 2026, alpha.4 candidate
+## Read optimization follow-up — 26 October 2026
+
+The [read-path evidence](../benchmarks/read-20261026/REPORT.md) supersedes the
+earlier aggregate and filtered-read numbers below. Exact committed summaries
+accelerate eligible unfiltered aggregates; bounded ordered hash probes accelerate
+dense integral primary-key LIMIT reads, including shuffled physical layouts.
+Old snapshots, own writes, wide/sparse key domains and unsupported aggregate
+shapes retain ordinary execution. These are specialized paths, not general
+secondary or composite indexes. Metadata costs and import work are recorded.
+
+Current priorities are general ordered access/compact scans for changed-key and
+mixed workloads, followed by the unchanged capacity, streaming, durable-write,
+concurrency and PostgreSQL compatibility gates. A favorable read microbenchmark
+does not close any of those production gates. Published alpha.4 predates this
+work; follow the report's exact source identities.
+
+## Earlier comparative evidence — 25 October 2026, alpha.4 candidate
 
 [IRDB 1.10.821 comparison pack](../benchmarks/irdb-review-20261025/REPORT.md)
 contains three dataset sizes through one million rows, raw trials, verified result

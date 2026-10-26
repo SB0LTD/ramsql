@@ -1,0 +1,8 @@
+{
+  "queries": 10000,
+  "profiled_wall_ns": 2270588399,
+  "binary_sha256": "481222b2e022b00096a925ec7a5e5820e85ebb58b01c5cdb9596adc769039964",
+  "strace_sha256": "28f957c227012de0b18d1bd7fff2d396cb693ea60ed8013be68de071e84b5001",
+  "passed": true,
+  "scope": "Syscall totals include startup, 64-row seed, connection setup and shutdown. Wall time contains tracing overhead; not comparative throughput."
+}

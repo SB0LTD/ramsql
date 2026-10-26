@@ -1,0 +1,1 @@
+{"suite": "persistence_crash", "pass": true, "cases": 58, "assertions": 1757, "crash_cycles": 5, "artifacts": "/mnt/c/Just-Things/Projects/sb0/ramsql/sig-out/persistence-crash-1793018996412233671"}

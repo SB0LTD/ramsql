@@ -3,8 +3,9 @@ const std = @import("std");
 const sig = @import("sig");
 const sql = @import("sql");
 const pages = @import("page_region");
+const profile = @import("profile");
 const DB = sql.Database(.{ .external_storage = true, .tables = 1, .columns = 4, .rows_per_table = 4,
-    .text_bytes = 32, .result_rows = 128, .work_rows = 512, .tx_writes = 64 });
+    .text_bytes = 32, .result_rows = 128, .work_rows = 512, .tx_writes = 64, .summary_groups = profile.summary_groups });
 var db: DB = .{};
 var result: DB.Result = .{};
 const Case = enum { primary_key_hot, filtered_limit, sort_limit, aggregate, group_aggregate, mixed };
@@ -103,8 +104,9 @@ fn measure(which: Case, n: usize, iterations: usize) !void {
         const operations = iterations * (if (which == .mixed) @as(usize, 4) else 1);
         const streaming = which == .aggregate or which == .group_aggregate;
         const stats = db.workspace.query.stream_stats;
-        var buffer: [512]u8 = undefined;
-        const line = try sig.fmt.bufPrint(&buffer, "{{\"engine\":\"ramsql-native\",\"case\":\"{s}\",\"passed\":true,\"rows\":{d},\"trial\":{d},\"operations\":{d},\"elapsed_ns\":{d},\"checksum\":{d},\"expected_digest\":{d},\"stream_rows\":{d},\"stream_groups\":{d},\"stream_probes\":{d},\"group_cells\":{d},\"group_refs\":{d}}}\n", .{ @tagName(which), n, trial, operations, elapsed, checksum, expected, if (streaming) stats.rows else 0, if (streaming) stats.groups else 0, if (streaming) stats.probes else 0, if (streaming) stats.scratch_cells else 0, if (streaming) stats.scratch_refs else 0 });
+        const reads = db.workspace.query.read_stats;
+        var buffer: [1024]u8 = undefined;
+        const line = try sig.fmt.bufPrint(&buffer, "{{\"engine\":\"ramsql-native\",\"case\":\"{s}\",\"passed\":true,\"rows\":{d},\"trial\":{d},\"operations\":{d},\"elapsed_ns\":{d},\"checksum\":{d},\"expected_digest\":{d},\"stream_rows\":{d},\"stream_groups\":{d},\"stream_probes\":{d},\"group_cells\":{d},\"group_refs\":{d},\"summary_rows\":{d},\"summary_plans\":{d},\"dense_plans\":{d},\"key_probes\":{d},\"key_walks\":{d},\"key_fallbacks\":{d},\"key_successes\":{d},\"nonnull_sort_keys\":{d}}}\n", .{ @tagName(which), n, trial, operations, elapsed, checksum, expected, if (streaming) stats.rows else 0, if (streaming) stats.groups else 0, if (streaming) stats.probes else 0, if (streaming) stats.scratch_cells else 0, if (streaming) stats.scratch_refs else 0, if (streaming) stats.summary_rows else 0, if (streaming) stats.summary_plans else 0, if (streaming) stats.dense_plans else 0, reads.key_probes, reads.key_walks, reads.key_fallbacks, reads.key_successes, reads.nonnull_sort_keys });
         try write(line);
     }
 }
@@ -146,9 +148,13 @@ pub fn main(init: std.process.Init.Minimal) !void {
         const id: usize=if(permuted) @intCast((@as(u64,slot)*stride)%n) else slot;
         try db.execute(try sig.fmt.bufPrint(&buffer, "INSERT INTO bench VALUES ({d}, {d}, {d}, 'value')", .{ id, n - id, id % 64 }), &result);
     }
+    const load_elapsed = sig.os.clockMonotonicNs() - load_start;
+    // Independently scan storage: a corrupt synopsis must not validate itself.
+    if (try answer("SELECT COUNT(*), SUM(value) FROM bench WHERE id >= 0") != model(.aggregate, n, false)) return error.PhysicalSeedMismatch;
+    if (db.workspace.query.stream_stats.rows != n or db.workspace.query.stream_stats.summary_plans != 0) return error.PhysicalSeedDidNotScan;
     pk = try sig.fmt.bufPrint(&pk_buf, "SELECT id, value FROM bench WHERE id = {d}", .{n / 2});
     update = try sig.fmt.bufPrint(&update_buf, "UPDATE bench SET value = 7 WHERE id = {d}", .{n / 2});
-    try write(try sig.fmt.bufPrint(&buffer, "{{\"engine\":\"ramsql-native\",\"layout\":\"{s}\",\"rows\":{d},\"backing_bytes\":{d},\"metadata_bytes\":{d},\"cell_bytes\":{d},\"version_bytes\":{d},\"query_ref_capacity\":{d},\"load_ns\":{d}}}\n", .{ if(permuted) "permuted" else "ordered", n, memory.bytes.len, @sizeOf(DB), @sizeOf(DB.Cell), @sizeOf(DB.StorageVersion), db.workspace.query.refs.len, sig.os.clockMonotonicNs() - load_start }));
+    try write(try sig.fmt.bufPrint(&buffer, "{{\"engine\":\"ramsql-native\",\"layout\":\"{s}\",\"rows\":{d},\"backing_bytes\":{d},\"metadata_bytes\":{d},\"cell_bytes\":{d},\"version_bytes\":{d},\"query_ref_capacity\":{d},\"load_ns\":{d}}}\n", .{ if(permuted) "permuted" else "ordered", n, memory.bytes.len, @sizeOf(DB), @sizeOf(DB.Cell), @sizeOf(DB.StorageVersion), db.workspace.query.refs.len, load_elapsed }));
     if (load_only) return;
     if (profile_ready) try profileReady();
     inline for (cases) |which| {

@@ -1,12 +1,36 @@
 # Infrastructure implementation evidence
 
-25 October 2026. Target: production PostgreSQL compatibility with allocator-free,
+26 October 2026. Target: production PostgreSQL compatibility with allocator-free,
 RAM-resident execution and durable commits. **The complete target remains open.**
 This record tracks implemented scope separately from the
 [research/design plan](DEEP_INFRASTRUCTURE_RESEARCH.md) and the
 [broader production gaps](GAP_CLOSING_PLAN.md).
 
-## Profile-driven follow-up (25–26 October)
+## Read-path follow-up (26 October)
+
+The [read-path report](../benchmarks/read-20261026/REPORT.md) records exact
+committed scalar/group summaries, bounded dense-domain grouping and ordered
+primary-key probes, snapshot-checked non-NULL sort proofs, and direct consumption
+of the snapshot-visible hash lookup result. Reusable execution and metadata live
+in ZPM; RAMSQL selects the optional group-summary budget (64 by default).
+Budget overflow falls back to execution; it does not reject stored groups.
+
+The syscalls measured on an owned server led to two further changes: readiness
+gates reactor accepts, and Linux wall time uses the existing POSIX system
+interface, allowing vDSO acceleration. Long-running statement cancellation
+still polls for PostgreSQL CancelRequests. Same-workload strace totals fell
+from 53,312 to 32,108 calls; tracing timings are not throughput measurements.
+
+Current PostgreSQL 16.15 comparisons use analyzed reference tables, alternating
+engine order, independently checked results, both ordered/permuted fixtures and
+512/1,000,000 rows. All read-case medians favor RAMSQL in these runs. The
+million-row shuffled sort is close with overlapping ranges; the million-row
+ordered mixed read/write workload still loses. These finite, single-client
+volatile-memory fixtures do not establish all-workload superiority or production
+compatibility. General secondary/ordered access, compact values, concurrent
+execution, bounded results and durable scheduling remain open.
+
+## Earlier profile-driven follow-up (25–26 October)
 
 The [profile report and raw evidence](../benchmarks/profile-driven-20261025/REPORT.md)
 record four allocator-free ZPM iterations: primitive-word hashing, cached integer

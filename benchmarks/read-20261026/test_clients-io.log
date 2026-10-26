@@ -1,0 +1,1 @@
+PASS independent clients: psycopg, PyMySQL, python-tds; shared store, prepared/binary PG, transactions and types

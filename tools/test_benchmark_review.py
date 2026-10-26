@@ -4,6 +4,14 @@ from profile_reports import compact_report
 from benchmark_review import digest,expected,validate_samples,validate_stream_samples,MASK
 
 class Contracts(unittest.TestCase):
+    def test_ordered_probe_evidence(self):
+        samples=[dict(stream_rows=0,stream_groups=0,stream_probes=0,group_cells=0,group_refs=0,
+                      key_walks=1,key_successes=1,key_fallbacks=0,key_probes=968,nonnull_sort_keys=0) for _ in range(5)]
+        validate_stream_samples('filtered_limit',samples,1000000)
+        for field,value in [('key_probes',967),('key_successes',0),('nonnull_sort_keys',2)]:
+            bad=[dict(s) for s in samples];bad[0][field]=value
+            with self.assertRaises(AssertionError):validate_stream_samples('filtered_limit',bad,1000000)
+
     def test_profile_compaction_keeps_every_cpu_row(self):
         report='10.00% [.] outer(.{ .inner=.{ .text="{quoted}" }, .n=3 }).scan\n20.00% [.] '+('long_symbol'*100)+'\n'
         compact=compact_report(report)
@@ -48,5 +56,14 @@ class Contracts(unittest.TestCase):
         with self.assertRaises(AssertionError):validate_stream_samples('primary_key_hot',samples,1000000)
         validate_stream_samples('aggregate',[dict(stream_rows=1000000,stream_groups=1,stream_probes=0,group_cells=2,group_refs=0) for _ in range(5)],1000000)
         validate_stream_samples('group_aggregate',[{} for _ in range(5)],1000000) # preserved old binary
+        summary=[dict(stream_rows=0,stream_groups=1,stream_probes=0,group_cells=2,group_refs=0,summary_rows=1000000,summary_plans=1) for _ in range(5)]
+        validate_stream_samples('aggregate',summary,1000000)
+        grouped=[dict(s,stream_groups=64,group_refs=128,group_cells=192) for s in summary]
+        validate_stream_samples('group_aggregate',grouped,1000000)
+        bad=[dict(s) for s in grouped];bad[0]['stream_probes']=1
+        with self.assertRaises(AssertionError):validate_stream_samples('group_aggregate',bad,1000000)
+        for field,value in [('summary_rows',512),('summary_plans',2),('stream_rows',1000000)]:
+            bad=[dict(s) for s in summary];bad[0][field]=value
+            with self.assertRaises(AssertionError):validate_stream_samples('aggregate',bad,1000000)
 
 if __name__=='__main__': unittest.main(verbosity=2)

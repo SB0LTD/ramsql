@@ -1,0 +1,1309 @@
+{
+  "rows": 512,
+  "minimum_trial_ms": 150,
+  "started_unix": 1793017652.5646663,
+  "cpu": "Intel(R) Core(TM) i9-14900HX",
+  "os": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "psycopg": "3.3.6",
+  "binary": "/home/sb/.cache/ramsql-qualification/read-probes/bin/ramsql",
+  "binary_sha256": "105b0cd1073bc228eedbe553a0cc0c91bdabbcf98a1a66f704988fcee3179caf",
+  "scope": "Loopback simple-query protocol, fetch and independent digest included; ascending-ID fixture; one client; RAMSQL volatile memory versus PostgreSQL unlogged table with synchronous_commit off; calibration excluded; alternating order.",
+  "runs": [
+    {
+      "engine": "ramsql",
+      "rows": 512,
+      "boundary": "loopback PostgreSQL simple query via psycopg; fetch and digest included",
+      "durability": "RAMSQL --memory; no durable commit flush",
+      "load_seconds": 0.0016704609999962372,
+      "measurements": [
+        {
+          "name": "primary_key_hot",
+          "passed": true,
+          "iterations": 2878,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 65159
+            },
+            {
+              "iterations": 2878,
+              "elapsed_ns": 199194088
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 2878,
+              "elapsed_ns": 198552754,
+              "checksum": 1942938201574779630
+            },
+            {
+              "trial": 1,
+              "operations": 2878,
+              "elapsed_ns": 201828799,
+              "checksum": 1942938201574779630
+            },
+            {
+              "trial": 2,
+              "operations": 2878,
+              "elapsed_ns": 200976455,
+              "checksum": 1942938201574779630
+            },
+            {
+              "trial": 3,
+              "operations": 2878,
+              "elapsed_ns": 212184255,
+              "checksum": 1942938201574779630
+            },
+            {
+              "trial": 4,
+              "operations": 2878,
+              "elapsed_ns": 196240334,
+              "checksum": 1942938201574779630
+            }
+          ]
+        },
+        {
+          "name": "filtered_limit",
+          "passed": true,
+          "iterations": 1876,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 458693
+            },
+            {
+              "iterations": 409,
+              "elapsed_ns": 40883812
+            },
+            {
+              "iterations": 1876,
+              "elapsed_ns": 193325483
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 1876,
+              "elapsed_ns": 199846522,
+              "checksum": 3573222153426660768
+            },
+            {
+              "trial": 1,
+              "operations": 1876,
+              "elapsed_ns": 190269538,
+              "checksum": 3573222153426660768
+            },
+            {
+              "trial": 2,
+              "operations": 1876,
+              "elapsed_ns": 199096529,
+              "checksum": 3573222153426660768
+            },
+            {
+              "trial": 3,
+              "operations": 1876,
+              "elapsed_ns": 188923365,
+              "checksum": 3573222153426660768
+            },
+            {
+              "trial": 4,
+              "operations": 1876,
+              "elapsed_ns": 192514920,
+              "checksum": 3573222153426660768
+            }
+          ]
+        },
+        {
+          "name": "sort_limit",
+          "passed": true,
+          "iterations": 1612,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 203626
+            },
+            {
+              "iterations": 921,
+              "elapsed_ns": 107138550
+            },
+            {
+              "iterations": 1612,
+              "elapsed_ns": 186724285
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 1612,
+              "elapsed_ns": 186455204,
+              "checksum": 11597688120739723968
+            },
+            {
+              "trial": 1,
+              "operations": 1612,
+              "elapsed_ns": 186060772,
+              "checksum": 11597688120739723968
+            },
+            {
+              "trial": 2,
+              "operations": 1612,
+              "elapsed_ns": 188681005,
+              "checksum": 11597688120739723968
+            },
+            {
+              "trial": 3,
+              "operations": 1612,
+              "elapsed_ns": 187331952,
+              "checksum": 11597688120739723968
+            },
+            {
+              "trial": 4,
+              "operations": 1612,
+              "elapsed_ns": 187578398,
+              "checksum": 11597688120739723968
+            }
+          ]
+        },
+        {
+          "name": "aggregate",
+          "passed": true,
+          "iterations": 2908,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 64496
+            },
+            {
+              "iterations": 2908,
+              "elapsed_ns": 200375218
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 2908,
+              "elapsed_ns": 201225865,
+              "checksum": 4418778903173378492
+            },
+            {
+              "trial": 1,
+              "operations": 2908,
+              "elapsed_ns": 203732649,
+              "checksum": 4418778903173378492
+            },
+            {
+              "trial": 2,
+              "operations": 2908,
+              "elapsed_ns": 205693945,
+              "checksum": 4418778903173378492
+            },
+            {
+              "trial": 3,
+              "operations": 2908,
+              "elapsed_ns": 215324229,
+              "checksum": 4418778903173378492
+            },
+            {
+              "trial": 4,
+              "operations": 2908,
+              "elapsed_ns": 198658925,
+              "checksum": 4418778903173378492
+            }
+          ]
+        },
+        {
+          "name": "group_aggregate",
+          "passed": true,
+          "iterations": 566,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 331808
+            },
+            {
+              "iterations": 566,
+              "elapsed_ns": 211851557
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 566,
+              "elapsed_ns": 212246888,
+              "checksum": 2002242419277527424
+            },
+            {
+              "trial": 1,
+              "operations": 566,
+              "elapsed_ns": 215786877,
+              "checksum": 2002242419277527424
+            },
+            {
+              "trial": 2,
+              "operations": 566,
+              "elapsed_ns": 213894176,
+              "checksum": 2002242419277527424
+            },
+            {
+              "trial": 3,
+              "operations": 566,
+              "elapsed_ns": 210052584,
+              "checksum": 2002242419277527424
+            },
+            {
+              "trial": 4,
+              "operations": 566,
+              "elapsed_ns": 212425895,
+              "checksum": 2002242419277527424
+            }
+          ]
+        },
+        {
+          "name": "mixed",
+          "passed": true,
+          "iterations": 528,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 355659
+            },
+            {
+              "iterations": 528,
+              "elapsed_ns": 185728979
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 2112,
+              "elapsed_ns": 187025060,
+              "checksum": 10515898025761554784
+            },
+            {
+              "trial": 1,
+              "operations": 2112,
+              "elapsed_ns": 202851952,
+              "checksum": 10515898025761554784
+            },
+            {
+              "trial": 2,
+              "operations": 2112,
+              "elapsed_ns": 188736601,
+              "checksum": 10515898025761554784
+            },
+            {
+              "trial": 3,
+              "operations": 2112,
+              "elapsed_ns": 193674316,
+              "checksum": 10515898025761554784
+            },
+            {
+              "trial": 4,
+              "operations": 2112,
+              "elapsed_ns": 195794820,
+              "checksum": 10515898025761554784
+            }
+          ]
+        }
+      ],
+      "cycle": 0
+    },
+    {
+      "engine": "postgres",
+      "rows": 512,
+      "boundary": "loopback PostgreSQL simple query via psycopg; fetch and digest included",
+      "durability": "unlogged table, synchronous_commit=off",
+      "load_seconds": 0.002511926000003939,
+      "measurements": [
+        {
+          "name": "primary_key_hot",
+          "passed": true,
+          "iterations": 2504,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 74908
+            },
+            {
+              "iterations": 2504,
+              "elapsed_ns": 207807572
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 2504,
+              "elapsed_ns": 211203721,
+              "checksum": 1690450749389592840
+            },
+            {
+              "trial": 1,
+              "operations": 2504,
+              "elapsed_ns": 204982491,
+              "checksum": 1690450749389592840
+            },
+            {
+              "trial": 2,
+              "operations": 2504,
+              "elapsed_ns": 230211226,
+              "checksum": 1690450749389592840
+            },
+            {
+              "trial": 3,
+              "operations": 2504,
+              "elapsed_ns": 206190235,
+              "checksum": 1690450749389592840
+            },
+            {
+              "trial": 4,
+              "operations": 2504,
+              "elapsed_ns": 216962570,
+              "checksum": 1690450749389592840
+            }
+          ]
+        },
+        {
+          "name": "filtered_limit",
+          "passed": true,
+          "iterations": 1698,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 110473
+            },
+            {
+              "iterations": 1698,
+              "elapsed_ns": 217591310
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 1698,
+              "elapsed_ns": 209425560,
+              "checksum": 12909876004823384208
+            },
+            {
+              "trial": 1,
+              "operations": 1698,
+              "elapsed_ns": 211831450,
+              "checksum": 12909876004823384208
+            },
+            {
+              "trial": 2,
+              "operations": 1698,
+              "elapsed_ns": 208533109,
+              "checksum": 12909876004823384208
+            },
+            {
+              "trial": 3,
+              "operations": 1698,
+              "elapsed_ns": 210539471,
+              "checksum": 12909876004823384208
+            },
+            {
+              "trial": 4,
+              "operations": 1698,
+              "elapsed_ns": 208177398,
+              "checksum": 12909876004823384208
+            }
+          ]
+        },
+        {
+          "name": "sort_limit",
+          "passed": true,
+          "iterations": 1189,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 157696
+            },
+            {
+              "iterations": 1189,
+              "elapsed_ns": 210985068
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 1189,
+              "elapsed_ns": 206978982,
+              "checksum": 5933837954516156624
+            },
+            {
+              "trial": 1,
+              "operations": 1189,
+              "elapsed_ns": 207659374,
+              "checksum": 5933837954516156624
+            },
+            {
+              "trial": 2,
+              "operations": 1189,
+              "elapsed_ns": 208684491,
+              "checksum": 5933837954516156624
+            },
+            {
+              "trial": 3,
+              "operations": 1189,
+              "elapsed_ns": 206503948,
+              "checksum": 5933837954516156624
+            },
+            {
+              "trial": 4,
+              "operations": 1189,
+              "elapsed_ns": 215617826,
+              "checksum": 5933837954516156624
+            }
+          ]
+        },
+        {
+          "name": "aggregate",
+          "passed": true,
+          "iterations": 2127,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 88181
+            },
+            {
+              "iterations": 2127,
+              "elapsed_ns": 206499772
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 2127,
+              "elapsed_ns": 210174706,
+              "checksum": 3232029823607213223
+            },
+            {
+              "trial": 1,
+              "operations": 2127,
+              "elapsed_ns": 209088272,
+              "checksum": 3232029823607213223
+            },
+            {
+              "trial": 2,
+              "operations": 2127,
+              "elapsed_ns": 210880552,
+              "checksum": 3232029823607213223
+            },
+            {
+              "trial": 3,
+              "operations": 2127,
+              "elapsed_ns": 209500079,
+              "checksum": 3232029823607213223
+            },
+            {
+              "trial": 4,
+              "operations": 2127,
+              "elapsed_ns": 207182041,
+              "checksum": 3232029823607213223
+            }
+          ]
+        },
+        {
+          "name": "group_aggregate",
+          "passed": true,
+          "iterations": 467,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 401647
+            },
+            {
+              "iterations": 467,
+              "elapsed_ns": 203744097
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 467,
+              "elapsed_ns": 202170062,
+              "checksum": 14558229439914465984
+            },
+            {
+              "trial": 1,
+              "operations": 467,
+              "elapsed_ns": 202611474,
+              "checksum": 14558229439914465984
+            },
+            {
+              "trial": 2,
+              "operations": 467,
+              "elapsed_ns": 204835803,
+              "checksum": 14558229439914465984
+            },
+            {
+              "trial": 3,
+              "operations": 467,
+              "elapsed_ns": 200725190,
+              "checksum": 14558229439914465984
+            },
+            {
+              "trial": 4,
+              "operations": 467,
+              "elapsed_ns": 199905585,
+              "checksum": 14558229439914465984
+            }
+          ]
+        },
+        {
+          "name": "mixed",
+          "passed": true,
+          "iterations": 431,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 435092
+            },
+            {
+              "iterations": 431,
+              "elapsed_ns": 204617040
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 1724,
+              "elapsed_ns": 204033757,
+              "checksum": 17108631824030986186
+            },
+            {
+              "trial": 1,
+              "operations": 1724,
+              "elapsed_ns": 214850065,
+              "checksum": 17108631824030986186
+            },
+            {
+              "trial": 2,
+              "operations": 1724,
+              "elapsed_ns": 205216955,
+              "checksum": 17108631824030986186
+            },
+            {
+              "trial": 3,
+              "operations": 1724,
+              "elapsed_ns": 206729296,
+              "checksum": 17108631824030986186
+            },
+            {
+              "trial": 4,
+              "operations": 1724,
+              "elapsed_ns": 206797826,
+              "checksum": 17108631824030986186
+            }
+          ]
+        }
+      ],
+      "reference": {
+        "deployment": "owned native process",
+        "server_version": "PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit",
+        "server_version_num": "160015",
+        "data_path": "/tmp/ramsql-profile-comparisons/wire-512-ordered/cycle-0/postgres-bddaca31f1d449828ea9c7e70ecc538e/data",
+        "postgres_binary": "/usr/lib/postgresql/16/bin/postgres",
+        "postgres_sha256": "201d8daff9a5bd9df70b820471b965c39f5a776d677f395232c477d051270722",
+        "authentication": "loopback trust, isolated benchmark cluster"
+      },
+      "cycle": 0
+    },
+    {
+      "engine": "postgres",
+      "rows": 512,
+      "boundary": "loopback PostgreSQL simple query via psycopg; fetch and digest included",
+      "durability": "unlogged table, synchronous_commit=off",
+      "load_seconds": 0.0027764479999916603,
+      "measurements": [
+        {
+          "name": "primary_key_hot",
+          "passed": true,
+          "iterations": 2635,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 71181
+            },
+            {
+              "iterations": 2635,
+              "elapsed_ns": 218669712
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 2635,
+              "elapsed_ns": 215678224,
+              "checksum": 1778888867668361475
+            },
+            {
+              "trial": 1,
+              "operations": 2635,
+              "elapsed_ns": 227405507,
+              "checksum": 1778888867668361475
+            },
+            {
+              "trial": 2,
+              "operations": 2635,
+              "elapsed_ns": 214494177,
+              "checksum": 1778888867668361475
+            },
+            {
+              "trial": 3,
+              "operations": 2635,
+              "elapsed_ns": 212892961,
+              "checksum": 1778888867668361475
+            },
+            {
+              "trial": 4,
+              "operations": 2635,
+              "elapsed_ns": 212325043,
+              "checksum": 1778888867668361475
+            }
+          ]
+        },
+        {
+          "name": "filtered_limit",
+          "passed": true,
+          "iterations": 1614,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 116220
+            },
+            {
+              "iterations": 1614,
+              "elapsed_ns": 197355633
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 1614,
+              "elapsed_ns": 192592639,
+              "checksum": 11097933752546708208
+            },
+            {
+              "trial": 1,
+              "operations": 1614,
+              "elapsed_ns": 193956059,
+              "checksum": 11097933752546708208
+            },
+            {
+              "trial": 2,
+              "operations": 1614,
+              "elapsed_ns": 197361228,
+              "checksum": 11097933752546708208
+            },
+            {
+              "trial": 3,
+              "operations": 1614,
+              "elapsed_ns": 194777515,
+              "checksum": 11097933752546708208
+            },
+            {
+              "trial": 4,
+              "operations": 1614,
+              "elapsed_ns": 196079121,
+              "checksum": 11097933752546708208
+            }
+          ]
+        },
+        {
+          "name": "sort_limit",
+          "passed": true,
+          "iterations": 1200,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 156257
+            },
+            {
+              "iterations": 1200,
+              "elapsed_ns": 205340711
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 1200,
+              "elapsed_ns": 204707726,
+              "checksum": 18291735572641768192
+            },
+            {
+              "trial": 1,
+              "operations": 1200,
+              "elapsed_ns": 206216710,
+              "checksum": 18291735572641768192
+            },
+            {
+              "trial": 2,
+              "operations": 1200,
+              "elapsed_ns": 205029505,
+              "checksum": 18291735572641768192
+            },
+            {
+              "trial": 3,
+              "operations": 1200,
+              "elapsed_ns": 205229048,
+              "checksum": 18291735572641768192
+            },
+            {
+              "trial": 4,
+              "operations": 1200,
+              "elapsed_ns": 207032827,
+              "checksum": 18291735572641768192
+            }
+          ]
+        },
+        {
+          "name": "aggregate",
+          "passed": true,
+          "iterations": 2047,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 91602
+            },
+            {
+              "iterations": 2047,
+              "elapsed_ns": 223218250
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 2047,
+              "elapsed_ns": 202666633,
+              "checksum": 3110467818017849303
+            },
+            {
+              "trial": 1,
+              "operations": 2047,
+              "elapsed_ns": 199211339,
+              "checksum": 3110467818017849303
+            },
+            {
+              "trial": 2,
+              "operations": 2047,
+              "elapsed_ns": 201254778,
+              "checksum": 3110467818017849303
+            },
+            {
+              "trial": 3,
+              "operations": 2047,
+              "elapsed_ns": 194857436,
+              "checksum": 3110467818017849303
+            },
+            {
+              "trial": 4,
+              "operations": 2047,
+              "elapsed_ns": 196952995,
+              "checksum": 3110467818017849303
+            }
+          ]
+        },
+        {
+          "name": "group_aggregate",
+          "passed": true,
+          "iterations": 484,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 387543
+            },
+            {
+              "iterations": 484,
+              "elapsed_ns": 204196421
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 484,
+              "elapsed_ns": 206798828,
+              "checksum": 12402150860613173504
+            },
+            {
+              "trial": 1,
+              "operations": 484,
+              "elapsed_ns": 222734124,
+              "checksum": 12402150860613173504
+            },
+            {
+              "trial": 2,
+              "operations": 484,
+              "elapsed_ns": 228621538,
+              "checksum": 12402150860613173504
+            },
+            {
+              "trial": 3,
+              "operations": 484,
+              "elapsed_ns": 234809548,
+              "checksum": 12402150860613173504
+            },
+            {
+              "trial": 4,
+              "operations": 484,
+              "elapsed_ns": 230595774,
+              "checksum": 12402150860613173504
+            }
+          ]
+        },
+        {
+          "name": "mixed",
+          "passed": true,
+          "iterations": 264,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 712450
+            },
+            {
+              "iterations": 264,
+              "elapsed_ns": 150453575
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 1056,
+              "elapsed_ns": 158395873,
+              "checksum": 5257949012880777392
+            },
+            {
+              "trial": 1,
+              "operations": 1056,
+              "elapsed_ns": 165757743,
+              "checksum": 5257949012880777392
+            },
+            {
+              "trial": 2,
+              "operations": 1056,
+              "elapsed_ns": 163684032,
+              "checksum": 5257949012880777392
+            },
+            {
+              "trial": 3,
+              "operations": 1056,
+              "elapsed_ns": 176174496,
+              "checksum": 5257949012880777392
+            },
+            {
+              "trial": 4,
+              "operations": 1056,
+              "elapsed_ns": 153409128,
+              "checksum": 5257949012880777392
+            }
+          ]
+        }
+      ],
+      "reference": {
+        "deployment": "owned native process",
+        "server_version": "PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit",
+        "server_version_num": "160015",
+        "data_path": "/tmp/ramsql-profile-comparisons/wire-512-ordered/cycle-1/postgres-0ec3980774d94b2d969c051bdd89364e/data",
+        "postgres_binary": "/usr/lib/postgresql/16/bin/postgres",
+        "postgres_sha256": "201d8daff9a5bd9df70b820471b965c39f5a776d677f395232c477d051270722",
+        "authentication": "loopback trust, isolated benchmark cluster"
+      },
+      "cycle": 1
+    },
+    {
+      "engine": "ramsql",
+      "rows": 512,
+      "boundary": "loopback PostgreSQL simple query via psycopg; fetch and digest included",
+      "durability": "RAMSQL --memory; no durable commit flush",
+      "load_seconds": 0.002637202000002503,
+      "measurements": [
+        {
+          "name": "primary_key_hot",
+          "passed": true,
+          "iterations": 2231,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 132445
+            },
+            {
+              "iterations": 1416,
+              "elapsed_ns": 119052365
+            },
+            {
+              "iterations": 2231,
+              "elapsed_ns": 190197773
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 2231,
+              "elapsed_ns": 188864121,
+              "checksum": 1506148411297197135
+            },
+            {
+              "trial": 1,
+              "operations": 2231,
+              "elapsed_ns": 195860496,
+              "checksum": 1506148411297197135
+            },
+            {
+              "trial": 2,
+              "operations": 2231,
+              "elapsed_ns": 205871809,
+              "checksum": 1506148411297197135
+            },
+            {
+              "trial": 3,
+              "operations": 2231,
+              "elapsed_ns": 198241139,
+              "checksum": 1506148411297197135
+            },
+            {
+              "trial": 4,
+              "operations": 2231,
+              "elapsed_ns": 199634791,
+              "checksum": 1506148411297197135
+            }
+          ]
+        },
+        {
+          "name": "filtered_limit",
+          "passed": true,
+          "iterations": 1525,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 123015
+            },
+            {
+              "iterations": 1525,
+              "elapsed_ns": 202714716
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 1525,
+              "elapsed_ns": 180329268,
+              "checksum": 6542888641390294120
+            },
+            {
+              "trial": 1,
+              "operations": 1525,
+              "elapsed_ns": 211853581,
+              "checksum": 6542888641390294120
+            },
+            {
+              "trial": 2,
+              "operations": 1525,
+              "elapsed_ns": 211869146,
+              "checksum": 6542888641390294120
+            },
+            {
+              "trial": 3,
+              "operations": 1525,
+              "elapsed_ns": 232636947,
+              "checksum": 6542888641390294120
+            },
+            {
+              "trial": 4,
+              "operations": 1525,
+              "elapsed_ns": 206722936,
+              "checksum": 6542888641390294120
+            }
+          ]
+        },
+        {
+          "name": "sort_limit",
+          "passed": true,
+          "iterations": 1465,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 128038
+            },
+            {
+              "iterations": 1465,
+              "elapsed_ns": 226703021
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 1465,
+              "elapsed_ns": 230213600,
+              "checksum": 733097658631891984
+            },
+            {
+              "trial": 1,
+              "operations": 1465,
+              "elapsed_ns": 230490397,
+              "checksum": 733097658631891984
+            },
+            {
+              "trial": 2,
+              "operations": 1465,
+              "elapsed_ns": 242006989,
+              "checksum": 733097658631891984
+            },
+            {
+              "trial": 3,
+              "operations": 1465,
+              "elapsed_ns": 224165506,
+              "checksum": 733097658631891984
+            },
+            {
+              "trial": 4,
+              "operations": 1465,
+              "elapsed_ns": 246391678,
+              "checksum": 733097658631891984
+            }
+          ]
+        },
+        {
+          "name": "aggregate",
+          "passed": true,
+          "iterations": 1895,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 98974
+            },
+            {
+              "iterations": 1895,
+              "elapsed_ns": 176909539
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 1895,
+              "elapsed_ns": 189528483,
+              "checksum": 2879500007398057855
+            },
+            {
+              "trial": 1,
+              "operations": 1895,
+              "elapsed_ns": 199982151,
+              "checksum": 2879500007398057855
+            },
+            {
+              "trial": 2,
+              "operations": 1895,
+              "elapsed_ns": 188960405,
+              "checksum": 2879500007398057855
+            },
+            {
+              "trial": 3,
+              "operations": 1895,
+              "elapsed_ns": 200422325,
+              "checksum": 2879500007398057855
+            },
+            {
+              "trial": 4,
+              "operations": 1895,
+              "elapsed_ns": 183992747,
+              "checksum": 2879500007398057855
+            }
+          ]
+        },
+        {
+          "name": "group_aggregate",
+          "passed": true,
+          "iterations": 471,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 398890
+            },
+            {
+              "iterations": 471,
+              "elapsed_ns": 210970633
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 471,
+              "elapsed_ns": 284672486,
+              "checksum": 14050916833020044224
+            },
+            {
+              "trial": 1,
+              "operations": 471,
+              "elapsed_ns": 271576970,
+              "checksum": 14050916833020044224
+            },
+            {
+              "trial": 2,
+              "operations": 471,
+              "elapsed_ns": 211851266,
+              "checksum": 14050916833020044224
+            },
+            {
+              "trial": 3,
+              "operations": 471,
+              "elapsed_ns": 211124167,
+              "checksum": 14050916833020044224
+            },
+            {
+              "trial": 4,
+              "operations": 471,
+              "elapsed_ns": 209283059,
+              "checksum": 14050916833020044224
+            }
+          ]
+        },
+        {
+          "name": "mixed",
+          "passed": true,
+          "iterations": 441,
+          "calibration": [
+            {
+              "iterations": 1,
+              "elapsed_ns": 425823
+            },
+            {
+              "iterations": 441,
+              "elapsed_ns": 207899223
+            }
+          ],
+          "samples": [
+            {
+              "trial": 0,
+              "operations": 1764,
+              "elapsed_ns": 208086956,
+              "checksum": 9202409011828333862
+            },
+            {
+              "trial": 1,
+              "operations": 1764,
+              "elapsed_ns": 210251675,
+              "checksum": 9202409011828333862
+            },
+            {
+              "trial": 2,
+              "operations": 1764,
+              "elapsed_ns": 238406572,
+              "checksum": 9202409011828333862
+            },
+            {
+              "trial": 3,
+              "operations": 1764,
+              "elapsed_ns": 205545685,
+              "checksum": 9202409011828333862
+            },
+            {
+              "trial": 4,
+              "operations": 1764,
+              "elapsed_ns": 212427867,
+              "checksum": 9202409011828333862
+            }
+          ]
+        }
+      ],
+      "cycle": 1
+    }
+  ],
+  "summary": {
+    "primary_key_hot": {
+      "ramsql": {
+        "median_ops_s": 12688.20426690341,
+        "minimum_ops_s": 10836.840706053154,
+        "maximum_ops_s": 14665.690489499473,
+        "trials": 10,
+        "minimum_trial_ms": 188.864121
+      },
+      "postgres": {
+        "median_ops_s": 12179.901272210322,
+        "minimum_ops_s": 10876.967398627206,
+        "maximum_ops_s": 12410.217668011965,
+        "trials": 10,
+        "minimum_trial_ms": 204.982491
+      }
+    },
+    "filtered_limit": {
+      "ramsql": {
+        "median_ops_s": 8921.978106424936,
+        "minimum_ops_s": 6555.27859897508,
+        "maximum_ops_s": 9929.952285150119,
+        "trials": 10,
+        "minimum_trial_ms": 180.329268
+      },
+      "postgres": {
+        "median_ops_s": 8167.20155053386,
+        "minimum_ops_s": 8015.806906859203,
+        "maximum_ops_s": 8380.382596034731,
+        "trials": 10,
+        "minimum_trial_ms": 192.592639
+      }
+    },
+    "sort_limit": {
+      "ramsql": {
+        "median_ops_s": 7539.435071018527,
+        "minimum_ops_s": 5945.817699248754,
+        "maximum_ops_s": 8663.83592130855,
+        "trials": 10,
+        "minimum_trial_ms": 186.060772
+      },
+      "postgres": {
+        "median_ops_s": 5776.970716608774,
+        "minimum_ops_s": 5514.386366181059,
+        "maximum_ops_s": 5862.016170312985,
+        "trials": 10,
+        "minimum_trial_ms": 204.707726
+      }
+    },
+    "aggregate": {
+      "ramsql": {
+        "median_ops_s": 11902.266996403594,
+        "minimum_ops_s": 9455.034512747021,
+        "maximum_ops_s": 14638.154313983125,
+        "trials": 10,
+        "minimum_trial_ms": 183.992747
+      },
+      "postgres": {
+        "median_ops_s": 10171.962043500924,
+        "minimum_ops_s": 10086.278605719886,
+        "maximum_ops_s": 10505.116160924954,
+        "trials": 10,
+        "minimum_trial_ms": 194.857436
+      }
+    },
+    "group_aggregate": {
+      "ramsql": {
+        "median_ops_s": 2436.7494456256145,
+        "minimum_ops_s": 1654.5329217380004,
+        "maximum_ops_s": 2694.5633765686025,
+        "trials": 10,
+        "minimum_trial_ms": 209.283059
+      },
+      "postgres": {
+        "median_ops_s": 2292.389443372345,
+        "minimum_ops_s": 2061.244971179792,
+        "maximum_ops_s": 2340.4387959103906,
+        "trials": 10,
+        "minimum_trial_ms": 199.905585
+      }
+    },
+    "mixed": {
+      "ramsql": {
+        "median_ops_s": 9496.783872597403,
+        "minimum_ops_s": 7399.12488654046,
+        "maximum_ops_s": 11292.604317303789,
+        "trials": 10,
+        "minimum_trial_ms": 187.02506
+      },
+      "postgres": {
+        "median_ops_s": 7453.877197964379,
+        "minimum_ops_s": 5994.057164778266,
+        "maximum_ops_s": 8449.582193401458,
+        "trials": 10,
+        "minimum_trial_ms": 153.409128
+      }
+    }
+  }
+}
