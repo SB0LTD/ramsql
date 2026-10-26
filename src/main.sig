@@ -165,8 +165,8 @@ fn run(init: std.process.Init.Minimal) !u8 {
             options.insecure_local = true;
             has_server_options = true;
         } else {
-            const option: enum { protocol, port, mysql_port, mssql_port, max_clients, idle_ms, max_query_work, storage_rows, storage_versions, data, verifier_file, auth_user, backup_to, timezone_dir } =
-                if (same(arg, "--rows")) .storage_rows else if (same(arg, "--versions")) .storage_versions else if (same(arg, "--protocol")) .protocol else if (same(arg, "--port")) .port else if (same(arg, "--mysql-port")) .mysql_port else if (same(arg, "--mssql-port")) .mssql_port else if (same(arg, "--max-clients")) .max_clients else if (same(arg, "--max-query-work")) .max_query_work else if (same(arg, "--idle-ms")) .idle_ms else if (same(arg, "--data")) .data else if (same(arg, "--auth-verifier-file")) .verifier_file else if (same(arg, "--auth-user")) .auth_user else if (same(arg, "--backup-to")) .backup_to else if (same(arg, "--timezone-dir")) .timezone_dir else return error.UnknownArgument;
+            const option: enum { protocol, port, mysql_port, mssql_port, max_clients, idle_ms, max_query_work, storage_rows, storage_versions, work_rows, result_rows, data, verifier_file, auth_user, backup_to, timezone_dir } =
+                if (same(arg, "--work-rows")) .work_rows else if (same(arg, "--result-rows")) .result_rows else if (same(arg, "--rows")) .storage_rows else if (same(arg, "--versions")) .storage_versions else if (same(arg, "--protocol")) .protocol else if (same(arg, "--port")) .port else if (same(arg, "--mysql-port")) .mysql_port else if (same(arg, "--mssql-port")) .mssql_port else if (same(arg, "--max-clients")) .max_clients else if (same(arg, "--max-query-work")) .max_query_work else if (same(arg, "--idle-ms")) .idle_ms else if (same(arg, "--data")) .data else if (same(arg, "--auth-verifier-file")) .verifier_file else if (same(arg, "--auth-user")) .auth_user else if (same(arg, "--backup-to")) .backup_to else if (same(arg, "--timezone-dir")) .timezone_dir else return error.UnknownArgument;
             const value = try args.next() orelse return error.UnknownArgument;
             has_server_options = true;
             switch (option) {
@@ -203,6 +203,8 @@ fn run(init: std.process.Init.Minimal) !u8 {
                 .max_clients => options.max_clients = try fmt.parseInt(usize, value, 10),
                 .storage_rows => options.storage_rows = try fmt.parseInt(usize, value, 10),
                 .storage_versions => options.storage_versions = try fmt.parseInt(usize, value, 10),
+                .work_rows => options.work_rows = try fmt.parseInt(usize, value, 10),
+                .result_rows => options.result_rows = try fmt.parseInt(usize, value, 10),
                 .max_query_work => options.max_query_work = try fmt.parseInt(u64, value, 10),
                 .idle_ms => options.idle_ms = try fmt.parseInt(u32, value, 10),
             }
@@ -216,7 +218,7 @@ fn run(init: std.process.Init.Minimal) !u8 {
         return 0;
     }
     switch (mode) {
-        .help => try write("ramsql beta (controlled testing; not production)\nUsage: ramsql [--serve|--demo|--stdin|--version|--capabilities|--help]\nServer: --protocol postgres|mysql|mssql --port N --mysql-port N --mssql-port N\n        --max-clients N --idle-ms N --max-query-work N (0: unlimited); default loopback PostgreSQL:5432\nInspect: --capabilities (JSON; accepts runtime capacity options; opens no files/listeners)\nCapacity: --rows N --versions N (runtime storage; result/workspace budgets are separate)\nStorage: --data WAL_PATH (default ramsql.wal) | --memory\nBackup: --data EXISTING_WAL --backup-to NEW_PATH (offline)\nAuth: --auth-user USER --auth-verifier-file PATH (PostgreSQL SCRAM verifier)\nTime zones: --timezone-dir ZONEINFO_DIR (default /usr/share/zoneinfo on Linux/macOS)\n      --insecure-local explicitly enables unauthenticated loopback testing\n--stdin: one SQL statement per line. --demo: run the example and exit.\n"),
+        .help => try write("ramsql beta (controlled testing; not production)\nUsage: ramsql [--serve|--demo|--stdin|--version|--capabilities|--help]\nServer: --protocol postgres|mysql|mssql --port N --mysql-port N --mssql-port N\n        --max-clients N --idle-ms N --max-query-work N (0: unlimited); default loopback PostgreSQL:5432\nInspect: --capabilities (JSON; accepts runtime capacity options; opens no files/listeners)\nCapacity: --rows N --versions N --work-rows N --result-rows N (independent runtime budgets)\nStorage: --data WAL_PATH (default ramsql.wal) | --memory\nBackup: --data EXISTING_WAL --backup-to NEW_PATH (offline)\nAuth: --auth-user USER --auth-verifier-file PATH (PostgreSQL SCRAM verifier)\nTime zones: --timezone-dir ZONEINFO_DIR (default /usr/share/zoneinfo on Linux/macOS)\n      --insecure-local explicitly enables unauthenticated loopback testing\n--stdin: one SQL statement per line. --demo: run the example and exit.\n"),
         .version => try write("ramsql " ++ ram.version ++ "\n"),
         .capabilities => try server.describe(options),
         .input => return if (try stdin()) 1 else 0,

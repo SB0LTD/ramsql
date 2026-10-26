@@ -350,8 +350,12 @@ def expect_closed(pg):
 
 
 def test_fatal_frames(server):
-    for length in (0, 1, 2, 3, 16385, 65536, 0x7FFFFFFF, 0xFFFFFFFF):
+    for length in (0, 1, 2, 3, 65536, 0x7FFFFFFF, 0xFFFFFFFF):
         for logged_in in (False, True):
+            if logged_in and length == 65536:
+                # Oversized authenticated SQL is drained before a recoverable
+                # 54000 response; a header alone is an incomplete frame.
+                continue
             pg = PG(server.raw())
             try:
                 if logged_in:
@@ -466,13 +470,11 @@ def test_pool_exhaustion(server):
         # sessions or accepting a connection it cannot service.
         overflow = PG(server.raw())
         try:
-            try:
-                overflow.sock.sendall(startup_packet())
-                tag, body = overflow.message()
-                check(tag == b"E" and bool(errors([(tag, body)])), "pool overflow returned success or corrupt data")
-                expect_closed(overflow)
-            except (EOFError, ConnectionResetError, ConnectionAbortedError):
-                pass
+            overflow.sock.sendall(startup_packet())
+            tag, body = overflow.message()
+            check(tag == b"E", "pool overflow must return a PostgreSQL error")
+            expect_error([(tag,body)], "53300")
+            expect_closed(overflow)
         finally:
             overflow.close(False)
         clients[0].ok("SELECT 1", [["1"]])

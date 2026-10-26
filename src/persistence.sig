@@ -14,6 +14,7 @@
 const disk = @import("db_file");
 const log = @import("durable_log");
 const batches = @import("db_store");
+const std = @import("std");
 
 pub const change_kind: u16 = 3;
 
@@ -25,6 +26,7 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
         file: disk.File = .{},
         store: ?*Store = null,
         replay_result: Raw.Result = .{},
+        legacy_rows: [if (Raw.Result.external_rows) 1 else 0]Raw.Row = undefined,
         /// Bounded overlay that validates each whole change record first.
         replay_scratch: Raw.ReplayScratch = .{},
         /// WAL sequence of the last durable record (the commit order).
@@ -53,6 +55,7 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
             if (self.active or self.store != null or store.commit_fn != null) return error.PersistenceAlreadyOpen;
             if (store.database.csn != 0 or store.database.tableCount() != 0) return error.PersistenceRequiresEmptyStore;
             if (recovery_buffer.len == 0) return error.InvalidWorkspace;
+            if (comptime Raw.Result.external_rows) try self.replay_result.bindMemory(std.mem.asBytes(&self.legacy_rows), 1);
             store.durability_required = true;
             store.storage_failed = true;
             self.file = if (existing) try disk.File.openExisting(path) else try disk.File.open(path);

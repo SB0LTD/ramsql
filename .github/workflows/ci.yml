@@ -123,6 +123,9 @@ jobs:
       - name: Test packaged credential onboarding with libpq
         run: python tools/test_beta.py
 
+      - name: Require reviewer runtime capacity, join, loading and admission regressions
+        run: python tools/test_reviewer_runtime.py
+
       - name: Test durable commits, process crashes, corruption and offline restore
         run: python tools/test_persistence.py
 

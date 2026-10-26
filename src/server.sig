@@ -48,6 +48,8 @@ pub const Options = struct {
     /// Runtime storage budget, independent of result/query workspace sizes.
     storage_rows: usize = profile.rows,
     storage_versions: ?usize = null,
+    work_rows: usize = profile.work_rows,
+    result_rows: usize = profile.result_rows,
     /// zoneinfo directory for named time zones (null: UTC, offsets and
     /// POSIX TZ strings only).
     timezone_dir: ?[]const u8 = default_timezone_dir,
@@ -58,6 +60,8 @@ pub const default_timezone_dir: ?[]const u8 = if (@import("builtin").os.tag == .
 // Every client plus two spare slots can hold a transaction at once.
 const config: sql.Config = .{
     .external_storage = true,
+    .external_workspace = true,
+    .external_results = true,
     .tables = profile.tables,
     .columns = profile.columns,
     .result_rows = profile.result_rows,
@@ -91,7 +95,7 @@ fn refersTo(settings: anytype, bytes: []const u8) bool {
 /// Zone-cache eviction guard: any open session's settings (current, session,
 /// transaction-start, startup and savepoint copies) still referring to it.
 fn zoneInUse(bytes: []const u8) bool {
-    for (&clients) |*client| {
+    for (clients) |*client| {
         if (client.socket == tcp.invalid_socket) continue;
         const c = &client.connection;
         if (refersTo(&c.settings, bytes) or refersTo(&c.base, bytes) or refersTo(&c.tx_start, bytes) or refersTo(&c.startup, bytes)) return true;
@@ -108,7 +112,7 @@ fn wallClock() ?i64 {
 const PG = pg.Session(DB);
 const MySQL = mysql.Session(DB);
 const TDS = tds.Session(DB);
-const capacity = profile.clients;
+const capacity = 60;
 const input_capacity = 65536;
 const output_capacity = @max(PG.responseCapacity(), @max(MySQL.responseCapacity(), TDS.responseCapacity())) + 32768;
 const Session = union(Protocol) { postgres: PG, mysql: MySQL, mssql: TDS };
@@ -120,7 +124,9 @@ const Client = struct {
     input: [input_capacity]u8 = undefined,
     input_len: usize = 0,
     input_start: usize = 0,
-    output: [output_capacity]u8 = undefined,
+    output: []u8 = &.{},
+    result_region: pages.Region = .{},
+    output_region: pages.Region = .{},
     output_len: usize = 0,
     output_sent: usize = 0,
     closing: bool = false,
@@ -132,15 +138,18 @@ const Client = struct {
     fn close(self: *Client) void {
         self.connection.disconnect();
         tcp.close(self.socket);
+        self.result_region.close();
+        self.output_region.close();
+        self.output = &.{};
         self.socket = tcp.invalid_socket;
         self.blocked = false;
     }
 
     fn dispatch(self: *Client) !void {
         const required = switch (self.session) {
-            .postgres => PG.responseCapacity(),
-            .mysql => MySQL.responseCapacity(),
-            .mssql => TDS.responseCapacity(),
+            .postgres => |*session| try session.requiredCapacity(),
+            .mysql => |*session| try session.requiredCapacity(),
+            .mssql => |*session| try session.requiredCapacity(),
         };
         const parked_copy = self.connection.copyBlocked();
         if (self.blocked or self.output_sent != 0 or self.closing or (self.input_len == 0 and !parked_copy) or self.output.len - self.output_len < required) return;
@@ -226,7 +235,30 @@ var recovery_buffer: [profile.transaction_bytes]u8 = undefined;
 var verifier: ?scram.Verifier = null;
 // Keep large caller-owned buffers out of the executable data image.
 // run initializes free-slot metadata; accept initializes every live field.
-var clients: [capacity]Client = undefined;
+var clients: []Client = &.{};
+var selected_result_rows: usize = profile.result_rows;
+
+fn responseBytes(rows: usize) !usize {
+    const required = @max(try PG.responseCapacityFor(rows), @max(try MySQL.responseCapacityFor(rows), try TDS.responseCapacityFor(rows)));
+    const amount = @addWithOverflow(required, 32768);
+    if (amount[1] != 0) return error.InvalidServerOptions;
+    return amount[0];
+}
+
+fn provisionClient(client: *Client) !void {
+    var result_memory = try pages.reserve(try Raw.Result.rowBytes(selected_result_rows));
+    errdefer result_memory.close();
+    var output_memory = try pages.reserve(try responseBytes(selected_result_rows));
+    errdefer output_memory.close();
+    switch (client.session) {
+        .postgres => |*session| try session.result.bindMemory(result_memory.bytes, selected_result_rows),
+        .mysql => |*session| try session.result.bindMemory(result_memory.bytes, selected_result_rows),
+        .mssql => |*session| try session.result.bindMemory(result_memory.bytes, selected_result_rows),
+    }
+    client.result_region = result_memory;
+    client.output_region = output_memory;
+    client.output = output_memory.bytes;
+}
 var next_id: u64 = 1;
 
 fn sameSecret(a: u32, b: u32) bool {
@@ -236,7 +268,7 @@ fn sameSecret(a: u32, b: u32) bool {
 
 /// CancelRequest from another socket: pid = slot + 1. Unknown keys are ignored.
 fn cancelBackend(key: pg.Cancel) void {
-    if (key.pid == 0 or key.pid > capacity) return;
+    if (key.pid == 0 or key.pid > clients.len) return;
     const target = &clients[key.pid - 1];
     if (target.socket == tcp.invalid_socket or target.session != .postgres) return;
     if (!sameSecret(target.cancel_secret, key.secret)) return;
@@ -251,17 +283,62 @@ var interrupt_listener: tcp.Socket = tcp.invalid_socket;
 var interrupt_max_clients: usize = 0;
 var next_interrupt_poll: i64 = 0;
 
-// These slots admit only a CancelRequest header when the SQL client pool is
-// full. Ordinary overflow connections retain the reactor's rejection policy.
+// A bounded control/admission queue preserves cancellation when the SQL pool is
+// full, negotiates SSL/GSS refusal, and returns a real 53300 startup error.
 const OverflowCancel = struct {
     socket: tcp.Socket = tcp.invalid_socket,
-    bytes: [16]u8 = undefined,
+    bytes: [pg.max_packet]u8 = undefined,
     used: usize = 0,
+    expected: usize = 0,
+    output: [256]u8 = undefined,
+    output_len: usize = 0,
+    output_sent: usize = 0,
+    closing: bool = false,
     deadline: i64 = 0,
 
     fn close(self: *OverflowCancel) void {
         if (self.socket != tcp.invalid_socket) tcp.close(self.socket);
         self.socket = tcp.invalid_socket;
+    }
+
+    fn poll(self: *OverflowCancel, now: i64) void {
+        if (self.socket == tcp.invalid_socket) return;
+        if (now >= self.deadline) { self.close(); return; }
+        if (self.output_sent < self.output_len) {
+            const sent = tcp.send(self.socket, self.output[self.output_sent..self.output_len]) catch { self.close(); return; } orelse return;
+            if (sent == 0) { self.close(); return; }
+            self.output_sent += sent;
+            if (self.output_sent != self.output_len) return;
+            self.output_len = 0; self.output_sent = 0;
+            if (self.closing) { self.close(); return; }
+        }
+        for (0..4) |_| {
+            const target = if (self.used < 4) @as(usize,4) else if (self.used < 8) @as(usize,8) else self.expected;
+            if (self.used < target) {
+                const got = tcp.recv(self.socket, self.bytes[self.used..target]) catch { self.close(); return; } orelse return;
+                if (got == 0) { self.close(); return; }
+                self.used += got;
+            }
+            if (self.used < 4) continue;
+            if (self.expected == 0) {
+                self.expected = std.mem.readInt(u32,self.bytes[0..4],.big);
+                if (self.expected < 8 or self.expected > self.bytes.len) { self.close(); return; }
+            }
+            if (self.used < 8) continue;
+            const code = std.mem.readInt(u32,self.bytes[4..8],.big);
+            if (self.expected == 8 and (code == 80877103 or code == 80877104)) {
+                self.output[0]='N'; self.output_len=1; self.used=0; self.expected=0;
+                return;
+            }
+            if (self.used < self.expected) continue;
+            if (pg.parseCancel(self.bytes[0..self.used])) |key| {
+                cancelBackend(key); self.close(); return;
+            }
+            if (code != 196608) { self.close(); return; }
+            self.output_len = pg.connectionLimitError(&self.output) catch { self.close(); return; };
+            self.closing = true;
+            return;
+        }
     }
 };
 var overflow_cancels: [4]OverflowCancel = @splat(.{});
@@ -275,26 +352,7 @@ fn queueOverflowCancel(socket: tcp.Socket) bool {
 }
 
 fn pollOverflowCancels(now: i64) void {
-    for (&overflow_cancels) |*pending| {
-        if (pending.socket == tcp.invalid_socket) continue;
-        if (now >= pending.deadline) {
-            pending.close();
-            continue;
-        }
-        const n = tcp.recv(pending.socket, pending.bytes[pending.used..]) catch {
-            pending.close();
-            continue;
-        } orelse continue;
-        pending.used += n;
-        if (n == 0 or (pending.used >= 8 and !pg.isCancelHeader(pending.bytes[0..pending.used]))) {
-            pending.close();
-            continue;
-        }
-        if (pg.parseCancel(pending.bytes[0..pending.used])) |key| {
-            cancelBackend(key);
-            pending.close();
-        }
-    }
+    for (&overflow_cancels) |*pending| pending.poll(now);
 }
 
 /// Execution hook: bounded nonblocking control I/O, at most once per millisecond.
@@ -338,6 +396,9 @@ fn acceptConnections(listener: tcp.Socket, protocol: Protocol, max_clients: usiz
         };
         const client = &clients[slot];
         client.socket = socket;
+        client.result_region = .{};
+        client.output_region = .{};
+        client.output = &.{};
         client.blocked = false;
         client.connection = .{ .store = &store, .id = next_id };
         next_id +%= 1;
@@ -347,6 +408,7 @@ fn acceptConnections(listener: tcp.Socket, protocol: Protocol, max_clients: usiz
             .mysql => .{ .mysql = .{} },
             .mssql => .{ .mssql = .{} },
         };
+        provisionClient(client) catch { client.close(); continue; };
         if (protocol == .postgres) {
             // BackendKeyData: pid = slot + 1, fresh 32-bit secret.
             var secret: [4]u8 = undefined;
@@ -378,18 +440,21 @@ fn acceptConnections(listener: tcp.Socket, protocol: Protocol, max_clients: usiz
         client.touched = sig.os.clockMonotonicNs();
         client.output_len = switch (client.session) {
             .postgres => 0,
-            .mysql => |*session| try session.begin(&client.output),
-            .mssql => |*session| try session.begin(&client.output),
+            .mysql => |*session| try session.begin(client.output),
+            .mssql => |*session| try session.begin(client.output),
         };
     }
 }
 
-fn storagePlan(options: Options) !struct { versions: usize, refs: usize, bytes: usize } {
+fn storagePlan(options: Options) !struct { versions: usize, refs: usize, bytes: usize, workspace_bytes: usize, result_bytes: usize, response_bytes: usize } {
     if (options.storage_rows == 0 or options.storage_rows > 0x3fffffff) return error.InvalidServerOptions;
     const version_count = options.storage_versions orelse if (options.storage_rows == profile.rows) profile.versions else options.storage_rows * 2;
     if (version_count <= options.storage_rows or version_count > 0x7fffffff) return error.InvalidServerOptions;
-    const ref_count = @max(options.storage_rows * 4, profile.work_rows * 32);
-    return .{ .versions = version_count, .refs = ref_count, .bytes = try Raw.backingBytes(options.storage_rows, version_count, ref_count) };
+    const ref_count = @max(options.storage_rows * 4, Raw.queryReferenceCount(options.work_rows) catch return error.InvalidServerOptions);
+    return .{ .versions = version_count, .refs = ref_count, .bytes = try Raw.backingBytes(options.storage_rows, version_count, ref_count),
+        .workspace_bytes = Raw.queryWorkspaceBytes(options.work_rows) catch return error.InvalidServerOptions,
+        .result_bytes = Raw.Result.rowBytes(options.result_rows) catch return error.InvalidServerOptions,
+        .response_bytes = responseBytes(options.result_rows) catch return error.InvalidServerOptions };
 }
 
 pub fn describe(options: Options) !void {
@@ -397,8 +462,8 @@ pub fn describe(options: Options) !void {
     const plan = try storagePlan(options);
     var buffer: [4096]u8 = undefined;
     const message = try sig.fmt.bufPrint(&buffer,
-        "{{\"schema\":1,\"version\":\"{s}\",\"release_stage\":\"beta\",\"production_ready\":false,\"default_protocol\":\"postgres\",\"bind\":\"127.0.0.1\",\"tls\":false,\"roles\":false,\"isolation\":\"read_committed\",\"workers\":1,\"rows_per_table\":{d},\"versions_per_table\":{d},\"tables\":{d},\"columns\":{d},\"result_rows\":{d},\"work_rows\":{d},\"text_bytes\":{d},\"name_bytes\":{d},\"clients\":{d},\"compiled_clients\":{d},\"transaction_bytes\":{d},\"tx_writes\":{d},\"row_locks\":{d},\"predicates\":{d},\"expr_nodes\":{d},\"expr_depth\":{d},\"relations\":{d},\"subqueries\":{d},\"ctes\":{d},\"savepoints\":{d},\"sequences\":{d},\"numeric_digits\":{d},\"json_depth\":{d},\"copy_line_bytes\":{d},\"pg_packet_bytes\":{d},\"pg_prepared_sql_bytes\":{d},\"pg_statements\":{d},\"pg_portals\":{d},\"pg_parameters\":{d},\"input_bytes\":{d},\"output_bytes_per_client\":{d},\"backing_bytes\":{d},\"summary_groups\":{d},\"compact_integral_scans\":{s},\"wal_checkpointing\":false,\"mysql_tds_authentication\":false}}\n",
-        .{ @import("ramsql").version, options.storage_rows, plan.versions, config.tables, config.columns, config.result_rows, config.work_rows, config.text_bytes, config.name_bytes, options.max_clients, capacity, profile.transaction_bytes, config.tx_writes, config.row_locks, config.predicates, config.expr_nodes, config.expr_depth, config.relations, config.subqueries, config.ctes, config.savepoints, config.sequences, config.numeric_digits, config.json_depth, config.copy_line_bytes, pg.max_packet, pg.sql_capacity, pg.statement_capacity, pg.portal_capacity, pg.parameter_capacity, input_capacity, output_capacity, plan.bytes, config.summary_groups, if(config.compact_integral_scans and config.columns <= 64) "true" else "false" });
+        "{{\"schema\":1,\"version\":\"{s}\",\"release_stage\":\"beta\",\"production_ready\":false,\"default_protocol\":\"postgres\",\"bind\":\"127.0.0.1\",\"tls\":false,\"roles\":false,\"isolation\":\"read_committed\",\"workers\":1,\"rows_per_table\":{d},\"versions_per_table\":{d},\"tables\":{d},\"columns\":{d},\"result_rows\":{d},\"work_rows\":{d},\"text_bytes\":{d},\"name_bytes\":{d},\"clients\":{d},\"compiled_clients\":{d},\"transaction_bytes\":{d},\"tx_writes\":{d},\"row_locks\":{d},\"predicates\":{d},\"expr_nodes\":{d},\"expr_depth\":{d},\"relations\":{d},\"subqueries\":{d},\"ctes\":{d},\"savepoints\":{d},\"sequences\":{d},\"numeric_digits\":{d},\"json_depth\":{d},\"copy_line_bytes\":{d},\"pg_packet_bytes\":{d},\"pg_prepared_sql_bytes\":{d},\"pg_statements\":{d},\"pg_portals\":{d},\"pg_parameters\":{d},\"input_bytes\":{d},\"output_bytes_per_client\":{d},\"backing_bytes\":{d},\"query_workspace_bytes\":{d},\"result_bytes_per_client\":{d},\"client_metadata_bytes\":{d},\"summary_groups\":{d},\"compact_integral_scans\":{s},\"wal_checkpointing\":false,\"mysql_tds_authentication\":false}}\n",
+        .{ @import("ramsql").version, options.storage_rows, plan.versions, config.tables, config.columns, options.result_rows, options.work_rows, config.text_bytes, config.name_bytes, options.max_clients, capacity, profile.transaction_bytes, config.tx_writes, config.row_locks, config.predicates, config.expr_nodes, config.expr_depth, config.relations, config.subqueries, config.ctes, config.savepoints, config.sequences, config.numeric_digits, config.json_depth, config.copy_line_bytes, pg.max_packet, pg.sql_capacity, pg.statement_capacity, pg.portal_capacity, pg.parameter_capacity, input_capacity, plan.response_bytes, plan.bytes, plan.workspace_bytes, plan.result_bytes, options.max_clients * @sizeOf(Client), config.summary_groups, if(config.compact_integral_scans and config.columns <= 64) "true" else "false" });
     try sig.io.File.stdout().writeStreamingAll(.{}, message);
 }
 
@@ -412,9 +477,19 @@ fn openStorage(options: Options) !pages.Region {
 
 pub fn run(options: Options) !void {
     if (options.max_clients == 0 or options.max_clients > capacity or options.idle_ms == 0) return error.InvalidServerOptions;
-    for (&clients) |*client| client.socket = tcp.invalid_socket;
+    const plan = try storagePlan(options);
+    var client_memory = try pages.reserve(options.max_clients * @sizeOf(Client));
+    defer client_memory.close();
+    clients = try client_memory.view(Client, 0, options.max_clients);
+    for (clients) |*client| client.socket = tcp.invalid_socket;
     var backing = try openStorage(options);
     defer backing.close();
+    var workspace = try pages.reserve(plan.workspace_bytes);
+    defer workspace.close();
+    try store.database.bindWorkspaceMemory(workspace.bytes, options.work_rows);
+    _ = try Raw.Result.rowBytes(options.result_rows);
+    _ = try responseBytes(options.result_rows);
+    selected_result_rows = options.result_rows;
     if (wall_clock.available) store.wall_clock = &wallClock;
     store.monotonic_clock = &monotonicClock;
     store.max_query_work = options.max_query_work;
@@ -475,7 +550,7 @@ pub fn run(options: Options) !void {
         const line = try sig.fmt.bufPrint(&buffer, "RAMSQL {s} 127.0.0.1:{d}\n", .{ @tagName(protocol), try tcp.localPort(listener) });
         try sig.io.File.stdout().writeStreamingAll(.{}, line);
     }
-    defer for (&clients) |*client| if (client.socket != tcp.invalid_socket) {
+    defer for (clients) |*client| if (client.socket != tcp.invalid_socket) {
         client.close();
     };
     // Probe once at startup, then accept only after readiness. Queues that
@@ -531,6 +606,7 @@ pub fn run(options: Options) !void {
         }
         // Poll timeout: the idle bound or the nearest parked-statement timer.
         var timeout: u32 = @min(options.idle_ms, 1000);
+        for (&overflow_cancels) |*pending| if (pending.socket != tcp.invalid_socket) { timeout = @min(timeout,10); break; };
         for (clients[0..options.max_clients]) |*client| {
             if (client.socket == tcp.invalid_socket or !client.blocked) continue;
             if (client.connection.wakeReady()) {
@@ -580,6 +656,9 @@ pub fn backup(options: Options, target: []const u8) !void {
     if (options.memory) return error.InvalidServerOptions;
     var backing = try openStorage(options);
     defer backing.close();
+    var workspace = try pages.reserve((try storagePlan(options)).workspace_bytes);
+    defer workspace.close();
+    try store.database.bindWorkspaceMemory(workspace.bytes, options.work_rows);
     _ = try persistence.initExisting(options.data, &store, &recovery_buffer);
     defer persistence.close();
     try @import("backup.sig").create(&persistence.file, target, &recovery_buffer);
