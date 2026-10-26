@@ -5,7 +5,7 @@ const sql = @import("sql");
 const pages = @import("page_region");
 const profile = @import("profile");
 const DB = sql.Database(.{ .external_storage = true, .tables = 1, .columns = 4, .rows_per_table = 4,
-    .text_bytes = 32, .result_rows = 128, .work_rows = 512, .tx_writes = 64, .summary_groups = profile.summary_groups });
+    .text_bytes = 32, .result_rows = 128, .work_rows = 512, .tx_writes = 64, .summary_groups = profile.summary_groups, .compact_integral_scans = profile.compact_integral_scans });
 var db: DB = .{};
 var result: DB.Result = .{};
 const Case = enum { primary_key_hot, filtered_limit, sort_limit, aggregate, group_aggregate, mixed };
@@ -150,7 +150,7 @@ pub fn main(init: std.process.Init.Minimal) !void {
     }
     const load_elapsed = sig.os.clockMonotonicNs() - load_start;
     // Independently scan storage: a corrupt synopsis must not validate itself.
-    if (try answer("SELECT COUNT(*), SUM(value) FROM bench WHERE id >= 0") != model(.aggregate, n, false)) return error.PhysicalSeedMismatch;
+    if (try answer("SELECT COUNT(*), SUM(value) FROM bench WHERE id+0 >= 0") != model(.aggregate, n, false)) return error.PhysicalSeedMismatch;
     if (db.workspace.query.stream_stats.rows != n or db.workspace.query.stream_stats.summary_plans != 0) return error.PhysicalSeedDidNotScan;
     pk = try sig.fmt.bufPrint(&pk_buf, "SELECT id, value FROM bench WHERE id = {d}", .{n / 2});
     update = try sig.fmt.bufPrint(&update_buf, "UPDATE bench SET value = 7 WHERE id = {d}", .{n / 2});
