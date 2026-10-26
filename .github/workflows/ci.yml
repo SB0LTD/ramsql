@@ -120,6 +120,9 @@ jobs:
       - name: Test SCRAM authentication with independent clients
         run: python tools/test_auth.py
 
+      - name: Test packaged credential onboarding with libpq
+        run: python tools/test_beta.py
+
       - name: Test durable commits, process crashes, corruption and offline restore
         run: python tools/test_persistence.py
 
@@ -141,4 +144,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $binary = if ($env:RUNNER_OS -eq 'Windows') { './sig-out/bin/ramsql-production-bench.exe' } else { './sig-out/bin/ramsql-production-bench' }
           python tools/test_production_replay.py --binary $binary
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Require configurable columns, returned rows and text through libpq
+        run: |
+          $arguments = @('build', '-Doptimize=ReleaseSafe', '-Dcolumns=16', '-Dresult-rows=1024', '-Dwork-rows=1024', '-Drows=1024', '-Dtext-bytes=256', '-Dclients=4', '-Dtables=4', '--prefix', '.sig-cache/beta-wide')
+          if ($env:RUNNER_OS -eq 'macOS') { $arguments += '-Dlink-libc=true' }
+          & $env:SIG @arguments
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $binary = if ($env:RUNNER_OS -eq 'Windows') { './.sig-cache/beta-wide/bin/ramsql.exe' } else { './.sig-cache/beta-wide/bin/ramsql' }
+          python tools/test_beta.py --binary $binary --wide
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

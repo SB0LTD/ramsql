@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 import platform
 import re
+import posixpath
 import struct
 import tarfile
 import zipfile
@@ -23,7 +24,7 @@ from release_matrix import ROOT, SIG_ASSET, SIG_SHA256, SIG_TAG, TARGETS, NATIVE
 from qualify_postgres import validate_bundle as validate_qualification_bundle
 
 HOSTED_RUNTIME_TESTS = ["tools/test_cli.py", "tools/test_server.py", "tools/test_clients.py",
-                        "tools/test_auth.py", "tools/test_persistence.py", "tools/test_capacity.py"]
+                        "tools/test_auth.py", "tools/test_persistence.py", "tools/test_capacity.py", "tools/test_beta.py"]
 
 
 def sha256(data: bytes) -> str:
@@ -32,6 +33,28 @@ def sha256(data: bytes) -> str:
 
 def json_bytes(data: object) -> bytes:
     return (json.dumps(data, indent=2, sort_keys=True) + "\n").encode()
+
+
+DOCUMENTS = {name: name for name in ('README.md', 'CHANGELOG.md', 'ROADMAP.md',
+    'CAPACITY.md', 'OPERATIONS.md', 'SQL_REFERENCE.md')}
+DOCUMENTS.update({'compatibility/RELEASE.md': 'RELEASE.md',
+                  'compatibility/BETA_USABILITY.md': 'BETA_USABILITY.md'})
+
+
+def packaged_document(source: str, revision: str) -> bytes:
+    """Keep bundled guides offline; bind source-only links to this release SHA."""
+    text = (ROOT / source).read_text(encoding='utf-8')
+    def link(match):
+        target = match[1]
+        if target.startswith(('#', 'https://', 'http://', 'mailto:')):
+            return match[0]
+        path, marker, anchor = target.partition('#')
+        resolved = posixpath.normpath(posixpath.join(posixpath.dirname(source), path))
+        destination = DOCUMENTS.get(resolved)
+        if destination is None:
+            destination = f'https://github.com/SB0LTD/ramsql/blob/{revision}/{resolved}'
+        return '](' + destination + (marker + anchor if marker else '') + ')'
+    return re.sub(r'\]\(([^)]+)\)', link, text).encode('utf-8')
 
 
 def validate_binary(data: bytes, entry: dict) -> None:
@@ -92,6 +115,10 @@ def capabilities(entry: dict) -> dict:
         "native_authentication": "trusted transport, memory only" if entry["kind"] == "native-sb0" else None,
         "full_sb0s_distribution_integration": False,
         "production_postgres_drop_in": False,
+        "release_stage": "beta",
+        "tls": False,
+        "role_authorization": False,
+        "mysql_tds": "experimental shared SQL subset; unauthenticated loopback only" if hosted_server else "unavailable",
         "qualification": "See RELEASE.md and the attached test evidence; compilation alone is not runtime validation.",
     }
 
@@ -174,6 +201,9 @@ def package(args: argparse.Namespace) -> dict:
         "postgres-report.json": ((ROOT / "compatibility/postgres-report.json").read_bytes(), 0o644),
         "provenance.json": (json_bytes(provenance), 0o644),
     }
+    for source, destination in DOCUMENTS.items():
+        files[destination] = (packaged_document(source, args.revision), 0o644)
+    files["create_verifier.py"] = ((ROOT / "tools/create_verifier.py").read_bytes(), 0o644)
     if args.verification:
         report = json.loads(args.verification.read_text(encoding="utf-8"))
         if report.get("image_sha256") != sha256(binary) or report.get("passed") is not True:

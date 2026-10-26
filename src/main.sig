@@ -149,14 +149,14 @@ fn run(init: std.process.Init.Minimal) !u8 {
     var timezone_buffer: [4096]u8 = undefined;
     var backup_target: ?[]const u8 = null;
     var data_set = false;
-    var mode: enum { serve, demo, input, help, version } = .serve;
+    var mode: enum { serve, demo, input, help, version, capabilities } = .serve;
     var explicit_mode = false;
     var has_server_options = false;
     while (try args.next()) |arg| {
-        if (same(arg, "--serve") or same(arg, "--demo") or same(arg, "--stdin") or same(arg, "--help") or same(arg, "--version")) {
+        if (same(arg, "--serve") or same(arg, "--demo") or same(arg, "--stdin") or same(arg, "--help") or same(arg, "--version") or same(arg, "--capabilities")) {
             if (explicit_mode) return error.UnknownArgument;
             explicit_mode = true;
-            mode = if (same(arg, "--serve")) .serve else if (same(arg, "--demo")) .demo else if (same(arg, "--stdin")) .input else if (same(arg, "--help")) .help else .version;
+            mode = if (same(arg, "--serve")) .serve else if (same(arg, "--demo")) .demo else if (same(arg, "--stdin")) .input else if (same(arg, "--help")) .help else if (same(arg, "--capabilities")) .capabilities else .version;
         } else if (same(arg, "--memory")) {
             if (data_set) return error.InvalidServerOptions;
             options.memory = true;
@@ -208,7 +208,7 @@ fn run(init: std.process.Init.Minimal) !u8 {
             }
         }
     }
-    if (has_server_options and mode != .serve) return error.UnknownArgument;
+    if (has_server_options and mode != .serve and mode != .capabilities) return error.UnknownArgument;
     if (backup_target) |target| {
         if (mode != .serve or options.memory) return error.InvalidServerOptions;
         try server.backup(options, target);
@@ -216,8 +216,9 @@ fn run(init: std.process.Init.Minimal) !u8 {
         return 0;
     }
     switch (mode) {
-        .help => try write("ramsql development\nUsage: ramsql [--serve|--demo|--stdin|--version|--help]\nServer: --protocol postgres|mysql|mssql --port N --mysql-port N --mssql-port N\n        --max-clients N --idle-ms N --max-query-work N (0: unlimited); default loopback PostgreSQL:5432\nCapacity: --rows N --versions N (runtime storage; result/workspace budgets are separate)\nStorage: --data WAL_PATH (default ramsql.wal) | --memory\nBackup: --data EXISTING_WAL --backup-to NEW_PATH (offline)\nAuth: --auth-user USER --auth-verifier-file PATH (PostgreSQL SCRAM verifier)\nTime zones: --timezone-dir ZONEINFO_DIR (default /usr/share/zoneinfo on Linux/macOS)\n      --insecure-local explicitly enables unauthenticated loopback testing\n--stdin: one SQL statement per line. --demo: run the example and exit.\n"),
+        .help => try write("ramsql beta (controlled testing; not production)\nUsage: ramsql [--serve|--demo|--stdin|--version|--capabilities|--help]\nServer: --protocol postgres|mysql|mssql --port N --mysql-port N --mssql-port N\n        --max-clients N --idle-ms N --max-query-work N (0: unlimited); default loopback PostgreSQL:5432\nInspect: --capabilities (JSON; accepts runtime capacity options; opens no files/listeners)\nCapacity: --rows N --versions N (runtime storage; result/workspace budgets are separate)\nStorage: --data WAL_PATH (default ramsql.wal) | --memory\nBackup: --data EXISTING_WAL --backup-to NEW_PATH (offline)\nAuth: --auth-user USER --auth-verifier-file PATH (PostgreSQL SCRAM verifier)\nTime zones: --timezone-dir ZONEINFO_DIR (default /usr/share/zoneinfo on Linux/macOS)\n      --insecure-local explicitly enables unauthenticated loopback testing\n--stdin: one SQL statement per line. --demo: run the example and exit.\n"),
         .version => try write("ramsql " ++ ram.version ++ "\n"),
+        .capabilities => try server.describe(options),
         .input => return if (try stdin()) 1 else 0,
         .demo => try demo(),
         .serve => try server.run(options),
