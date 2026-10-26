@@ -20,6 +20,7 @@ def main():
     parser.add_argument('--rows',type=int,default=1000000)
     parser.add_argument('--cycles',type=int,default=2)
     parser.add_argument('--minimum-ms',type=int,default=150)
+    parser.add_argument('--permuted',action='store_true')
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args()
     if args.rows<64 or args.cycles<2 or args.minimum_ms<50:
@@ -27,11 +28,11 @@ def main():
     import psycopg
     binary=args.ramsql.resolve(strict=True)
     folder=args.output.resolve();folder.mkdir(parents=True,exist_ok=False)
-    report={'rows':args.rows,'minimum_trial_ms':args.minimum_ms,
+    report={'rows':args.rows,'minimum_trial_ms':args.minimum_ms,'layout':'permuted' if args.permuted else 'ordered',
             'started_unix':time.time(),'cpu':cpu_name(),'os':platform.platform(),
             'psycopg':psycopg.__version__,'binary':str(binary),
             'binary_sha256':hashlib.sha256(binary.read_bytes()).hexdigest(),
-            'scope':'Loopback simple-query protocol, fetch and independent digest included; ascending-ID fixture; one client; RAMSQL volatile memory versus PostgreSQL unlogged table with synchronous_commit off; calibration excluded; alternating order.',
+            'scope':'Loopback simple-query protocol, fetch and independent digest included; recorded insertion layout; one client; RAMSQL volatile memory versus analyzed PostgreSQL unlogged table with synchronous_commit off; calibration excluded; alternating order.',
             'runs':[],'summary':{}}
     def save(): (folder/'results.json').write_text(json.dumps(report,indent=2)+'\n')
     save()
@@ -42,11 +43,11 @@ def main():
         for engine in order:
             if engine=='ramsql':
                 with running_ramsql(binary,extra_arguments=('--rows',str(args.rows))) as connection:
-                    measured=wire_measure(psycopg,connection,args.rows,1,engine,minimum_ms=args.minimum_ms)
+                    measured=wire_measure(psycopg,connection,args.rows,1,engine,minimum_ms=args.minimum_ms,permuted=args.permuted)
             else:
                 with native_postgres('unused',psycopg,binary_directory=args.postgres_bin,
                                      work_directory=clusters/f'cycle-{cycle}') as (connection,metadata):
-                    measured=wire_measure(psycopg,connection,args.rows,1,engine,unlogged=True,minimum_ms=args.minimum_ms)
+                    measured=wire_measure(psycopg,connection,args.rows,1,engine,unlogged=True,minimum_ms=args.minimum_ms,permuted=args.permuted)
                     measured['reference']=metadata
             measured['cycle']=cycle;report['runs'].append(measured);save()
             assert {case['name'] for case in measured['measurements']}==set(CASES)

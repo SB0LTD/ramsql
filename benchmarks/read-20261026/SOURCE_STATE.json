@@ -1,0 +1,51 @@
+{
+  "date": "2026-10-26",
+  "dependency_manifest": ".{\n    .name = .@\"ramsql\",\n    .version = \"0.3.0-alpha.4\",\n    .fingerprint = 0x0,\n    .dependencies = .{\n        .zpm = .{\n            .url = \"https://github.com/SB0LTD/zpm/archive/28036d8e173b7f5971da5905257e0cced4cff551.tar.gz\",\n            .hash = \"7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4\",\n        },\n    },\n    .paths = .{\n        \"build.sig\",\n        \"build.sig.zon\",\n        \"src\",\n        \"zpm.pkg.zon\", \"tests\", \"examples\", \"README.md\", \"LICENSE\", \"AGENTS.md\", \"tools\", \"compatibility\", \"benchmarks\",\n    },\n}\n",
+  "source_sha256": {
+    "build.sig": "25b82dc75c7e598477dad1a7036a33fff8dc1490dc4560011efc118188a86c09",
+    "build.sig.zon": "c5ef104f494c3fbd80b68f5c319163606d4280d8613a9f5b5042a558f4d68eac",
+    "src/server.sig": "c941348c8ecc95aaf5b1efcd6f36f50407549fc85e1951c9bdd3b666dc91f7ca",
+    "src/review_benchmark.sig": "98fbacb5928f9a055d6dd4ca3f55bb998a7490af77297f0abac23a8bc7a1ab51",
+    "tools/benchmark_review.py": "438cfc48b65db6deb2f0ae556d67fa6542a124c7504a6889c2f0ef9a5ac0b54f",
+    "tools/compare_wire.py": "cf2e674565329c3dbb735b937825a3e9da761379eabe88b99a206ca9dea9eafa",
+    "tools/test_benchmark_review.py": "64385d1737db8f4f21c0bac661b1c0c95eaded5622d2e0eb7a4484a8aba5bf35",
+    "tools/profile_server_syscalls.py": "5419a3ff0b807d132c10478f4e0340fb3418ad5d998cb3d704798d90bdd17aa5",
+    "tools/irdb_bench/Program.cs": "f2a246dffc14a5e492947744f6211a9a746c3a1899a5ca8f40ff0e5a66d942c7",
+    "tools/irdb_bench/packages.lock.json": "7dc86c186237675c53a33a85d48362f14472541b8ea9e55fea4e536bc0212ae4"
+  },
+  "baseline_zpm": "c3a00ab039259e9834e01f04dc91c3107a0484fe",
+  "latest_irdb": "1.10.821",
+  "current_zpm": "af13ce23a975bfea3681bdec84000a0d3f19a5e9",
+  "scope": "Working source hashes identify the candidate before its documentation/evidence commit. Per-series binary hashes are authoritative; staged runs use the revisions described in REPORT.md.",
+  "environment": {
+    "os": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "python": "3.12.3"
+  },
+  "binaries": {
+    "server": {
+      "path": "/home/sb/.cache/ramsql-qualification/read-io/bin/ramsql",
+      "sha256": "481222b2e022b00096a925ec7a5e5820e85ebb58b01c5cdb9596adc769039964"
+    },
+    "native": {
+      "path": "/home/sb/.cache/ramsql-qualification/read-io/bin/ramsql-review-bench",
+      "sha256": "24c7afba6eb68a853fb53b366ce166ef10fe93a698c54ee3026ca5bdcb7b1d08"
+    },
+    "irdb_adapter": {
+      "path": "/mnt/c/Just-Things/Projects/sb0/ramsql/tools/irdb_bench/bin/Release/net10.0/IrdbBench.dll",
+      "sha256": "0cab3f4cbed3e83371b2cd5d44bf07ff7a2fcd27a2ae68bb6097d21afbab3e61"
+    },
+    "irdb_library": {
+      "path": "/mnt/c/Just-Things/Projects/sb0/ramsql/tools/irdb_bench/bin/Release/net10.0/irdb.dll",
+      "sha256": "8b75d636c639972e8988661c518ee3648535b48dc575a3c2d3270b29ace47f3b"
+    }
+  },
+  "reference_postgres": "postgres (PostgreSQL) 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)",
+  "measured_zpm": "28036d8e173b7f5971da5905257e0cced4cff551",
+  "final_integration_manifest": ".{\n    .name = .@\"ramsql\",\n    .version = \"0.3.0-alpha.4\",\n    .fingerprint = 0x0,\n    .dependencies = .{\n        .zpm = .{\n            .url = \"https://github.com/SB0LTD/zpm/archive/af13ce23a975bfea3681bdec84000a0d3f19a5e9.tar.gz\",\n            .hash = \"e7e45587575c28675d6738771a50bb7dc05740b9fd7b752c899b0be1b9cedf11\",\n        },\n    },\n    .paths = .{\n        \"build.sig\",\n        \"build.sig.zon\",\n        \"src\",\n        \"zpm.pkg.zon\", \"tests\", \"examples\", \"README.md\", \"LICENSE\", \"AGENTS.md\", \"tools\", \"compatibility\", \"benchmarks\",\n    },\n}\n",
+  "native_portability_fix": "Equivalent signed comparisons replace unsupported native i128 min/max; throughput/profile tables remain tied to measured_zpm and their recorded binary hashes.",
+  "source_hash_scope": "source_sha256 describes the measured 28036d8 integration before the native portability correction; final_changed_source_sha256 identifies the changed RAMSQL files.",
+  "final_changed_source_sha256": {
+    "build.sig.zon": "ec097f269189d675c11d0b5825f0695214fef83e1066cd4567d203f00c27549a",
+    "tools/test_sb0.py": "2b80fe6c6abec02d8593d41b2a18338fe2607cf69f5347a882a22e6f51296879"
+  }
+}

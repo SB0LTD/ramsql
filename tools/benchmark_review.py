@@ -96,18 +96,43 @@ def validate_stream_samples(name, samples, n):
         return
     for sample in samples:
         assert all(type(sample.get(field)) is int and sample[field]>=0 for field in fields),"incomplete/invalid stream evidence"
+        read_fields=('key_probes','key_walks','key_fallbacks','key_successes','nonnull_sort_keys')
+        reads={field:sample.get(field,0) for field in read_fields}
+        assert all(type(value) is int and value>=0 for value in reads.values()),'invalid read operator evidence'
+        assert reads['key_walks']==reads['key_successes']+reads['key_fallbacks'],'incomplete ordered walk'
+        if reads['key_walks']:
+            assert name=='filtered_limit' and reads['key_walks']==1 and reads['key_probes']<=8192,'unexpected ordered walk'
+            if reads['key_successes']: assert reads['key_probes']==min(n,968),'wrong dense-key prefix'
+        else: assert reads['key_probes']==0,'unattributed key probes'
+        allowed_nonnull=(0,2) if name=='sort_limit' else (0,1) if name=='filtered_limit' else (0,)
+        assert reads['nonnull_sort_keys'] in allowed_nonnull,'stale/invalid non-NULL sort proof'
+        summary_rows=sample.get('summary_rows',0)
+        summary_plans=sample.get('summary_plans',0)
+        dense_plans=sample.get('dense_plans',0)
+        assert type(dense_plans) is int and dense_plans>=0,'invalid dense evidence'
+        if dense_plans: assert name=='group_aggregate' and dense_plans==1 and summary_plans==0 and sample['stream_probes']==n,'invalid direct group evidence'
+        assert type(summary_rows) is int and summary_rows>=0 and type(summary_plans) is int and summary_plans>=0,'invalid summary evidence'
         if name in ("aggregate","group_aggregate"):
-            assert sample["stream_rows"]==n,"stream did not examine the modeled input"
+            if summary_plans:
+                assert summary_plans==1 and summary_rows==n and sample['stream_rows']==0,'invalid summary operator evidence'
+            else:
+                assert summary_rows==0 and sample["stream_rows"]==n,"stream did not examine the modeled input"
             assert sample["stream_groups"]==(1 if name=="aggregate" else 64),"wrong streamed group count"
             assert sample["group_cells"]>0,"missing aggregate state evidence"
             if name=="aggregate":
                 assert sample["stream_probes"]==sample["group_refs"]==0,"scalar aggregate materialized hash state"
             else:
-                assert sample["stream_probes"]>=n and sample["group_refs"]>0,"missing grouped hash evidence"
+                assert sample["group_refs"]>0,"missing grouped state evidence"
+                if summary_plans: assert sample['stream_probes']==0,'summary unexpectedly performed row probes'
+                if not summary_plans: assert sample["stream_probes"]>=n,"missing grouped lookup evidence"
         else:
-            assert all(sample[field]==0 for field in fields),"stale stream counters on a different workload"
+            assert dense_plans==summary_rows==summary_plans==0 and all(sample[field]==0 for field in fields),"stale stream counters on a different workload"
     for field in fields:
         assert len({sample[field] for sample in samples})==1,"stream evidence changed between identical trials"
+    for field in ('summary_rows','summary_plans','dense_plans'):
+        assert len({sample.get(field,0) for sample in samples})==1,'summary evidence changed between trials'
+    for field in ('key_probes','key_walks','key_fallbacks','key_successes','nonnull_sort_keys'):
+        assert len({sample.get(field,0) for sample in samples})==1,'read evidence changed between trials'
 
 
 def native_measure(binary,n,iterations,log):
@@ -149,17 +174,21 @@ def irdb_measure(dotnet,dll,n,iterations,log,minimum_ms=0):
     return result
 
 
-def wire_measure(psycopg,arguments,n,iterations,engine,unlogged=False,minimum_ms=0):
+def wire_measure(psycopg,arguments,n,iterations,engine,unlogged=False,minimum_ms=0,permuted=False):
     with psycopg.connect(**arguments) as connection:
         connection.execute("SET statement_timeout = 30000",prepare=False)
         if unlogged: connection.execute("SET synchronous_commit = off",prepare=False)
         connection.execute("CREATE "+("UNLOGGED " if unlogged else "")+"TABLE bench (id INT PRIMARY KEY, value INT, category INT, label TEXT)",prepare=False)
+        stride=131071
+        while math.gcd(stride,n)!=1 or stride%n in (1,n-1): stride+=2
         load=time.monotonic()
         for start in range(0,n,32):
-            values=",".join(f"({i},{n-i},{i%64},'value')" for i in range(start,min(n,start+32)))
+            ids=((i*stride)%n if permuted else i for i in range(start,min(n,start+32)))
+            values=",".join(f"({i},{n-i},{i%64},'value')" for i in ids)
             cursor=connection.execute("INSERT INTO bench VALUES "+values,prepare=False)
             assert cursor.rowcount==min(32,n-start),"seed row loss"
-        assert connection.execute("SELECT COUNT(*) FROM bench",prepare=False).fetchone()==(n,),"seed count"
+        assert connection.execute("SELECT COUNT(*), SUM(value) FROM bench WHERE id >= 0",prepare=False).fetchone()==(n,n*(n+1)//2),"physical seed check"
+        if unlogged: connection.execute('ANALYZE bench',prepare=False)
         loaded=time.monotonic()-load
         sql=queries(n)
         measurements=[]
@@ -203,7 +232,7 @@ def wire_measure(psycopg,arguments,n,iterations,engine,unlogged=False,minimum_ms
                 measurements.append({"name":name,"passed":True,"iterations":count,"calibration":calibration,"samples":samples})
             except Exception as error:
                 measurements.append({"name":name,"passed":False,"error":type(error).__name__+": "+str(error)[:1000],"sqlstate":getattr(error,"sqlstate",None)})
-        return {"engine":engine,"rows":n,"boundary":"loopback PostgreSQL simple query via psycopg; fetch and digest included","durability":"unlogged table, synchronous_commit=off" if unlogged else "RAMSQL --memory; no durable commit flush","load_seconds":loaded,"measurements":measurements}
+        return {"engine":engine,"rows":n,"layout":"permuted" if permuted else "ordered","analyzed":unlogged,"boundary":"loopback PostgreSQL simple query via psycopg; fetch and digest included","durability":"unlogged table, synchronous_commit=off" if unlogged else "RAMSQL --memory; no durable commit flush","load_seconds":loaded,"measurements":measurements}
 
 
 def main():

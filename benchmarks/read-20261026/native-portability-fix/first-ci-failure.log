@@ -1,0 +1,746 @@
+﻿2026-10-26T13:09:38.9545603Z Current runner version: '2.338.0'
+2026-10-26T13:09:38.9572364Z ##[group]Runner Image Provisioner
+2026-10-26T13:09:38.9573308Z Hosted Compute Agent
+2026-10-26T13:09:38.9574034Z Version: 20261021.618
+2026-10-26T13:09:38.9574740Z Commit: 21505ad2541d5be6135ed84fc33697146cf75b8e
+2026-10-26T13:09:38.9575720Z Build Date: 2026-10-21T00:45:21Z
+2026-10-26T13:09:38.9576525Z Worker ID: {8db681fd-8dd0-4290-b6c6-9d7c5cd1c22e}
+2026-10-26T13:09:38.9577268Z Region: northcentralus
+2026-10-26T13:09:38.9577836Z Cloud: Azure
+2026-10-26T13:09:38.9578440Z ##[endgroup]
+2026-10-26T13:09:38.9579963Z ##[group]Operating System
+2026-10-26T13:09:38.9580752Z Ubuntu
+2026-10-26T13:09:38.9581361Z 24.04.5
+2026-10-26T13:09:38.9581914Z LTS
+2026-10-26T13:09:38.9582515Z ##[endgroup]
+2026-10-26T13:09:38.9583095Z ##[group]Runner Image
+2026-10-26T13:09:38.9583758Z Image: ubuntu-24.04
+2026-10-26T13:09:38.9584369Z Version: 20261012.334.1
+2026-10-26T13:09:38.9586222Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-26T13:09:38.9587912Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
+2026-10-26T13:09:38.9589003Z ##[endgroup]
+2026-10-26T13:09:38.9590192Z ##[group]GITHUB_TOKEN Permissions
+2026-10-26T13:09:38.9592464Z Contents: read
+2026-10-26T13:09:38.9593135Z Metadata: read
+2026-10-26T13:09:38.9593713Z ##[endgroup]
+2026-10-26T13:09:38.9596407Z Secret source: Actions
+2026-10-26T13:09:38.9597464Z Cache mode: write
+2026-10-26T13:09:38.9598294Z Prepare workflow directory
+2026-10-26T13:09:39.0322778Z Prepare all required actions
+2026-10-26T13:09:39.0401307Z Getting action download info
+2026-10-26T13:09:39.3271204Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-10-26T13:09:39.4146857Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+2026-10-26T13:09:39.5048116Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-10-26T13:09:39.7333994Z Complete job name: Bootstrap pinned Sig and validate native SB0X and SB0K
+2026-10-26T13:09:39.8193675Z ##[group]Run actions/checkout@v4
+2026-10-26T13:09:39.8194618Z with:
+2026-10-26T13:09:39.8195522Z   ref: fbe0a4568de9bc7c5d6b3bfa6fc118eb5826b596
+2026-10-26T13:09:39.8196174Z   repository: SB0LTD/ramsql
+2026-10-26T13:09:39.8200222Z   token: ***
+2026-10-26T13:09:39.8200673Z   ssh-strict: true
+2026-10-26T13:09:39.8201133Z   ssh-user: git
+2026-10-26T13:09:39.8201592Z   persist-credentials: true
+2026-10-26T13:09:39.8202090Z   clean: true
+2026-10-26T13:09:39.8202554Z   sparse-checkout-cone-mode: true
+2026-10-26T13:09:39.8203085Z   fetch-depth: 1
+2026-10-26T13:09:39.8203516Z   fetch-tags: false
+2026-10-26T13:09:39.8203958Z   show-progress: true
+2026-10-26T13:09:39.8204410Z   lfs: false
+2026-10-26T13:09:39.8204828Z   submodules: false
+2026-10-26T13:09:39.8205702Z   set-safe-directory: true
+2026-10-26T13:09:39.8206240Z   allow-unsafe-pr-checkout: false
+2026-10-26T13:09:39.8207091Z env:
+2026-10-26T13:09:39.8207661Z   NATIVE_SIG_REVISION: 90a898dcbe088455f07449b7de1feaea763c42a0
+2026-10-26T13:09:39.8208421Z   SIG_RELEASE_TAG: sig-0.6.4-zig0.17.0.90a898d
+2026-10-26T13:09:39.8209198Z   SIG_RELEASE_ASSET: sig-0.6.4-zig0.17.0.90a898d-x86_64-linux.tar.xz
+2026-10-26T13:09:39.8210175Z   SIG_RELEASE_SHA256: 8dd32622531b5f81dbb12502c78e187141dd42ea3553f4d9e2c09c3e82d64a89
+2026-10-26T13:09:39.8211091Z   SOURCE_REVISION: fbe0a4568de9bc7c5d6b3bfa6fc118eb5826b596
+2026-10-26T13:09:39.8211760Z   SOURCE_DATE_EPOCH: 1793020164
+2026-10-26T13:09:39.8212253Z ##[endgroup]
+2026-10-26T13:09:39.9352464Z Syncing repository: SB0LTD/ramsql
+2026-10-26T13:09:39.9354558Z ##[group]Getting Git version info
+2026-10-26T13:09:39.9355693Z Working directory is '/home/runner/work/ramsql/ramsql'
+2026-10-26T13:09:39.9357302Z [command]/usr/bin/git version
+2026-10-26T13:09:39.9435839Z git version 2.55.0
+2026-10-26T13:09:39.9476519Z ##[endgroup]
+2026-10-26T13:09:39.9485456Z Temporarily overriding HOME='/home/runner/work/_temp/6d67a598-83c9-4dad-bf15-2a212bc4c52c' before making global git config changes
+2026-10-26T13:09:39.9487970Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-26T13:09:39.9489307Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ramsql/ramsql
+2026-10-26T13:09:39.9542370Z Deleting the contents of '/home/runner/work/ramsql/ramsql'
+2026-10-26T13:09:39.9548618Z ##[group]Initializing the repository
+2026-10-26T13:09:39.9554328Z [command]/usr/bin/git init /home/runner/work/ramsql/ramsql
+2026-10-26T13:09:39.9677210Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-26T13:09:39.9679253Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-26T13:09:39.9681002Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-26T13:09:39.9682372Z hint: call:
+2026-10-26T13:09:39.9683109Z hint:
+2026-10-26T13:09:39.9683990Z hint: 	git config --global init.defaultBranch <name>
+2026-10-26T13:09:39.9685378Z hint:
+2026-10-26T13:09:39.9686402Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-26T13:09:39.9688089Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-26T13:09:39.9690258Z hint:
+2026-10-26T13:09:39.9691189Z hint: 	git branch -m <name>
+2026-10-26T13:09:39.9692060Z hint:
+2026-10-26T13:09:39.9693099Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-26T13:09:39.9694685Z Initialized empty Git repository in /home/runner/work/ramsql/ramsql/.git/
+2026-10-26T13:09:39.9697791Z [command]/usr/bin/git remote add origin https://github.com/SB0LTD/ramsql
+2026-10-26T13:09:39.9753907Z ##[endgroup]
+2026-10-26T13:09:39.9755868Z ##[group]Disabling automatic garbage collection
+2026-10-26T13:09:39.9760454Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-26T13:09:39.9801883Z ##[endgroup]
+2026-10-26T13:09:39.9803782Z ##[group]Setting up auth
+2026-10-26T13:09:39.9811230Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-26T13:09:39.9866128Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-26T13:09:40.0354706Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-26T13:09:40.0400651Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-26T13:09:40.0662747Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-26T13:09:40.0703802Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-26T13:09:40.0943302Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-26T13:09:40.0989062Z ##[endgroup]
+2026-10-26T13:09:40.0990586Z ##[group]Fetching the repository
+2026-10-26T13:09:40.1000984Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin fbe0a4568de9bc7c5d6b3bfa6fc118eb5826b596
+2026-10-26T13:09:40.6484386Z From https://github.com/SB0LTD/ramsql
+2026-10-26T13:09:40.6486722Z  * branch            fbe0a4568de9bc7c5d6b3bfa6fc118eb5826b596 -> FETCH_HEAD
+2026-10-26T13:09:40.6490768Z ##[endgroup]
+2026-10-26T13:09:40.6492342Z ##[group]Determining the checkout info
+2026-10-26T13:09:40.6494202Z ##[endgroup]
+2026-10-26T13:09:40.6501298Z [command]/usr/bin/git sparse-checkout disable
+2026-10-26T13:09:40.6593073Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-26T13:09:40.6644301Z ##[group]Checking out the ref
+2026-10-26T13:09:40.6647820Z [command]/usr/bin/git checkout --progress --force fbe0a4568de9bc7c5d6b3bfa6fc118eb5826b596
+2026-10-26T13:09:40.7131177Z Note: switching to 'fbe0a4568de9bc7c5d6b3bfa6fc118eb5826b596'.
+2026-10-26T13:09:40.7132332Z 
+2026-10-26T13:09:40.7133089Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-26T13:09:40.7134604Z changes and commit them, and you can discard any commits you make in this
+2026-10-26T13:09:40.7136404Z state without impacting any branches by switching back to a branch.
+2026-10-26T13:09:40.7137363Z 
+2026-10-26T13:09:40.7137991Z If you want to create a new branch to retain commits you create, you may
+2026-10-26T13:09:40.7139518Z do so (now or later) by using -c with the switch command. Example:
+2026-10-26T13:09:40.7140161Z 
+2026-10-26T13:09:40.7140375Z   git switch -c <new-branch-name>
+2026-10-26T13:09:40.7140783Z 
+2026-10-26T13:09:40.7140986Z Or undo this operation with:
+2026-10-26T13:09:40.7141340Z 
+2026-10-26T13:09:40.7141501Z   git switch -
+2026-10-26T13:09:40.7141773Z 
+2026-10-26T13:09:40.7142294Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-26T13:09:40.7143905Z 
+2026-10-26T13:09:40.7145586Z HEAD is now at fbe0a45 Merge 1adf136dd4705dddc934a6047d99d50731db256d into 960b19d3b021b12e938b11876c5910738ebc8b5f
+2026-10-26T13:09:40.7149263Z ##[endgroup]
+2026-10-26T13:09:40.7193955Z [command]/usr/bin/git log -1 --format=%H
+2026-10-26T13:09:40.7222780Z fbe0a4568de9bc7c5d6b3bfa6fc118eb5826b596
+2026-10-26T13:09:40.7467034Z ##[group]Run if [[ ! "$NATIVE_SIG_REVISION" =~ ^[0-9a-f]{40}$ ]]; then
+2026-10-26T13:09:40.7468486Z [36;1mif [[ ! "$NATIVE_SIG_REVISION" =~ ^[0-9a-f]{40}$ ]]; then[0m
+2026-10-26T13:09:40.7470285Z [36;1m  echo '::error::Native compiler source pin is pending verified SB0 database and loader QEMU tests.'[0m
+2026-10-26T13:09:40.7471879Z [36;1m  exit 1[0m
+2026-10-26T13:09:40.7472402Z [36;1mfi[0m
+2026-10-26T13:09:40.7753661Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-26T13:09:40.7754764Z env:
+2026-10-26T13:09:40.7755818Z   NATIVE_SIG_REVISION: 90a898dcbe088455f07449b7de1feaea763c42a0
+2026-10-26T13:09:40.7757016Z   SIG_RELEASE_TAG: sig-0.6.4-zig0.17.0.90a898d
+2026-10-26T13:09:40.7758163Z   SIG_RELEASE_ASSET: sig-0.6.4-zig0.17.0.90a898d-x86_64-linux.tar.xz
+2026-10-26T13:09:40.7759787Z   SIG_RELEASE_SHA256: 8dd32622531b5f81dbb12502c78e187141dd42ea3553f4d9e2c09c3e82d64a89
+2026-10-26T13:09:40.7761427Z   SOURCE_REVISION: fbe0a4568de9bc7c5d6b3bfa6fc118eb5826b596
+2026-10-26T13:09:40.7762436Z   SOURCE_DATE_EPOCH: 1793020164
+2026-10-26T13:09:40.7763095Z ##[endgroup]
+2026-10-26T13:09:40.8073623Z ##[group]Run actions/checkout@v4
+2026-10-26T13:09:40.8074305Z with:
+2026-10-26T13:09:40.8074746Z   repository: SB0LTD/sig
+2026-10-26T13:09:40.8075614Z   ref: 90a898dcbe088455f07449b7de1feaea763c42a0
+2026-10-26T13:09:40.8076409Z   path: .sig-cache/native-sig-source
+2026-10-26T13:09:40.8077126Z   persist-credentials: false
+2026-10-26T13:09:40.8085462Z   token: ***
+2026-10-26T13:09:40.8085937Z   ssh-strict: true
+2026-10-26T13:09:40.8086415Z   ssh-user: git
+2026-10-26T13:09:40.8086866Z   clean: true
+2026-10-26T13:09:40.8087385Z   sparse-checkout-cone-mode: true
+2026-10-26T13:09:40.8088023Z   fetch-depth: 1
+2026-10-26T13:09:40.8088494Z   fetch-tags: false
+2026-10-26T13:09:40.8089017Z   show-progress: true
+2026-10-26T13:09:40.8089544Z   lfs: false
+2026-10-26T13:09:40.8090007Z   submodules: false
+2026-10-26T13:09:40.8090538Z   set-safe-directory: true
+2026-10-26T13:09:40.8091164Z   allow-unsafe-pr-checkout: false
+2026-10-26T13:09:40.8091795Z env:
+2026-10-26T13:09:40.8092480Z   NATIVE_SIG_REVISION: 90a898dcbe088455f07449b7de1feaea763c42a0
+2026-10-26T13:09:40.8093460Z   SIG_RELEASE_TAG: sig-0.6.4-zig0.17.0.90a898d
+2026-10-26T13:09:40.8094462Z   SIG_RELEASE_ASSET: sig-0.6.4-zig0.17.0.90a898d-x86_64-linux.tar.xz
+2026-10-26T13:09:40.8096024Z   SIG_RELEASE_SHA256: 8dd32622531b5f81dbb12502c78e187141dd42ea3553f4d9e2c09c3e82d64a89
+2026-10-26T13:09:40.8097387Z   SOURCE_REVISION: fbe0a4568de9bc7c5d6b3bfa6fc118eb5826b596
+2026-10-26T13:09:40.8098272Z   SOURCE_DATE_EPOCH: 1793020164
+2026-10-26T13:09:40.8098869Z ##[endgroup]
+2026-10-26T13:09:40.8980188Z Syncing repository: SB0LTD/sig
+2026-10-26T13:09:40.8988755Z ##[group]Getting Git version info
+2026-10-26T13:09:40.8991122Z Working directory is '/home/runner/work/ramsql/ramsql/.sig-cache/native-sig-source'
+2026-10-26T13:09:40.9036424Z [command]/usr/bin/git version
+2026-10-26T13:09:40.9083194Z git version 2.55.0
+2026-10-26T13:09:40.9107286Z ##[endgroup]
+2026-10-26T13:09:40.9123205Z Temporarily overriding HOME='/home/runner/work/_temp/0c08f886-0e4a-411a-9cda-8f14f6103fcb' before making global git config changes
+2026-10-26T13:09:40.9127649Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-26T13:09:40.9130470Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ramsql/ramsql/.sig-cache/native-sig-source
+2026-10-26T13:09:40.9175695Z ##[group]Initializing the repository
+2026-10-26T13:09:40.9183802Z [command]/usr/bin/git init /home/runner/work/ramsql/ramsql/.sig-cache/native-sig-source
+2026-10-26T13:09:40.9246194Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-26T13:09:40.9248987Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-26T13:09:40.9251639Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-26T13:09:40.9253601Z hint: call:
+2026-10-26T13:09:40.9254517Z hint:
+2026-10-26T13:09:40.9256150Z hint: 	git config --global init.defaultBranch <name>
+2026-10-26T13:09:40.9258839Z hint:
+2026-10-26T13:09:40.9260511Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-26T13:09:40.9262713Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-26T13:09:40.9264175Z hint:
+2026-10-26T13:09:40.9265983Z hint: 	git branch -m <name>
+2026-10-26T13:09:40.9267339Z hint:
+2026-10-26T13:09:40.9269003Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-26T13:09:40.9272316Z Initialized empty Git repository in /home/runner/work/ramsql/ramsql/.sig-cache/native-sig-source/.git/
+2026-10-26T13:09:40.9277838Z [command]/usr/bin/git remote add origin https://github.com/SB0LTD/sig
+2026-10-26T13:09:40.9297195Z ##[endgroup]
+2026-10-26T13:09:40.9298812Z ##[group]Disabling automatic garbage collection
+2026-10-26T13:09:40.9302832Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-26T13:09:40.9339259Z ##[endgroup]
+2026-10-26T13:09:40.9340727Z ##[group]Setting up auth
+2026-10-26T13:09:40.9345817Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-26T13:09:40.9389219Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-26T13:09:40.9659989Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-26T13:09:40.9719371Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-26T13:09:40.9967147Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-26T13:09:41.0008707Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-26T13:09:41.0244650Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-26T13:09:41.0290948Z ##[endgroup]
+2026-10-26T13:09:41.0301350Z ##[group]Fetching the repository
+2026-10-26T13:09:41.0303505Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin 90a898dcbe088455f07449b7de1feaea763c42a0
+2026-10-26T13:09:46.8362169Z From https://github.com/SB0LTD/sig
+2026-10-26T13:09:46.8363083Z  * branch              90a898dcbe088455f07449b7de1feaea763c42a0 -> FETCH_HEAD
+2026-10-26T13:09:46.8367953Z ##[endgroup]
+2026-10-26T13:09:46.8368449Z ##[group]Determining the checkout info
+2026-10-26T13:09:46.8371515Z ##[endgroup]
+2026-10-26T13:09:46.8378156Z [command]/usr/bin/git sparse-checkout disable
+2026-10-26T13:09:46.8424705Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-26T13:09:46.8482409Z ##[group]Checking out the ref
+2026-10-26T13:09:46.8486825Z [command]/usr/bin/git checkout --progress --force 90a898dcbe088455f07449b7de1feaea763c42a0
+2026-10-26T13:09:47.8707853Z Updating files:  66% (14773/22162)
+2026-10-26T13:09:47.8803394Z Updating files:  67% (14849/22162)
+2026-10-26T13:09:47.8901878Z Updating files:  68% (15071/22162)
+2026-10-26T13:09:47.8979730Z Updating files:  69% (15292/22162)
+2026-10-26T13:09:47.9062119Z Updating files:  70% (15514/22162)
+2026-10-26T13:09:47.9159419Z Updating files:  71% (15736/22162)
+2026-10-26T13:09:47.9263355Z Updating files:  72% (15957/22162)
+2026-10-26T13:09:47.9372391Z Updating files:  73% (16179/22162)
+2026-10-26T13:09:47.9465610Z Updating files:  74% (16400/22162)
+2026-10-26T13:09:47.9567698Z Updating files:  75% (16622/22162)
+2026-10-26T13:09:47.9660489Z Updating files:  76% (16844/22162)
+2026-10-26T13:09:47.9750721Z Updating files:  77% (17065/22162)
+2026-10-26T13:09:47.9873121Z Updating files:  78% (17287/22162)
+2026-10-26T13:09:47.9973854Z Updating files:  79% (17508/22162)
+2026-10-26T13:09:48.0091018Z Updating files:  80% (17730/22162)
+2026-10-26T13:09:48.0221199Z Updating files:  81% (17952/22162)
+2026-10-26T13:09:48.0343172Z Updating files:  82% (18173/22162)
+2026-10-26T13:09:48.0446564Z Updating files:  83% (18395/22162)
+2026-10-26T13:09:48.0620249Z Updating files:  84% (18617/22162)
+2026-10-26T13:09:48.0773276Z Updating files:  85% (18838/22162)
+2026-10-26T13:09:48.0942281Z Updating files:  86% (19060/22162)
+2026-10-26T13:09:48.1199302Z Updating files:  87% (19281/22162)
+2026-10-26T13:09:48.1406356Z Updating files:  88% (19503/22162)
+2026-10-26T13:09:48.1623756Z Updating files:  89% (19725/22162)
+2026-10-26T13:09:48.2285149Z Updating files:  90% (19946/22162)
+2026-10-26T13:09:48.2702185Z Updating files:  91% (20168/22162)
+2026-10-26T13:09:48.2850424Z Updating files:  92% (20390/22162)
+2026-10-26T13:09:48.2935686Z Updating files:  93% (20611/22162)
+2026-10-26T13:09:48.3019150Z Updating files:  94% (20833/22162)
+2026-10-26T13:09:48.3104451Z Updating files:  95% (21054/22162)
+2026-10-26T13:09:48.3198602Z Updating files:  96% (21276/22162)
+2026-10-26T13:09:48.3276303Z Updating files:  97% (21498/22162)
+2026-10-26T13:09:48.3401701Z Updating files:  98% (21719/22162)
+2026-10-26T13:09:48.3546643Z Updating files:  99% (21941/22162)
+2026-10-26T13:09:48.3547320Z Updating files: 100% (22162/22162)
+2026-10-26T13:09:48.3547831Z Updating files: 100% (22162/22162), done.
+2026-10-26T13:09:48.3731793Z Note: switching to '90a898dcbe088455f07449b7de1feaea763c42a0'.
+2026-10-26T13:09:48.3732474Z 
+2026-10-26T13:09:48.3732966Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-26T13:09:48.3734105Z changes and commit them, and you can discard any commits you make in this
+2026-10-26T13:09:48.3735687Z state without impacting any branches by switching back to a branch.
+2026-10-26T13:09:48.3736357Z 
+2026-10-26T13:09:48.3736696Z If you want to create a new branch to retain commits you create, you may
+2026-10-26T13:09:48.3737492Z do so (now or later) by using -c with the switch command. Example:
+2026-10-26T13:09:48.3737957Z 
+2026-10-26T13:09:48.3738155Z   git switch -c <new-branch-name>
+2026-10-26T13:09:48.3738375Z 
+2026-10-26T13:09:48.3738565Z Or undo this operation with:
+2026-10-26T13:09:48.3738757Z 
+2026-10-26T13:09:48.3738858Z   git switch -
+2026-10-26T13:09:48.3739005Z 
+2026-10-26T13:09:48.3739265Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-26T13:09:48.3739631Z 
+2026-10-26T13:09:48.3739854Z HEAD is now at 90a898dc Merge pull request #35 from SB0LTD/release/0.6.4
+2026-10-26T13:09:48.3768718Z ##[endgroup]
+2026-10-26T13:09:48.3814912Z [command]/usr/bin/git log -1 --format=%H
+2026-10-26T13:09:48.3843065Z 90a898dcbe088455f07449b7de1feaea763c42a0
+2026-10-26T13:09:48.3875240Z ##[group]Removing auth
+2026-10-26T13:09:48.3875994Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-26T13:09:48.3901781Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-26T13:09:48.4153842Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-26T13:09:48.4186365Z http.https://github.com/.extraheader
+2026-10-26T13:09:48.4194847Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-10-26T13:09:48.4232682Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-26T13:09:48.4475910Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-26T13:09:48.4513117Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-26T13:09:48.4757364Z ##[endgroup]
+2026-10-26T13:09:48.4970227Z ##[group]Run actions/setup-python@v5
+2026-10-26T13:09:48.4970535Z with:
+2026-10-26T13:09:48.4970747Z   python-version: 3.12
+2026-10-26T13:09:48.4970978Z   check-latest: false
+2026-10-26T13:09:48.4973603Z   token: ***
+2026-10-26T13:09:48.4973838Z   update-environment: true
+2026-10-26T13:09:48.4974088Z   allow-prereleases: false
+2026-10-26T13:09:48.4974328Z   freethreaded: false
+2026-10-26T13:09:48.4974537Z env:
+2026-10-26T13:09:48.4974802Z   NATIVE_SIG_REVISION: 90a898dcbe088455f07449b7de1feaea763c42a0
+2026-10-26T13:09:48.4975416Z   SIG_RELEASE_TAG: sig-0.6.4-zig0.17.0.90a898d
+2026-10-26T13:09:48.4975792Z   SIG_RELEASE_ASSET: sig-0.6.4-zig0.17.0.90a898d-x86_64-linux.tar.xz
+2026-10-26T13:09:48.4976286Z   SIG_RELEASE_SHA256: 8dd32622531b5f81dbb12502c78e187141dd42ea3553f4d9e2c09c3e82d64a89
+2026-10-26T13:09:48.4976793Z   SOURCE_REVISION: fbe0a4568de9bc7c5d6b3bfa6fc118eb5826b596
+2026-10-26T13:09:48.4977133Z   SOURCE_DATE_EPOCH: 1793020164
+2026-10-26T13:09:48.4977367Z ##[endgroup]
+2026-10-26T13:09:48.6302834Z ##[group]Installed versions
+2026-10-26T13:09:48.6395319Z (node:2495) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-26T13:09:48.6396314Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-26T13:09:48.6397415Z Successfully set up CPython (3.12.15)
+2026-10-26T13:09:48.6398228Z ##[endgroup]
+2026-10-26T13:09:48.6568395Z ##[group]Run set -euo pipefail
+2026-10-26T13:09:48.6568739Z [36;1mset -euo pipefail[0m
+2026-10-26T13:09:48.6569027Z [36;1marchive="$RUNNER_TEMP/$SIG_RELEASE_ASSET"[0m
+2026-10-26T13:09:48.6569378Z [36;1mdestination="$RUNNER_TEMP/sig-bootstrap"[0m
+2026-10-26T13:09:48.6569717Z [36;1mcurl --fail --location --retry 3 \[0m
+2026-10-26T13:09:48.6570308Z [36;1m  "https://github.com/SB0LTD/sig/releases/download/$SIG_RELEASE_TAG/$SIG_RELEASE_ASSET" --output "$archive"[0m
+2026-10-26T13:09:48.6571002Z [36;1mprintf '%s  %s\n' "$SIG_RELEASE_SHA256" "$archive" | sha256sum --check --strict -[0m
+2026-10-26T13:09:48.6571439Z [36;1mmkdir -p "$destination"[0m
+2026-10-26T13:09:48.6571736Z [36;1mtar -xf "$archive" -C "$destination"[0m
+2026-10-26T13:09:48.6572136Z [36;1mcompiler="$(find "$destination" -type f -name sig -print -quit)"[0m
+2026-10-26T13:09:48.6572515Z [36;1mtest -n "$compiler"[0m
+2026-10-26T13:09:48.6572758Z [36;1mchmod +x "$compiler"[0m
+2026-10-26T13:09:48.6573077Z [36;1mecho "SIG_BOOTSTRAP=$compiler" >> "$GITHUB_ENV"[0m
+2026-10-26T13:09:48.6573394Z [36;1m"$compiler" version[0m
+2026-10-26T13:09:48.6660364Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-26T13:09:48.6661084Z env:
+2026-10-26T13:09:48.6661733Z   NATIVE_SIG_REVISION: 90a898dcbe088455f07449b7de1feaea763c42a0
+2026-10-26T13:09:48.6662552Z   SIG_RELEASE_TAG: sig-0.6.4-zig0.17.0.90a898d
+2026-10-26T13:09:48.6663542Z   SIG_RELEASE_ASSET: sig-0.6.4-zig0.17.0.90a898d-x86_64-linux.tar.xz
+2026-10-26T13:09:48.6664492Z   SIG_RELEASE_SHA256: 8dd32622531b5f81dbb12502c78e187141dd42ea3553f4d9e2c09c3e82d64a89
+2026-10-26T13:09:48.6665958Z   SOURCE_REVISION: fbe0a4568de9bc7c5d6b3bfa6fc118eb5826b596
+2026-10-26T13:09:48.6666841Z   SOURCE_DATE_EPOCH: 1793020164
+2026-10-26T13:09:48.6667527Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:09:48.6668288Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+2026-10-26T13:09:48.6669042Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:09:48.6669690Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:09:48.6670335Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:09:48.6671007Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-10-26T13:09:48.6671504Z ##[endgroup]
+2026-10-26T13:09:48.6879011Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+2026-10-26T13:09:48.6879838Z                                  Dload  Upload   Total   Spent    Left  Speed
+2026-10-26T13:09:48.6880285Z 
+2026-10-26T13:09:48.8368346Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+2026-10-26T13:09:48.8369250Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+2026-10-26T13:09:49.0531490Z 
+2026-10-26T13:09:49.0532265Z 100 57.9M  100 57.9M    0     0   158M      0 --:--:-- --:--:-- --:--:--  158M
+2026-10-26T13:09:49.1051388Z /home/runner/work/_temp/sig-0.6.4-zig0.17.0.90a898d-x86_64-linux.tar.xz: OK
+2026-10-26T13:09:53.2818959Z sig 0.6.4 (zig 0.17.0)
+2026-10-26T13:09:53.2868585Z ##[group]Run set -euo pipefail
+2026-10-26T13:09:53.2868944Z [36;1mset -euo pipefail[0m
+2026-10-26T13:09:53.2869276Z [36;1msource="$GITHUB_WORKSPACE/.sig-cache/native-sig-source"[0m
+2026-10-26T13:09:53.2869746Z [36;1mtest "$(git -C "$source" rev-parse HEAD)" = "$NATIVE_SIG_REVISION"[0m
+2026-10-26T13:09:53.2870184Z [36;1mmkdir -p "$RUNNER_TEMP/native-toolchain/bin"[0m
+2026-10-26T13:09:53.2870583Z [36;1mbash "$source/ci/build-sb0-codegen.sh" "$SIG_BOOTSTRAP" \[0m
+2026-10-26T13:09:53.2871086Z [36;1m  "$RUNNER_TEMP/native-toolchain/bin/sig" "$RUNNER_TEMP/native-compiler-cache"[0m
+2026-10-26T13:09:53.2871574Z [36;1mcp -a "$source/lib" "$RUNNER_TEMP/native-toolchain/lib"[0m
+2026-10-26T13:09:53.2936496Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-26T13:09:53.2936840Z env:
+2026-10-26T13:09:53.2937108Z   NATIVE_SIG_REVISION: 90a898dcbe088455f07449b7de1feaea763c42a0
+2026-10-26T13:09:53.2937478Z   SIG_RELEASE_TAG: sig-0.6.4-zig0.17.0.90a898d
+2026-10-26T13:09:53.2937878Z   SIG_RELEASE_ASSET: sig-0.6.4-zig0.17.0.90a898d-x86_64-linux.tar.xz
+2026-10-26T13:09:53.2938363Z   SIG_RELEASE_SHA256: 8dd32622531b5f81dbb12502c78e187141dd42ea3553f4d9e2c09c3e82d64a89
+2026-10-26T13:09:53.2938843Z   SOURCE_REVISION: fbe0a4568de9bc7c5d6b3bfa6fc118eb5826b596
+2026-10-26T13:09:53.2939186Z   SOURCE_DATE_EPOCH: 1793020164
+2026-10-26T13:09:53.2939496Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:09:53.2939928Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+2026-10-26T13:09:53.2940360Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:09:53.2940742Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:09:53.2941127Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:09:53.2941511Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-10-26T13:09:53.2942050Z   SIG_BOOTSTRAP: /home/runner/work/_temp/sig-bootstrap/sig-0.6.4-zig0.17.0.90a898d-x86_64-linux/bin/sig
+2026-10-26T13:09:53.2942528Z ##[endgroup]
+2026-10-26T13:15:53.7075987Z sig 0.6.3-ramsql-native (zig 0.17.0)
+2026-10-26T13:15:54.7737761Z ##[group]Run set -euo pipefail
+2026-10-26T13:15:54.7738263Z [36;1mset -euo pipefail[0m
+2026-10-26T13:15:54.7738819Z [36;1mif ! command -v qemu-system-aarch64 >/dev/null; then[0m
+2026-10-26T13:15:54.7740085Z [36;1m  # Some hosted runners throttle this mirror to a few KiB/s. Keep[0m
+2026-10-26T13:15:54.7740979Z [36;1m  # Ubuntu's signed package validation and use its official archive.[0m
+2026-10-26T13:15:54.7741734Z [36;1m  if [[ -f /etc/apt/apt-mirrors.txt ]]; then[0m
+2026-10-26T13:15:54.7742818Z [36;1m    sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt[0m
+2026-10-26T13:15:54.7743853Z [36;1m  fi[0m
+2026-10-26T13:15:54.7744580Z [36;1m  sudo timeout 180 apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update[0m
+2026-10-26T13:15:54.7746154Z [36;1m  sudo timeout 180 apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y qemu-system-arm ipxe-qemu[0m
+2026-10-26T13:15:54.7746866Z [36;1mfi[0m
+2026-10-26T13:15:54.7747210Z [36;1mbash .sig-cache/native-sig-source/ci/test-sb0-database-codegen.sh \[0m
+2026-10-26T13:15:54.7747735Z [36;1m  "$RUNNER_TEMP/native-toolchain/bin/sig" "$RUNNER_TEMP/native-probe"[0m
+2026-10-26T13:15:54.7811113Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-26T13:15:54.7811467Z env:
+2026-10-26T13:15:54.7811749Z   NATIVE_SIG_REVISION: 90a898dcbe088455f07449b7de1feaea763c42a0
+2026-10-26T13:15:54.7812117Z   SIG_RELEASE_TAG: sig-0.6.4-zig0.17.0.90a898d
+2026-10-26T13:15:54.7812484Z   SIG_RELEASE_ASSET: sig-0.6.4-zig0.17.0.90a898d-x86_64-linux.tar.xz
+2026-10-26T13:15:54.7812973Z   SIG_RELEASE_SHA256: 8dd32622531b5f81dbb12502c78e187141dd42ea3553f4d9e2c09c3e82d64a89
+2026-10-26T13:15:54.7813458Z   SOURCE_REVISION: fbe0a4568de9bc7c5d6b3bfa6fc118eb5826b596
+2026-10-26T13:15:54.7813787Z   SOURCE_DATE_EPOCH: 1793020164
+2026-10-26T13:15:54.7814100Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:15:54.7814519Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+2026-10-26T13:15:54.7815177Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:15:54.7815584Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:15:54.7815961Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:15:54.7816335Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-10-26T13:15:54.7816858Z   SIG_BOOTSTRAP: /home/runner/work/_temp/sig-bootstrap/sig-0.6.4-zig0.17.0.90a898d-x86_64-linux/bin/sig
+2026-10-26T13:15:54.7817320Z ##[endgroup]
+2026-10-26T13:15:54.8757640Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [139 B]
+2026-10-26T13:15:54.9033347Z Get:6 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease [3600 B]
+2026-10-26T13:15:54.9949335Z Get:7 https://packages.microsoft.com/ubuntu/24.04/prod noble/main armhf Packages [12.4 kB]
+2026-10-26T13:15:55.0081968Z Get:8 https://packages.microsoft.com/ubuntu/24.04/prod noble/main arm64 Packages [598 kB]
+2026-10-26T13:15:55.0247841Z Get:9 https://packages.microsoft.com/ubuntu/24.04/prod noble/main amd64 Packages [661 kB]
+2026-10-26T13:15:55.4036081Z Hit:2 https://archive.ubuntu.com/ubuntu noble InRelease
+2026-10-26T13:15:55.5036290Z Get:3 https://archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
+2026-10-26T13:15:55.8582397Z Get:4 https://archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
+2026-10-26T13:15:56.0584117Z Get:5 https://archive.ubuntu.com/ubuntu noble-security InRelease [126 kB]
+2026-10-26T13:15:56.1931108Z Get:10 https://archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages [1400 kB]
+2026-10-26T13:15:56.6630627Z Get:11 https://archive.ubuntu.com/ubuntu noble-updates/main Translation-en [310 kB]
+2026-10-26T13:15:56.7731175Z Get:12 https://archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [1706 kB]
+2026-10-26T13:15:57.0031208Z Get:13 https://archive.ubuntu.com/ubuntu noble-updates/universe Translation-en [342 kB]
+2026-10-26T13:15:57.1074855Z Get:14 https://archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Packages [1805 kB]
+2026-10-26T13:15:57.2612782Z Get:15 https://archive.ubuntu.com/ubuntu noble-updates/restricted Translation-en [411 kB]
+2026-10-26T13:15:57.3663073Z Get:16 https://archive.ubuntu.com/ubuntu noble-security/main amd64 Packages [1146 kB]
+2026-10-26T13:15:57.4927309Z Get:17 https://archive.ubuntu.com/ubuntu noble-security/main Translation-en [231 kB]
+2026-10-26T13:15:57.5928591Z Get:18 https://archive.ubuntu.com/ubuntu noble-security/universe amd64 Packages [1222 kB]
+2026-10-26T13:15:57.7207644Z Get:19 https://archive.ubuntu.com/ubuntu noble-security/universe Translation-en [246 kB]
+2026-10-26T13:15:57.9536909Z Get:20 https://archive.ubuntu.com/ubuntu noble-security/restricted amd64 Packages [1713 kB]
+2026-10-26T13:15:58.0966594Z Get:21 https://archive.ubuntu.com/ubuntu noble-security/restricted Translation-en [392 kB]
+2026-10-26T13:16:00.8129363Z Fetched 12.6 MB in 3s (3752 kB/s)
+2026-10-26T13:16:01.8529525Z Reading package lists...
+2026-10-26T13:16:01.8856579Z Reading package lists...
+2026-10-26T13:16:02.1552420Z Building dependency tree...
+2026-10-26T13:16:02.1560168Z Reading state information...
+2026-10-26T13:16:02.3754378Z The following additional packages will be installed:
+2026-10-26T13:16:02.3755688Z   libbrlapi0.8 libcacard0 libdaxctl1 libfdt1 libndctl6 libpcsclite1 libpmem1
+2026-10-26T13:16:02.3761479Z   librdmacm1t64 liburing2 libusbredirparser1t64 qemu-system-common
+2026-10-26T13:16:02.3762250Z   qemu-system-data
+2026-10-26T13:16:02.3770205Z Suggested packages:
+2026-10-26T13:16:02.3770589Z   pcscd samba vde2
+2026-10-26T13:16:02.3770957Z Recommended packages:
+2026-10-26T13:16:02.3771590Z   qemu-utils ipxe-qemu-256k-compat-efi-roms qemu-efi-aarch64 qemu-efi-arm
+2026-10-26T13:16:02.3772507Z   qemu-system-gui qemu-system-modules-spice qemu-system-modules-opengl
+2026-10-26T13:16:02.3773159Z   qemu-block-extra
+2026-10-26T13:16:02.4025961Z The following NEW packages will be installed:
+2026-10-26T13:16:02.4028195Z   ipxe-qemu libbrlapi0.8 libcacard0 libdaxctl1 libfdt1 libndctl6 libpcsclite1
+2026-10-26T13:16:02.4033838Z   libpmem1 librdmacm1t64 liburing2 libusbredirparser1t64 qemu-system-arm
+2026-10-26T13:16:02.4034807Z   qemu-system-common qemu-system-data
+2026-10-26T13:16:02.4237889Z 0 upgraded, 14 newly installed, 0 to remove and 100 not upgraded.
+2026-10-26T13:16:02.4238568Z Need to get 16.0 MB of archives.
+2026-10-26T13:16:02.4239160Z After this operation, 83.3 MB of additional disk space will be used.
+2026-10-26T13:16:02.4239857Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [139 B]
+2026-10-26T13:16:02.9566786Z Get:2 https://archive.ubuntu.com/ubuntu noble/main amd64 ipxe-qemu all 1.21.1+git-20220113.fbbdc3926-0ubuntu2 [1565 kB]
+2026-10-26T13:16:03.8286376Z Get:3 https://archive.ubuntu.com/ubuntu noble/main amd64 libbrlapi0.8 amd64 6.6-4ubuntu5 [31.4 kB]
+2026-10-26T13:16:03.9223995Z Get:4 https://archive.ubuntu.com/ubuntu noble/main amd64 libpcsclite1 amd64 2.0.3-1build1 [21.4 kB]
+2026-10-26T13:16:04.0152695Z Get:5 https://archive.ubuntu.com/ubuntu noble/main amd64 libcacard0 amd64 1:2.8.0-3build4 [36.5 kB]
+2026-10-26T13:16:04.1097399Z Get:6 https://archive.ubuntu.com/ubuntu noble/main amd64 libdaxctl1 amd64 77-2ubuntu2 [21.4 kB]
+2026-10-26T13:16:04.2027817Z Get:7 https://archive.ubuntu.com/ubuntu noble/main amd64 libndctl6 amd64 77-2ubuntu2 [62.8 kB]
+2026-10-26T13:16:04.2987769Z Get:8 https://archive.ubuntu.com/ubuntu noble/main amd64 libpmem1 amd64 1.13.1-1.1ubuntu2 [84.8 kB]
+2026-10-26T13:16:04.3956836Z Get:9 https://archive.ubuntu.com/ubuntu noble-updates/main amd64 librdmacm1t64 amd64 50.0-2ubuntu0.2 [70.7 kB]
+2026-10-26T13:16:04.4916788Z Get:10 https://archive.ubuntu.com/ubuntu noble/main amd64 liburing2 amd64 2.5-1build1 [21.1 kB]
+2026-10-26T13:16:04.5847359Z Get:11 https://archive.ubuntu.com/ubuntu noble/main amd64 libusbredirparser1t64 amd64 0.13.0-2.1build1 [16.5 kB]
+2026-10-26T13:16:04.6779977Z Get:12 https://archive.ubuntu.com/ubuntu noble/main amd64 libfdt1 amd64 1.7.0-2build1 [20.1 kB]
+2026-10-26T13:16:04.7711418Z Get:13 https://archive.ubuntu.com/ubuntu noble-updates/main amd64 qemu-system-common amd64 1:8.2.2+ds-0ubuntu1.18 [1255 kB]
+2026-10-26T13:16:04.9857433Z Get:14 https://archive.ubuntu.com/ubuntu noble-updates/main amd64 qemu-system-data all 1:8.2.2+ds-0ubuntu1.18 [1796 kB]
+2026-10-26T13:16:05.1794456Z Get:15 https://archive.ubuntu.com/ubuntu noble-updates/main amd64 qemu-system-arm amd64 1:8.2.2+ds-0ubuntu1.18 [11.0 MB]
+2026-10-26T13:16:05.7583618Z Fetched 16.0 MB in 3s (5217 kB/s)
+2026-10-26T13:16:05.7815419Z Selecting previously unselected package ipxe-qemu.
+2026-10-26T13:16:05.8114729Z (Reading database ... 
+2026-10-26T13:16:05.8115700Z (Reading database ... 5%
+2026-10-26T13:16:05.8116271Z (Reading database ... 10%
+2026-10-26T13:16:05.8116750Z (Reading database ... 15%
+2026-10-26T13:16:05.8117060Z (Reading database ... 20%
+2026-10-26T13:16:05.8117356Z (Reading database ... 25%
+2026-10-26T13:16:05.8117657Z (Reading database ... 30%
+2026-10-26T13:16:05.8117996Z (Reading database ... 35%
+2026-10-26T13:16:05.8118294Z (Reading database ... 40%
+2026-10-26T13:16:05.8118595Z (Reading database ... 45%
+2026-10-26T13:16:05.8118887Z (Reading database ... 50%
+2026-10-26T13:16:05.8167745Z (Reading database ... 55%
+2026-10-26T13:16:05.9402760Z (Reading database ... 60%
+2026-10-26T13:16:06.1478660Z (Reading database ... 65%
+2026-10-26T13:16:06.3550651Z (Reading database ... 70%
+2026-10-26T13:16:06.5413619Z (Reading database ... 75%
+2026-10-26T13:16:06.6550168Z (Reading database ... 80%
+2026-10-26T13:16:06.8031221Z (Reading database ... 85%
+2026-10-26T13:16:06.9241674Z (Reading database ... 90%
+2026-10-26T13:16:07.0603125Z (Reading database ... 95%
+2026-10-26T13:16:07.0603572Z (Reading database ... 100%
+2026-10-26T13:16:07.0604044Z (Reading database ... 203540 files and directories currently installed.)
+2026-10-26T13:16:07.0650392Z Preparing to unpack .../00-ipxe-qemu_1.21.1+git-20220113.fbbdc3926-0ubuntu2_all.deb ...
+2026-10-26T13:16:07.0679198Z Unpacking ipxe-qemu (1.21.1+git-20220113.fbbdc3926-0ubuntu2) ...
+2026-10-26T13:16:07.1044606Z Selecting previously unselected package libbrlapi0.8:amd64.
+2026-10-26T13:16:07.1175780Z Preparing to unpack .../01-libbrlapi0.8_6.6-4ubuntu5_amd64.deb ...
+2026-10-26T13:16:07.1191177Z Unpacking libbrlapi0.8:amd64 (6.6-4ubuntu5) ...
+2026-10-26T13:16:07.1426011Z Selecting previously unselected package libpcsclite1:amd64.
+2026-10-26T13:16:07.1557585Z Preparing to unpack .../02-libpcsclite1_2.0.3-1build1_amd64.deb ...
+2026-10-26T13:16:07.1565359Z Unpacking libpcsclite1:amd64 (2.0.3-1build1) ...
+2026-10-26T13:16:07.1781349Z Selecting previously unselected package libcacard0:amd64.
+2026-10-26T13:16:07.1920151Z Preparing to unpack .../03-libcacard0_1%3a2.8.0-3build4_amd64.deb ...
+2026-10-26T13:16:07.1928631Z Unpacking libcacard0:amd64 (1:2.8.0-3build4) ...
+2026-10-26T13:16:07.2295946Z Selecting previously unselected package libdaxctl1:amd64.
+2026-10-26T13:16:07.2426379Z Preparing to unpack .../04-libdaxctl1_77-2ubuntu2_amd64.deb ...
+2026-10-26T13:16:07.2434725Z Unpacking libdaxctl1:amd64 (77-2ubuntu2) ...
+2026-10-26T13:16:07.2660402Z Selecting previously unselected package libndctl6:amd64.
+2026-10-26T13:16:07.2794201Z Preparing to unpack .../05-libndctl6_77-2ubuntu2_amd64.deb ...
+2026-10-26T13:16:07.2801574Z Unpacking libndctl6:amd64 (77-2ubuntu2) ...
+2026-10-26T13:16:07.3029933Z Selecting previously unselected package libpmem1:amd64.
+2026-10-26T13:16:07.3163958Z Preparing to unpack .../06-libpmem1_1.13.1-1.1ubuntu2_amd64.deb ...
+2026-10-26T13:16:07.3173014Z Unpacking libpmem1:amd64 (1.13.1-1.1ubuntu2) ...
+2026-10-26T13:16:07.3511571Z Selecting previously unselected package librdmacm1t64:amd64.
+2026-10-26T13:16:07.3649131Z Preparing to unpack .../07-librdmacm1t64_50.0-2ubuntu0.2_amd64.deb ...
+2026-10-26T13:16:07.3657143Z Unpacking librdmacm1t64:amd64 (50.0-2ubuntu0.2) ...
+2026-10-26T13:16:07.3918533Z Selecting previously unselected package liburing2:amd64.
+2026-10-26T13:16:07.4056937Z Preparing to unpack .../08-liburing2_2.5-1build1_amd64.deb ...
+2026-10-26T13:16:07.4065585Z Unpacking liburing2:amd64 (2.5-1build1) ...
+2026-10-26T13:16:07.4296003Z Selecting previously unselected package libusbredirparser1t64:amd64.
+2026-10-26T13:16:07.4437988Z Preparing to unpack .../09-libusbredirparser1t64_0.13.0-2.1build1_amd64.deb ...
+2026-10-26T13:16:07.4445961Z Unpacking libusbredirparser1t64:amd64 (0.13.0-2.1build1) ...
+2026-10-26T13:16:07.4688620Z Selecting previously unselected package libfdt1:amd64.
+2026-10-26T13:16:07.4821016Z Preparing to unpack .../10-libfdt1_1.7.0-2build1_amd64.deb ...
+2026-10-26T13:16:07.4829145Z Unpacking libfdt1:amd64 (1.7.0-2build1) ...
+2026-10-26T13:16:07.5043449Z Selecting previously unselected package qemu-system-common.
+2026-10-26T13:16:07.5177227Z Preparing to unpack .../11-qemu-system-common_1%3a8.2.2+ds-0ubuntu1.18_amd64.deb ...
+2026-10-26T13:16:07.5184472Z Unpacking qemu-system-common (1:8.2.2+ds-0ubuntu1.18) ...
+2026-10-26T13:16:07.6154869Z Selecting previously unselected package qemu-system-data.
+2026-10-26T13:16:07.6292329Z Preparing to unpack .../12-qemu-system-data_1%3a8.2.2+ds-0ubuntu1.18_all.deb ...
+2026-10-26T13:16:07.6299636Z Unpacking qemu-system-data (1:8.2.2+ds-0ubuntu1.18) ...
+2026-10-26T13:16:07.6986673Z Selecting previously unselected package qemu-system-arm.
+2026-10-26T13:16:07.7116818Z Preparing to unpack .../13-qemu-system-arm_1%3a8.2.2+ds-0ubuntu1.18_amd64.deb ...
+2026-10-26T13:16:07.7188217Z Unpacking qemu-system-arm (1:8.2.2+ds-0ubuntu1.18) ...
+2026-10-26T13:16:07.9532026Z Setting up libfdt1:amd64 (1.7.0-2build1) ...
+2026-10-26T13:16:07.9553271Z Setting up libpcsclite1:amd64 (2.0.3-1build1) ...
+2026-10-26T13:16:07.9569325Z Setting up libdaxctl1:amd64 (77-2ubuntu2) ...
+2026-10-26T13:16:07.9585694Z Setting up qemu-system-data (1:8.2.2+ds-0ubuntu1.18) ...
+2026-10-26T13:16:07.9601416Z Setting up libusbredirparser1t64:amd64 (0.13.0-2.1build1) ...
+2026-10-26T13:16:07.9616981Z Setting up ipxe-qemu (1.21.1+git-20220113.fbbdc3926-0ubuntu2) ...
+2026-10-26T13:16:07.9637310Z Setting up libndctl6:amd64 (77-2ubuntu2) ...
+2026-10-26T13:16:07.9654354Z Setting up librdmacm1t64:amd64 (50.0-2ubuntu0.2) ...
+2026-10-26T13:16:07.9672663Z Setting up libbrlapi0.8:amd64 (6.6-4ubuntu5) ...
+2026-10-26T13:16:07.9689012Z Setting up liburing2:amd64 (2.5-1build1) ...
+2026-10-26T13:16:07.9705625Z Setting up libpmem1:amd64 (1.13.1-1.1ubuntu2) ...
+2026-10-26T13:16:07.9727217Z Setting up libcacard0:amd64 (1:2.8.0-3build4) ...
+2026-10-26T13:16:07.9745454Z Setting up qemu-system-common (1:8.2.2+ds-0ubuntu1.18) ...
+2026-10-26T13:16:08.0967400Z Created symlink /etc/systemd/system/multi-user.target.wants/qemu-kvm.service → /usr/lib/systemd/system/qemu-kvm.service.
+2026-10-26T13:16:08.0968312Z 
+2026-10-26T13:16:08.4114783Z Setting up qemu-system-arm (1:8.2.2+ds-0ubuntu1.18) ...
+2026-10-26T13:16:08.4193313Z Processing triggers for libc-bin (2.39-0ubuntu8.9) ...
+2026-10-26T13:16:08.4565646Z Processing triggers for man-db (2.12.0-4build2) ...
+2026-10-26T13:16:08.4590482Z Not building database; man-db/auto-update is not 'true'.
+2026-10-26T13:16:08.4603355Z Processing triggers for hicolor-icon-theme (0.17-2) ...
+2026-10-26T13:16:09.3522712Z 
+2026-10-26T13:16:09.3523304Z Running kernel seems to be up-to-date.
+2026-10-26T13:16:09.3523778Z 
+2026-10-26T13:16:09.3523978Z No services need to be restarted.
+2026-10-26T13:16:09.3524230Z 
+2026-10-26T13:16:09.3524388Z No containers need to be restarted.
+2026-10-26T13:16:09.3524617Z 
+2026-10-26T13:16:09.3524784Z No user sessions are running outdated binaries.
+2026-10-26T13:16:09.3525414Z 
+2026-10-26T13:16:09.3525690Z No VM guests are running outdated hypervisor (qemu) binaries on this host.
+2026-10-26T13:16:19.1043223Z native database codegen passed: /home/runner/work/_temp/native-probe/database-ReleaseSafe.sb0k
+2026-10-26T13:16:27.5441301Z native database codegen passed: /home/runner/work/_temp/native-probe/database-ReleaseSmall.sb0k
+2026-10-26T13:16:27.5537189Z ##[group]Run python - <<'PY'
+2026-10-26T13:16:27.5537518Z [36;1mpython - <<'PY'[0m
+2026-10-26T13:16:27.5537790Z [36;1mimport hashlib, json, os, subprocess, sys[0m
+2026-10-26T13:16:27.5538112Z [36;1mfrom pathlib import Path[0m
+2026-10-26T13:16:27.5538399Z [36;1msys.path.insert(0, 'tools')[0m
+2026-10-26T13:16:27.5538703Z [36;1mfrom package_release import published_toolchain[0m
+2026-10-26T13:16:27.5539280Z [36;1mroot = Path(os.environ['RUNNER_TEMP']) / 'native-toolchain'[0m
+2026-10-26T13:16:27.5539633Z [36;1mcompiler = root / 'bin/sig'[0m
+2026-10-26T13:16:27.5539927Z [36;1mrevision = os.environ['NATIVE_SIG_REVISION'][0m
+2026-10-26T13:16:27.5540265Z [36;1mrecord = {'schema': 1, 'kind': 'source-build',[0m
+2026-10-26T13:16:27.5540741Z [36;1m          'source_repository': 'https://github.com/SB0LTD/sig', 'source_revision': revision,[0m
+2026-10-26T13:16:27.5541444Z [36;1m          'library_revision': revision, 'compiler_sha256': hashlib.sha256(compiler.read_bytes()).hexdigest(),[0m
+2026-10-26T13:16:27.5542137Z [36;1m          'compiler_version': subprocess.check_output([str(compiler), 'version'], text=True).strip(),[0m
+2026-10-26T13:16:27.5542689Z [36;1m          'bootstrap': published_toolchain(), 'llvm_backend': False,[0m
+2026-10-26T13:16:27.5543152Z [36;1m          'build_command': 'ci/build-sb0-codegen.sh BOOTSTRAP OUTPUT CACHE',[0m
+2026-10-26T13:16:27.5543578Z [36;1m          'database_codegen_qemu': 'passed'}[0m
+2026-10-26T13:16:27.5544039Z [36;1m(root / 'toolchain.json').write_text(json.dumps(record, indent=2) + '\n', encoding='utf-8')[0m
+2026-10-26T13:16:27.5544470Z [36;1mPY[0m
+2026-10-26T13:16:27.5608428Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-26T13:16:27.5608771Z env:
+2026-10-26T13:16:27.5609036Z   NATIVE_SIG_REVISION: 90a898dcbe088455f07449b7de1feaea763c42a0
+2026-10-26T13:16:27.5609404Z   SIG_RELEASE_TAG: sig-0.6.4-zig0.17.0.90a898d
+2026-10-26T13:16:27.5609783Z   SIG_RELEASE_ASSET: sig-0.6.4-zig0.17.0.90a898d-x86_64-linux.tar.xz
+2026-10-26T13:16:27.5610287Z   SIG_RELEASE_SHA256: 8dd32622531b5f81dbb12502c78e187141dd42ea3553f4d9e2c09c3e82d64a89
+2026-10-26T13:16:27.5610770Z   SOURCE_REVISION: fbe0a4568de9bc7c5d6b3bfa6fc118eb5826b596
+2026-10-26T13:16:27.5611102Z   SOURCE_DATE_EPOCH: 1793020164
+2026-10-26T13:16:27.5611403Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:16:27.5611828Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+2026-10-26T13:16:27.5612239Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:16:27.5612606Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:16:27.5612987Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:16:27.5613406Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-10-26T13:16:27.5613952Z   SIG_BOOTSTRAP: /home/runner/work/_temp/sig-bootstrap/sig-0.6.4-zig0.17.0.90a898d-x86_64-linux/bin/sig
+2026-10-26T13:16:27.5614417Z ##[endgroup]
+2026-10-26T13:16:27.7159503Z ##[group]Run actions/upload-artifact@v4
+2026-10-26T13:16:27.7159803Z with:
+2026-10-26T13:16:27.7160008Z   name: native-sb0-toolchain
+2026-10-26T13:16:27.7160289Z   path: /home/runner/work/_temp/native-toolchain/
+2026-10-26T13:16:27.7160603Z   include-hidden-files: true
+2026-10-26T13:16:27.7160848Z   if-no-files-found: error
+2026-10-26T13:16:27.7161076Z   retention-days: 14
+2026-10-26T13:16:27.7161307Z   compression-level: 6
+2026-10-26T13:16:27.7161515Z   overwrite: false
+2026-10-26T13:16:27.7161704Z env:
+2026-10-26T13:16:27.7161955Z   NATIVE_SIG_REVISION: 90a898dcbe088455f07449b7de1feaea763c42a0
+2026-10-26T13:16:27.7162314Z   SIG_RELEASE_TAG: sig-0.6.4-zig0.17.0.90a898d
+2026-10-26T13:16:27.7162675Z   SIG_RELEASE_ASSET: sig-0.6.4-zig0.17.0.90a898d-x86_64-linux.tar.xz
+2026-10-26T13:16:27.7163160Z   SIG_RELEASE_SHA256: 8dd32622531b5f81dbb12502c78e187141dd42ea3553f4d9e2c09c3e82d64a89
+2026-10-26T13:16:27.7163642Z   SOURCE_REVISION: fbe0a4568de9bc7c5d6b3bfa6fc118eb5826b596
+2026-10-26T13:16:27.7164011Z   SOURCE_DATE_EPOCH: 1793020164
+2026-10-26T13:16:27.7164315Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:16:27.7164743Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+2026-10-26T13:16:27.7165461Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:16:27.7165841Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:16:27.7166412Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:16:27.7166803Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-10-26T13:16:27.7167330Z   SIG_BOOTSTRAP: /home/runner/work/_temp/sig-bootstrap/sig-0.6.4-zig0.17.0.90a898d-x86_64-linux/bin/sig
+2026-10-26T13:16:27.7167795Z ##[endgroup]
+2026-10-26T13:16:27.8956915Z (node:3298) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-26T13:16:27.8958203Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-26T13:16:30.4443599Z With the provided path, there will be 19646 files uploaded
+2026-10-26T13:16:30.4450349Z Artifact name is valid!
+2026-10-26T13:16:30.4450766Z Root directory input is valid!
+2026-10-26T13:16:30.8850755Z Beginning upload of artifact content to blob storage
+2026-10-26T13:16:32.0116701Z (node:3298) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-10-26T13:16:32.4198752Z Uploaded bytes 8388608
+2026-10-26T13:16:33.0763446Z Uploaded bytes 16777216
+2026-10-26T13:16:35.5086152Z Uploaded bytes 25165824
+2026-10-26T13:16:37.4517325Z Uploaded bytes 33554432
+2026-10-26T13:16:39.8419898Z Uploaded bytes 41943040
+2026-10-26T13:16:43.8405732Z Uploaded bytes 50331648
+2026-10-26T13:16:45.1138511Z Uploaded bytes 57402082
+2026-10-26T13:16:45.1553837Z Finished uploading artifact content to blob storage!
+2026-10-26T13:16:45.1557651Z SHA256 digest of uploaded artifact zip is c99a6a4dbc07a275f99238fc777e567be345271363773d9cea68603dece813a5
+2026-10-26T13:16:45.1560266Z Finalizing artifact upload
+2026-10-26T13:16:45.6980459Z Artifact native-sb0-toolchain.zip successfully finalized. Artifact ID 12653231862
+2026-10-26T13:16:45.6981508Z Artifact native-sb0-toolchain has been successfully uploaded! Final size is 57402082 bytes. Artifact ID is 12653231862
+2026-10-26T13:16:45.6990565Z Artifact download URL: https://github.com/SB0LTD/ramsql/actions/runs/40328158997/artifacts/12653231862
+2026-10-26T13:16:45.7500136Z ##[group]Run set -euo pipefail
+2026-10-26T13:16:45.7500483Z [36;1mset -euo pipefail[0m
+2026-10-26T13:16:45.7500771Z [36;1mroot="$RUNNER_TEMP/native-toolchain"[0m
+2026-10-26T13:16:45.7501581Z [36;1mexpected="$(python -c 'import json,os;from pathlib import Path;print(json.loads((Path(os.environ["RUNNER_TEMP"])/"native-toolchain/toolchain.json").read_text())["compiler_sha256"])')"[0m
+2026-10-26T13:16:45.7502475Z [36;1mprintf '%s  %s\n' "$expected" "$root/bin/sig" | sha256sum --check --strict -[0m
+2026-10-26T13:16:45.7502934Z [36;1mexport SIG="$root/bin/sig" SIG_LIB_DIR="$root/lib"[0m
+2026-10-26T13:16:45.7503276Z [36;1mfor format in sb0x sb0k; do[0m
+2026-10-26T13:16:45.7503546Z [36;1m  slug="aarch64-sb0-$format"[0m
+2026-10-26T13:16:45.7503840Z [36;1m  directory=".sig-cache/release/$slug"[0m
+2026-10-26T13:16:45.7504159Z [36;1m  binary="$directory/bin/ramsql.$format"[0m
+2026-10-26T13:16:45.7504675Z [36;1m  python tools/build_sb0.py --format "$format" --optimize ReleaseSmall --output "$binary"[0m
+2026-10-26T13:16:45.7505675Z [36;1m  python tools/test_sb0.py --format "$format" --image "$binary" --report "$directory/runtime-test.json"[0m
+2026-10-26T13:16:45.7506378Z [36;1m  python tools/package_release.py package --target "$slug" --binary "$binary" --output "dist/$slug" \[0m
+2026-10-26T13:16:45.7507086Z [36;1m    --revision "$SOURCE_REVISION" --source-date-epoch "$SOURCE_DATE_EPOCH" --optimize ReleaseSmall \[0m
+2026-10-26T13:16:45.7507778Z [36;1m    --verification "$directory/runtime-test.json" --toolchain-manifest "$root/toolchain.json"[0m
+2026-10-26T13:16:45.7508238Z [36;1mdone[0m
+2026-10-26T13:16:45.7571897Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-26T13:16:45.7572244Z env:
+2026-10-26T13:16:45.7572536Z   NATIVE_SIG_REVISION: 90a898dcbe088455f07449b7de1feaea763c42a0
+2026-10-26T13:16:45.7572906Z   SIG_RELEASE_TAG: sig-0.6.4-zig0.17.0.90a898d
+2026-10-26T13:16:45.7573510Z   SIG_RELEASE_ASSET: sig-0.6.4-zig0.17.0.90a898d-x86_64-linux.tar.xz
+2026-10-26T13:16:45.7574023Z   SIG_RELEASE_SHA256: 8dd32622531b5f81dbb12502c78e187141dd42ea3553f4d9e2c09c3e82d64a89
+2026-10-26T13:16:45.7574516Z   SOURCE_REVISION: fbe0a4568de9bc7c5d6b3bfa6fc118eb5826b596
+2026-10-26T13:16:45.7574850Z   SOURCE_DATE_EPOCH: 1793020164
+2026-10-26T13:16:45.7575481Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:16:45.7575920Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+2026-10-26T13:16:45.7576346Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:16:45.7576718Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:16:45.7577099Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:16:45.7577488Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-10-26T13:16:45.7578027Z   SIG_BOOTSTRAP: /home/runner/work/_temp/sig-bootstrap/sig-0.6.4-zig0.17.0.90a898d-x86_64-linux/bin/sig
+2026-10-26T13:16:45.7578513Z ##[endgroup]
+2026-10-26T13:16:45.8436650Z /home/runner/work/_temp/native-toolchain/bin/sig: OK
+2026-10-26T13:16:46.7308304Z Building aarch64-sb0 native sb0x using sig 0.6.3-ramsql-native (zig 0.17.0)
+2026-10-26T13:16:47.7495599Z .sig-cache/native-dependencies/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/src/core/sql/exec.sig:1453:9: error: too big min i128
+2026-10-26T13:16:47.7497585Z         fn restrictKeys(ctx: *E.Context, id: u16, column: usize, interval: *KeyInterval) Error!void {
+2026-10-26T13:16:47.7498522Z         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2026-10-26T13:16:47.7641060Z Traceback (most recent call last):
+2026-10-26T13:16:47.7648212Z   File "/home/runner/work/ramsql/ramsql/tools/build_sb0.py", line 112, in <module>
+2026-10-26T13:16:47.7648712Z     main()
+2026-10-26T13:16:47.7649117Z   File "/home/runner/work/ramsql/ramsql/tools/build_sb0.py", line 96, in main
+2026-10-26T13:16:47.7649949Z     subprocess.run(command, cwd=ROOT, check=True)
+2026-10-26T13:16:47.7650482Z   File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/subprocess.py", line 571, in run
+2026-10-26T13:16:47.7900995Z     raise CalledProcessError(retcode, process.args,
+2026-10-26T13:16:47.7911040Z subprocess.CalledProcessError: Command '['/home/runner/work/_temp/native-toolchain/bin/sig', 'build-exe', '-target', 'aarch64-sb0', '-mcpu=baseline', '-OReleaseSmall', '--stack', '16777216', '-fno-stack-check', '-fno-stack-protector', '-fno-unwind-tables', '-fstrip', '-ffunction-sections', '--Sig-lib-dir', '/home/runner/work/_temp/native-toolchain/lib', '--dep', 'sql', '--dep', 'db_store', '--dep', 'postgres', '--dep', 'stream_server', '--dep', 'sb0_stream', '--dep', 'sb0_options', '-Mroot=/home/runner/work/ramsql/ramsql/src/platform/sb0_app.sig', '-Msql=/home/runner/work/ramsql/ramsql/.sig-cache/native-dependencies/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/src/core/sql.sig', '-Mdb_store=/home/runner/work/ramsql/ramsql/.sig-cache/native-dependencies/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/src/db/store.sig', '-Mscram=/home/runner/work/ramsql/ramsql/.sig-cache/native-dependencies/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/src/db/scram.sig', '--dep', 'scram', '-Mpostgres=/home/runner/work/ramsql/ramsql/.sig-cache/native-dependencies/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/src/db/postgres.sig', '-Mstream_server=/home/runner/work/ramsql/ramsql/.sig-cache/native-dependencies/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/src/db/stream_server.sig', '-Msb0_stream=/home/runner/work/ramsql/ramsql/.sig-cache/native-dependencies/7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4/zpm-28036d8e173b7f5971da5905257e0cced4cff551/src/platform/sb0_stream.sig', '-Msb0_options=/home/runner/work/ramsql/ramsql/.sig-cache/native-options/sb0x/options.sig', '-femit-bin=/home/runner/work/ramsql/ramsql/.sig-cache/release/aarch64-sb0-sb0x/bin/ramsql.sb0x']' returned non-zero exit status 1.
+2026-10-26T13:16:47.8040363Z ##[error]Process completed with exit code 1.
+2026-10-26T13:16:47.8122388Z ##[group]Run actions/upload-artifact@v4
+2026-10-26T13:16:47.8122702Z with:
+2026-10-26T13:16:47.8122909Z   name: native-diagnostics
+2026-10-26T13:16:47.8123156Z   path: .sig-cache/release/
+2026-10-26T13:16:47.8123397Z   if-no-files-found: ignore
+2026-10-26T13:16:47.8123631Z   retention-days: 14
+2026-10-26T13:16:47.8123848Z   compression-level: 6
+2026-10-26T13:16:47.8124066Z   overwrite: false
+2026-10-26T13:16:47.8124280Z   include-hidden-files: false
+2026-10-26T13:16:47.8124520Z env:
+2026-10-26T13:16:47.8124789Z   NATIVE_SIG_REVISION: 90a898dcbe088455f07449b7de1feaea763c42a0
+2026-10-26T13:16:47.8125600Z   SIG_RELEASE_TAG: sig-0.6.4-zig0.17.0.90a898d
+2026-10-26T13:16:47.8125996Z   SIG_RELEASE_ASSET: sig-0.6.4-zig0.17.0.90a898d-x86_64-linux.tar.xz
+2026-10-26T13:16:47.8126502Z   SIG_RELEASE_SHA256: 8dd32622531b5f81dbb12502c78e187141dd42ea3553f4d9e2c09c3e82d64a89
+2026-10-26T13:16:47.8126991Z   SOURCE_REVISION: fbe0a4568de9bc7c5d6b3bfa6fc118eb5826b596
+2026-10-26T13:16:47.8127367Z   SOURCE_DATE_EPOCH: 1793020164
+2026-10-26T13:16:47.8127685Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:16:47.8128118Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+2026-10-26T13:16:47.8128557Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:16:47.8128939Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:16:47.8129319Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-26T13:16:47.8129712Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-10-26T13:16:47.8130257Z   SIG_BOOTSTRAP: /home/runner/work/_temp/sig-bootstrap/sig-0.6.4-zig0.17.0.90a898d-x86_64-linux/bin/sig
+2026-10-26T13:16:47.8130729Z ##[endgroup]
+2026-10-26T13:16:47.9880738Z (node:3328) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-26T13:16:47.9882067Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-26T13:16:47.9988846Z With the provided path, there will be 1 file uploaded
+2026-10-26T13:16:47.9989757Z Artifact name is valid!
+2026-10-26T13:16:47.9990225Z Root directory input is valid!
+2026-10-26T13:16:48.2642590Z Beginning upload of artifact content to blob storage
+2026-10-26T13:16:48.4685274Z (node:3328) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-10-26T13:16:48.6904242Z Uploaded bytes 564085
+2026-10-26T13:16:48.7244813Z Finished uploading artifact content to blob storage!
+2026-10-26T13:16:48.7246255Z SHA256 digest of uploaded artifact zip is 49fffa691a37ab02c6f70e27aabc3b658ad799cdd7ce35b6d87a4b1bdc7c3ec1
+2026-10-26T13:16:48.7248121Z Finalizing artifact upload
+2026-10-26T13:16:49.1920612Z Artifact native-diagnostics.zip successfully finalized. Artifact ID 12653096924
+2026-10-26T13:16:49.1922667Z Artifact native-diagnostics has been successfully uploaded! Final size is 564085 bytes. Artifact ID is 12653096924
+2026-10-26T13:16:49.1929976Z Artifact download URL: https://github.com/SB0LTD/ramsql/actions/runs/40328158997/artifacts/12653096924
+2026-10-26T13:16:49.2149121Z Post job cleanup.
+2026-10-26T13:16:49.3060319Z [command]/usr/bin/git version
+2026-10-26T13:16:49.3109882Z git version 2.55.0
+2026-10-26T13:16:49.3153783Z Temporarily overriding HOME='/home/runner/work/_temp/69a56649-f8ee-49fa-ae5e-a40226bff9e5' before making global git config changes
+2026-10-26T13:16:49.3155384Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-26T13:16:49.3159911Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ramsql/ramsql/.sig-cache/native-sig-source
+2026-10-26T13:16:49.3208701Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-26T13:16:49.3261503Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-26T13:16:49.3553085Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-26T13:16:49.3610788Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-26T13:16:49.3918598Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-26T13:16:49.3969876Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-26T13:16:49.4443821Z Post job cleanup.
+2026-10-26T13:16:49.5406637Z [command]/usr/bin/git version
+2026-10-26T13:16:49.5459228Z git version 2.55.0
+2026-10-26T13:16:49.5508001Z Temporarily overriding HOME='/home/runner/work/_temp/b97be615-736f-418f-9017-57fc37df9547' before making global git config changes
+2026-10-26T13:16:49.5509281Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-26T13:16:49.5515461Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ramsql/ramsql
+2026-10-26T13:16:49.5564629Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-26T13:16:49.5610937Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-26T13:16:49.5902280Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-26T13:16:49.5934632Z http.https://github.com/.extraheader
+2026-10-26T13:16:49.5951952Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-10-26T13:16:49.5996167Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-26T13:16:49.6278949Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-26T13:16:49.6343140Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-26T13:16:49.6762114Z Cleaning up orphan processes
+2026-10-26T13:16:49.7153991Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

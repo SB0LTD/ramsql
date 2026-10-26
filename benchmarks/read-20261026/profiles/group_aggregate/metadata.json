@@ -1,0 +1,26 @@
+{
+  "command": [
+    "/home/sb/.cache/ramsql-qualification/read-io/bin/ramsql-review-bench",
+    "1000000",
+    "100000",
+    "--profile-ready",
+    "--case",
+    "group_aggregate",
+    "--permuted"
+  ],
+  "case": "group_aggregate",
+  "rows": 1000000,
+  "iterations": 100000,
+  "frequency": 499,
+  "layout": "permuted",
+  "event": "cpu-clock:u",
+  "hardware_PMU_sampled": false,
+  "control_directory": "/tmp/ramsql-perf-control-4hh1rsgc",
+  "os": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "binary_sha256": "24c7afba6eb68a853fb53b366ce166ef10fe93a698c54ee3026ca5bdcb7b1d08",
+  "dependency_manifest": ".{\n    .name = .@\"ramsql\",\n    .version = \"0.3.0-alpha.4\",\n    .fingerprint = 0x0,\n    .dependencies = .{\n        .zpm = .{\n            .url = \"https://github.com/SB0LTD/zpm/archive/28036d8e173b7f5971da5905257e0cced4cff551.tar.gz\",\n            .hash = \"7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4\",\n        },\n    },\n    .paths = .{\n        \"build.sig\",\n        \"build.sig.zon\",\n        \"src\",\n        \"zpm.pkg.zon\", \"tests\", \"examples\", \"README.md\", \"LICENSE\", \"AGENTS.md\", \"tools\", \"compatibility\", \"benchmarks\",\n    },\n}\n",
+  "benchmark_source_sha256": "98fbacb5928f9a055d6dd4ca3f55bb998a7490af77297f0abac23a8bc7a1ab51",
+  "started_unix": 1793019479.2965145,
+  "duration_seconds": 4.09380316734314,
+  "scope": "Sampled user CPU after acknowledged barrier; profiling overhead included; not comparison throughput."
+}

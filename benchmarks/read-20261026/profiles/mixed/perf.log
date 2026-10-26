@@ -1,0 +1,4 @@
+Events disabled
+Events enabled
+[ perf record: Woken up 105 times to write data ]
+[ perf record: Captured and wrote 25.957 MB /home/sb/.cache/ramsql-profiling/read-20261026/mixed/perf.data (3221 samples) ]

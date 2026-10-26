@@ -1,0 +1,25 @@
+{
+  "passed": true,
+  "target": "aarch64-sb0",
+  "format": "sb0k",
+  "image_sha256": "dc54dc61e28c7b8ad6cada4c6a427d24557d1618c8b609d3445501e10bef55cd",
+  "assertions": 692,
+  "tests": [
+    "native_container_bounds_and_entry",
+    "privileged_native_reset_and_UART",
+    "fragmented_postgres_startup",
+    "SQL_create_insert_select_null",
+    "dense_ordered_PK_ranges_and_i64_endpoints",
+    "independent_transaction_rollback",
+    "transaction_commit",
+    "extended_Parse_Bind_Describe_Execute_binary",
+    "large_text_aggregate_copies_and_multirow_result",
+    "failed_transaction_rollback",
+    "SQL_error_recovery_delete_drop",
+    "clean_termination_and_no_native_fault"
+  ],
+  "transport": "uart",
+  "durable_storage": false,
+  "tcp": false,
+  "scram": false
+}

@@ -1,0 +1,6 @@
+{
+  "queries": 10000,
+  "elapsed_seconds": 3.685939687000001,
+  "binary_sha256": "105b0cd1073bc228eedbe553a0cc0c91bdabbcf98a1a66f704988fcee3179caf",
+  "scope": "strace wall syscall totals include startup, 64-row seed, connection setup and shutdown; latency contains tracing overhead; not comparative throughput"
+}

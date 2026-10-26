@@ -69,6 +69,7 @@ const Raw = sql.Database(.{
     .tx_writes = profile.tx_writes,
     .transactions = profile.transactions,
     .work_rows = profile.work_rows,
+    .summary_groups = profile.summary_groups,
 });
 const Store = stores.Store(Raw);
 const DB = Store.Connection;
@@ -455,10 +456,14 @@ pub fn run(options: Options) !void {
     defer for (&clients) |*client| if (client.socket != tcp.invalid_socket) {
         client.close();
     };
+    // Probe once at startup, then accept only after readiness. Queues that
+    // exceed the bounded accept batch stay readable on the next poll. The
+    // separate execution hook still accepts CancelRequests during long SQL.
+    var listener_ready: [3]bool = @splat(true);
     while (true) {
         // Bound accept work so connection churn cannot monopolize the reactor.
-        for (listeners[0..count], protocols[0..count]) |listener, protocol| {
-            try acceptConnections(listener, protocol, options.max_clients, capacity);
+        for (listeners[0..count], protocols[0..count], listener_ready[0..count]) |listener, protocol, ready| {
+            if (ready) try acceptConnections(listener, protocol, options.max_clients, capacity);
         }
         pollOverflowCancels(sig.os.clockMonotonicNs());
         var sockets: [capacity + 2]tcp.Socket = @splat(tcp.invalid_socket);
@@ -515,7 +520,8 @@ pub fn run(options: Options) !void {
             const ms: u32 = if (remaining <= 0) 0 else @intCast(@min(@divFloor(remaining + 999999, 1000000), timeout));
             timeout = @min(timeout, ms);
         }
-        _ = try tcp.waitMasked(listeners[0], &sockets, &readable, &writable, if (buffered) 0 else timeout);
+        listener_ready[0] = try tcp.waitMasked(listeners[0], &sockets, &readable, &writable, if (buffered) 0 else timeout);
+        for (1..count) |index| listener_ready[index] = readable[capacity + index - 1];
         for (clients[0..options.max_clients], 0..) |*client, index| {
             if (client.socket == tcp.invalid_socket) continue;
             if (writable[index]) {
