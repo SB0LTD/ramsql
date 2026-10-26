@@ -15,7 +15,7 @@
   },
   "baseline_zpm": "c3a00ab039259e9834e01f04dc91c3107a0484fe",
   "latest_irdb": "1.10.821",
-  "current_zpm": "28036d8e173b7f5971da5905257e0cced4cff551",
+  "current_zpm": "af13ce23a975bfea3681bdec84000a0d3f19a5e9",
   "scope": "Working source hashes identify the candidate before its documentation/evidence commit. Per-series binary hashes are authoritative; staged runs use the revisions described in REPORT.md.",
   "environment": {
     "os": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
@@ -39,5 +39,13 @@
       "sha256": "8b75d636c639972e8988661c518ee3648535b48dc575a3c2d3270b29ace47f3b"
     }
   },
-  "reference_postgres": "postgres (PostgreSQL) 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)"
+  "reference_postgres": "postgres (PostgreSQL) 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)",
+  "measured_zpm": "28036d8e173b7f5971da5905257e0cced4cff551",
+  "final_integration_manifest": ".{\n    .name = .@\"ramsql\",\n    .version = \"0.3.0-alpha.4\",\n    .fingerprint = 0x0,\n    .dependencies = .{\n        .zpm = .{\n            .url = \"https://github.com/SB0LTD/zpm/archive/af13ce23a975bfea3681bdec84000a0d3f19a5e9.tar.gz\",\n            .hash = \"e7e45587575c28675d6738771a50bb7dc05740b9fd7b752c899b0be1b9cedf11\",\n        },\n    },\n    .paths = .{\n        \"build.sig\",\n        \"build.sig.zon\",\n        \"src\",\n        \"zpm.pkg.zon\", \"tests\", \"examples\", \"README.md\", \"LICENSE\", \"AGENTS.md\", \"tools\", \"compatibility\", \"benchmarks\",\n    },\n}\n",
+  "native_portability_fix": "Equivalent signed comparisons replace unsupported native i128 min/max; throughput/profile tables remain tied to measured_zpm and their recorded binary hashes.",
+  "source_hash_scope": "source_sha256 describes the measured 28036d8 integration before the native portability correction; final_changed_source_sha256 identifies the changed RAMSQL files.",
+  "final_changed_source_sha256": {
+    "build.sig.zon": "ec097f269189d675c11d0b5825f0695214fef83e1066cd4567d203f00c27549a",
+    "tools/test_sb0.py": "2b80fe6c6abec02d8593d41b2a18338fe2607cf69f5347a882a22e6f51296879"
+  }
 }

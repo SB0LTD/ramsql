@@ -273,6 +273,19 @@ def exercise(guest, kind, proof):
     guest.query("INSERT INTO sb0_probe VALUES (8, NULL)")
     guest.query("SELECT id,value FROM sb0_probe ORDER BY id", [["7", "native PostgreSQL"], ["8", None]])
     proof.tests.append("SQL_create_insert_select_null")
+    # Shuffled dense keys force ordered hash probes rather than the physical
+    # order proof. Exercise signed 128-bit interval intermediates on native
+    # code generation, including endpoints just outside the i64 domain.
+    guest.query("CREATE TABLE range_probe (id BIGINT PRIMARY KEY)")
+    guest.query("INSERT INTO range_probe VALUES " + ",".join(f"({(i*17)%64})" for i in range(64)))
+    guest.query("SELECT id FROM range_probe WHERE id>=7 AND id<19 ORDER BY id LIMIT 3", [["7"],["8"],["9"]])
+    guest.query("SELECT id FROM range_probe WHERE 19>id AND 7<=id ORDER BY id DESC LIMIT 3", [["18"],["17"],["16"]])
+    guest.query("SELECT id FROM range_probe WHERE id>7 AND id<=11 ORDER BY id LIMIT 3", [["8"],["9"],["10"]])
+    guest.query("SELECT id FROM range_probe WHERE id < -9223372036854775808 ORDER BY id LIMIT 3", [])
+    guest.query("SELECT id FROM range_probe WHERE id > 9223372036854775807 ORDER BY id LIMIT 3", [])
+    guest.query("SELECT COUNT(*) FROM range_probe", [["64"]])
+    guest.query("DROP TABLE range_probe")
+    proof.tests.append("dense_ordered_PK_ranges_and_i64_endpoints")
     guest.query("BEGIN", status=b"T")
     guest.query("UPDATE sb0_probe SET value='transaction view' WHERE id=7", status=b"T")
     guest.query("SELECT value FROM sb0_probe WHERE id=7", [["transaction view"]], status=b"T")

@@ -6,7 +6,7 @@ This is a measured development iteration, not a production-readiness or universa
 
 ReleaseFast Sig 0.6.4 / matched compiler 90a898d on an Intel Core i9-14900HX, Ubuntu/WSL2 Linux 6.6.87.2. One client; deterministic four-column fixture. Every result is consumed and independently checked. No throughput run overlapped our builds or profiling. CPU affinity/frequency and unrelated host activity were not controlled. Small differences and overlapping ranges do not establish significance.
 
-The preserved native baseline uses ZPM `c3a00ab039259e9834e01f04dc91c3107a0484fe` (the preceding merged optimization implementation). Current integration pins `28036d8e173b7f5971da5905257e0cced4cff551`, archive SHA-256 `7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4`. `SOURCE_STATE.json` records current source hashes; raw results identify every binary hash.
+The preserved native baseline uses ZPM `c3a00ab039259e9834e01f04dc91c3107a0484fe` (the preceding merged optimization implementation). The recorded throughput/profile integration pins `28036d8e173b7f5971da5905257e0cced4cff551`, archive SHA-256 `7a04a0b93f676af19a887cad572dd8c89487534349bcdeffe78fd9fac67ca8e4`. `SOURCE_STATE.json` records current source hashes; raw results identify every binary hash.
 
 | Stage | ZPM revision | Change |
 | --- | --- | --- |
@@ -151,3 +151,11 @@ python tools/profile_server_syscalls.py --binary /path/to/current/ramsql --strac
 ```
 
 Remove `--permuted` for ordered insertion; repeat at 512 rows. Run builds, CPU profiling and unprofiled throughput sequentially. IRDB adapter sources/locked package and the `irdb_measure` duration-calibrated driver are in `tools/`. Retain unsupported/incorrect results rather than excluding cases.
+
+## Native portability correction after the throughput runs
+
+The first RAMSQL release qualification (40328158997) found the pinned native AArch64 compiler rejecting 128-bit `@min/@max` in key interval restrictions (`too big min i128`). Hosted CI passed, but that release matrix failed; it is not counted as a qualified release. ZPM follow-up `af13ce23a975bfea3681bdec84000a0d3f19a5e9` expresses the same narrowing with explicit signed comparisons. The final integration archive SHA-256 is `e7e45587575c28675d6738771a50bb7dc05740b9fd7b752c899b0be1b9cedf11`.
+
+The existing ReleaseSafe ordered-probe model still passes 188 assertions. Both SB0X and SB0K now build and pass the strengthened local QEMU protocol/SQL tests with the exact downloaded CI compiler (SHA-256 `742f9ea6e62ec02a1412c77357a48341dc98f84a4a9f23f0f31cefa73e913b32`, source 90a898d). New tests use shuffled dense BIGINT keys, ascending/descending and flipped constraints, and empty ranges beyond both i64 endpoints. Native reports, image metadata, toolchain provenance and the initial failed CI log are retained in `native-portability-fix/`.
+
+The throughput tables above remain measurements of 28036d8, not retrospective measurements of the final corrected pin. The final integration must pass the rerun platform/release artifact checks on RAMSQL PR 11; no failed or pending native check is treated as passed. Native QEMU fixtures remain trusted, memory-only transports and do not prove native TCP, storage, authentication or full-OS deployment.

@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "kind": "source-build",
+  "source_repository": "https://github.com/SB0LTD/sig",
+  "source_revision": "90a898dcbe088455f07449b7de1feaea763c42a0",
+  "library_revision": "90a898dcbe088455f07449b7de1feaea763c42a0",
+  "compiler_sha256": "742f9ea6e62ec02a1412c77357a48341dc98f84a4a9f23f0f31cefa73e913b32",
+  "compiler_version": "sig 0.6.3-ramsql-native (zig 0.17.0)",
+  "bootstrap": {
+    "kind": "published-release",
+    "release": "sig-0.6.4-zig0.17.0.90a898d",
+    "asset": "sig-0.6.4-zig0.17.0.90a898d-x86_64-linux.tar.xz",
+    "sha256": "8dd32622531b5f81dbb12502c78e187141dd42ea3553f4d9e2c09c3e82d64a89"
+  },
+  "llvm_backend": false,
+  "build_command": "ci/build-sb0-codegen.sh BOOTSTRAP OUTPUT CACHE",
+  "database_codegen_qemu": "passed"
+}
