@@ -1,0 +1,7 @@
+.
+{"metadata":true,"engine":"InMemory.Net.irdb","package_version":"1.10.821","runtime":".NET 10.0.14","rows":100000,"requests":64,"load_ns":612624400,"warmup_ns":2054620600,"warmup_cycles":1,"import_compiled":true,"id_clustered_index":true}
+{"trial":0,"passed":true,"operations":64,"cycles":1,"elapsed_ns":1775657800,"p50_upper_ns":524288,"p95_upper_ns":134217728,"p99_upper_ns":134217728}
+{"trial":1,"passed":true,"operations":64,"cycles":1,"elapsed_ns":1704443500,"p50_upper_ns":524288,"p95_upper_ns":134217728,"p99_upper_ns":134217728}
+{"trial":2,"passed":true,"operations":64,"cycles":1,"elapsed_ns":1732296000,"p50_upper_ns":524288,"p95_upper_ns":134217728,"p99_upper_ns":134217728}
+{"trial":3,"passed":true,"operations":64,"cycles":1,"elapsed_ns":1743293900,"p50_upper_ns":1048576,"p95_upper_ns":67108864,"p99_upper_ns":134217728}
+{"trial":4,"passed":true,"operations":64,"cycles":1,"elapsed_ns":1827092800,"p50_upper_ns":524288,"p95_upper_ns":134217728,"p99_upper_ns":134217728}

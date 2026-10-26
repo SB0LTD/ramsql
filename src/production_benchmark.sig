@@ -28,6 +28,9 @@ const Reader=struct {
 };
 fn mix(h:u64,value:u64) u64 {return h*%1099511628211 ^ value;}
 fn execute(request:Request) !void {
+    // Flat reads/DML do not enter the aggregate workspace reset path.
+    // Do not attribute the preceding physical post-check to those requests.
+    db.workspace.query.stream_stats=.{};
     try db.execute(request.source,&result);
     if(request.kind==2) {
         if((result.command!=.update and result.command!=.insert and result.command!=.delete) or result.affected_rows!=request.rows) return error.WrongAffectedCount;

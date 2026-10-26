@@ -1,0 +1,3 @@
+..........
+
+{"metadata":true,"engine":"InMemory.Net.irdb","package_version":"1.10.821","runtime":".NET 10.0.14","rows":1000000,"requests":1024,"load_ns":4005470400,"warmup_ns":88260764600,"warmup_cycles":1,"import_compiled":true,"id_clustered_index":true}

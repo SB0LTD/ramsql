@@ -1,0 +1,14 @@
+{
+  "cpu": {
+    "Name": "Intel(R) Core(TM) i9-14900HX",
+    "NumberOfCores": 24,
+    "NumberOfLogicalProcessors": 32
+  },
+  "os": {
+    "Caption": "Microsoft Windows 11 Home",
+    "Version": "10.0.26300",
+    "BuildNumber": "26300",
+    "TotalVisibleMemorySize": 33271672
+  },
+  "note": "CPU affinity/frequency and unrelated host activity were not controlled. Local builds/profiles were not run concurrently with throughput."
+}

@@ -1,0 +1,6 @@
+{
+  "name": "dotnet-runtime-win-x64.zip",
+  "rid": "win-x64",
+  "url": "https://builds.dotnet.microsoft.com/dotnet/Runtime/10.0.14/dotnet-runtime-10.0.14-win-x64.zip",
+  "hash": "a176095f1db69b42c81acc60940744078d6bf2d2ac643e418342aa9c81889f4bd13e42f4621b131f9e77e4bc781ad46e375956219df9a4f979031d2a5a8d93cd"
+}
