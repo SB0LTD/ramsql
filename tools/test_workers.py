@@ -12,6 +12,7 @@ import tempfile
 import time
 from test_postgres_compat import running_ramsql
 from test_server import PG, Server, connection, errors, expect_closed, expect_error, query_packet
+from benchmark import process_memory
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'.sig-cache/client-deps'))
@@ -118,6 +119,37 @@ def concurrent_join_and_aggregate_reads(binary):
             assert sorted(pool.map(read,range(8)))==list(range(8))
 
 
+def worker_scratch_reuse(binary):
+    caps=json.loads(subprocess.check_output([str(binary),'--capabilities','--workers','4']))
+    with Server(binary,max_clients=8,extra_arguments=('--workers','4')) as server:
+        clients=[PG(server.raw()) for _ in range(8)]
+        try:
+            for pg in clients:pg.startup()
+            clients[0].ok('CREATE TABLE clock(t TIMESTAMPTZ)')
+            clients[0].ok("INSERT INTO clock VALUES('2024-01-02 00:00:00+00')")
+            # Every reactor warms one context; the next four clients reuse it.
+            for pg in clients[:4]:pg.ok('SELECT 1',[['1']])
+            before=process_memory(server.process)
+            zones=[('UTC','2024-01-02 00:00:00+00'),('UTC+2','2024-01-01 22:00:00-02'),
+                   ('UTC-3','2024-01-02 03:00:00+03')]
+            for identity,pg in enumerate(clients):pg.ok(f"SET TIME ZONE '{zones[identity%3][0]}'")
+            for _ in range(8):
+                for identity,pg in enumerate(clients):
+                    pg.ok('SELECT t FROM clock',[[zones[identity%3][1]]])
+            after=process_memory(server.process)
+            assert before and after,(before,after)
+            metric='private_commit_bytes' if os.name=='nt' else 'virtual_bytes'
+            growth=after[metric]-before[metric]
+            # Page rounding and OS bookkeeping may vary, but another four full
+            # contexts must not be reserved when the second set of clients reads.
+            allowance=max(1024*1024,caps['read_context_payload_bytes_per_worker']//2)
+            assert growth<allowance,(metric,growth,allowance,before,after)
+            return dict(metric=metric,growth_bytes=growth,payload_bytes_per_worker=caps['read_context_payload_bytes_per_worker'],
+                        before=before,after=after,clients=8,workers=4)
+        finally:
+            for pg in clients:pg.close()
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--binary',type=Path,default=ROOT/'sig-out/bin'/('ramsql.exe' if os.name=='nt' else 'ramsql'))
@@ -161,8 +193,10 @@ def main():
     cancel_during_work(binary)
     parallel_read_and_writer_gate(binary)
     concurrent_join_and_aggregate_reads(binary)
+    scratch=worker_scratch_reuse(binary)
     print(json.dumps(dict(suite='workers',passed=True,reactors=4,shared_counter_updates=800,durable_restart=True,running_cancel=True,
-                         concurrent_reads=True,writer_exclusion=True,uncommitted_visibility=True,three_way_join_and_cte_queries=192)))
+                         concurrent_reads=True,writer_exclusion=True,uncommitted_visibility=True,three_way_join_and_cte_queries=192,
+                         worker_scratch_reuse=True,reader_session_isolation=True,scratch_reuse=scratch)))
 
 
 if __name__=='__main__':main()

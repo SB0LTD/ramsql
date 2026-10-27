@@ -10,7 +10,8 @@ later binary.
   server page regions and worker allowances to a shared admission ledger. Add
   `--machine-capacity`, `--memory-budget` and `--os-headroom` diagnostics/options.
 - Allow concurrent PostgreSQL simple autocommit reads with multiple native
-  workers. Private execution contexts share table storage under a reader/writer
+  workers. Execution contexts are owned per worker and reused between clients, sharing
+  table storage under a reader/writer
   gate; mutations and reclamation remain exclusive. Read memory is budgeted,
   with exclusive fallback when private buffers cannot be admitted.
 - Check concurrent wire execution, cancellation/timeouts, writer exclusion and

@@ -141,10 +141,12 @@ The default uses one reactor. Windows and no-libc Linux builds offer experimenta
 
 Published beta.2 serializes SQL execution. In development builds, idle autocommit
 PostgreSQL simple-protocol `SELECT`/`WITH` queries can execute concurrently using
-private parser, execution and result storage. Writes, transactions, COPY, extended
+parser/execution storage owned per worker and results owned per client. Writes,
+transactions, COPY, extended
 protocol queries and dynamic time-zone resolution retain exclusive execution.
 A reader/writer gate prevents publication or reclamation while readers execute.
-Private read storage is charged to the machine budget; insufficient headroom
+Worker read storage is reused between clients and released when its reactor
+becomes idle or stops. It is charged to the machine budget; insufficient headroom
 falls back to exclusive execution. macOS/native SB0 still use one worker.
 Check `parallel_simple_reads`, `sql_execution_workers` and
 `native_workers_available` in `--capabilities`. This is inter-query concurrency;

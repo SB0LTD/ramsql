@@ -1,0 +1,21 @@
+{
+  "metric": "private_commit_bytes",
+  "growth_bytes": 32768,
+  "payload_bytes_per_worker": 11082880,
+  "before": {
+    "rss_bytes": 23502848,
+    "peak_rss_bytes": 23502848,
+    "private_commit_bytes": 466493440,
+    "source": "GetProcessMemoryInfo"
+  },
+  "after": {
+    "rss_bytes": 23654400,
+    "peak_rss_bytes": 23654400,
+    "private_commit_bytes": 466526208,
+    "source": "GetProcessMemoryInfo"
+  },
+  "clients": 8,
+  "workers": 4,
+  "binary_sha256": "9fa8d7e3e2003d7f81b9bddae57475d4c3c4396d7de6f33a8a66effbc0d3fe27",
+  "correctness_checked": true
+}

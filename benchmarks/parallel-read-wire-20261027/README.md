@@ -18,7 +18,7 @@ Median of three trials; eight clients in every row below. CPU time is server pro
 
 Expression aggregate: `COUNT(*), SUM(value*value)`. Filtered aggregate: `COUNT(*), SUM(value) WHERE id % 7=3`. These require evaluation beyond the maintained whole-table scalar summaries. This dataset is small and cache-resident; it does not model a 100M-row database or prove a production reference-engine win.
 
-PK trials use 5,000 operations/client and the default 4,096 workspace rows. Aggregate trials use 1,000 operations/client and explicit 8,192 workspace rows. Harness copies, binary SHA-256, individual trials and memory snapshots are retained in each sibling directory. The benchmark binary predates the final capabilities-report field additions; no execution path changed afterward.
+PK trials use 5,000 operations/client and the default 4,096 workspace rows. Aggregate trials use 1,000 operations/client and explicit 8,192 workspace rows. Harness copies, binary SHA-256, individual trials and memory snapshots are retained in each sibling directory. The benchmark binary uses the initial per-client scratch ownership. The subsequent worker-owned scratch revision has its own memory evidence; these timing results must not be attributed to an unmeasured later binary.
 
 ## Native phase probe
 
@@ -29,3 +29,15 @@ The checked hot-key probe runs 10,000 queries/trial. Median legacy raw execution
 ## Correctness scope
 
 Separate server tests prove simultaneous read execution, writer exclusion, cancellation, statement-timeout recovery and uncommitted visibility. Eight clients also check 192 three-way-join/CTE aggregate queries. Those are assertions, not benchmark results. Extended-protocol reads and transactions still use exclusive execution.
+
+## Worker-owned scratch revision
+
+`worker-scratch-reuse.json` measures the later ReleaseSafe server: all eight clients are connected, the first four warm every worker context, then the next four issue reads while all eight alternate time zones on typed timestamp output. Private commit growth must remain below half of one full context payload (with OS-bookkeeping allowance), rather than reserving another four contexts. This is a checked ownership/session-isolation test, not a throughput measurement. Contexts are released when their reactor has no active clients or stops.
+
+The later ReleaseFast worker-owned revision has separate checked PK trials in [worker-scratch-wire-20261027](../worker-scratch-wire-20261027/results.json). Eight clients, 5,000 requests/client, median of three trials:
+
+| Workers | Queries/s | Server CPU us/query |
+| --- | ---: | ---: |
+| 1 | 69,737 | 14.06 |
+| 4 | 122,211 | 28.52 |
+| 8 | 136,436 | 29.69 |
