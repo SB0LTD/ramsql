@@ -91,7 +91,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--binary',action='append',type=Path,required=True)
     parser.add_argument('--clients',type=int,nargs='+',default=[1,4,8])
-    parser.add_argument('--workers',type=int,nargs='+',default=[1],help='native server reactors; SQL remains serialized')
+    parser.add_argument('--workers',type=int,nargs='+',default=[1],help='native server reactors; read concurrency depends on the binary')
     parser.add_argument('--operations',type=int,default=20000,help='operations per client per trial')
     parser.add_argument('--rows',type=int,default=8192)
     parser.add_argument('--trials',type=int,default=3)

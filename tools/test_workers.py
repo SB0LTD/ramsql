@@ -3,6 +3,7 @@ import argparse
 from concurrent.futures import ThreadPoolExecutor
 import json
 import os
+import select
 from pathlib import Path
 import struct
 import subprocess
@@ -39,6 +40,47 @@ def cancel_during_work(binary):
             pg.ok('SELECT COUNT(*) FROM work',[['256']])
         finally:
             pg.close()
+
+
+def parallel_read_and_writer_gate(binary):
+    """Prove wire-level read overlap and publication exclusion, without timing throughput."""
+    with Server(binary,max_clients=16,extra_arguments=('--workers','4')) as server:
+        clients=[PG(server.raw()) for _ in range(3)]
+        try:
+            startup=[pg.startup() for pg in clients]
+            slow,fast,writer=clients
+            slow.ok('CREATE TABLE overlap(id INT PRIMARY KEY,value INT)')
+            for start in range(0,256,64):
+                slow.ok('INSERT INTO overlap VALUES '+','.join(f'({i},{i})' for i in range(start,start+64)))
+            query=('SELECT a.id FROM overlap a WHERE '
+                   '(SELECT COUNT(*) FROM overlap b WHERE b.id < '
+                   '(SELECT COUNT(*) FROM overlap c WHERE c.id < a.id)) < 0')
+            slow.sock.sendall(query_packet(query))
+            time.sleep(0.04)
+            fast.ok('SELECT value FROM overlap WHERE id=1',[['1']])
+            assert not select.select([slow.sock],[],[],0)[0], 'long query ended before overlap was demonstrated'
+            writer.sock.sendall(query_packet('UPDATE overlap SET value=99 WHERE id=1'))
+            assert not select.select([writer.sock],[],[],0.04)[0], 'writer published during an active reader'
+            keys=[struct.unpack('!II',body) for tag,body in startup[0] if tag==b'K']
+            assert len(keys)==1
+            with server.raw() as cancel:
+                cancel.sendall(struct.pack('!IIII',16,80877102,*keys[0]))
+                expect_closed(PG(cancel))
+            expect_error(slow.ready(),'57014')
+            assert not errors(writer.ready()), 'queued writer failed after reader cancellation'
+            fast.ok('SELECT value FROM overlap WHERE id=1',[['99']])
+            slow.ok('SELECT COUNT(*) FROM overlap',[['256']])
+            writer.ok('BEGIN',status=b'T')
+            writer.ok('UPDATE overlap SET value=100 WHERE id=1',status=b'T')
+            fast.ok('SELECT value FROM overlap WHERE id=1',[['99']])
+            writer.ok('ROLLBACK')
+            fast.ok('SELECT value FROM overlap WHERE id=1',[['99']])
+            fast.ok('SET statement_timeout=20')
+            expect_error(fast.query(query),'57014')
+            fast.ok('SET statement_timeout=0')
+            fast.ok('SELECT value FROM overlap WHERE id=1',[['99']])
+        finally:
+            for pg in clients:pg.close()
 
 
 def main():
@@ -79,7 +121,9 @@ def main():
             with psycopg.connect(**conn) as db:
                 assert db.execute('SELECT value FROM counter WHERE id=1').fetchone()==(800,)
     cancel_during_work(binary)
-    print(json.dumps(dict(suite='workers',passed=True,reactors=4,shared_counter_updates=800,durable_restart=True,running_cancel=True)))
+    parallel_read_and_writer_gate(binary)
+    print(json.dumps(dict(suite='workers',passed=True,reactors=4,shared_counter_updates=800,durable_restart=True,running_cancel=True,
+                         concurrent_reads=True,writer_exclusion=True,uncommitted_visibility=True)))
 
 
 if __name__=='__main__':main()

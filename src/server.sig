@@ -1,4 +1,4 @@
-//! Product policy and bounded single-threaded database reactor.
+//! Product policy, bounded reactors and shared-store read scheduling.
 //!
 //! One shared READ COMMITTED store serves every client; there are no
 //! per-client database copies. A statement that waits for a lock parks its
@@ -42,7 +42,7 @@ pub const Options = struct {
     mysql_port: ?u16 = null,
     mssql_port: ?u16 = null,
     max_clients: usize = profile.clients,
-    /// Socket/protocol reactors; shared database execution remains serialized.
+    /// Reactors and concurrent simple readers; mutations remain exclusive.
     workers: usize = 1,
     memory: bool = false,
     data: []const u8 = "ramsql.wal",
@@ -143,6 +143,11 @@ const Client = struct {
     output: []u8 = &.{},
     result_region: owned_pages.Region = .{},
     output_region: owned_pages.Region = .{},
+    read_metadata:owned_pages.Region=.{},
+    read_scratch:owned_pages.Region=.{},
+    read_context:?*Raw.ReadContext=null,
+    read_deadline:?i64=null,
+    read_retry_at:i64=0,
     output_len: usize = 0,
     output_sent: usize = 0,
     closing: bool = false,
@@ -162,6 +167,9 @@ const Client = struct {
         lockMemory();
         self.result_region.close() catch @panic("lost client result ownership");
         self.output_region.close() catch @panic("lost client response ownership");
+        self.read_context=null;
+        self.read_scratch.close() catch @panic("lost read workspace ownership");
+        self.read_metadata.close() catch @panic("lost read context ownership");
         unlockMemory();
         self.output = &.{};
         self.socket = tcp.invalid_socket;
@@ -180,6 +188,7 @@ const Client = struct {
                 cancelBackend(key); self.consume(16); self.closing = true; return;
             }
         }
+        if(try self.dispatchRead()) return;
         lockStore();
         defer unlockStore();
         if (parallel) {
@@ -224,6 +233,69 @@ const Client = struct {
         } else if (self.input_len == self.input.len) return error.RequestTooLarge;
         self.output_len += reply.written;
         self.closing = reply.close;
+    }
+
+    fn provisionRead(self:*Client) !void {
+        if(self.read_context!=null) return;
+        lockMemory();defer unlockMemory();
+        try refreshMemoryBudget();
+        try self.read_metadata.reserve(&memory_ledger,@sizeOf(Raw.ReadContext));
+        errdefer self.read_metadata.close() catch @panic("lost failed reader metadata");
+        try self.read_scratch.reserve(&memory_ledger,try Raw.ReadContext.backingBytesFor(selected_work_rows,selected_read_refs));
+        errdefer self.read_scratch.close() catch @panic("lost failed reader scratch");
+        const contexts=try self.read_metadata.memory.view(Raw.ReadContext,0,1);
+        contexts[0]=.{};
+        try contexts[0].bindMemoryFor(self.read_scratch.memory.bytes,selected_work_rows,selected_read_refs);
+        self.read_context=&contexts[0];
+    }
+    fn pollRead(raw:?*anyopaque) Raw.SqlError!void {
+        const self:*Client=@ptrCast(@alignCast(raw.?));
+        const requested=self.cancel_request.swap(0,.acq_rel);
+        if(requested!=0 and requested==self.cancel_key.load(.acquire)) return error.QueryCanceled;
+        if(self.read_deadline) |deadline| if(monotonicClock()>=deadline) return error.QueryCanceled;
+    }
+    fn dispatchRead(self:*Client) !bool {
+        if(!parallel or self.session!=.postgres or !self.connection.detachedReadEligible()) return false;
+        const session=&self.session.postgres;
+        if(!session.startup or session.failed or session.copy.mode!=.none or session.active_portal!=null or
+            (session.authentication!=null and session.authentication.?.state!=.complete)) return false;
+        const input=self.input[self.input_start..][0..self.input_len];
+        if(input.len<5 or input[0]!='Q') return false;
+        const size=std.mem.readInt(u32,input[1..5],.big);
+        if(size<5 or size>pg.max_packet or size+1>input.len or input[size]!=0) return false;
+        const source=input[5..size];
+        if(std.mem.indexOfScalar(u8,source,0)!=null) return false;
+        const first=std.mem.trimStart(u8,source," \t\r\n");
+        if(!std.ascii.startsWithIgnoreCase(first,"select") and !std.ascii.startsWithIgnoreCase(first,"with")) return false;
+        const required=try session.requiredCapacity();
+        if(self.output.len-self.output_len<required) return false;
+        if(self.read_context==null and monotonicClock()<self.read_retry_at) return false;
+        self.provisionRead() catch {self.read_retry_at=monotonicClock()+1000000000;return false;};
+        data_gate.lockRead();defer data_gate.unlockRead();
+        const context=self.read_context.?;
+        self.cancel_request.store(0,.release);
+        self.connection.execution.reset(store.max_query_work);
+        self.connection.execution.context=self;self.connection.execution.poll=pollRead;
+        self.read_deadline=if(self.connection.settings.statement_timeout_ms==0) null else monotonicClock()+@as(i64,self.connection.settings.statement_timeout_ms)*1000000;
+        const statement_us=wallClock();
+        context.session=self.connection.detachedReadSession(&self.connection.execution,statement_us);
+        context.dialect=.postgres;
+        var prepared=true;
+        context.prepare(&store.database,source,.{.csn=store.database.csn}) catch |err| switch(err) {
+            error.QueryCanceled,error.QueryWorkLimit=>{prepared=false;},
+            else=>return false,
+        };
+        // Dynamic named-zone resolution retains the existing serialized cache
+        // ownership. Typed temporal values use the immutable session zone.
+        if(prepared and context.needsZoneResolver()) return false;
+        self.connection.read_context=context;self.connection.running_statement=true;
+        defer {self.connection.read_context=null;self.connection.running_statement=false;self.read_deadline=null;}
+        const output=self.output[self.output_len..];
+        const reply=try session.handle(&self.connection,input,output);
+        if(reply.consumed>self.input_len or reply.written>output.len or reply.blocked or reply.cancel!=null) return error.InvalidReply;
+        if(reply.consumed!=0) self.consume(reply.consumed) else if(self.input_len==self.input.len) return error.RequestTooLarge;
+        self.output_len+=reply.written;self.closing=reply.close;
+        return true;
     }
 
     fn consume(self: *Client, count: usize) void {
@@ -277,13 +349,16 @@ var verifier: ?scram.Verifier = null;
 // run initializes free-slot metadata; accept initializes every live field.
 var clients: []Client = &.{};
 var selected_result_rows: usize = profile.result_rows;
+var selected_work_rows:usize=profile.work_rows;
+var selected_read_refs:usize=0;
 var parallel = false;
 var store_mutex: threads.Mutex = .{};
-fn lockStore() void { if (parallel) store_mutex.lock(); }
-fn unlockStore() void { if (parallel) store_mutex.unlock(); }
+var data_gate:threads.RwLock=.{};
+fn lockStore() void { if (parallel) {data_gate.lockWrite();store_mutex.lock();} }
+fn unlockStore() void { if (parallel) {store_mutex.unlock();data_gate.unlockWrite();} }
 var memory_mutex:threads.Mutex=.{};
 var memory_ledger:resource_budget.Ledger=.{};
-var memory_slots:[capacity*2+4]resource_budget.Slot=undefined;
+var memory_slots:[capacity*4+4]resource_budget.Slot=undefined;
 var memory_hard:?u64=null;
 var memory_headroom:?u64=null;
 var memory_refresh_at:i64=0;
@@ -534,6 +609,7 @@ fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial:
     client.socket = socket;
     client.result_region = .{};
     client.output_region = .{};
+    client.read_metadata=.{};client.read_scratch=.{};client.read_context=null;client.read_deadline=null;client.read_retry_at=0;
     client.output = &.{};
     client.blocked = false;
     client.connection = .{ .store = &store, .id = next_id };
@@ -635,7 +711,7 @@ const Reactor = struct {
                 while (position != 0 and clients[woken[position-1]].connection.waitStart() > client.connection.waitStart()) : (position -= 1) woken[position] = woken[position-1];
                 woken[position] = slot; woken_count += 1;
             }
-            unlockStore();
+            store_mutex.unlock();
             }
             for (woken[0..woken_count]) |index| {
                 const client = &clients[index];
@@ -732,8 +808,8 @@ pub fn describe(options: Options) !void {
     const plan = try storagePlan(options);
     var buffer: [4096]u8 = undefined;
     const message = try sig.fmt.bufPrint(&buffer,
-        "{{\"schema\":1,\"version\":\"{s}\",\"release_stage\":\"beta\",\"production_ready\":false,\"default_protocol\":\"postgres\",\"bind\":\"127.0.0.1\",\"tls\":false,\"roles\":false,\"isolation\":\"read_committed\",\"workers\":{d},\"sql_execution_workers\":1,\"native_workers_available\":{s},\"libc_linked\":{s},\"cpu_model\":\"{s}\",\"build_mode\":\"{s}\",\"rows_per_table\":{d},\"versions_per_table\":{d},\"tables\":{d},\"columns\":{d},\"result_rows\":{d},\"work_rows\":{d},\"text_bytes\":{d},\"name_bytes\":{d},\"clients\":{d},\"compiled_clients\":{d},\"transaction_bytes\":{d},\"tx_writes\":{d},\"row_locks\":{d},\"predicates\":{d},\"expr_nodes\":{d},\"expr_depth\":{d},\"relations\":{d},\"subqueries\":{d},\"ctes\":{d},\"savepoints\":{d},\"sequences\":{d},\"numeric_digits\":{d},\"json_depth\":{d},\"copy_line_bytes\":{d},\"pg_packet_bytes\":{d},\"pg_prepared_sql_bytes\":{d},\"pg_statements\":{d},\"pg_portals\":{d},\"pg_parameters\":{d},\"input_bytes\":{d},\"output_bytes_per_client\":{d},\"backing_bytes\":{d},\"query_workspace_bytes\":{d},\"result_bytes_per_client\":{d},\"client_metadata_bytes\":{d},\"summary_groups\":{d},\"compact_integral_scans\":{s},\"wal_checkpointing\":false,\"mysql_tds_authentication\":false}}\n",
-        .{ @import("ramsql").version, options.workers, if (threads.available) "true" else "false", if (@import("builtin").link_libc) "true" else "false", @import("builtin").cpu.model.name, @tagName(@import("builtin").mode), plan.max_rows, plan.versions, config.tables, config.columns, options.result_rows, options.work_rows, config.text_bytes, config.name_bytes, options.max_clients, capacity, profile.transaction_bytes, config.tx_writes, config.row_locks, config.predicates, config.expr_nodes, config.expr_depth, config.relations, config.subqueries, config.ctes, config.savepoints, config.sequences, config.numeric_digits, config.json_depth, config.copy_line_bytes, pg.max_packet, pg.sql_capacity, pg.statement_capacity, pg.portal_capacity, pg.parameter_capacity, input_capacity, plan.response_bytes, plan.bytes, plan.workspace_bytes, plan.result_bytes, options.max_clients * @sizeOf(Client), config.summary_groups, if(config.compact_integral_scans and config.columns <= 64) "true" else "false" });
+        "{{\"schema\":1,\"version\":\"{s}\",\"release_stage\":\"beta\",\"production_ready\":false,\"default_protocol\":\"postgres\",\"bind\":\"127.0.0.1\",\"tls\":false,\"roles\":false,\"isolation\":\"read_committed\",\"workers\":{d},\"sql_execution_workers\":{d},\"exclusive_sql_workers\":1,\"parallel_simple_reads\":{s},\"native_workers_available\":{s},\"libc_linked\":{s},\"cpu_model\":\"{s}\",\"build_mode\":\"{s}\",\"rows_per_table\":{d},\"versions_per_table\":{d},\"tables\":{d},\"columns\":{d},\"result_rows\":{d},\"work_rows\":{d},\"text_bytes\":{d},\"name_bytes\":{d},\"clients\":{d},\"compiled_clients\":{d},\"transaction_bytes\":{d},\"tx_writes\":{d},\"row_locks\":{d},\"predicates\":{d},\"expr_nodes\":{d},\"expr_depth\":{d},\"relations\":{d},\"subqueries\":{d},\"ctes\":{d},\"savepoints\":{d},\"sequences\":{d},\"numeric_digits\":{d},\"json_depth\":{d},\"copy_line_bytes\":{d},\"pg_packet_bytes\":{d},\"pg_prepared_sql_bytes\":{d},\"pg_statements\":{d},\"pg_portals\":{d},\"pg_parameters\":{d},\"input_bytes\":{d},\"output_bytes_per_client\":{d},\"backing_bytes\":{d},\"query_workspace_bytes\":{d},\"result_bytes_per_client\":{d},\"client_metadata_bytes\":{d},\"summary_groups\":{d},\"compact_integral_scans\":{s},\"wal_checkpointing\":false,\"mysql_tds_authentication\":false}}\n",
+        .{ @import("ramsql").version, options.workers, options.workers, if(options.workers>1) "true" else "false", if (threads.available) "true" else "false", if (@import("builtin").link_libc) "true" else "false", @import("builtin").cpu.model.name, @tagName(@import("builtin").mode), plan.max_rows, plan.versions, config.tables, config.columns, options.result_rows, options.work_rows, config.text_bytes, config.name_bytes, options.max_clients, capacity, profile.transaction_bytes, config.tx_writes, config.row_locks, config.predicates, config.expr_nodes, config.expr_depth, config.relations, config.subqueries, config.ctes, config.savepoints, config.sequences, config.numeric_digits, config.json_depth, config.copy_line_bytes, pg.max_packet, pg.sql_capacity, pg.statement_capacity, pg.portal_capacity, pg.parameter_capacity, input_capacity, plan.response_bytes, plan.bytes, plan.workspace_bytes, plan.result_bytes, options.max_clients * @sizeOf(Client), config.summary_groups, if(config.compact_integral_scans and config.columns <= 64) "true" else "false" });
     const out = sig.io.File.stdout();
     try out.writeStreamingAll(.{}, message[0..message.len-2]);
     try out.writeStreamingAll(.{}, ",\"table_rows\":[");
@@ -762,7 +838,7 @@ pub fn describeMachine(options:Options) !void {
     for([_]u64{plan.bytes,plan.workspace_bytes,options.max_clients*@sizeOf(Client),worker_bytes}) |amount| {
         const next=@addWithOverflow(total,amount);if(next[1]!=0) return error.ArithmeticOverflow;total=next[0];
     }
-    try machine_capacity.describe(options.memory_budget,options.os_headroom,total);
+    try machine_capacity.describe(options.memory_budget,options.os_headroom,total,options.workers);
 }
 fn openStorage(options: Options,backing:*owned_pages.Region) !void {
     const plan = try storagePlan(options);
@@ -777,6 +853,7 @@ pub fn run(options: Options) !void {
     parallel = options.workers > 1;
     try initializeMemory(options);
     const plan = try storagePlan(options);
+    selected_work_rows=options.work_rows;selected_read_refs=plan.refs;
     var worker_grant:?resource_budget.Token=null;
     if(parallel) worker_grant=try memory_ledger.acquire(options.workers*worker_budget_each);
     defer if(worker_grant) |grant| memory_ledger.release(grant) catch @panic("lost worker stack grant");

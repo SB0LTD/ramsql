@@ -33,12 +33,13 @@ budget cannot admit another client, and `53300` for the configured connection
 limit. Failed page commitments return their grants.
 
 Detection respects visible Linux cgroup-v2 ancestors and address limits, Windows
-CPU sets and immediate job limits, and conservative macOS free/purgeable memory.
+CPU sets and immediate job limits, and a macOS free/file-cache memory estimate.
 Legacy/hybrid cgroup-v1 and native SB0 resource probing are not implemented;
 hidden ancestor constraints and some OS scheduling partitions remain observation
 gaps. The report exposes coverage instead of inventing unrestricted resources.
-Machine admission does not yet replace explicit SQL row/schema capacities or
-provide parallel SQL: `elastic_sql_storage` and `parallel_sql` remain false.
+Machine admission does not yet replace explicit SQL row/schema capacities;
+`elastic_sql_storage` remains false. Development builds also support concurrent
+PostgreSQL simple read queries with multiple workers, as described below.
 
 Download your platform archive from [Releases](https://github.com/SB0LTD/ramsql/releases),
 check it against the release's `SHA256SUMS.txt` and extract it. Packages include
@@ -138,11 +139,17 @@ The default uses one reactor. Windows and no-libc Linux builds offer experimenta
 ./ramsql --memory --insecure-local --max-clients 32 --workers 4
 ```
 
-All clients share one database; SQL execution is currently serialized. A checked
-Windows test improves eight-client throughput about 1.8x, while using about 1.9x
-the CPU per query. This remains an efficiency gap. macOS/native SB0 use one
-worker. Check `native_workers_available` in `--capabilities` and the
-[reviewer follow-up](compatibility/REVIEWER_BETA_2.md) before choosing a worker count.
+Published beta.2 serializes SQL execution. In development builds, idle autocommit
+PostgreSQL simple-protocol `SELECT`/`WITH` queries can execute concurrently using
+private parser, execution and result storage. Writes, transactions, COPY, extended
+protocol queries and dynamic time-zone resolution retain exclusive execution.
+A reader/writer gate prevents publication or reclamation while readers execute.
+Private read storage is charged to the machine budget; insufficient headroom
+falls back to exclusive execution. macOS/native SB0 still use one worker.
+Check `parallel_simple_reads`, `sql_execution_workers` and
+`native_workers_available` in `--capabilities`. This is inter-query concurrency;
+one query does not yet distribute its work across cores. Benchmark improvements
+must be measured for the actual workload.
 
 ## Inspect capacity before loading
 
