@@ -83,6 +83,41 @@ def parallel_read_and_writer_gate(binary):
             for pg in clients:pg.close()
 
 
+def concurrent_join_and_aggregate_reads(binary):
+    """Check full three-table results through simultaneous simple-query clients."""
+    with Server(binary,max_clients=16,extra_arguments=('--workers','4','--work-rows','4096')) as server:
+        seed=PG(server.raw());seed.startup()
+        try:
+            seed.ok('CREATE TABLE sales(id INT PRIMARY KEY,store INT,product INT,amount INT)')
+            seed.ok('CREATE TABLE products(id INT PRIMARY KEY,multiplier INT)')
+            seed.ok('CREATE TABLE stores(id INT PRIMARY KEY,region INT)')
+            seed.ok('INSERT INTO products VALUES '+','.join(f'({i},{i+1})' for i in range(8)))
+            seed.ok('INSERT INTO stores VALUES '+','.join(f'({i},{i%4})' for i in range(16)))
+            for start in range(0,1024,64):
+                seed.ok('INSERT INTO sales VALUES '+','.join(
+                    f'({i},{i%16},{i%8},{i*17%101-50})' for i in range(start,start+64)))
+        finally:seed.close()
+        def read(identity):
+            pg=PG(server.raw());pg.startup()
+            try:
+                for trial in range(12):
+                    region=(identity+trial)%4
+                    selected=[i for i in range(1024) if i%4==region]
+                    expected=sum((i*17%101-50)*(i%8+1) for i in selected)
+                    pg.ok('SELECT s.region,COUNT(*),SUM(f.amount*p.multiplier) FROM sales f '
+                          'JOIN products p ON p.id=f.product JOIN stores s ON s.id=f.store '
+                          f'WHERE s.region={region} GROUP BY s.region',[[str(region),str(len(selected)),str(expected)]])
+                    store=(identity*3+trial)%16
+                    selected=range(store,1024,16)
+                    pg.ok('WITH chosen AS (SELECT amount FROM sales '
+                          f'WHERE store={store}) SELECT COUNT(*),SUM(amount) FROM chosen',
+                          [[str(len(selected)),str(sum(i*17%101-50 for i in selected))]])
+                return identity
+            finally:pg.close()
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            assert sorted(pool.map(read,range(8)))==list(range(8))
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--binary',type=Path,default=ROOT/'sig-out/bin'/('ramsql.exe' if os.name=='nt' else 'ramsql'))
@@ -125,8 +160,9 @@ def main():
                 assert db.execute('SELECT value FROM counter WHERE id=1').fetchone()==(800,)
     cancel_during_work(binary)
     parallel_read_and_writer_gate(binary)
+    concurrent_join_and_aggregate_reads(binary)
     print(json.dumps(dict(suite='workers',passed=True,reactors=4,shared_counter_updates=800,durable_restart=True,running_cancel=True,
-                         concurrent_reads=True,writer_exclusion=True,uncommitted_visibility=True)))
+                         concurrent_reads=True,writer_exclusion=True,uncommitted_visibility=True,three_way_join_and_cte_queries=192)))
 
 
 if __name__=='__main__':main()

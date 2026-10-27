@@ -160,6 +160,13 @@ jobs:
           python tools/test_production_replay.py --binary $binary
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Validate native read-phase profiler correctness
+        run: |
+          $arguments = @('build', 'profile-reads', '-Doptimize=ReleaseFast')
+          if ($env:RUNNER_OS -eq 'macOS') { $arguments += '-Dlink-libc=true' }
+          & $env:SIG @arguments
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Require configurable columns, returned rows and text through libpq
         run: |
           $arguments = @('build', '-Doptimize=ReleaseSafe', '-Dcolumns=16', '-Dresult-rows=1024', '-Dwork-rows=1024', '-Drows=1024', '-Dtext-bytes=256', '-Dclients=4', '-Dtables=4', '--prefix', '.sig-cache/beta-wide')
