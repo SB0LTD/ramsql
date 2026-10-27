@@ -15,8 +15,9 @@ requires roughly 253 GB of backing for one 100M-row bank before other costs.
 Uniformly reserving that capacity for every table is worse. This layout must be
 replaced; successful 1M-row tests cannot be extrapolated into 100M-row claims.
 
-SQL execution is still serialized. Socket workers increase throughput in one
-measured workload but increase CPU/query. Schema/value/parser/connection bounds,
+Published beta.2 serializes SQL. Development now supports concurrent simple
+autocommit PostgreSQL reads; extended queries, transactions and mutations remain
+exclusive. Checked wire throughput improves but CPU/query remains higher. Schema/value/parser/connection bounds,
 fully materialized intermediates, per-client response reservations, absent
 checkpoints and incomplete dialect support remain visible blockers.
 
@@ -27,20 +28,34 @@ Infrastructure progress on 2026-10-27:
 - [ZPM resource-budget/grant core](https://github.com/SB0LTD/zpm/pull/32) is merged.
   It calculates a shared byte budget from supplied physical/commit/scope/CPU
   observations, with checked arithmetic and generation-checked concurrent grants.
-  Native OS discovery and RAMSQL admission integration are still open.
+  Native OS discovery and RAMSQL admission integration are merged in
+  [ZPM #35](https://github.com/SB0LTD/zpm/pull/35) and
+  [RAMSQL #16](https://github.com/SB0LTD/ramsql/pull/16). Windows/Linux/macOS
+  native tests and all six hosted artifact executions passed.
+  [ZPM #36](https://github.com/SB0LTD/zpm/pull/36) corrects macOS reclaimable-cache
+  observation; hidden scope ancestors and native SB0 discovery remain gaps.
 - [Effective-capacity headroom correction](https://github.com/SB0LTD/zpm/pull/34)
   derives defaults from container/operator capacity rather than large host totals.
   Windows validation passes 25,042 assertions and 80,000 concurrent grant cycles;
-  cross-platform qualification is pending.
+  the three-OS database platform matrix passed.
 - [Packed integer storage](https://github.com/SB0LTD/zpm/pull/33) has 72,320
   Windows/Linux correctness assertions. An explicit Windows ReleaseSafe test
   generated, encoded, parsed and decoded every one of 100M actual values in each
   of two cases. Frames occupy 337,500,080 bytes without NULLs and 350,000,080 bytes
   with mixed NULLs; exact sums and every value passed. The retained
   [evidence](https://github.com/SB0LTD/zpm/blob/d0500cf1ca499d9f68758ed662d54d0dc1229be3/tests/evidence/packed-integer-100m-windows.json)
-  records source/binary hashes. Cross-platform large-column qualification is
-  pending. These are physical-column tests, not SQL, durability or comparative
+  records source/binary hashes. The 100M-value checks also passed on native Linux and macOS. These are physical-column tests, not SQL, durability or comparative
   benchmarks; the RAMSQL release does not yet use this primitive.
+
+- [Independent read contexts](https://github.com/SB0LTD/zpm/pull/37) pass hosted
+  contracts on Windows, Linux and macOS. Eight native Windows/Linux workers
+  execute 2,000 checked SQL queries with forced overlap, and the shared gate
+  passes 12,000 reads / 4,000 exclusive publications. Server integration checks
+  actual wire overlap, cancellation, timeout recovery and writer exclusion.
+  [Retained wire trials](../benchmarks/parallel-read-wire-20261027/results.json)
+  show higher throughput and higher CPU/query; they do not establish a win over
+  PostgreSQL or IRDB. Compact SQL storage, intra-query parallelism, automatic
+  worker sizing and removal of schema/connection caps remain open.
 
 These changes are outside the published beta.2 dependency pin. Do not attribute
 their behavior or physical-column sizes to the release's inline SQL layout.

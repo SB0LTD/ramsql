@@ -97,6 +97,9 @@ def main():
         print(json.dumps(dict(suite='workers',passed=True,workers=1,worker_execution=False,
             unsupported_rejected=True,note='No native no-heap thread primitive for this binary; no multicore test/claim')))
         return
+    parallel_caps=json.loads(subprocess.check_output([str(binary),'--capabilities','--workers','4']))
+    assert parallel_caps['parallel_simple_reads'] and parallel_caps['sql_execution_workers']==4
+    assert parallel_caps['exclusive_sql_workers']==1
     # Reuse the complete framing/fairness/cleanup contracts with native reactors.
     subprocess.run([sys.executable,str(ROOT/'tools/test_server.py'),'--binary',str(binary),'--workers','4'],check=True)
     for suite in ('test_clients.py','test_auth.py'):

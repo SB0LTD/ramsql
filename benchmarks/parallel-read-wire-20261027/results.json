@@ -918,5 +918,12 @@
       ],
       "boundary": "nonpipelined PostgreSQL simple queries; all values checked; process per client"
     }
-  ]
+  ],
+  "environment": {
+    "cpu": "Intel(R) Core(TM) i9-14900HX",
+    "logical_cpus": 32,
+    "platform": "Windows-10-10.0.26300-SP0",
+    "python": "3.11.15",
+    "recorded_after_trials": true
+  }
 }

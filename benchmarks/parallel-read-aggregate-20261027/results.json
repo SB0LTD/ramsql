@@ -1,0 +1,929 @@
+{
+  "schema": 1,
+  "note": "Single-host wire comparison; CPU/OS/client costs included. No PostgreSQL/scaling victory claim.",
+  "rows": 8192,
+  "workload": "aggregate_expression",
+  "environment": {
+    "cpu": "Intel(R) Core(TM) i9-14900HX",
+    "logical_cpus": 32,
+    "platform": "Windows-10-10.0.26300-SP0",
+    "python": "3.11.15"
+  },
+  "binaries": [
+    {
+      "path": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\parallel-fast-out\\bin\\ramsql.exe",
+      "sha256": "3d759ed5ecb2bbb9aedc4fc98f3e97c5f3ac73c7b185dab7904501e6ee3fab4a"
+    }
+  ],
+  "measurements": [
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\parallel-fast-out\\bin\\ramsql.exe",
+      "trial": 0,
+      "clients": 1,
+      "reactors": 1,
+      "passed": true,
+      "operations": 1000,
+      "elapsed_ns": 337495700,
+      "server_cpu_seconds": 0.25,
+      "server_cpu": {
+        "kernel": 0.0,
+        "user": 0.25
+      },
+      "server_memory": {
+        "rss_bytes": 20008960,
+        "peak_rss_bytes": 20017152,
+        "private_commit_bytes": 202485760,
+        "source": "GetProcessMemoryInfo"
+      },
+      "workers": [
+        {
+          "done": 0,
+          "operations": 1000,
+          "elapsed_ns": 337284200
+        }
+      ],
+      "boundary": "nonpipelined PostgreSQL simple queries; all values checked; process per client"
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\parallel-fast-out\\bin\\ramsql.exe",
+      "trial": 0,
+      "clients": 4,
+      "reactors": 1,
+      "passed": true,
+      "operations": 4000,
+      "elapsed_ns": 1258361900,
+      "server_cpu_seconds": 1.1875,
+      "server_cpu": {
+        "kernel": 0.0625,
+        "user": 1.125
+      },
+      "server_memory": {
+        "rss_bytes": 23711744,
+        "peak_rss_bytes": 23719936,
+        "private_commit_bytes": 206155776,
+        "source": "GetProcessMemoryInfo"
+      },
+      "workers": [
+        {
+          "done": 0,
+          "operations": 1000,
+          "elapsed_ns": 951466000
+        },
+        {
+          "done": 1,
+          "operations": 1000,
+          "elapsed_ns": 951889000
+        },
+        {
+          "done": 3,
+          "operations": 1000,
+          "elapsed_ns": 1252051000
+        },
+        {
+          "done": 2,
+          "operations": 1000,
+          "elapsed_ns": 1258066300
+        }
+      ],
+      "boundary": "nonpipelined PostgreSQL simple queries; all values checked; process per client"
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\parallel-fast-out\\bin\\ramsql.exe",
+      "trial": 0,
+      "clients": 4,
+      "reactors": 4,
+      "passed": true,
+      "operations": 4000,
+      "elapsed_ns": 354589800,
+      "server_cpu_seconds": 1.234375,
+      "server_cpu": {
+        "kernel": 0.046875,
+        "user": 1.1875
+      },
+      "server_memory": {
+        "rss_bytes": 26112000,
+        "peak_rss_bytes": 30666752,
+        "private_commit_bytes": 207745024,
+        "source": "GetProcessMemoryInfo"
+      },
+      "workers": [
+        {
+          "done": 1,
+          "operations": 1000,
+          "elapsed_ns": 350019400
+        },
+        {
+          "done": 3,
+          "operations": 1000,
+          "elapsed_ns": 350990300
+        },
+        {
+          "done": 2,
+          "operations": 1000,
+          "elapsed_ns": 350938000
+        },
+        {
+          "done": 0,
+          "operations": 1000,
+          "elapsed_ns": 354306800
+        }
+      ],
+      "boundary": "nonpipelined PostgreSQL simple queries; all values checked; process per client"
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\parallel-fast-out\\bin\\ramsql.exe",
+      "trial": 0,
+      "clients": 8,
+      "reactors": 1,
+      "passed": true,
+      "operations": 8000,
+      "elapsed_ns": 2672668400,
+      "server_cpu_seconds": 2.65625,
+      "server_cpu": {
+        "kernel": 0.125,
+        "user": 2.53125
+      },
+      "server_memory": {
+        "rss_bytes": 28626944,
+        "peak_rss_bytes": 28635136,
+        "private_commit_bytes": 211132416,
+        "source": "GetProcessMemoryInfo"
+      },
+      "workers": [
+        {
+          "done": 0,
+          "operations": 1000,
+          "elapsed_ns": 2227015400
+        },
+        {
+          "done": 1,
+          "operations": 1000,
+          "elapsed_ns": 2227274800
+        },
+        {
+          "done": 3,
+          "operations": 1000,
+          "elapsed_ns": 2228873700
+        },
+        {
+          "done": 2,
+          "operations": 1000,
+          "elapsed_ns": 2228831100
+        },
+        {
+          "done": 4,
+          "operations": 1000,
+          "elapsed_ns": 2230054700
+        },
+        {
+          "done": 5,
+          "operations": 1000,
+          "elapsed_ns": 2230167100
+        },
+        {
+          "done": 6,
+          "operations": 1000,
+          "elapsed_ns": 2667831100
+        },
+        {
+          "done": 7,
+          "operations": 1000,
+          "elapsed_ns": 2672305800
+        }
+      ],
+      "boundary": "nonpipelined PostgreSQL simple queries; all values checked; process per client"
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\parallel-fast-out\\bin\\ramsql.exe",
+      "trial": 0,
+      "clients": 8,
+      "reactors": 4,
+      "passed": true,
+      "operations": 8000,
+      "elapsed_ns": 714692200,
+      "server_cpu_seconds": 2.796875,
+      "server_cpu": {
+        "kernel": 0.15625,
+        "user": 2.640625
+      },
+      "server_memory": {
+        "rss_bytes": 31059968,
+        "peak_rss_bytes": 39923712,
+        "private_commit_bytes": 212684800,
+        "source": "GetProcessMemoryInfo"
+      },
+      "workers": [
+        {
+          "done": 1,
+          "operations": 1000,
+          "elapsed_ns": 681985400
+        },
+        {
+          "done": 5,
+          "operations": 1000,
+          "elapsed_ns": 684036300
+        },
+        {
+          "done": 0,
+          "operations": 1000,
+          "elapsed_ns": 692477700
+        },
+        {
+          "done": 2,
+          "operations": 1000,
+          "elapsed_ns": 694184000
+        },
+        {
+          "done": 3,
+          "operations": 1000,
+          "elapsed_ns": 695689300
+        },
+        {
+          "done": 6,
+          "operations": 1000,
+          "elapsed_ns": 697578900
+        },
+        {
+          "done": 4,
+          "operations": 1000,
+          "elapsed_ns": 712192200
+        },
+        {
+          "done": 7,
+          "operations": 1000,
+          "elapsed_ns": 714258600
+        }
+      ],
+      "boundary": "nonpipelined PostgreSQL simple queries; all values checked; process per client"
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\parallel-fast-out\\bin\\ramsql.exe",
+      "trial": 0,
+      "clients": 8,
+      "reactors": 8,
+      "passed": true,
+      "operations": 8000,
+      "elapsed_ns": 469297900,
+      "server_cpu_seconds": 3.15625,
+      "server_cpu": {
+        "kernel": 0.546875,
+        "user": 2.609375
+      },
+      "server_memory": {
+        "rss_bytes": 32776192,
+        "peak_rss_bytes": 41824256,
+        "private_commit_bytes": 214691840,
+        "source": "GetProcessMemoryInfo"
+      },
+      "workers": [
+        {
+          "done": 5,
+          "operations": 1000,
+          "elapsed_ns": 411708200
+        },
+        {
+          "done": 2,
+          "operations": 1000,
+          "elapsed_ns": 414041000
+        },
+        {
+          "done": 6,
+          "operations": 1000,
+          "elapsed_ns": 417135500
+        },
+        {
+          "done": 7,
+          "operations": 1000,
+          "elapsed_ns": 424693700
+        },
+        {
+          "done": 0,
+          "operations": 1000,
+          "elapsed_ns": 437505400
+        },
+        {
+          "done": 4,
+          "operations": 1000,
+          "elapsed_ns": 440428000
+        },
+        {
+          "done": 1,
+          "operations": 1000,
+          "elapsed_ns": 466867800
+        },
+        {
+          "done": 3,
+          "operations": 1000,
+          "elapsed_ns": 468734900
+        }
+      ],
+      "boundary": "nonpipelined PostgreSQL simple queries; all values checked; process per client"
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\parallel-fast-out\\bin\\ramsql.exe",
+      "trial": 1,
+      "clients": 1,
+      "reactors": 1,
+      "passed": true,
+      "operations": 1000,
+      "elapsed_ns": 364679800,
+      "server_cpu_seconds": 0.28125,
+      "server_cpu": {
+        "kernel": 0.0625,
+        "user": 0.21875
+      },
+      "server_memory": {
+        "rss_bytes": 19980288,
+        "peak_rss_bytes": 19988480,
+        "private_commit_bytes": 202444800,
+        "source": "GetProcessMemoryInfo"
+      },
+      "workers": [
+        {
+          "done": 0,
+          "operations": 1000,
+          "elapsed_ns": 364452900
+        }
+      ],
+      "boundary": "nonpipelined PostgreSQL simple queries; all values checked; process per client"
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\parallel-fast-out\\bin\\ramsql.exe",
+      "trial": 1,
+      "clients": 4,
+      "reactors": 4,
+      "passed": true,
+      "operations": 4000,
+      "elapsed_ns": 433353800,
+      "server_cpu_seconds": 1.640625,
+      "server_cpu": {
+        "kernel": 0.09375,
+        "user": 1.546875
+      },
+      "server_memory": {
+        "rss_bytes": 26165248,
+        "peak_rss_bytes": 30658560,
+        "private_commit_bytes": 207736832,
+        "source": "GetProcessMemoryInfo"
+      },
+      "workers": [
+        {
+          "done": 0,
+          "operations": 1000,
+          "elapsed_ns": 384292200
+        },
+        {
+          "done": 2,
+          "operations": 1000,
+          "elapsed_ns": 427870900
+        },
+        {
+          "done": 3,
+          "operations": 1000,
+          "elapsed_ns": 430835200
+        },
+        {
+          "done": 1,
+          "operations": 1000,
+          "elapsed_ns": 433023200
+        }
+      ],
+      "boundary": "nonpipelined PostgreSQL simple queries; all values checked; process per client"
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\parallel-fast-out\\bin\\ramsql.exe",
+      "trial": 1,
+      "clients": 4,
+      "reactors": 1,
+      "passed": true,
+      "operations": 4000,
+      "elapsed_ns": 1369487500,
+      "server_cpu_seconds": 1.34375,
+      "server_cpu": {
+        "kernel": 0.109375,
+        "user": 1.234375
+      },
+      "server_memory": {
+        "rss_bytes": 23728128,
+        "peak_rss_bytes": 23736320,
+        "private_commit_bytes": 206184448,
+        "source": "GetProcessMemoryInfo"
+      },
+      "workers": [
+        {
+          "done": 0,
+          "operations": 1000,
+          "elapsed_ns": 1024407200
+        },
+        {
+          "done": 1,
+          "operations": 1000,
+          "elapsed_ns": 1024850800
+        },
+        {
+          "done": 2,
+          "operations": 1000,
+          "elapsed_ns": 1365843300
+        },
+        {
+          "done": 3,
+          "operations": 1000,
+          "elapsed_ns": 1369209000
+        }
+      ],
+      "boundary": "nonpipelined PostgreSQL simple queries; all values checked; process per client"
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\parallel-fast-out\\bin\\ramsql.exe",
+      "trial": 1,
+      "clients": 8,
+      "reactors": 8,
+      "passed": true,
+      "operations": 8000,
+      "elapsed_ns": 477211900,
+      "server_cpu_seconds": 3.125,
+      "server_cpu": {
+        "kernel": 0.28125,
+        "user": 2.84375
+      },
+      "server_memory": {
+        "rss_bytes": 32727040,
+        "peak_rss_bytes": 41836544,
+        "private_commit_bytes": 214716416,
+        "source": "GetProcessMemoryInfo"
+      },
+      "workers": [
+        {
+          "done": 6,
+          "operations": 1000,
+          "elapsed_ns": 421455200
+        },
+        {
+          "done": 0,
+          "operations": 1000,
+          "elapsed_ns": 421821500
+        },
+        {
+          "done": 4,
+          "operations": 1000,
+          "elapsed_ns": 422131200
+        },
+        {
+          "done": 3,
+          "operations": 1000,
+          "elapsed_ns": 426069400
+        },
+        {
+          "done": 7,
+          "operations": 1000,
+          "elapsed_ns": 433477800
+        },
+        {
+          "done": 5,
+          "operations": 1000,
+          "elapsed_ns": 435245100
+        },
+        {
+          "done": 1,
+          "operations": 1000,
+          "elapsed_ns": 448351200
+        },
+        {
+          "done": 2,
+          "operations": 1000,
+          "elapsed_ns": 476702600
+        }
+      ],
+      "boundary": "nonpipelined PostgreSQL simple queries; all values checked; process per client"
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\parallel-fast-out\\bin\\ramsql.exe",
+      "trial": 1,
+      "clients": 8,
+      "reactors": 4,
+      "passed": true,
+      "operations": 8000,
+      "elapsed_ns": 849522900,
+      "server_cpu_seconds": 3.078125,
+      "server_cpu": {
+        "kernel": 0.109375,
+        "user": 2.96875
+      },
+      "server_memory": {
+        "rss_bytes": 31121408,
+        "peak_rss_bytes": 39923712,
+        "private_commit_bytes": 212680704,
+        "source": "GetProcessMemoryInfo"
+      },
+      "workers": [
+        {
+          "done": 3,
+          "operations": 1000,
+          "elapsed_ns": 702295200
+        },
+        {
+          "done": 4,
+          "operations": 1000,
+          "elapsed_ns": 705737500
+        },
+        {
+          "done": 1,
+          "operations": 1000,
+          "elapsed_ns": 728333500
+        },
+        {
+          "done": 7,
+          "operations": 1000,
+          "elapsed_ns": 729569500
+        },
+        {
+          "done": 0,
+          "operations": 1000,
+          "elapsed_ns": 836843200
+        },
+        {
+          "done": 6,
+          "operations": 1000,
+          "elapsed_ns": 839439700
+        },
+        {
+          "done": 2,
+          "operations": 1000,
+          "elapsed_ns": 845156500
+        },
+        {
+          "done": 5,
+          "operations": 1000,
+          "elapsed_ns": 849096300
+        }
+      ],
+      "boundary": "nonpipelined PostgreSQL simple queries; all values checked; process per client"
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\parallel-fast-out\\bin\\ramsql.exe",
+      "trial": 1,
+      "clients": 8,
+      "reactors": 1,
+      "passed": true,
+      "operations": 8000,
+      "elapsed_ns": 2881288000,
+      "server_cpu_seconds": 2.84375,
+      "server_cpu": {
+        "kernel": 0.1875,
+        "user": 2.65625
+      },
+      "server_memory": {
+        "rss_bytes": 28606464,
+        "peak_rss_bytes": 28614656,
+        "private_commit_bytes": 211087360,
+        "source": "GetProcessMemoryInfo"
+      },
+      "workers": [
+        {
+          "done": 0,
+          "operations": 1000,
+          "elapsed_ns": 2480553100
+        },
+        {
+          "done": 1,
+          "operations": 1000,
+          "elapsed_ns": 2480834500
+        },
+        {
+          "done": 2,
+          "operations": 1000,
+          "elapsed_ns": 2481334700
+        },
+        {
+          "done": 3,
+          "operations": 1000,
+          "elapsed_ns": 2481861300
+        },
+        {
+          "done": 4,
+          "operations": 1000,
+          "elapsed_ns": 2482509500
+        },
+        {
+          "done": 5,
+          "operations": 1000,
+          "elapsed_ns": 2483159900
+        },
+        {
+          "done": 6,
+          "operations": 1000,
+          "elapsed_ns": 2875959600
+        },
+        {
+          "done": 7,
+          "operations": 1000,
+          "elapsed_ns": 2880950000
+        }
+      ],
+      "boundary": "nonpipelined PostgreSQL simple queries; all values checked; process per client"
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\parallel-fast-out\\bin\\ramsql.exe",
+      "trial": 2,
+      "clients": 1,
+      "reactors": 1,
+      "passed": true,
+      "operations": 1000,
+      "elapsed_ns": 368379900,
+      "server_cpu_seconds": 0.3125,
+      "server_cpu": {
+        "kernel": 0.015625,
+        "user": 0.296875
+      },
+      "server_memory": {
+        "rss_bytes": 19996672,
+        "peak_rss_bytes": 20004864,
+        "private_commit_bytes": 202477568,
+        "source": "GetProcessMemoryInfo"
+      },
+      "workers": [
+        {
+          "done": 0,
+          "operations": 1000,
+          "elapsed_ns": 368146200
+        }
+      ],
+      "boundary": "nonpipelined PostgreSQL simple queries; all values checked; process per client"
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\parallel-fast-out\\bin\\ramsql.exe",
+      "trial": 2,
+      "clients": 4,
+      "reactors": 1,
+      "passed": true,
+      "operations": 4000,
+      "elapsed_ns": 1466333800,
+      "server_cpu_seconds": 1.46875,
+      "server_cpu": {
+        "kernel": 0.046875,
+        "user": 1.421875
+      },
+      "server_memory": {
+        "rss_bytes": 23724032,
+        "peak_rss_bytes": 23732224,
+        "private_commit_bytes": 206188544,
+        "source": "GetProcessMemoryInfo"
+      },
+      "workers": [
+        {
+          "done": 0,
+          "operations": 1000,
+          "elapsed_ns": 1099284000
+        },
+        {
+          "done": 1,
+          "operations": 1000,
+          "elapsed_ns": 1099748900
+        },
+        {
+          "done": 2,
+          "operations": 1000,
+          "elapsed_ns": 1464037800
+        },
+        {
+          "done": 3,
+          "operations": 1000,
+          "elapsed_ns": 1466122000
+        }
+      ],
+      "boundary": "nonpipelined PostgreSQL simple queries; all values checked; process per client"
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\parallel-fast-out\\bin\\ramsql.exe",
+      "trial": 2,
+      "clients": 4,
+      "reactors": 4,
+      "passed": true,
+      "operations": 4000,
+      "elapsed_ns": 453452600,
+      "server_cpu_seconds": 1.546875,
+      "server_cpu": {
+        "kernel": 0.1875,
+        "user": 1.359375
+      },
+      "server_memory": {
+        "rss_bytes": 26116096,
+        "peak_rss_bytes": 30670848,
+        "private_commit_bytes": 207749120,
+        "source": "GetProcessMemoryInfo"
+      },
+      "workers": [
+        {
+          "done": 1,
+          "operations": 1000,
+          "elapsed_ns": 373313300
+        },
+        {
+          "done": 2,
+          "operations": 1000,
+          "elapsed_ns": 432137100
+        },
+        {
+          "done": 0,
+          "operations": 1000,
+          "elapsed_ns": 433296700
+        },
+        {
+          "done": 3,
+          "operations": 1000,
+          "elapsed_ns": 453148800
+        }
+      ],
+      "boundary": "nonpipelined PostgreSQL simple queries; all values checked; process per client"
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\parallel-fast-out\\bin\\ramsql.exe",
+      "trial": 2,
+      "clients": 8,
+      "reactors": 1,
+      "passed": true,
+      "operations": 8000,
+      "elapsed_ns": 2870290400,
+      "server_cpu_seconds": 2.796875,
+      "server_cpu": {
+        "kernel": 0.203125,
+        "user": 2.59375
+      },
+      "server_memory": {
+        "rss_bytes": 28536832,
+        "peak_rss_bytes": 28553216,
+        "private_commit_bytes": 211083264,
+        "source": "GetProcessMemoryInfo"
+      },
+      "workers": [
+        {
+          "done": 0,
+          "operations": 1000,
+          "elapsed_ns": 2427771800
+        },
+        {
+          "done": 2,
+          "operations": 1000,
+          "elapsed_ns": 2428161400
+        },
+        {
+          "done": 3,
+          "operations": 1000,
+          "elapsed_ns": 2429614600
+        },
+        {
+          "done": 1,
+          "operations": 1000,
+          "elapsed_ns": 2429627500
+        },
+        {
+          "done": 4,
+          "operations": 1000,
+          "elapsed_ns": 2430231000
+        },
+        {
+          "done": 5,
+          "operations": 1000,
+          "elapsed_ns": 2430927200
+        },
+        {
+          "done": 7,
+          "operations": 1000,
+          "elapsed_ns": 2865342100
+        },
+        {
+          "done": 6,
+          "operations": 1000,
+          "elapsed_ns": 2869845900
+        }
+      ],
+      "boundary": "nonpipelined PostgreSQL simple queries; all values checked; process per client"
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\parallel-fast-out\\bin\\ramsql.exe",
+      "trial": 2,
+      "clients": 8,
+      "reactors": 4,
+      "passed": true,
+      "operations": 8000,
+      "elapsed_ns": 871152000,
+      "server_cpu_seconds": 3.296875,
+      "server_cpu": {
+        "kernel": 0.109375,
+        "user": 3.1875
+      },
+      "server_memory": {
+        "rss_bytes": 31068160,
+        "peak_rss_bytes": 39931904,
+        "private_commit_bytes": 212688896,
+        "source": "GetProcessMemoryInfo"
+      },
+      "workers": [
+        {
+          "done": 3,
+          "operations": 1000,
+          "elapsed_ns": 812429200
+        },
+        {
+          "done": 7,
+          "operations": 1000,
+          "elapsed_ns": 817719200
+        },
+        {
+          "done": 0,
+          "operations": 1000,
+          "elapsed_ns": 830723300
+        },
+        {
+          "done": 1,
+          "operations": 1000,
+          "elapsed_ns": 832061000
+        },
+        {
+          "done": 6,
+          "operations": 1000,
+          "elapsed_ns": 834642300
+        },
+        {
+          "done": 4,
+          "operations": 1000,
+          "elapsed_ns": 836704900
+        },
+        {
+          "done": 2,
+          "operations": 1000,
+          "elapsed_ns": 868508700
+        },
+        {
+          "done": 5,
+          "operations": 1000,
+          "elapsed_ns": 870569300
+        }
+      ],
+      "boundary": "nonpipelined PostgreSQL simple queries; all values checked; process per client"
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\parallel-fast-out\\bin\\ramsql.exe",
+      "trial": 2,
+      "clients": 8,
+      "reactors": 8,
+      "passed": true,
+      "operations": 8000,
+      "elapsed_ns": 500187900,
+      "server_cpu_seconds": 3.375,
+      "server_cpu": {
+        "kernel": 0.359375,
+        "user": 3.015625
+      },
+      "server_memory": {
+        "rss_bytes": 32727040,
+        "peak_rss_bytes": 41836544,
+        "private_commit_bytes": 214716416,
+        "source": "GetProcessMemoryInfo"
+      },
+      "workers": [
+        {
+          "done": 0,
+          "operations": 1000,
+          "elapsed_ns": 425434200
+        },
+        {
+          "done": 7,
+          "operations": 1000,
+          "elapsed_ns": 427433100
+        },
+        {
+          "done": 2,
+          "operations": 1000,
+          "elapsed_ns": 434991100
+        },
+        {
+          "done": 4,
+          "operations": 1000,
+          "elapsed_ns": 445779300
+        },
+        {
+          "done": 6,
+          "operations": 1000,
+          "elapsed_ns": 477778900
+        },
+        {
+          "done": 1,
+          "operations": 1000,
+          "elapsed_ns": 478603500
+        },
+        {
+          "done": 5,
+          "operations": 1000,
+          "elapsed_ns": 483093400
+        },
+        {
+          "done": 3,
+          "operations": 1000,
+          "elapsed_ns": 499714600
+        }
+      ],
+      "boundary": "nonpipelined PostgreSQL simple queries; all values checked; process per client"
+    }
+  ]
+}
