@@ -354,6 +354,8 @@ jobs:
         run: python -m pip install -r tools/requirements-test.txt
       - name: Test command line and bounded SQL streams
         run: python tools/test_cli.py
+      - name: Test native machine planning and PostgreSQL memory admission
+        run: python tools/test_machine_capacity.py
       - name: Test TCP framing, fairness and lifecycle
         run: python tools/test_server.py
       - name: Test PostgreSQL, MySQL and SQL Server client interoperability
@@ -376,7 +378,7 @@ jobs:
         run: |
           python tools/package_release.py runtime-report --verification .sig-cache/verified-artifact.json `
             --report "runtime-evidence/runtime-$env:TARGET_SLUG.json" `
-            --tests tools/test_cli.py tools/test_server.py tools/test_clients.py tools/test_auth.py tools/test_persistence.py tools/test_capacity.py tools/test_beta.py tools/test_reviewer_runtime.py tools/test_workers.py
+            --tests tools/test_cli.py tools/test_server.py tools/test_clients.py tools/test_auth.py tools/test_persistence.py tools/test_capacity.py tools/test_beta.py tools/test_reviewer_runtime.py tools/test_workers.py tools/test_machine_capacity.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         with:

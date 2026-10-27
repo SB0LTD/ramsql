@@ -88,6 +88,22 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     var workers_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
     const workers_path = try zpm.modulePath("src/platform/worker_thread.sig", &workers_buf);
     _ = try ctx.addModule("worker_thread", workers_path);
+    var resource_facts_buf:[sig_build.PATH_BUF_SIZE]u8=undefined;
+    var resource_budget_buf:[sig_build.PATH_BUF_SIZE]u8=undefined;
+    var machine_resources_buf:[sig_build.PATH_BUF_SIZE]u8=undefined;
+    var budgeted_region_buf:[sig_build.PATH_BUF_SIZE]u8=undefined;
+    const resource_facts_path=try zpm.modulePath("src/core/resource_observation.sig",&resource_facts_buf);
+    const resource_budget_path=try zpm.modulePath("src/core/resource_budget.sig",&resource_budget_buf);
+    const machine_resources_path=try zpm.modulePath("src/platform/machine_resources.sig",&machine_resources_buf);
+    const budgeted_region_path=try zpm.modulePath("src/platform/budgeted_region.sig",&budgeted_region_buf);
+    _=try ctx.addModule("resource_observation",resource_facts_path);
+    _=try ctx.addModule("resource_budget",resource_budget_path);
+    const machine_module=try ctx.addModule("machine_resources",machine_resources_path);
+    try ctx.addImport(machine_module,"resource_observation",resource_facts_path);
+    try ctx.addImport(machine_module,"resource_budget",resource_budget_path);
+    const region_module=try ctx.addModule("budgeted_region",budgeted_region_path);
+    try ctx.addImport(region_module,"page_region",pages_path);
+    try ctx.addImport(region_module,"resource_budget",resource_budget_path);
     const pg_module = try ctx.addModule("postgres", pg_path);
     try ctx.addImport(pg_module, "scram", scram_path);
     const clients = ctx.option(usize, "clients", "Default runtime connection budget (1..60)") orelse 16;
@@ -147,6 +163,9 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
             importEntry("profile", profile_path),
             importEntry("page_region", pages_path),
             importEntry("worker_thread", workers_path),
+            importEntry("machine_resources",machine_resources_path),
+            importEntry("resource_budget",resource_budget_path),
+            importEntry("budgeted_region",budgeted_region_path),
         },
         .compiler_path = "",
     });

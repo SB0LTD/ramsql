@@ -30,6 +30,9 @@ const wall_clock = @import("wall_clock");
 const timezones = @import("timezones.sig");
 const pages = @import("page_region");
 const threads = @import("worker_thread");
+const resource_budget = @import("resource_budget");
+const owned_pages = @import("budgeted_region");
+const machine_capacity = @import("capacity.sig");
 
 pub const Protocol = enum { postgres, mysql, mssql };
 pub const table_capacity = profile.tables;
@@ -56,6 +59,8 @@ pub const Options = struct {
     table_versions: ?[profile.tables]usize = null,
     work_rows: usize = profile.work_rows,
     result_rows: usize = profile.result_rows,
+    memory_budget: ?u64 = null,
+    os_headroom: ?u64 = null,
     /// zoneinfo directory for named time zones (null: UTC, offsets and
     /// POSIX TZ strings only).
     timezone_dir: ?[]const u8 = default_timezone_dir,
@@ -136,8 +141,8 @@ const Client = struct {
     input_len: usize = 0,
     input_start: usize = 0,
     output: []u8 = &.{},
-    result_region: pages.Region = .{},
-    output_region: pages.Region = .{},
+    result_region: owned_pages.Region = .{},
+    output_region: owned_pages.Region = .{},
     output_len: usize = 0,
     output_sent: usize = 0,
     closing: bool = false,
@@ -153,9 +158,11 @@ const Client = struct {
         if (active) self.connection.disconnect();
         self.state.store(1, .release);
         if (active) unlockStore();
-        tcp.close(self.socket);
-        self.result_region.close();
-        self.output_region.close();
+        if(self.socket!=tcp.invalid_socket) tcp.close(self.socket);
+        lockMemory();
+        self.result_region.close() catch @panic("lost client result ownership");
+        self.output_region.close() catch @panic("lost client response ownership");
+        unlockMemory();
         self.output = &.{};
         self.socket = tcp.invalid_socket;
         self.blocked = false;
@@ -274,6 +281,44 @@ var parallel = false;
 var store_mutex: threads.Mutex = .{};
 fn lockStore() void { if (parallel) store_mutex.lock(); }
 fn unlockStore() void { if (parallel) store_mutex.unlock(); }
+var memory_mutex:threads.Mutex=.{};
+var memory_ledger:resource_budget.Ledger=.{};
+var memory_slots:[capacity*2+4]resource_budget.Slot=undefined;
+var memory_hard:?u64=null;
+var memory_headroom:?u64=null;
+var memory_refresh_at:i64=0;
+const worker_budget_each:u64=5*1024*1024;
+fn lockMemory() void {if(parallel) memory_mutex.lock();}
+fn unlockMemory() void {if(parallel) memory_mutex.unlock();}
+fn initializeMemory(options:Options) !void {
+    memory_hard=options.memory_budget;memory_headroom=options.os_headroom;
+    const observed=try machine_capacity.sample(memory_hard,memory_headroom,0);
+    try memory_ledger.bind(&memory_slots,observed.new_region_bytes);
+    memory_refresh_at=monotonicClock()+1000000000;
+}
+// The memory mutex keeps our region ownership stable while sampling. Pressure
+// reduces only future grants; existing mappings are never discarded/revoked.
+fn refreshMemoryBudget() !void {
+    const now=monotonicClock();if(now<memory_refresh_at) return;
+    const used=memory_ledger.stats().used;
+    const observed=machine_capacity.sample(memory_hard,memory_headroom,used) catch |err| {
+        try memory_ledger.resize(used);return err;
+    };
+    const limit=@addWithOverflow(used,observed.new_region_bytes);
+    if(limit[1]!=0) return error.ArithmeticOverflow;
+    try memory_ledger.resize(limit[0]);memory_refresh_at=now+1000000000;
+}
+fn clientMemoryAvailable() bool {
+    lockMemory();defer unlockMemory();
+    refreshMemoryBudget() catch return false;
+    const page=pages.pageSize();
+    const result=Raw.Result.rowBytes(selected_result_rows) catch return false;
+    const output=responseBytes(selected_result_rows) catch return false;
+    const a=@addWithOverflow(result,page-1);const b=@addWithOverflow(output,page-1);
+    if(a[1]!=0 or b[1]!=0) return false;
+    const required=@addWithOverflow(a[0]/page*page,b[0]/page*page);
+    return required[1]==0 and memory_ledger.stats().free>=required[0];
+}
 
 // Called only by the executing connection while it owns store_mutex. A cancel
 // generation cannot spill into a newly accepted connection reusing this slot.
@@ -291,18 +336,18 @@ fn responseBytes(rows: usize) !usize {
 }
 
 fn provisionClient(client: *Client) !void {
-    var result_memory = try pages.reserve(try Raw.Result.rowBytes(selected_result_rows));
-    errdefer result_memory.close();
-    var output_memory = try pages.reserve(try responseBytes(selected_result_rows));
-    errdefer output_memory.close();
+    lockMemory();defer unlockMemory();
+    try refreshMemoryBudget();
+    try client.result_region.reserve(&memory_ledger,try Raw.Result.rowBytes(selected_result_rows));
+    errdefer client.result_region.close() catch @panic("lost failed client result ownership");
+    try client.output_region.reserve(&memory_ledger,try responseBytes(selected_result_rows));
+    errdefer client.output_region.close() catch @panic("lost failed client response ownership");
     switch (client.session) {
-        .postgres => |*session| try session.result.bindMemory(result_memory.bytes, selected_result_rows),
-        .mysql => |*session| try session.result.bindMemory(result_memory.bytes, selected_result_rows),
-        .mssql => |*session| try session.result.bindMemory(result_memory.bytes, selected_result_rows),
+        .postgres => |*session| try session.result.bindMemory(client.result_region.memory.bytes, selected_result_rows),
+        .mysql => |*session| try session.result.bindMemory(client.result_region.memory.bytes, selected_result_rows),
+        .mssql => |*session| try session.result.bindMemory(client.result_region.memory.bytes, selected_result_rows),
     }
-    client.result_region = result_memory;
-    client.output_region = output_memory;
-    client.output = output_memory.bytes;
+    client.output = client.output_region.memory.bytes;
 }
 var next_id: u64 = 1;
 
@@ -355,11 +400,20 @@ const OverflowCancel = struct {
     }
 
     fn handOff(self: *OverflowCancel) bool {
-        if (!parallel) return false;
+        if (!clientMemoryAvailable()) return false;
         for (clients,0..) |*client,slot| if (client.state.load(.acquire) == 0) {
             const socket = self.socket;
+            configureClient(socket,.postgres,slot,self.bytes[0..self.used]) catch |err| {
+                switch(err) {
+                    error.BudgetExceeded,error.TokenCapacity,error.MemoryReservationFailed=>{
+                        self.output_len=pg.memoryLimitError(&self.output) catch {self.close();return true;};
+                        self.output_sent=0;self.closing=true;
+                    },
+                    else=>self.close(),
+                }
+                return true;
+            };
             self.socket = tcp.invalid_socket;
-            configureClient(socket,.postgres,slot,self.bytes[0..self.used]) catch {};
             return true;
         };
         return false;
@@ -406,7 +460,7 @@ const OverflowCancel = struct {
             // normal protocol validator. Cancel requires no SQL worker slot.
             if (self.handOff()) return;
             if (code != 196608) { self.close(); return; }
-            self.output_len = pg.connectionLimitError(&self.output) catch { self.close(); return; };
+            self.output_len = (if(!clientMemoryAvailable()) pg.memoryLimitError(&self.output) else pg.connectionLimitError(&self.output)) catch { self.close(); return; };
             self.closing = true;
             return;
         }
@@ -455,7 +509,7 @@ fn pollInterrupts(_: ?*anyopaque, _: u64) void {
 fn acceptConnections(listener: tcp.Socket, protocol: Protocol, max_clients: usize, limit: usize) !void {
     for (0..limit) |_| {
         const socket = tcp.accept(listener) catch break orelse break;
-        if (parallel and protocol == .postgres) {
+        if (protocol == .postgres) {
             if (!queueOverflowCancel(socket)) tcp.close(socket);
             continue;
         }
@@ -468,7 +522,7 @@ fn acceptConnections(listener: tcp.Socket, protocol: Protocol, max_clients: usiz
             if (protocol != .postgres or !queueOverflowCancel(socket)) tcp.close(socket);
             continue;
         };
-        configureClient(socket,protocol,slot,&.{}) catch continue;
+        configureClient(socket,protocol,slot,&.{}) catch {tcp.close(socket);continue;};
     }
 }
 
@@ -490,7 +544,9 @@ fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial:
         .mysql => .{ .mysql = .{} },
         .mssql => .{ .mssql = .{} },
     };
-    errdefer client.close();
+    // The accept/admission queue retains the socket on setup failure so it can
+    // emit a PostgreSQL resource error instead of silently resetting TCP.
+    errdefer {client.socket=tcp.invalid_socket;client.close();}
     try provisionClient(client);
     if (protocol == .postgres) {
         // BackendKeyData: pid = slot + 1, fresh 32-bit secret.
@@ -691,35 +747,55 @@ pub fn describe(options: Options) !void {
         if (index!=0) try out.writeStreamingAll(.{},",");
         try out.writeStreamingAll(.{},try sig.fmt.bufPrint(&number,"{d}",.{budget.versions}));
     }
-    try out.writeStreamingAll(.{},"]}\n");
+    var policy_buffer:[192]u8=undefined;
+    try out.writeStreamingAll(.{},try std.fmt.bufPrint(&policy_buffer,
+        "],\"server_region_budgeting\":true,\"memory_budget_bytes\":{?d},\"os_headroom_bytes\":{?d}}}\n",
+        .{options.memory_budget,options.os_headroom}));
 }
 
-fn openStorage(options: Options) !pages.Region {
+pub fn describeMachine(options:Options) !void {
+    if(options.max_clients==0 or options.max_clients>capacity) return error.InvalidServerOptions;
+    try validateWorkers(options);
+    const plan=try storagePlan(options);
+    const worker_bytes=if(options.workers>1) options.workers*worker_budget_each else 0;
+    var total:u64=0;
+    for([_]u64{plan.bytes,plan.workspace_bytes,options.max_clients*@sizeOf(Client),worker_bytes}) |amount| {
+        const next=@addWithOverflow(total,amount);if(next[1]!=0) return error.ArithmeticOverflow;total=next[0];
+    }
+    try machine_capacity.describe(options.memory_budget,options.os_headroom,total);
+}
+fn openStorage(options: Options,backing:*owned_pages.Region) !void {
     const plan = try storagePlan(options);
-    var backing = try pages.reserve(plan.bytes);
-    errdefer backing.close();
-    try store.database.bindMemoryFor(backing.bytes, plan.budgets, plan.refs);
-    return backing;
+    try backing.reserve(&memory_ledger,plan.bytes);
+    errdefer backing.close() catch @panic("lost failed storage ownership");
+    try store.database.bindMemoryFor(backing.memory.bytes, plan.budgets, plan.refs);
 }
 
 pub fn run(options: Options) !void {
     if (options.max_clients == 0 or options.max_clients > capacity or options.idle_ms == 0) return error.InvalidServerOptions;
+    try validateWorkers(options);
+    parallel = options.workers > 1;
+    try initializeMemory(options);
     const plan = try storagePlan(options);
-    var client_memory = try pages.reserve(options.max_clients * @sizeOf(Client));
-    defer client_memory.close();
-    clients = try client_memory.view(Client, 0, options.max_clients);
+    var worker_grant:?resource_budget.Token=null;
+    if(parallel) worker_grant=try memory_ledger.acquire(options.workers*worker_budget_each);
+    defer if(worker_grant) |grant| memory_ledger.release(grant) catch @panic("lost worker stack grant");
+    var client_memory:owned_pages.Region=.{};
+    try client_memory.reserve(&memory_ledger,options.max_clients * @sizeOf(Client));
+    defer client_memory.close() catch @panic("lost client metadata ownership");
+    clients = try client_memory.memory.view(Client, 0, options.max_clients);
     for (clients) |*client| {
         client.socket = tcp.invalid_socket;
         client.state = .init(0); client.cancel_key = .init(0); client.cancel_request = .init(0);
     }
-    try validateWorkers(options);
-    parallel = options.workers > 1;
     admission_timeout_ns = @as(i64,@min(options.idle_ms,1000)) * 1000000;
-    var backing = try openStorage(options);
-    defer backing.close();
-    var workspace = try pages.reserve(plan.workspace_bytes);
-    defer workspace.close();
-    try store.database.bindWorkspaceMemory(workspace.bytes, options.work_rows);
+    var backing:owned_pages.Region=.{};
+    try openStorage(options,&backing);
+    defer backing.close() catch @panic("lost database storage ownership");
+    var workspace:owned_pages.Region=.{};
+    try workspace.reserve(&memory_ledger,plan.workspace_bytes);
+    defer workspace.close() catch @panic("lost query workspace ownership");
+    try store.database.bindWorkspaceMemory(workspace.memory.bytes, options.work_rows);
     _ = try Raw.Result.rowBytes(options.result_rows);
     _ = try responseBytes(options.result_rows);
     selected_result_rows = options.result_rows;
@@ -888,11 +964,14 @@ pub fn run(options: Options) !void {
 /// Offline backup validates/replays the existing source before publishing a copy.
 pub fn backup(options: Options, target: []const u8) !void {
     if (options.memory) return error.InvalidServerOptions;
-    var backing = try openStorage(options);
-    defer backing.close();
-    var workspace = try pages.reserve((try storagePlan(options)).workspace_bytes);
-    defer workspace.close();
-    try store.database.bindWorkspaceMemory(workspace.bytes, options.work_rows);
+    try initializeMemory(options);
+    var backing:owned_pages.Region=.{};
+    try openStorage(options,&backing);
+    defer backing.close() catch @panic("lost backup storage ownership");
+    var workspace:owned_pages.Region=.{};
+    try workspace.reserve(&memory_ledger,(try storagePlan(options)).workspace_bytes);
+    defer workspace.close() catch @panic("lost backup workspace ownership");
+    try store.database.bindWorkspaceMemory(workspace.memory.bytes, options.work_rows);
     _ = try persistence.initExisting(options.data, &store, &recovery_buffer);
     defer persistence.close();
     try @import("backup.sig").create(&persistence.file, target, &recovery_buffer);

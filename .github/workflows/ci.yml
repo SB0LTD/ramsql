@@ -113,6 +113,9 @@ jobs:
       - name: Test command line and bounded SQL streams
         run: python tools/test_cli.py
 
+      - name: Test native machine planning and PostgreSQL memory admission
+        run: python tools/test_machine_capacity.py
+
       - name: Test TCP framing, fairness, limits and session cleanup
         run: python tools/test_server.py
 

@@ -162,14 +162,14 @@ fn run(init: std.process.Init.Minimal) !u8 {
     var timezone_buffer: [4096]u8 = undefined;
     var backup_target: ?[]const u8 = null;
     var data_set = false;
-    var mode: enum { serve, demo, input, help, version, capabilities } = .serve;
+    var mode: enum { serve, demo, input, help, version, capabilities, machine_capacity } = .serve;
     var explicit_mode = false;
     var has_server_options = false;
     while (try args.next()) |arg| {
-        if (same(arg, "--serve") or same(arg, "--demo") or same(arg, "--stdin") or same(arg, "--help") or same(arg, "--version") or same(arg, "--capabilities")) {
+        if (same(arg, "--serve") or same(arg, "--demo") or same(arg, "--stdin") or same(arg, "--help") or same(arg, "--version") or same(arg, "--capabilities") or same(arg,"--machine-capacity")) {
             if (explicit_mode) return error.UnknownArgument;
             explicit_mode = true;
-            mode = if (same(arg, "--serve")) .serve else if (same(arg, "--demo")) .demo else if (same(arg, "--stdin")) .input else if (same(arg, "--help")) .help else if (same(arg, "--capabilities")) .capabilities else .version;
+            mode = if (same(arg, "--serve")) .serve else if (same(arg, "--demo")) .demo else if (same(arg, "--stdin")) .input else if (same(arg, "--help")) .help else if (same(arg, "--capabilities")) .capabilities else if(same(arg,"--machine-capacity")) .machine_capacity else .version;
         } else if (same(arg, "--memory")) {
             if (data_set) return error.InvalidServerOptions;
             options.memory = true;
@@ -178,8 +178,8 @@ fn run(init: std.process.Init.Minimal) !u8 {
             options.insecure_local = true;
             has_server_options = true;
         } else {
-            const option: enum { protocol, port, mysql_port, mssql_port, max_clients, workers, idle_ms, max_query_work, storage_rows, storage_versions, work_rows, result_rows, table_rows, table_versions, data, verifier_file, auth_user, backup_to, timezone_dir } =
-                if (same(arg, "--workers")) .workers else if (same(arg, "--table-rows")) .table_rows else if (same(arg, "--table-versions")) .table_versions else if (same(arg, "--work-rows")) .work_rows else if (same(arg, "--result-rows")) .result_rows else if (same(arg, "--rows")) .storage_rows else if (same(arg, "--versions")) .storage_versions else if (same(arg, "--protocol")) .protocol else if (same(arg, "--port")) .port else if (same(arg, "--mysql-port")) .mysql_port else if (same(arg, "--mssql-port")) .mssql_port else if (same(arg, "--max-clients")) .max_clients else if (same(arg, "--max-query-work")) .max_query_work else if (same(arg, "--idle-ms")) .idle_ms else if (same(arg, "--data")) .data else if (same(arg, "--auth-verifier-file")) .verifier_file else if (same(arg, "--auth-user")) .auth_user else if (same(arg, "--backup-to")) .backup_to else if (same(arg, "--timezone-dir")) .timezone_dir else return error.UnknownArgument;
+            const option: enum { protocol, port, mysql_port, mssql_port, max_clients, workers, idle_ms, max_query_work, storage_rows, storage_versions, work_rows, result_rows, table_rows, table_versions, data, verifier_file, auth_user, backup_to, timezone_dir, memory_budget, os_headroom } =
+                if(same(arg,"--memory-budget")) .memory_budget else if(same(arg,"--os-headroom")) .os_headroom else if (same(arg, "--workers")) .workers else if (same(arg, "--table-rows")) .table_rows else if (same(arg, "--table-versions")) .table_versions else if (same(arg, "--work-rows")) .work_rows else if (same(arg, "--result-rows")) .result_rows else if (same(arg, "--rows")) .storage_rows else if (same(arg, "--versions")) .storage_versions else if (same(arg, "--protocol")) .protocol else if (same(arg, "--port")) .port else if (same(arg, "--mysql-port")) .mysql_port else if (same(arg, "--mssql-port")) .mssql_port else if (same(arg, "--max-clients")) .max_clients else if (same(arg, "--max-query-work")) .max_query_work else if (same(arg, "--idle-ms")) .idle_ms else if (same(arg, "--data")) .data else if (same(arg, "--auth-verifier-file")) .verifier_file else if (same(arg, "--auth-user")) .auth_user else if (same(arg, "--backup-to")) .backup_to else if (same(arg, "--timezone-dir")) .timezone_dir else return error.UnknownArgument;
             const value = try args.next() orelse return error.UnknownArgument;
             has_server_options = true;
             switch (option) {
@@ -215,6 +215,8 @@ fn run(init: std.process.Init.Minimal) !u8 {
                 .mssql_port => options.mssql_port = try fmt.parseInt(u16, value, 10),
                 .max_clients => options.max_clients = try fmt.parseInt(usize, value, 10),
                 .workers => options.workers = try fmt.parseInt(usize, value, 10),
+                .memory_budget => {const amount=try fmt.parseInt(u64,value,10);if(amount==0) return error.InvalidServerOptions;options.memory_budget=amount;},
+                .os_headroom => options.os_headroom = try fmt.parseInt(u64,value,10),
                 .storage_rows => options.storage_rows = try fmt.parseInt(usize, value, 10),
                 .storage_versions => options.storage_versions = try fmt.parseInt(usize, value, 10),
                 .table_rows => options.table_rows = try budgets(value),
@@ -226,7 +228,7 @@ fn run(init: std.process.Init.Minimal) !u8 {
             }
         }
     }
-    if (has_server_options and mode != .serve and mode != .capabilities) return error.UnknownArgument;
+    if (has_server_options and mode != .serve and mode != .capabilities and mode != .machine_capacity) return error.UnknownArgument;
     if (backup_target) |target| {
         if (mode != .serve or options.memory) return error.InvalidServerOptions;
         try server.backup(options, target);
@@ -234,9 +236,10 @@ fn run(init: std.process.Init.Minimal) !u8 {
         return 0;
     }
     switch (mode) {
-        .help => try write("ramsql beta (controlled testing; not production)\nUsage: ramsql [--serve|--demo|--stdin|--version|--capabilities|--help]\nServer: --protocol postgres|mysql|mssql --port N --mysql-port N --mssql-port N\n        --max-clients N --workers N (experimental I/O reactors; SQL serialized) --idle-ms N --max-query-work N (0: unlimited); default loopback PostgreSQL:5432\nInspect: --capabilities (JSON; accepts runtime capacity options; opens no files/listeners)\nCapacity: --rows N --versions N --work-rows N --result-rows N (independent runtime budgets)\n          --table-rows n,n,... --table-versions n,n,... (one budget per table slot)\nStorage: --data WAL_PATH (default ramsql.wal) | --memory\nBackup: --data EXISTING_WAL --backup-to NEW_PATH (offline)\nAuth: --auth-user USER --auth-verifier-file PATH (PostgreSQL SCRAM verifier)\nTime zones: --timezone-dir ZONEINFO_DIR (default /usr/share/zoneinfo on Linux/macOS)\n      --insecure-local explicitly enables unauthenticated loopback testing\n--stdin: one SQL statement per line. --demo: run the example and exit.\n"),
+        .help => try write("ramsql beta (controlled testing; not production)\nUsage: ramsql [--serve|--demo|--stdin|--version|--capabilities|--machine-capacity|--help]\nServer: --protocol postgres|mysql|mssql --port N --mysql-port N --mssql-port N\n        --max-clients N --workers N (experimental I/O reactors; SQL serialized) --idle-ms N --max-query-work N (0: unlimited); default loopback PostgreSQL:5432\nMachine: --machine-capacity (JSON native resources and byte plan; opens no database/listeners)\n         --memory-budget BYTES --os-headroom BYTES (also apply to server region admission)\nInspect: --capabilities (JSON; accepts runtime capacity options; opens no files/listeners)\nCapacity: --rows N --versions N --work-rows N --result-rows N (independent runtime budgets)\n          --table-rows n,n,... --table-versions n,n,... (one budget per table slot)\nStorage: --data WAL_PATH (default ramsql.wal) | --memory\nBackup: --data EXISTING_WAL --backup-to NEW_PATH (offline)\nAuth: --auth-user USER --auth-verifier-file PATH (PostgreSQL SCRAM verifier)\nTime zones: --timezone-dir ZONEINFO_DIR (default /usr/share/zoneinfo on Linux/macOS)\n      --insecure-local explicitly enables unauthenticated loopback testing\n--stdin: one SQL statement per line. --demo: run the example and exit.\n"),
         .version => try write("ramsql " ++ ram.version ++ "\n"),
         .capabilities => try server.describe(options),
+        .machine_capacity => try server.describeMachine(options),
         .input => return if (try stdin()) 1 else 0,
         .demo => try demo(),
         .serve => try server.run(options),
