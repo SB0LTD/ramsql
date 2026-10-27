@@ -1,9 +1,14 @@
-# Reviewer follow-up: beta.2 candidate
+# Reviewer follow-up: beta.2
 
 The beta.1 reviewer was right about material production blockers. Its release
 was also not published: PR validation built/tested artifacts but intentionally
 skipped the workflow's publish job. A successful validation is not publication.
 This document tracks implementation and evidence, not production certification.
+
+Beta.2 is now [published](https://github.com/SB0LTD/ramsql/releases/tag/v0.3.0-beta.2).
+The explicit publication workflow passed, and post-download verification checked
+all 28 checksummed files and eight target packages. This publication status does
+not change the remaining SQL, security, capacity or concurrency gaps below.
 
 | Finding | Implemented response | Evidence and remaining work |
 | --- | --- | --- |
