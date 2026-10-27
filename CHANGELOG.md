@@ -6,6 +6,10 @@ later binary.
 
 ## Unreleased
 
+- Retain a fresh ten-case IRDB 1.10.821 native SQL-string replay at 100k rows.
+  Every result passes and every case wins the finite speed screen, including
+  sort, range, grouped, mixed and churn cases. Prepared-query comparisons,
+  multiple large tables and 100M-row SQL capacity remain unqualified.
 - Borrow arithmetic and PK-probe operands, reuse visible key hits, and gather
   current committed integral fact inputs from the existing column projection.
   Preserve checkpoint charges, NULL/error evaluation and MVCC fallback. In a

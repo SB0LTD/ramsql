@@ -144,6 +144,15 @@ loss, corruption and durable restore. Measure CPU/query as well as throughput.
 
 ## Benchmark matrix and acceptance
 
+The fresh [guarded-input reference run](../benchmarks/guarded-reference-20261027/README.md)
+and [remaining cases](../benchmarks/guarded-reference-remaining-20261027/README.md)
+pass correctness and the finite speed screen in all ten cases at 100k rows.
+These are single-worker native SQL-string calls; no joins or durable server
+comparison is included. IRDB's public `prepareQuery` path needs a separate
+matched experiment, especially before interpreting the large point/mutation
+ratios. Retain both SQL-string and prepared tiers instead of substituting one
+for the other. Broad reference-engine superiority remains an unachieved target.
+
 Scale steps: 1M, 10M and 100M rows **per table**, with 2- and 4-large-table
 variants. Include narrow integers, decimal amounts, nullable/dictionary strings,
 wide/high-entropy payloads, uniform/shuffled/skewed keys and realistic selectivity.

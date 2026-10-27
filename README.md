@@ -206,6 +206,14 @@ profile. Hosted connection admission currently has a 60-client ceiling.
 
 ## Measured performance
 
+The current development executor's [matched joined-read experiment](benchmarks/final-joined-read-20261027/README.md)
+reduces median latency from 33.98 to 6.95 ms (4.89x) for a checked 100k-row
+three-table aggregate. A fresh [IRDB comparison](benchmarks/guarded-reference-20261027/README.md)
+and its [remaining cases](benchmarks/guarded-reference-remaining-20261027/README.md)
+pass correctness and the finite speed screen in all ten native API cases at
+100k rows. Both engines receive SQL strings; prepared-query performance remains
+unmeasured. These development changes are not in the published beta.2 artifacts.
+
 The [production workload report](benchmarks/production-20261026/REPORT.md)
 compares checked native SQL calls against IRDB 1.10.821 with shuffled keys,
 nullable payloads, grouping beyond summary capacity and genuine writes:
