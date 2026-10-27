@@ -43,3 +43,11 @@ changes on that base. Earlier developmental binary identities are in their raw
 reports. These are development measurements, not qualification of a later
 published artifact. The benchmark's `workers` array is client-process timing
 records; `reactors` is the actual server socket-worker count.
+
+`million-row-capacity.json` is separate capacity evidence from a later
+ReleaseSafe binary using the native-runtime source pins. It loads one million
+actual rows through COPY and checks count/sum/extremes, sampled PK reads and
+duplicate rejection. One bank has a million-row budget; unused banks have one
+row each. Measured RSS ~1.23 GiB, private commit ~2.40 GiB. It is in-memory,
+has no comparative timing or durable-load claim, and does not replace the wire
+measurements above.

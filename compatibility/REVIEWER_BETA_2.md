@@ -50,9 +50,14 @@ This throughput/CPU tradeoff does not meet the efficiency goal; more reactors
 remain experimental. Both the busy-retry attempt and revised blocking-lock
 attempt are retained, together with the earlier old-binary comparison.
 
-Sig 0.6.4's explicit cross-target build path forces libc linkage. Release Linux
-binaries therefore build natively on matching x86_64/AArch64 runners with libc
-disabled, preserving the direct OS stack/TLS thread contract. Capabilities report
+Sig 0.6.4's explicit cross-target build path forces libc linkage, and its public
+I/O module originally used libc for basic file/clock calls. The no-libc file and
+monotonic-clock backend is fixed in Sig; the wall-clock backend is fixed in ZPM.
+The product consumes the public Sig runtime through a separate immutable source
+archive, based on the same 0.6.4 revision with only runtime I/O changes; the
+compiler and its matching standard library remain the verified release.
+Release Linux binaries build natively on matching x86_64/AArch64 runners with
+libc disabled, preserving the direct OS stack/TLS thread contract. Capabilities report
 `native_workers_available`; Windows/Linux artifact tests require it. macOS tests
 verify that requesting unsupported workers fails explicitly.
 
@@ -66,3 +71,15 @@ streaming large results/intermediates, compact elastic value storage, sustained
 multi-core SQL and operational failure qualification are not completed by this
 patch. Schema/text/parser/transaction/version/connection bounds remain explicit
 in [CAPACITY.md](../CAPACITY.md).
+
+## Actual million-row capacity check
+
+`tools/test_large_runtime.py` imports one million rows through independent
+psycopg COPY in 1,000-row transactions. It checks count/sum/extremes, 1,024 PK
+probes and duplicate rejection. The retained
+[capacity report](../benchmarks/reviewer-wire-20261027/million-row-capacity.json)
+uses a ReleaseSafe Windows binary, one million rows for the first table and
+one row for each unused bank. After loading, resident memory was 1,323,704,320
+bytes (~1.23 GiB), private commit 2,580,021,248 bytes (~2.40 GiB). This is a memory
+load/correctness check, not durable-load evidence or a comparative benchmark.
+The previously stated 5M-row layout remains preflight sizing only.

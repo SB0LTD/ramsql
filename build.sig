@@ -46,6 +46,9 @@ fn libPath(base: []const u8, suffix: []const u8, buf: []u8) ![]const u8 {
 
 pub fn build(ctx: *sig_build.Build_Context) !void {
     const zpm = ctx.getDependency("zpm") orelse return error.BufferTooSmall;
+    const sig_runtime = ctx.getDependency("sig_runtime") orelse return error.BufferTooSmall;
+    var runtime_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    const runtime_path = try sig_runtime.modulePath("lib/sig/sig.sig", &runtime_buf);
     var sql_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
     const sql_path = try zpm.modulePath("src/core/sql.sig", &sql_buf);
     _ = try ctx.addModule("sql", sql_path);
@@ -119,8 +122,6 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     _ = try ctx.addModule("profile", profile_path);
     const lib = try ctx.addModule("ramsql", "src/root.sig");
     try ctx.addImport(lib, "sql", sql_path);
-    const sig_lib = ctx.sig_lib_dir[0..ctx.sig_lib_dir_len];
-    var runtime_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
     const app = try ctx.addCompileStep(.{
         .source_path = "src/main.sig",
         .output_name = "ramsql",
@@ -129,7 +130,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
         .target = if (ctx.target.arch_len > 0) &ctx.target else null,
         .imports = &.{
             importEntry("ramsql", "src/root.sig"),
-            importEntry("sig", try libPath(sig_lib, "/sig/sig.sig", &runtime_buf)),
+            importEntry("sig", runtime_path),
             importEntry("sql", sql_path),
             importEntry("postgres", pg_path),
             importEntry("mysql", mysql_path),
@@ -209,7 +210,6 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     const test_api = try ctx.addStep("test-api", "contract-ramsql", &runBinary);
     try ctx.addDependency(test_api, api);
     try ctx.addDependency(test_step, test_api);
-    const runtime_path = try libPath(sig_lib, "/sig/sig.sig", &runtime_buf);
     const bench = try ctx.addCompileStep(.{
         .source_path = "src/benchmark.sig",
         .output_name = "ramsql-bench",

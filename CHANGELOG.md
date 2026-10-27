@@ -21,6 +21,9 @@ later binary.
 - Experimental Windows/no-libc Linux `--workers` for socket/protocol reactors,
   caller-owned native thread controls, serialized shared SQL, generation-bound
   cancellation and joined cleanup. Default one worker; macOS/SB0 remain one.
+- Native Linux release builds use Sig's pinned no-libc public runtime I/O patch
+  and ZPM's native vDSO wall clock. Compiler/matching standard library remain
+  Sig 0.6.4; public runtime archive identity is recorded and checked separately.
 - Independent reviewer regressions cover 5,000 rows, 500-row/four-value INSERTs,
   seven aggregates, 2,000 returned rows, selective three-way joins with tiny
   scratch, 32 transactions, unequal-bank restart and duplicate-key rejection.
