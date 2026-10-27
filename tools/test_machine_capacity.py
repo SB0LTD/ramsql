@@ -36,14 +36,19 @@ def main():
     for bad in (['--memory-budget','0'],['--memory-budget','-1'],['--memory-budget','18446744073709551616']):
         result=subprocess.run([str(binary),'--machine-capacity',*bad],capture_output=True,timeout=15)
         assert result.returncode==2,(bad,result)
-    # The deliberately small byte budget admits fewer than the declared eight
-    # slots. Exhaust real buffers, retain existing connections and release/reuse.
+    caps=json.loads(subprocess.check_output([str(binary),'--capabilities']))
+    # Include native image commitment and real startup requirements. A fixed
+    # 256 MiB cap is not portable across architectures/build modes/toolchains.
+    # Allow a few complete client buffers, but fewer than the eight SQL slots.
+    per_client=caps['result_bytes_per_client']+caps['output_bytes_per_client']+128*1024
     for workers in (1,4):
         if workers>1:
-            caps=json.loads(subprocess.check_output([str(binary),'--capabilities']))
             if not caps['native_workers_available']:
                 continue
-        with Server(binary,max_clients=8,extra_arguments=('--memory-budget',str(256*1024**2),
+        fixture=report('--max-clients','8','--workers',str(workers))
+        existing=max(fixture['process_committed'],fixture['process_resident'])
+        byte_cap=existing+fixture['legacy_startup_bytes']+per_client*2+max(16*1024**2,per_client//2)
+        with Server(binary,max_clients=8,extra_arguments=('--memory-budget',str(byte_cap),
                     '--os-headroom',str(32*1024**2),'--workers',str(workers))) as server:
             held=[]
             try:

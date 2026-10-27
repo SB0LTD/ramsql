@@ -77,7 +77,12 @@ class Server:
         try:
             line = lines.get(timeout=15)
             match = re.fullmatch(r"RAMSQL postgres 127\.0\.0\.1:(\d+)\n", line)
-            check(match is not None, f"bad server startup {line!r}; stderr={list(self.errors)!r}")
+            diagnostic=''
+            if match is None:
+                facts=subprocess.run([str(self.binary),'--machine-capacity',*self.extra_arguments],
+                                     capture_output=True,text=True,timeout=15)
+                diagnostic=f'; capacity={facts.stdout!r}; probe_error={facts.stderr!r}'
+            check(match is not None, f"bad server startup {line!r}; stderr={list(self.errors)!r}{diagnostic}")
             self.port = int(match.group(1))
             check(0 < self.port <= 65535, "server did not report an actual ephemeral port")
             return self
