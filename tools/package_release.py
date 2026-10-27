@@ -105,13 +105,13 @@ def dependency_provenance() -> dict:
 
 
 def runtime_provenance() -> dict:
-    zon = (ROOT / "build.sig.zon").read_text(encoding="utf-8")
-    block = re.search(r'\.sig_runtime\s*=\s*\.\{(.*?)\n\s*\}',zon,re.S)
-    url = re.search(r'\.url\s*=\s*"([^"]+)"',block[1]) if block else None
-    digest = re.search(r'\.hash\s*=\s*"([0-9a-f]{64})"',block[1]) if block else None
-    if not url or not digest or not re.fullmatch(r'https://github\.com/SB0LTD/sig/archive/[0-9a-f]{40}\.tar\.gz',url[1]):
+    pin = json.loads((ROOT / "toolchains/sig-runtime.json").read_text(encoding="utf-8"))
+    url,digest=pin.get('archive',''),pin.get('sha256','')
+    if (pin.get('schema') != 1 or pin.get('compiler_release') != SIG_TAG
+            or not re.fullmatch(r'https://github\.com/SB0LTD/sig/archive/[0-9a-f]{40}\.tar\.gz',url)
+            or not re.fullmatch(r'[0-9a-f]{64}',digest)):
         raise ValueError("release requires an immutable, SHA-256-pinned Sig runtime archive")
-    return {"archive":url[1],"sha256":digest[1]}
+    return {"archive":url,"sha256":digest}
 
 
 def capabilities(entry: dict) -> dict:
