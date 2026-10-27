@@ -106,6 +106,18 @@ standalone packed-array benchmark is not evidence that the server uses it.
 
 ## Bounded execution and parallel reads
 
+Development progress: [ZPM #38](https://github.com/SB0LTD/zpm/pull/38)
+streams scalar/group aggregates over primary-key inner joins. Windows and no-libc
+Linux check 100,000 actual SQL-loaded fact rows with 512 handles/1,024 cells,
+including pending dimension snapshots and cancellation. Live server tests use
+32 workspace rows with one/four workers. The [matched revision benchmark](../benchmarks/streamed-join-wire-20261027/README.md)
+reduces median latency from 34.6 to 16.1 ms at 100,000 rows. These are execution
+and RAMSQL-revision results, not reference-engine or 100M-row storage acceptance.
+Non-key/outer joins and general projections still materialize; per-worker query
+reference reservations still include a legacy term proportional to maximum table
+capacity. Automatic core sizing, per-query grants and compact physical SQL storage
+remain necessary before claiming effective whole-machine capacity planning.
+
 - Filter/project before joining when semantics permit. Stream vectors between
   operators; do not build a full sales/products intermediate before a selective
   predicate can run. Preserve outer joins, NULLs, correlated and volatile semantics.

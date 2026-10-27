@@ -1,0 +1,322 @@
+{
+  "schema": 1,
+  "scope": "single-client memory-only PostgreSQL simple-query joined aggregate comparison",
+  "query": "SELECT s.region,COUNT(*),SUM(f.amount*p.unit) FROM facts f JOIN shops s ON s.id=f.shop JOIN products p ON p.id=f.product GROUP BY s.region ORDER BY s.region NULLS LAST",
+  "rows": 100000,
+  "work_rows": 32768,
+  "iterations": 100,
+  "environment": {
+    "cpu": "Intel(R) Core(TM) i9-14900HX",
+    "logical_cpus": 32,
+    "platform": "Windows-10-10.0.26300-SP0",
+    "python": "3.11.15"
+  },
+  "binaries": [
+    {
+      "path": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\worker-scratch-fast-out\\bin\\ramsql.exe",
+      "sha256": "af5e57532614a257802c54044d9edc4a5e6d1f375f3a6502c6cbfbde2c4a66f5",
+      "effective_capabilities": {
+        "schema": 1,
+        "version": "0.3.0-beta.2",
+        "release_stage": "beta",
+        "production_ready": false,
+        "default_protocol": "postgres",
+        "bind": "127.0.0.1",
+        "tls": false,
+        "roles": false,
+        "isolation": "read_committed",
+        "workers": 1,
+        "sql_execution_workers": 1,
+        "exclusive_sql_workers": 1,
+        "parallel_simple_reads": false,
+        "native_workers_available": true,
+        "libc_linked": false,
+        "cpu_model": "x86_64",
+        "build_mode": "fast",
+        "rows_per_table": 100000,
+        "versions_per_table": 200000,
+        "tables": 8,
+        "columns": 8,
+        "result_rows": 16,
+        "work_rows": 32768,
+        "text_bytes": 128,
+        "name_bytes": 63,
+        "clients": 16,
+        "compiled_clients": 60,
+        "transaction_bytes": 1048576,
+        "tx_writes": 4096,
+        "row_locks": 256,
+        "predicates": 8,
+        "expr_nodes": 8192,
+        "expr_depth": 64,
+        "relations": 4,
+        "subqueries": 16,
+        "ctes": 4,
+        "savepoints": 32,
+        "sequences": 16,
+        "numeric_digits": 64,
+        "json_depth": 64,
+        "copy_line_bytes": 8192,
+        "pg_packet_bytes": 65535,
+        "pg_prepared_sql_bytes": 65536,
+        "pg_statements": 8,
+        "pg_portals": 8,
+        "pg_parameters": 32,
+        "input_bytes": 65536,
+        "output_bytes_per_client": 94152,
+        "backing_bytes": 256312940,
+        "query_workspace_bytes": 75497472,
+        "result_bytes_per_client": 18432,
+        "client_metadata_bytes": 19698816,
+        "summary_groups": 64,
+        "compact_integral_scans": true,
+        "wal_checkpointing": false,
+        "mysql_tds_authentication": false,
+        "table_rows": [
+          100000,
+          16,
+          8,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "table_versions": [
+          200000,
+          32,
+          16,
+          2,
+          2,
+          2,
+          2,
+          2
+        ],
+        "server_region_budgeting": true,
+        "memory_budget_bytes": null,
+        "os_headroom_bytes": null,
+        "read_context_payload_bytes_per_worker": 80813184
+      }
+    },
+    {
+      "path": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\star-server-fast\\bin\\ramsql.exe",
+      "sha256": "c296f6df0542399f3e1dbea0781af71f0a1a63606cb08191b62f2c6ad51de0b0",
+      "effective_capabilities": {
+        "schema": 1,
+        "version": "0.3.0-beta.2",
+        "release_stage": "beta",
+        "production_ready": false,
+        "default_protocol": "postgres",
+        "bind": "127.0.0.1",
+        "tls": false,
+        "roles": false,
+        "isolation": "read_committed",
+        "workers": 1,
+        "sql_execution_workers": 1,
+        "exclusive_sql_workers": 1,
+        "parallel_simple_reads": false,
+        "native_workers_available": true,
+        "libc_linked": false,
+        "cpu_model": "x86_64",
+        "build_mode": "fast",
+        "rows_per_table": 100000,
+        "versions_per_table": 200000,
+        "tables": 8,
+        "columns": 8,
+        "result_rows": 16,
+        "work_rows": 32768,
+        "text_bytes": 128,
+        "name_bytes": 63,
+        "clients": 16,
+        "compiled_clients": 60,
+        "transaction_bytes": 1048576,
+        "tx_writes": 4096,
+        "row_locks": 256,
+        "predicates": 8,
+        "expr_nodes": 8192,
+        "expr_depth": 64,
+        "relations": 4,
+        "subqueries": 16,
+        "ctes": 4,
+        "savepoints": 32,
+        "sequences": 16,
+        "numeric_digits": 64,
+        "json_depth": 64,
+        "copy_line_bytes": 8192,
+        "pg_packet_bytes": 65535,
+        "pg_prepared_sql_bytes": 65536,
+        "pg_statements": 8,
+        "pg_portals": 8,
+        "pg_parameters": 32,
+        "input_bytes": 65536,
+        "output_bytes_per_client": 94152,
+        "backing_bytes": 256312940,
+        "query_workspace_bytes": 75497472,
+        "result_bytes_per_client": 18432,
+        "client_metadata_bytes": 19698816,
+        "summary_groups": 64,
+        "compact_integral_scans": true,
+        "wal_checkpointing": false,
+        "mysql_tds_authentication": false,
+        "table_rows": [
+          100000,
+          16,
+          8,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "table_versions": [
+          200000,
+          32,
+          16,
+          2,
+          2,
+          2,
+          2,
+          2
+        ],
+        "server_region_budgeting": true,
+        "memory_budget_bytes": null,
+        "os_headroom_bytes": null,
+        "read_context_payload_bytes_per_worker": 80813184
+      }
+    }
+  ],
+  "trials": [
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\worker-scratch-fast-out\\bin\\ramsql.exe",
+      "trial": 0,
+      "passed": true,
+      "operations": 100,
+      "elapsed_ns": 3427730500,
+      "server_cpu_seconds": 3.375,
+      "memory_before": {
+        "rss_bytes": 157691904,
+        "peak_rss_bytes": 157691904,
+        "private_commit_bytes": 349790208,
+        "source": "GetProcessMemoryInfo"
+      },
+      "memory_after": {
+        "rss_bytes": 157691904,
+        "peak_rss_bytes": 157691904,
+        "private_commit_bytes": 349790208,
+        "source": "GetProcessMemoryInfo"
+      }
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\star-server-fast\\bin\\ramsql.exe",
+      "trial": 0,
+      "passed": true,
+      "operations": 100,
+      "elapsed_ns": 1614491900,
+      "server_cpu_seconds": 1.609375,
+      "memory_before": {
+        "rss_bytes": 141832192,
+        "peak_rss_bytes": 141832192,
+        "private_commit_bytes": 349822976,
+        "source": "GetProcessMemoryInfo"
+      },
+      "memory_after": {
+        "rss_bytes": 141860864,
+        "peak_rss_bytes": 141860864,
+        "private_commit_bytes": 349822976,
+        "source": "GetProcessMemoryInfo"
+      }
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\star-server-fast\\bin\\ramsql.exe",
+      "trial": 1,
+      "passed": true,
+      "operations": 100,
+      "elapsed_ns": 1606898600,
+      "server_cpu_seconds": 1.546875,
+      "memory_before": {
+        "rss_bytes": 141893632,
+        "peak_rss_bytes": 141893632,
+        "private_commit_bytes": 349831168,
+        "source": "GetProcessMemoryInfo"
+      },
+      "memory_after": {
+        "rss_bytes": 141893632,
+        "peak_rss_bytes": 141893632,
+        "private_commit_bytes": 349831168,
+        "source": "GetProcessMemoryInfo"
+      }
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\worker-scratch-fast-out\\bin\\ramsql.exe",
+      "trial": 1,
+      "passed": true,
+      "operations": 100,
+      "elapsed_ns": 3455460600,
+      "server_cpu_seconds": 3.40625,
+      "memory_before": {
+        "rss_bytes": 157708288,
+        "peak_rss_bytes": 157708288,
+        "private_commit_bytes": 349831168,
+        "source": "GetProcessMemoryInfo"
+      },
+      "memory_after": {
+        "rss_bytes": 157708288,
+        "peak_rss_bytes": 157708288,
+        "private_commit_bytes": 349831168,
+        "source": "GetProcessMemoryInfo"
+      }
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\worker-scratch-fast-out\\bin\\ramsql.exe",
+      "trial": 2,
+      "passed": true,
+      "operations": 100,
+      "elapsed_ns": 3548838800,
+      "server_cpu_seconds": 3.546875,
+      "memory_before": {
+        "rss_bytes": 157687808,
+        "peak_rss_bytes": 157687808,
+        "private_commit_bytes": 349790208,
+        "source": "GetProcessMemoryInfo"
+      },
+      "memory_after": {
+        "rss_bytes": 157687808,
+        "peak_rss_bytes": 157687808,
+        "private_commit_bytes": 349790208,
+        "source": "GetProcessMemoryInfo"
+      }
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\star-server-fast\\bin\\ramsql.exe",
+      "trial": 2,
+      "passed": true,
+      "operations": 100,
+      "elapsed_ns": 1572466000,
+      "server_cpu_seconds": 1.546875,
+      "memory_before": {
+        "rss_bytes": 141905920,
+        "peak_rss_bytes": 141905920,
+        "private_commit_bytes": 349831168,
+        "source": "GetProcessMemoryInfo"
+      },
+      "memory_after": {
+        "rss_bytes": 141905920,
+        "peak_rss_bytes": 141905920,
+        "private_commit_bytes": 349831168,
+        "source": "GetProcessMemoryInfo"
+      }
+    }
+  ],
+  "runtime_source_revision": "d72ae44f247edfb5779cb3aece0be6d93587fbe8",
+  "zpm_revisions": {
+    "baseline": "82d9a691b79e284cb3b7434e5d87681b1f2c3930",
+    "candidate": "6c24b978fe27addfe30555cb482243de1ccbd304"
+  },
+  "build": {
+    "mode": "ReleaseFast",
+    "target": "x86_64-windows",
+    "cpu": "portable default",
+    "libc_linked": false,
+    "compiler": "Sig 0.6.4, runtime library 0df3506"
+  }
+}
