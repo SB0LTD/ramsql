@@ -4,6 +4,12 @@ The destination is an allocator-free RAM database with PostgreSQL as the default
 interface, broad SQL dialect support and strong measured performance. Completion
 requires executable evidence, not a version label. No dates are promised here.
 
+The current scale target is **100M rows per table across multiple tables**, with
+machine-derived memory/core planning, compact storage and complex join/aggregate
+workloads. The [capacity and execution plan](compatibility/MACHINE_CAPACITY_AND_100M_PLAN.md)
+defines ownership, layers, tests and measurable acceptance. This target is not
+achieved by the current inline-row beta.
+
 | Stage | Work and owner | Exit evidence |
 | --- | --- | --- |
 | Beta.1: reviewable baseline | RAMSQL: real server, SCRAM/WAL, transparent profiles, onboarding, docs and releases; ZPM: MVCC/typed SQL/compact scans | Every supported artifact executes; independent clients and crash/recovery tests pass; limits and benchmark losses are published |

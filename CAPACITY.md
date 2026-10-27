@@ -41,8 +41,9 @@ Other SQL Config fields can be selected by embedded callers; editing a library
 Config is not a runtime tuning mechanism for a published server binary.
 
 `native_workers_available` reports the exact binary's native thread support.
-Linux releases build natively without libc; an explicit Sig 0.6.4 cross-target
-build can force libc and disable these workers. macOS/native SB0 remain one
+Release builds use pinned Sig build support to honor explicit no-libc cross
+targets and portable CPU baselines. The unpatched 0.6.4 runner can force libc
+on cross targets; prepare the pinned SDK before building. macOS/native SB0 remain one
 worker. More reactors increase socket throughput in one checked workload but
 also increase CPU/query; this is not a parallel-query executor.
 

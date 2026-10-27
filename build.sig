@@ -45,10 +45,12 @@ fn libPath(base: []const u8, suffix: []const u8, buf: []u8) ![]const u8 {
 }
 
 pub fn build(ctx: *sig_build.Build_Context) !void {
+    const target_os = if (ctx.target.os_len != 0) ctx.target.os[0..ctx.target.os_len] else @tagName(builtin.os.tag);
+    if ((std.mem.eql(u8,target_os,"linux") or std.mem.eql(u8,target_os,"windows")) and ctx.options.getValue("link-libc") == null)
+        try ctx.options.put("link-libc","false");
     const zpm = ctx.getDependency("zpm") orelse return error.BufferTooSmall;
-    const sig_runtime = ctx.getDependency("sig_runtime") orelse return error.BufferTooSmall;
     var runtime_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
-    const runtime_path = try sig_runtime.modulePath("lib/sig/sig.sig", &runtime_buf);
+    const runtime_path = try libPath(ctx.sig_lib_dir[0..ctx.sig_lib_dir_len], "/sig/sig.sig", &runtime_buf);
     var sql_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
     const sql_path = try zpm.modulePath("src/core/sql.sig", &sql_buf);
     _ = try ctx.addModule("sql", sql_path);

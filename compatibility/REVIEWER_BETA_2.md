@@ -54,12 +54,19 @@ Sig 0.6.4's explicit cross-target build path forces libc linkage, and its public
 I/O module originally used libc for basic file/clock calls. The no-libc file and
 monotonic-clock backend is fixed in Sig; the wall-clock backend is fixed in ZPM.
 The product consumes the public Sig runtime through a separate immutable source
-archive, based on the same 0.6.4 revision with only runtime I/O changes; the
+archive, based on the same 0.6.4 revision with runtime I/O and explicit no-libc
+build-option fixes; the
 compiler and its matching standard library remain the verified release.
-Release Linux binaries build natively on matching x86_64/AArch64 runners with
-libc disabled, preserving the direct OS stack/TLS thread contract. Capabilities report
+The SDK preparation helper verifies every installed stdlib source against the
+pin and extracts only libraries/build support into a new directory. The source
+policy lives in `toolchains/sig-runtime.json`, separate from the ZPM package.
+Releases select explicit portable CPU targets with libc disabled on Windows/Linux,
+preserving the direct OS stack/TLS thread contract. Native-CPU artifacts that
+failed on other x86 runners were rejected by the release gates. Capabilities report
 `native_workers_available`; Windows/Linux artifact tests require it. macOS tests
 verify that requesting unsupported workers fails explicitly.
+`libc_linked` and `cpu_model` record build decisions separately from actual
+machine resource discovery.
 
 ## Remaining release/production work
 

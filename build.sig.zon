@@ -7,15 +7,11 @@
             .url = "https://github.com/SB0LTD/zpm/archive/4b30e073a263afa1cba1e54313c6abc65d3833bf.tar.gz",
             .hash = "f81f92b5775ab6d498a697fc4e1044d95ddd457ba2aa4262885a274f2349408b",
         },
-        .sig_runtime = .{
-            .url = "https://github.com/SB0LTD/sig/archive/e2e07a29bba0e722854cc1b838c2be1ba359c68f.tar.gz",
-            .hash = "ddd0eedac3ee8d710cd3f023585f772c261586455778d9a92aee2b4ddd51dc15",
-        },
     },
     .paths = .{
         "build.sig",
         "build.sig.zon",
         "src",
-        "zpm.pkg.zon", "tests", "examples", "README.md", "LICENSE", "AGENTS.md", "tools", "compatibility", "benchmarks",
+        "zpm.pkg.zon", "tests", "examples", "README.md", "LICENSE", "AGENTS.md", "tools", "toolchains", "compatibility", "benchmarks",
     },
 }

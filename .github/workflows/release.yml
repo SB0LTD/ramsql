@@ -140,18 +140,19 @@ jobs:
           echo "SIG_LIB_DIR=$library" >> "$GITHUB_ENV"
           dirname "$compiler" >> "$GITHUB_PATH"
           "$compiler" version
-      - name: Compile hosted server (native no-libc Linux; cross-compile others)
+      - name: Prepare pinned runtime and build support with matching standard library
+        run: python tools/prepare_sig_runtime.py --installed-lib "$SIG_LIB_DIR" --output "$RUNNER_TEMP/sig-runtime" --github-env "$GITHUB_ENV"
+      - name: Compile portable hosted server
         if: matrix.kind == 'hosted'
         shell: bash
         run: |
           set -euo pipefail
           args=()
-          # Sig 0.6.4 forces libc for explicit cross targets. Native Linux
-          # builds keep the verified no-heap clone/TLS worker implementation.
-          if [[ "$TARGET_SLUG" == *-linux ]]; then
+          # An explicit target selects the portable CPU baseline, never the
+          # build runner's native ISA. Pinned build support honors no-libc.
+          args+=(-Dtarget="$TARGET_TRIPLE")
+          if [[ "$TARGET_SLUG" == *-linux || "$TARGET_SLUG" == *-windows ]]; then
             args+=(-Dlink-libc=false)
-          else
-            args+=(-Dtarget="$TARGET_TRIPLE")
           fi
           if [[ "$TARGET_SLUG" == *-macos ]]; then args+=(-Dlink-libc=true); fi
           "$SIG" build -Doptimize=ReleaseFast \

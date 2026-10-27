@@ -150,7 +150,7 @@ sig build -Doptimize=ReleaseFast -Dclients=4 -Dtables=4 -Drows=1024 \
 
 That profile is tested with a 12-column table, a 600-row result and 200-byte text.
 Inline cells, workspaces and per-client result/response buffers grow with the
-profile. The current single reactor has at most 60 compiled client slots.
+profile. Hosted connection admission currently has a 60-client ceiling.
 
 ## Measured performance
 
@@ -179,6 +179,22 @@ See [reproduction commands](benchmarks/production-20261026/README.md) and
 
 Use the complete [Sig 0.6.4 toolchain](https://github.com/SB0LTD/sig/releases/tag/sig-0.6.4-zig0.17.0.90a898d).
 `sig build` resolves ZPM through its immutable archive and SHA-256 pin.
+Prepare the pinned public runtime/build support from
+[`toolchains/sig-runtime.json`](toolchains/sig-runtime.json) first. This verifies
+the released standard-library source files byte-for-byte and leaves the installed
+compiler/toolchain untouched. Only the selected library and build-support trees
+are extracted; compiler repository test fixtures are not package dependencies.
+
+```sh
+python tools/prepare_sig_runtime.py --installed-lib /path/to/sig-0.6.4/lib \
+  --output .sig-cache/prepared-sdk
+export SIG_LIB_DIR="$PWD/.sig-cache/prepared-sdk/lib"
+```
+
+In PowerShell use `$env:SIG_LIB_DIR = "$PWD/.sig-cache/prepared-sdk/lib"`.
+Choose a new output directory when preparing a different SDK. Windows/Linux
+default to no libc; macOS source builds require `-Dlink-libc=true`. Release builds
+select explicit portable CPU targets, rather than the build machine's native ISA.
 
 ```sh
 sig build -Doptimize=ReleaseSafe
@@ -192,6 +208,8 @@ python tools/test_auth.py
 python tools/test_persistence.py
 python tools/test_capacity.py
 python tools/test_beta.py
+python tools/test_reviewer_runtime.py
+python tools/test_workers.py
 ```
 
 Six hosted targets: x86_64/AArch64 Linux GNU, macOS and Windows. Native AArch64

@@ -47,6 +47,7 @@ def main():
     args=parser.parse_args();binary=args.binary.resolve(strict=True)
     import psycopg
     capabilities=json.loads(subprocess.check_output([str(binary),'--capabilities']))
+    if sys.platform!='darwin':assert capabilities['libc_linked'] is False,'Windows/Linux runtime must not link allocator-backed CRT/pthreads'
     if not capabilities['native_workers_available']:
         assert sys.platform=='darwin','Windows/Linux release binaries must provide native no-heap workers'
         rejected=subprocess.run([str(binary),'--capabilities','--workers','2'],capture_output=True)
