@@ -43,6 +43,19 @@ parallel SQL or lower CPU/query. Report throughput, server CPU, memory, tails
 and failures together. Do not infer PostgreSQL superiority from a RAMSQL-only
 comparison. No new same-boundary PostgreSQL/IRDB victory is established here.
 
+The retained [Windows wire investigation](../benchmarks/reviewer-wire-20261027/README.md)
+measures an eight-client median of 69,397 queries/s with one reactor versus
+126,598 with four. Server CPU/query rises from about 14 to 27 microseconds.
+This throughput/CPU tradeoff does not meet the efficiency goal; more reactors
+remain experimental. Both the busy-retry attempt and revised blocking-lock
+attempt are retained, together with the earlier old-binary comparison.
+
+Sig 0.6.4's explicit cross-target build path forces libc linkage. Release Linux
+binaries therefore build natively on matching x86_64/AArch64 runners with libc
+disabled, preserving the direct OS stack/TLS thread contract. Capabilities report
+`native_workers_available`; Windows/Linux artifact tests require it. macOS tests
+verify that requesting unsupported workers fails explicitly.
+
 ## Remaining release/production work
 
 Candidate fixes require final hosted/native artifact CI and an actual published

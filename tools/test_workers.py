@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import struct
+import subprocess
 import sys
 import tempfile
 import time
@@ -45,11 +46,15 @@ def main():
     parser.add_argument('--binary',type=Path,default=ROOT/'sig-out/bin'/('ramsql.exe' if os.name=='nt' else 'ramsql'))
     args=parser.parse_args();binary=args.binary.resolve(strict=True)
     import psycopg
-    if sys.platform=='darwin':
-        print(json.dumps(dict(suite='workers',passed=True,workers=1,note='native no-heap thread primitive unavailable; multicore unsupported')))
+    capabilities=json.loads(subprocess.check_output([str(binary),'--capabilities']))
+    if not capabilities['native_workers_available']:
+        assert sys.platform=='darwin','Windows/Linux release binaries must provide native no-heap workers'
+        rejected=subprocess.run([str(binary),'--capabilities','--workers','2'],capture_output=True)
+        assert rejected.returncode!=0 and b'WorkersUnsupportedOnPlatform' in rejected.stderr,rejected
+        print(json.dumps(dict(suite='workers',passed=True,workers=1,worker_execution=False,
+            unsupported_rejected=True,note='No native no-heap thread primitive for this binary; no multicore test/claim')))
         return
     # Reuse the complete framing/fairness/cleanup contracts with native reactors.
-    import subprocess
     subprocess.run([sys.executable,str(ROOT/'tools/test_server.py'),'--binary',str(binary),'--workers','4'],check=True)
     for suite in ('test_clients.py','test_auth.py'):
         subprocess.run([sys.executable,str(ROOT/'tools'/suite),'--binary',str(binary),'--workers','4'],check=True)

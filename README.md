@@ -104,6 +104,21 @@ full dialect semantics are missing. Some MySQL/TDS types are rendered as text.
 Read the [SQL reference](SQL_REFERENCE.md) and [usability audit](compatibility/BETA_USABILITY.md)
 before importing a schema; wire compatibility does not establish dialect parity.
 
+## Concurrent clients
+
+The default uses one reactor. Windows and no-libc Linux builds offer experimental
+`--workers 4` socket reactors, for example:
+
+```sh
+./ramsql --memory --insecure-local --max-clients 32 --workers 4
+```
+
+All clients share one database; SQL execution is currently serialized. A checked
+Windows test improves eight-client throughput about 1.8x, while using about 1.9x
+the CPU per query. This remains an efficiency gap. macOS/native SB0 use one
+worker. Check `native_workers_available` in `--capabilities` and the
+[reviewer follow-up](compatibility/REVIEWER_BETA_2.md) before choosing a worker count.
+
 ## Inspect capacity before loading
 
 Allocator-free means explicit owned storage, not unlimited RAM. **Stored rows

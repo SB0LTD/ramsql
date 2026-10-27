@@ -95,17 +95,17 @@ jobs:
       revision: ${{ needs.metadata.outputs.revision }}
 
   build:
-    name: Cross-build hosted ${{ matrix.slug }}
+    name: Build hosted ${{ matrix.slug }}
     needs: metadata
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.build_runner }}
     timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.metadata.outputs.hosted_matrix) }}
     env:
       SIG_RELEASE_TAG: ${{ needs.metadata.outputs.sig_tag }}
-      SIG_RELEASE_ASSET: ${{ needs.metadata.outputs.sig_asset }}
-      SIG_RELEASE_SHA256: ${{ needs.metadata.outputs.sig_sha256 }}
+      SIG_RELEASE_ASSET: ${{ matrix.build_compiler.asset }}
+      SIG_RELEASE_SHA256: ${{ matrix.build_compiler.sha256 }}
       SOURCE_REVISION: ${{ needs.metadata.outputs.revision }}
       SOURCE_DATE_EPOCH: ${{ needs.metadata.outputs.epoch }}
       TARGET_SLUG: ${{ matrix.slug }}
@@ -140,14 +140,21 @@ jobs:
           echo "SIG_LIB_DIR=$library" >> "$GITHUB_ENV"
           dirname "$compiler" >> "$GITHUB_PATH"
           "$compiler" version
-      - name: Cross-compile hosted server
+      - name: Compile hosted server (native no-libc Linux; cross-compile others)
         if: matrix.kind == 'hosted'
         shell: bash
         run: |
           set -euo pipefail
           args=()
+          # Sig 0.6.4 forces libc for explicit cross targets. Native Linux
+          # builds keep the verified no-heap clone/TLS worker implementation.
+          if [[ "$TARGET_SLUG" == *-linux ]]; then
+            args+=(-Dlink-libc=false)
+          else
+            args+=(-Dtarget="$TARGET_TRIPLE")
+          fi
           if [[ "$TARGET_SLUG" == *-macos ]]; then args+=(-Dlink-libc=true); fi
-          "$SIG" build -Dtarget="$TARGET_TRIPLE" -Doptimize=ReleaseFast \
+          "$SIG" build -Doptimize=ReleaseFast \
             --prefix ".sig-cache/release/$TARGET_SLUG" "${args[@]}"
       - name: Package deterministic archive with source, license and capability manifest
         shell: bash

@@ -40,6 +40,12 @@ explicitly; the result default is independent. Hosted `--rows` changes stored ro
 Other SQL Config fields can be selected by embedded callers; editing a library
 Config is not a runtime tuning mechanism for a published server binary.
 
+`native_workers_available` reports the exact binary's native thread support.
+Linux releases build natively without libc; an explicit Sig 0.6.4 cross-target
+build can force libc and disable these workers. macOS/native SB0 remain one
+worker. More reactors increase socket throughput in one checked workload but
+also increase CPU/query; this is not a parallel-query executor.
+
 ## Fixed protocol and input bounds
 
 | Resource | Bound |
