@@ -413,7 +413,9 @@ def main():
                         # Keep testing row-capacity rollback independently of
                         # stock default changes or the transaction write limit.
                         candidate.stop()
-                        candidate = Candidate(binary, [*mode_arguments, "--rows", "512"])
+                        bounded_arguments = dict(mode_arguments, extra_arguments=(
+                            *mode_arguments.get("extra_arguments", ()), "--rows", "512"))
+                        candidate = Candidate(binary, bounded_arguments)
                         candidate.start()
                         reference_result = run(psycopg, native, capacity_case)
                         candidate_result = run(psycopg, candidate.connection, capacity_case)
