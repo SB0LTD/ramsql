@@ -254,6 +254,13 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     });
     const benchmark = try ctx.addStep("benchmark", "ramsql-bench", &runBinary);
     try ctx.addDependency(benchmark, bench);
+    const read_profile=try ctx.addCompileStep(.{
+        .source_path="src/read_profile.sig",.output_name="ramsql-read-profile",
+        .cache_dir=ctx.cache_dir[0..ctx.cache_dir_len],.optimize=ctx.optimize,.target=null,
+        .imports=&.{importEntry("sql",sql_path),importEntry("sig",runtime_path),importEntry("page_region",pages_path),importEntry("profile",profile_path)},.compiler_path="",
+    });
+    const profile_reads=try ctx.addStep("profile-reads","ramsql-read-profile",&runBinary);
+    try ctx.addDependency(profile_reads,read_profile);
     var test_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
     inline for (.{ "postgres", "mysql", "tds", "db_store", "tcp_server", "sql_index", "scram", "durable_log", "db_file", "entropy", "db_stream", "pg_stream", "sql_storage", "sql_change_log", "sql_expr", "sql_mvcc", "sql_types", "sql_query", "sql_stream_group", "sql_integer_topk", "sql_layout_order", "sql_summary", "sql_dense_group", "sql_rollup", "sql_ordered_probes", "sql_compact_scan", "sql_runtime_workspace", "sql_dml", "sql_catalog", "wall_clock", "pg_copy" }) |name| {
         const path = try zpm.modulePath("tests/test_" ++ name ++ ".sig", &test_buf);

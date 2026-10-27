@@ -4,6 +4,23 @@ Release changes are separated from aspirations. See each tag's exact qualificati
 and benchmark bundle; development measurements do not automatically apply to a
 later binary.
 
+## Unreleased
+
+- Discover effective machine resources on Windows, Linux and macOS, and charge
+  server page regions and worker allowances to a shared admission ledger. Add
+  `--machine-capacity`, `--memory-budget` and `--os-headroom` diagnostics/options.
+- Allow concurrent PostgreSQL simple autocommit reads with multiple native
+  workers. Execution contexts are owned per worker and reused between clients, sharing
+  table storage under a reader/writer
+  gate; mutations and reclamation remain exclusive. Read memory is budgeted,
+  with exclusive fallback when private buffers cannot be admitted.
+- Check concurrent wire execution, cancellation/timeouts, writer exclusion and
+  uncommitted visibility. Add `profile-reads` for checked native phase timings.
+- Retain checked wire measurements: eight clients/four workers reach about
+  130k PK queries/s versus 67k with one worker on this Windows host, while CPU
+  cost rises from 14 to 27 microseconds/query. This is an outstanding efficiency
+  cost, not evidence of PostgreSQL/IRDB superiority or 100M-row SQL readiness.
+
 ## 0.3.0-beta.2 — 2026-10-27
 
 - Bind query scratch and per-client result/response storage from caller-owned OS

@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "environment": "no-libc x86_64-linux under WSL Ubuntu; not bare-metal Linux",
+  "binary_sha256": "cf999b7336f3a5d3869d17daed1e755361762f9cae9c20fc465c3fa4ac4f8703",
+  "source_sha256": "dcd87a9047b9edf880cf91a45e9241507fc531eb372dc59f8e39eb822f61a740",
+  "trials": [
+    {
+      "schema": 1,
+      "scope": "native_read_phases",
+      "iterations": 10000,
+      "legacy_ns": 6136347,
+      "prepare_ns": 7570669,
+      "run_ns": 3598460,
+      "correctness_checked": true,
+      "timing_boundary": "prepare/run include phase clock overhead; excludes sockets and scheduling"
+    },
+    {
+      "schema": 1,
+      "scope": "native_read_phases",
+      "iterations": 10000,
+      "legacy_ns": 6769723,
+      "prepare_ns": 7320679,
+      "run_ns": 3613418,
+      "correctness_checked": true,
+      "timing_boundary": "prepare/run include phase clock overhead; excludes sockets and scheduling"
+    },
+    {
+      "schema": 1,
+      "scope": "native_read_phases",
+      "iterations": 10000,
+      "legacy_ns": 6450496,
+      "prepare_ns": 7220014,
+      "run_ns": 3626683,
+      "correctness_checked": true,
+      "timing_boundary": "prepare/run include phase clock overhead; excludes sockets and scheduling"
+    }
+  ]
+}

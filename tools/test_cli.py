@@ -44,6 +44,8 @@ def main():
     assert caps['rows_per_table'] == 1024 and caps['versions_per_table'] == 3072
     assert caps['backing_bytes'] > 0 and caps['columns'] > 0 and caps['result_rows'] > 0
     assert caps['tls'] is False and caps['bind'] == '127.0.0.1'
+    assert caps['sql_execution_workers']==1 and caps['exclusive_sql_workers']==1
+    assert caps['parallel_simple_reads'] is False
     with tempfile.TemporaryDirectory(prefix='ramsql-capabilities-') as directory:
         wal = Path(directory) / 'must-not-be-created.wal'
         inspected = subprocess.run([str(binary), '--capabilities', '--data', str(wal)],
