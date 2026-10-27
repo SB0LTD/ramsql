@@ -45,7 +45,12 @@ fn libPath(base: []const u8, suffix: []const u8, buf: []u8) ![]const u8 {
 }
 
 pub fn build(ctx: *sig_build.Build_Context) !void {
+    const target_os = if (ctx.target.os_len != 0) ctx.target.os[0..ctx.target.os_len] else @tagName(builtin.os.tag);
+    if ((std.mem.eql(u8,target_os,"linux") or std.mem.eql(u8,target_os,"windows")) and ctx.options.getValue("link-libc") == null)
+        try ctx.options.put("link-libc","false");
     const zpm = ctx.getDependency("zpm") orelse return error.BufferTooSmall;
+    var runtime_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    const runtime_path = try libPath(ctx.sig_lib_dir[0..ctx.sig_lib_dir_len], "/sig/sig.sig", &runtime_buf);
     var sql_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
     const sql_path = try zpm.modulePath("src/core/sql.sig", &sql_buf);
     _ = try ctx.addModule("sql", sql_path);
@@ -80,16 +85,19 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     var pages_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
     const pages_path = try zpm.modulePath("src/platform/page_region.sig", &pages_buf);
     _ = try ctx.addModule("page_region", pages_path);
+    var workers_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    const workers_path = try zpm.modulePath("src/platform/worker_thread.sig", &workers_buf);
+    _ = try ctx.addModule("worker_thread", workers_path);
     const pg_module = try ctx.addModule("postgres", pg_path);
     try ctx.addImport(pg_module, "scram", scram_path);
-    const clients = ctx.option(usize, "clients", "Preallocated connection slots (1..60)") orelse 16;
-    const rows = ctx.option(usize, "rows", "Rows per table") orelse 512;
+    const clients = ctx.option(usize, "clients", "Default runtime connection budget (1..60)") orelse 16;
+    const rows = ctx.option(usize, "rows", "Rows per table") orelse 4096;
     const tables = ctx.option(usize, "tables", "Table capacity") orelse 8;
     const columns = ctx.option(usize, "columns", "Columns per table/result (1..255)") orelse 8;
-    const result_rows = ctx.option(usize, "result-rows", "Maximum rows returned by one statement") orelse rows;
+    const result_rows = ctx.option(usize, "result-rows", "Maximum rows returned by one statement") orelse 8192;
     const row_locks = ctx.option(usize, "row-locks", "Shared row-lock entries") orelse 256;
     const predicates = ctx.option(usize, "predicates", "Boolean leaf predicates per WHERE") orelse 8;
-    const expr_nodes = ctx.option(usize, "expr-nodes", "Expression nodes per statement") orelse 512;
+    const expr_nodes = ctx.option(usize, "expr-nodes", "Expression nodes per statement") orelse 8192;
     const relations = ctx.option(usize, "relations", "FROM items per query block") orelse 4;
     const text_bytes = ctx.option(usize, "text-bytes", "Bytes per text value") orelse 128;
     const transaction_bytes = ctx.option(usize, "transaction-bytes", "Change-record encode and recovery buffer bytes per transaction") orelse 1048576;
@@ -102,7 +110,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     if (clients == 0 or clients > 60 or rows == 0 or tables == 0 or text_bytes == 0 or text_bytes > 65535 or transaction_bytes < 65540 or tx_writes == 0 or versions <= rows or timezones == 0 or timezones > 256 or work_rows == 0) return error.BufferTooSmall;
     if (columns == 0 or columns > 255 or result_rows == 0 or row_locks == 0 or predicates == 0 or expr_nodes == 0 or relations == 0) return error.BufferTooSmall;
     var profile_buf: [2048]u8 = undefined;
-    const profile = try std.fmt.bufPrint(&profile_buf, "pub const clients={d}; pub const rows={d}; pub const tables={d}; pub const text_bytes={d}; pub const transaction_bytes={d}; pub const tx_writes={d}; pub const versions={d}; pub const transactions={d}; pub const timezones={d}; pub const work_rows={d}; pub const summary_groups={d}; pub const compact_integral_scans={s};\n", .{ clients, rows, tables, text_bytes, transaction_bytes, tx_writes, versions, clients + 2, timezones, work_rows, summary_groups, if(compact_integral_scans) "true" else "false" });
+    const profile = try std.fmt.bufPrint(&profile_buf, "pub const clients={d}; pub const rows={d}; pub const tables={d}; pub const text_bytes={d}; pub const transaction_bytes={d}; pub const tx_writes={d}; pub const versions={d}; pub const transactions={d}; pub const timezones={d}; pub const work_rows={d}; pub const summary_groups={d}; pub const compact_integral_scans={s};\n", .{ clients, rows, tables, text_bytes, transaction_bytes, tx_writes, versions, 62, timezones, work_rows, summary_groups, if(compact_integral_scans) "true" else "false" });
     var extra_buf: [512]u8 = undefined;
     const extra = try std.fmt.bufPrint(&extra_buf, "pub const columns={d}; pub const result_rows={d}; pub const row_locks={d}; pub const predicates={d}; pub const expr_nodes={d}; pub const relations={d};\n", .{ columns, result_rows, row_locks, predicates, expr_nodes, relations });
     @memcpy(profile_buf[profile.len..][0..extra.len], extra);
@@ -116,8 +124,6 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     _ = try ctx.addModule("profile", profile_path);
     const lib = try ctx.addModule("ramsql", "src/root.sig");
     try ctx.addImport(lib, "sql", sql_path);
-    const sig_lib = ctx.sig_lib_dir[0..ctx.sig_lib_dir_len];
-    var runtime_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
     const app = try ctx.addCompileStep(.{
         .source_path = "src/main.sig",
         .output_name = "ramsql",
@@ -126,7 +132,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
         .target = if (ctx.target.arch_len > 0) &ctx.target else null,
         .imports = &.{
             importEntry("ramsql", "src/root.sig"),
-            importEntry("sig", try libPath(sig_lib, "/sig/sig.sig", &runtime_buf)),
+            importEntry("sig", runtime_path),
             importEntry("sql", sql_path),
             importEntry("postgres", pg_path),
             importEntry("mysql", mysql_path),
@@ -140,6 +146,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
             importEntry("wall_clock", wall_clock_path),
             importEntry("profile", profile_path),
             importEntry("page_region", pages_path),
+            importEntry("worker_thread", workers_path),
         },
         .compiler_path = "",
     });
@@ -205,7 +212,6 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     const test_api = try ctx.addStep("test-api", "contract-ramsql", &runBinary);
     try ctx.addDependency(test_api, api);
     try ctx.addDependency(test_step, test_api);
-    const runtime_path = try libPath(sig_lib, "/sig/sig.sig", &runtime_buf);
     const bench = try ctx.addCompileStep(.{
         .source_path = "src/benchmark.sig",
         .output_name = "ramsql-bench",
@@ -230,7 +236,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     const benchmark = try ctx.addStep("benchmark", "ramsql-bench", &runBinary);
     try ctx.addDependency(benchmark, bench);
     var test_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
-    inline for (.{ "postgres", "mysql", "tds", "db_store", "tcp_server", "sql_index", "scram", "durable_log", "db_file", "entropy", "db_stream", "pg_stream", "sql_storage", "sql_change_log", "sql_expr", "sql_mvcc", "sql_types", "sql_query", "sql_stream_group", "sql_integer_topk", "sql_layout_order", "sql_summary", "sql_dense_group", "sql_rollup", "sql_ordered_probes", "sql_compact_scan", "sql_dml", "sql_catalog", "wall_clock", "pg_copy" }) |name| {
+    inline for (.{ "postgres", "mysql", "tds", "db_store", "tcp_server", "sql_index", "scram", "durable_log", "db_file", "entropy", "db_stream", "pg_stream", "sql_storage", "sql_change_log", "sql_expr", "sql_mvcc", "sql_types", "sql_query", "sql_stream_group", "sql_integer_topk", "sql_layout_order", "sql_summary", "sql_dense_group", "sql_rollup", "sql_ordered_probes", "sql_compact_scan", "sql_runtime_workspace", "sql_dml", "sql_catalog", "wall_clock", "pg_copy" }) |name| {
         const path = try zpm.modulePath("tests/test_" ++ name ++ ".sig", &test_buf);
         const compiled = try ctx.addCompileStep(.{
             .source_path = path,

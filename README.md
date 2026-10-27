@@ -7,7 +7,7 @@ multiple dialects. Its engine, shared transactions, persistence and wire codecs
 are real implementations. There is no SQLite backend, database subprocess,
 query-result mock, heap allocator or garbage collector in the runtime.
 
-**0.3.0-beta.1 is for controlled beta testing, benchmarking and review. It is not
+**0.3.0-beta.2 is for controlled beta testing, benchmarking and review. It is not
 a production PostgreSQL drop-in replacement.** PostgreSQL is the default protocol
 and semantic reference. MySQL and SQL Server/TDS are experimental adapters over
 the shared SQL subset. Supporting all common SQL dialects is the
@@ -104,18 +104,37 @@ full dialect semantics are missing. Some MySQL/TDS types are rendered as text.
 Read the [SQL reference](SQL_REFERENCE.md) and [usability audit](compatibility/BETA_USABILITY.md)
 before importing a schema; wire compatibility does not establish dialect parity.
 
+## Concurrent clients
+
+The default uses one reactor. Windows and no-libc Linux builds offer experimental
+`--workers 4` socket reactors, for example:
+
+```sh
+./ramsql --memory --insecure-local --max-clients 32 --workers 4
+```
+
+All clients share one database; SQL execution is currently serialized. A checked
+Windows test improves eight-client throughput about 1.8x, while using about 1.9x
+the CPU per query. This remains an efficiency gap. macOS/native SB0 use one
+worker. Check `native_workers_available` in `--capabilities` and the
+[reviewer follow-up](compatibility/REVIEWER_BETA_2.md) before choosing a worker count.
+
 ## Inspect capacity before loading
 
 Allocator-free means explicit owned storage, not unlimited RAM. **Stored rows
 are not permanently limited to 512:** hosted `--rows`/`--versions` bind larger
 OS page buffers; checked benchmarks store one million rows. The stock binary
-still defaults to **512 stored rows/table, 512 returned rows/statement, 8 columns,
-128-byte text and 16 clients**. Runtime `--rows` does not enlarge result,
-workspace, text or schema budgets. Excess requests fail; there is no automatic
+defaults to **4,096 stored rows/table, 8,192 returned rows/statement, 4,096 workspace
+rows, 8 columns, 128-byte text and 16 clients**. Use `--work-rows`, `--result-rows`
+and `--max-clients` (up to 60) without rebuilding. `--table-rows n,n,...` and
+`--table-versions n,n,...` assign independent budgets to table slots in creation
+order; supply one value for each compiled table slot. `--rows` is the uniform
+fallback. Text/schema/parser limits still require a build profile. There is no automatic
 disk spill or arbitrarily large result stream.
 
 ```sh
-./ramsql --capabilities --rows 1000000 --versions 2000000
+./ramsql --capabilities --table-rows 1000000,10000,64,1,1,1,1,1 \
+  --work-rows 8192 --result-rows 4096 --max-clients 32
 ```
 
 This reports effective storage/backing bytes and compiled SQL/protocol budgets
@@ -131,7 +150,7 @@ sig build -Doptimize=ReleaseFast -Dclients=4 -Dtables=4 -Drows=1024 \
 
 That profile is tested with a 12-column table, a 600-row result and 200-byte text.
 Inline cells, workspaces and per-client result/response buffers grow with the
-profile. The current single reactor has at most 60 compiled client slots.
+profile. Hosted connection admission currently has a 60-client ceiling.
 
 ## Measured performance
 
@@ -160,6 +179,22 @@ See [reproduction commands](benchmarks/production-20261026/README.md) and
 
 Use the complete [Sig 0.6.4 toolchain](https://github.com/SB0LTD/sig/releases/tag/sig-0.6.4-zig0.17.0.90a898d).
 `sig build` resolves ZPM through its immutable archive and SHA-256 pin.
+Prepare the pinned public runtime/build support from
+[`toolchains/sig-runtime.json`](toolchains/sig-runtime.json) first. This verifies
+the released standard-library source files byte-for-byte and leaves the installed
+compiler/toolchain untouched. Only the selected library and build-support trees
+are extracted; compiler repository test fixtures are not package dependencies.
+
+```sh
+python tools/prepare_sig_runtime.py --installed-lib /path/to/sig-0.6.4/lib \
+  --output .sig-cache/prepared-sdk
+export SIG_LIB_DIR="$PWD/.sig-cache/prepared-sdk/lib"
+```
+
+In PowerShell use `$env:SIG_LIB_DIR = "$PWD/.sig-cache/prepared-sdk/lib"`.
+Choose a new output directory when preparing a different SDK. Windows/Linux
+default to no libc; macOS source builds require `-Dlink-libc=true`. Release builds
+select explicit portable CPU targets, rather than the build machine's native ISA.
 
 ```sh
 sig build -Doptimize=ReleaseSafe
@@ -173,6 +208,8 @@ python tools/test_auth.py
 python tools/test_persistence.py
 python tools/test_capacity.py
 python tools/test_beta.py
+python tools/test_reviewer_runtime.py
+python tools/test_workers.py
 ```
 
 Six hosted targets: x86_64/AArch64 Linux GNU, macOS and Windows. Native AArch64

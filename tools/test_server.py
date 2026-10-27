@@ -46,11 +46,13 @@ def startup_packet(user="ramsql"):
 
 
 class Server:
-    def __init__(self, binary, idle_ms=30000, max_clients=16, max_query_work=0):
+    test_workers = 1
+    def __init__(self, binary, idle_ms=30000, max_clients=16, max_query_work=0, extra_arguments=()):
         self.binary = binary
         self.idle_ms = idle_ms
         self.max_clients = max_clients
         self.max_query_work = max_query_work
+        self.extra_arguments = tuple(extra_arguments)
         self.errors = deque(maxlen=100)
         self.process = None
         self.port = None
@@ -59,7 +61,8 @@ class Server:
         self.process = subprocess.Popen(
             [str(self.binary), "--serve", "--memory", "--insecure-local", "--protocol", "postgres", "--port", "0",
              "--idle-ms", str(self.idle_ms), "--max-clients", str(self.max_clients),
-             *(["--max-query-work", str(self.max_query_work)] if self.max_query_work else [])],
+             *(["--workers", str(min(self.test_workers,self.max_clients))] if self.test_workers > 1 else []),
+             *(["--max-query-work", str(self.max_query_work)] if self.max_query_work else []), *self.extra_arguments],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1,
         )
         lines = queue.Queue()
@@ -350,8 +353,12 @@ def expect_closed(pg):
 
 
 def test_fatal_frames(server):
-    for length in (0, 1, 2, 3, 16385, 65536, 0x7FFFFFFF, 0xFFFFFFFF):
+    for length in (0, 1, 2, 3, 65536, 0x7FFFFFFF, 0xFFFFFFFF):
         for logged_in in (False, True):
+            if logged_in and length == 65536:
+                # Oversized authenticated SQL is drained before a recoverable
+                # 54000 response; a header alone is an incomplete frame.
+                continue
             pg = PG(server.raw())
             try:
                 if logged_in:
@@ -466,13 +473,11 @@ def test_pool_exhaustion(server):
         # sessions or accepting a connection it cannot service.
         overflow = PG(server.raw())
         try:
-            try:
-                overflow.sock.sendall(startup_packet())
-                tag, body = overflow.message()
-                check(tag == b"E" and bool(errors([(tag, body)])), "pool overflow returned success or corrupt data")
-                expect_closed(overflow)
-            except (EOFError, ConnectionResetError, ConnectionAbortedError):
-                pass
+            overflow.sock.sendall(startup_packet())
+            tag, body = overflow.message()
+            check(tag == b"E", "pool overflow must return a PostgreSQL error")
+            expect_error([(tag,body)], "53300")
+            expect_closed(overflow)
         finally:
             overflow.close(False)
         clients[0].ok("SELECT 1", [["1"]])
@@ -606,7 +611,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     default = Path(__file__).resolve().parents[1] / "sig-out" / "bin" / ("ramsql.exe" if os.name == "nt" else "ramsql")
     parser.add_argument("--binary", type=Path, default=default)
+    parser.add_argument("--workers", type=int, default=1)
     args = parser.parse_args()
+    Server.test_workers = args.workers
     binary = args.binary.resolve(strict=True)
     started = time.monotonic()
     with Server(binary) as server:

@@ -4,7 +4,38 @@ Release changes are separated from aspirations. See each tag's exact qualificati
 and benchmark bundle; development measurements do not automatically apply to a
 later binary.
 
-## 0.3.0-beta.1
+## 0.3.0-beta.2 (candidate)
+
+- Bind query scratch and per-client result/response storage from caller-owned OS
+  page regions. Runtime `--work-rows` and `--result-rows` no longer require rebuilds
+  or put giant arrays in the executable. Default rows/workspace 4,096, results
+  8,192, parser expressions 8,192; runtime clients up to 60 (default 16).
+- Per-slot `--table-rows`/`--table-versions` avoid uniform largest-table budgets.
+  Reservations remain explicit and bounded; inline values still cost memory.
+- Push safe available predicates into all-inner joins before intermediate emit.
+  Outer/volatile/correlated cases retain conservative evaluation.
+- Fix uniqueness checks using a compiled mask against runtime-sized PK indexes.
+- Increase prepared-source storage and return recoverable 54000 errors after
+  bounded draining of oversized authenticated SQL frames. Return PostgreSQL
+  FATAL 53300 on SQL pool exhaustion through a separate bounded admission queue.
+- Experimental Windows/no-libc Linux `--workers` for socket/protocol reactors,
+  caller-owned native thread controls, serialized shared SQL, generation-bound
+  cancellation and joined cleanup. Default one worker; macOS/SB0 remain one.
+- Native Linux release builds use Sig's pinned no-libc public runtime I/O patch
+  and ZPM's native vDSO wall clock. Compiler/matching standard library remain
+  Sig 0.6.4; public runtime archive identity is recorded and checked separately.
+- Independent reviewer regressions cover 5,000 rows, 500-row/four-value INSERTs,
+  seven aggregates, 2,000 returned rows, selective three-way joins with tiny
+  scratch, 32 transactions, unequal-bank restart and duplicate-key rejection.
+- Checked wire PK measurements show improvement with four reactors at eight
+  clients on one Windows host. This is not evidence of parallel SQL execution,
+  PostgreSQL parity or universal superiority; see the reviewer follow-up report.
+
+The beta.1 source review was not a published release: its PR workflow validated
+artifacts but skipped publication by design. Beta.2 publication must be confirmed
+from the actual release page/assets, separately from successful PR validation.
+
+## 0.3.0-beta.1 (source review; unpublished)
 
 ### Added
 

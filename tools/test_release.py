@@ -66,6 +66,25 @@ class ReleaseContracts(unittest.TestCase):
         with self.assertRaises(ValueError):
             matrix.metadata("v999.0.0")
 
+    def test_linux_builds_use_matched_native_no_libc_toolchains(self):
+        entries=matrix.metadata()['hosted_matrix']['include']
+        for entry in entries:
+            if entry['runtime']=='linux':
+                self.assertEqual(entry['build_runner'],entry['runner'])
+                host='Linux/ARM64' if entry['arch']=='aarch64' else 'Linux/X64'
+                self.assertEqual(entry['build_compiler'],matrix.compiler_host(host))
+                provenance=package.published_toolchain(entry)
+                self.assertEqual(provenance['asset'],entry['build_compiler']['asset'])
+                package.validate_toolchain(provenance,entry)
+            else:
+                self.assertEqual(entry['build_runner'],'ubuntu-latest')
+
+    def test_public_sig_runtime_is_an_independent_immutable_source_pin(self):
+        runtime=package.runtime_provenance()
+        self.assertRegex(runtime['archive'],r'^https://github\.com/SB0LTD/sig/archive/[0-9a-f]{40}\.tar\.gz$')
+        self.assertRegex(runtime['sha256'],r'^[0-9a-f]{64}$')
+        self.assertNotEqual(runtime,package.dependency_provenance())
+
     def test_every_target_rejects_other_formats_and_architectures(self):
         for expected in matrix.TARGETS:
             for other in matrix.TARGETS:

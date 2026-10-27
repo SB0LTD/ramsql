@@ -20,11 +20,11 @@ import struct
 import tarfile
 import zipfile
 
-from release_matrix import ROOT, SIG_ASSET, SIG_SHA256, SIG_TAG, TARGETS, NATIVE_SIG_REVISION, source_version, target
+from release_matrix import ROOT, SIG_ASSET, SIG_SHA256, SIG_TAG, TARGETS, NATIVE_SIG_REVISION, source_version, target, compiler_host
 from qualify_postgres import validate_bundle as validate_qualification_bundle
 
 HOSTED_RUNTIME_TESTS = ["tools/test_cli.py", "tools/test_server.py", "tools/test_clients.py",
-                        "tools/test_auth.py", "tools/test_persistence.py", "tools/test_capacity.py", "tools/test_beta.py"]
+                        "tools/test_auth.py", "tools/test_persistence.py", "tools/test_capacity.py", "tools/test_beta.py", "tools/test_reviewer_runtime.py", "tools/test_workers.py"]
 
 
 def sha256(data: bytes) -> str:
@@ -38,7 +38,8 @@ def json_bytes(data: object) -> bytes:
 DOCUMENTS = {name: name for name in ('README.md', 'CHANGELOG.md', 'ROADMAP.md',
     'CAPACITY.md', 'OPERATIONS.md', 'SQL_REFERENCE.md')}
 DOCUMENTS.update({'compatibility/RELEASE.md': 'RELEASE.md',
-                  'compatibility/BETA_USABILITY.md': 'BETA_USABILITY.md'})
+                  'compatibility/BETA_USABILITY.md': 'BETA_USABILITY.md',
+                  'compatibility/REVIEWER_BETA_2.md': 'REVIEWER_BETA_2.md'})
 
 
 def packaged_document(source: str, revision: str) -> bytes:
@@ -103,6 +104,16 @@ def dependency_provenance() -> dict:
     return {"archive": url[1], "sha256": digest[1]}
 
 
+def runtime_provenance() -> dict:
+    pin = json.loads((ROOT / "toolchains/sig-runtime.json").read_text(encoding="utf-8"))
+    url,digest=pin.get('archive',''),pin.get('sha256','')
+    if (pin.get('schema') != 1 or pin.get('compiler_release') != SIG_TAG
+            or not re.fullmatch(r'https://github\.com/SB0LTD/sig/archive/[0-9a-f]{40}\.tar\.gz',url)
+            or not re.fullmatch(r'[0-9a-f]{64}',digest)):
+        raise ValueError("release requires an immutable, SHA-256-pinned Sig runtime archive")
+    return {"archive":url,"sha256":digest}
+
+
 def capabilities(entry: dict) -> dict:
     hosted_server = entry["kind"] == "hosted"
     return {
@@ -123,14 +134,16 @@ def capabilities(entry: dict) -> dict:
     }
 
 
-def published_toolchain() -> dict:
-    return {"kind": "published-release", "release": SIG_TAG,
-            "asset": SIG_ASSET, "sha256": SIG_SHA256}
+def published_toolchain(entry: dict | None = None) -> dict:
+    host = "Linux/ARM64" if entry and entry["slug"] == "aarch64-linux" else "Linux/X64"
+    identity = compiler_host(host)
+    return {"kind": "published-release", "release": identity["tag"],
+            "asset": identity["asset"], "sha256": identity["sha256"]}
 
 
 def validate_toolchain(provenance: dict, entry: dict) -> None:
     if provenance.get("kind") == "published-release":
-        if provenance != published_toolchain():
+        if provenance != published_toolchain(entry):
             raise ValueError("published compiler provenance differs from verified release")
         return
     if entry["kind"] != "native-sb0" or provenance.get("kind") != "source-build":
@@ -179,7 +192,7 @@ def package(args: argparse.Namespace) -> dict:
         raise ValueError("SOURCE_DATE_EPOCH must fit the gzip timestamp")
     binary = args.binary.read_bytes()
     validate_binary(binary, entry)
-    toolchain = published_toolchain()
+    toolchain = published_toolchain(entry)
     if getattr(args, "toolchain_manifest", None):
         toolchain = json.loads(args.toolchain_manifest.read_text(encoding="utf-8"))
     validate_toolchain(toolchain, entry)
@@ -189,7 +202,7 @@ def package(args: argparse.Namespace) -> dict:
         "source_date_epoch": args.source_date_epoch,
         "target": entry, "optimize": args.optimize,
         "toolchain": toolchain,
-        "zpm": dependency_provenance(), "capabilities": capabilities(entry),
+        "zpm": dependency_provenance(), "sig_runtime": runtime_provenance(), "capabilities": capabilities(entry),
         "verification": {"binary_header": "passed", "cross_compilation": "passed", "runtime": "not_claimed_by_packaging"},
     }
     files = {
@@ -300,6 +313,8 @@ def verify_package(directory: Path, slug: str, revision: str) -> dict:
         raise ValueError("archive provenance differs from artifact record or expected source")
     if provenance.get("zpm") != dependency_provenance():
         raise ValueError("archive ZPM dependency differs from checked-out manifest")
+    if provenance.get("sig_runtime") != runtime_provenance():
+        raise ValueError("archive Sig runtime dependency differs from checked-out manifest")
     validate_toolchain(provenance.get("toolchain", {}), entry)
     binary = files[entry["binary"]][0]
     validate_binary(binary, entry)

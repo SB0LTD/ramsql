@@ -24,7 +24,7 @@ def synthetic_bundle(revision, binary_sha):
                 if suite == "semantics":
                     report["skipped"] = skipped
                 if suite == "copy":
-                    report["divergences"] = [{"name": "default_profile_capacity_5000_rows", "as_documented": True}]
+                    report["divergences"] = [{"name": "explicit_row_budget_5000_rows", "runtime_rows": 512, "as_documented": True}]
                     summary["divergences"] = 1
                 reports[suite] = report
             entries.append({"schema": 1, "revision": revision, "binary_sha256": binary_sha,

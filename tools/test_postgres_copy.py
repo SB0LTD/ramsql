@@ -9,8 +9,8 @@ unchanged count, CopyFail (57014), a socket shut down mid-COPY, COPY inside a
 rolled-back transaction, a CopyData message larger than 64 KiB and rows split
 across messages.
 
-The default profile also runs a 5 000-row COPY that RAMSQL rejects at its
-documented row capacity while the reference succeeds: it is reported under
+An explicit 512-row runtime budget also runs a 5 000-row COPY that RAMSQL rejects
+at that documented row capacity while the reference succeeds: it is reported under
 `divergences` (asserting the RAMSQL error leaves the table unchanged) and is
 never counted as parity. `--large` instead expects a binary built with
 `sig build -Drows=32768 -Dtables=2 -Dtext-bytes=64 -Dtx-writes=32768
@@ -409,7 +409,14 @@ def main():
                         report["cases"].append({"name": name, "match": not gaps, "differences": gaps,
                                                 "postgres": reference_result, "ramsql": candidate_result})
                         print(("PASS" if not gaps else "GAP ") + " " + name + ("" if not gaps else ": " + gaps[0]["path"]))
-                    if not args.case or "default_profile_capacity" in args.case:
+                    if not args.case or "explicit_row_budget" in args.case:
+                        # Keep testing row-capacity rollback independently of
+                        # stock default changes or the transaction write limit.
+                        candidate.stop()
+                        bounded_arguments = dict(mode_arguments, extra_arguments=(
+                            *mode_arguments.get("extra_arguments", ()), "--rows", "512"))
+                        candidate = Candidate(binary, bounded_arguments)
+                        candidate.start()
                         reference_result = run(psycopg, native, capacity_case)
                         candidate_result = run(psycopg, candidate.connection, capacity_case)
                         ref_copy, ram_copy = reference_result["events"][1]["outcome"], candidate_result["events"][1]["outcome"]
@@ -417,14 +424,15 @@ def main():
                         documented = (ref_copy.get("status") == "COPY 5000" and ram_copy.get("sqlstate") == "54000"
                                       and ram_count == [[0]])
                         report["divergences"].append({
-                            "name": "default_profile_capacity_5000_rows",
+                            "name": "explicit_row_budget_5000_rows",
+                            "runtime_rows": 512,
                             "kind": "documented capacity divergence (not parity)",
-                            "expected": "reference COPY 5000; RAMSQL rejects with RowCapacity 54000 at its row capacity (rows 512, below tx-writes 4096) with the table unchanged",
+                            "expected": "reference COPY 5000; explicit RAMSQL --rows 512 rejects with RowCapacity 54000 below tx-writes 4096, with the table unchanged",
                             "as_documented": documented, "postgres": reference_result, "ramsql": candidate_result})
                         print(("DIVERGENCE (as documented)" if documented else "DIVERGENCE UNEXPECTED") +
-                              " default_profile_capacity_5000_rows: RAMSQL " + str(ram_copy.get("sqlstate")))
+                              " explicit_row_budget_5000_rows: RAMSQL " + str(ram_copy.get("sqlstate")))
                         if not documented:
-                            report["cases"].append({"name": "default_profile_capacity_5000_rows", "match": False,
+                            report["cases"].append({"name": "explicit_row_budget_5000_rows", "match": False,
                                                     "differences": [{"path": "/divergence", "postgres": ref_copy, "ramsql": ram_copy}]})
             finally:
                 candidate.stop()

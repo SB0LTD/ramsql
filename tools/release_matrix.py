@@ -76,6 +76,8 @@ def metadata(tag: str | None = None) -> dict:
     return {"version": version, "tag": expected, "prerelease": "-" in version,
             "matrix": {"include": TARGETS},
             "hosted_matrix": {"include": [dict(entry, runner=HOSTED_RUNNERS[entry["slug"]],
+                                          build_runner=HOSTED_RUNNERS[entry["slug"]] if entry["runtime"] == "linux" else "ubuntu-latest",
+                                          build_compiler=compiler_host("Linux/ARM64" if entry["slug"] == "aarch64-linux" else "Linux/X64"),
                                           python_arch="x64" if entry["runtime"] == "windows" or entry["arch"] == "x86_64" else "arm64")
                                           for entry in TARGETS if entry["kind"] == "hosted"]},
             "native_matrix": {"include": [entry for entry in TARGETS if entry["kind"] == "native-sb0"]},

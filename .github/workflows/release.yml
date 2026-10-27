@@ -95,17 +95,17 @@ jobs:
       revision: ${{ needs.metadata.outputs.revision }}
 
   build:
-    name: Cross-build hosted ${{ matrix.slug }}
+    name: Build hosted ${{ matrix.slug }}
     needs: metadata
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.build_runner }}
     timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.metadata.outputs.hosted_matrix) }}
     env:
       SIG_RELEASE_TAG: ${{ needs.metadata.outputs.sig_tag }}
-      SIG_RELEASE_ASSET: ${{ needs.metadata.outputs.sig_asset }}
-      SIG_RELEASE_SHA256: ${{ needs.metadata.outputs.sig_sha256 }}
+      SIG_RELEASE_ASSET: ${{ matrix.build_compiler.asset }}
+      SIG_RELEASE_SHA256: ${{ matrix.build_compiler.sha256 }}
       SOURCE_REVISION: ${{ needs.metadata.outputs.revision }}
       SOURCE_DATE_EPOCH: ${{ needs.metadata.outputs.epoch }}
       TARGET_SLUG: ${{ matrix.slug }}
@@ -140,14 +140,22 @@ jobs:
           echo "SIG_LIB_DIR=$library" >> "$GITHUB_ENV"
           dirname "$compiler" >> "$GITHUB_PATH"
           "$compiler" version
-      - name: Cross-compile hosted server
+      - name: Prepare pinned runtime and build support with matching standard library
+        run: python tools/prepare_sig_runtime.py --installed-lib "$SIG_LIB_DIR" --output "$RUNNER_TEMP/sig-runtime" --github-env "$GITHUB_ENV"
+      - name: Compile portable hosted server
         if: matrix.kind == 'hosted'
         shell: bash
         run: |
           set -euo pipefail
           args=()
+          # An explicit target selects the portable CPU baseline, never the
+          # build runner's native ISA. Pinned build support honors no-libc.
+          args+=(-Dtarget="$TARGET_TRIPLE")
+          if [[ "$TARGET_SLUG" == *-linux || "$TARGET_SLUG" == *-windows ]]; then
+            args+=(-Dlink-libc=false)
+          fi
           if [[ "$TARGET_SLUG" == *-macos ]]; then args+=(-Dlink-libc=true); fi
-          "$SIG" build -Dtarget="$TARGET_TRIPLE" -Doptimize=ReleaseFast \
+          "$SIG" build -Doptimize=ReleaseFast \
             --prefix ".sig-cache/release/$TARGET_SLUG" "${args[@]}"
       - name: Package deterministic archive with source, license and capability manifest
         shell: bash
@@ -359,11 +367,16 @@ jobs:
         run: python tools/test_capacity.py
       - name: Validate credential onboarding against the exact release binary
         run: python tools/test_beta.py
+      - name: Verify runtime budgets and reviewer regressions on the exact artifact
+        run: python tools/test_reviewer_runtime.py
+
+      - name: Require native worker shared-store and protocol safety on exact artifact
+        run: python tools/test_workers.py
       - name: Bind passed runtime tests to exact archive and binary hashes
         run: |
           python tools/package_release.py runtime-report --verification .sig-cache/verified-artifact.json `
             --report "runtime-evidence/runtime-$env:TARGET_SLUG.json" `
-            --tests tools/test_cli.py tools/test_server.py tools/test_clients.py tools/test_auth.py tools/test_persistence.py tools/test_capacity.py tools/test_beta.py
+            --tests tools/test_cli.py tools/test_server.py tools/test_clients.py tools/test_auth.py tools/test_persistence.py tools/test_capacity.py tools/test_beta.py tools/test_reviewer_runtime.py tools/test_workers.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         with:

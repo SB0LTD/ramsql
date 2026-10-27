@@ -64,6 +64,9 @@ jobs:
           if ($null -eq $compiler -or $null -eq $library) { throw 'Compiler/matched library missing' }
           "SIG=$($compiler.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           "SIG_LIB_DIR=$($library.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Prepare pinned runtime and build support with matching standard library
+        if: inputs.artifact_name == ''
+        run: python tools/prepare_sig_runtime.py --installed-lib "$SIG_LIB_DIR" --output "$RUNNER_TEMP/sig-runtime" --github-env "$GITHUB_ENV"
       - name: Build qualification binary
         if: inputs.artifact_name == ''
         run: '"$SIG" build -Doptimize=ReleaseSafe -j2'
