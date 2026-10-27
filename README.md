@@ -15,6 +15,31 @@ the shared SQL subset. Supporting all common SQL dialects is the
 
 ## Quick start
 
+Development after beta.2 adds native machine planning and shared byte admission;
+these commands are not present in the published beta.2 binaries:
+
+```sh
+./ramsql --machine-capacity
+./ramsql --machine-capacity --memory-budget 8589934592 --os-headroom 1073741824
+```
+
+The report shows available physical/commit/address-space memory, observed CPU
+constraints, headroom and proposed storage/execution shares. It creates no WAL
+or listener. The same options apply to `--serve`; the server charges storage,
+workspace, client buffers and worker stack allowances to one shared byte ledger.
+It refreshes observations at admission, stops new grants under pressure and
+keeps live data/buffers owned. PostgreSQL startup returns `53200` when the memory
+budget cannot admit another client, and `53300` for the configured connection
+limit. Failed page commitments return their grants.
+
+Detection respects visible Linux cgroup-v2 ancestors and address limits, Windows
+CPU sets and immediate job limits, and conservative macOS free/purgeable memory.
+Legacy/hybrid cgroup-v1 and native SB0 resource probing are not implemented;
+hidden ancestor constraints and some OS scheduling partitions remain observation
+gaps. The report exposes coverage instead of inventing unrestricted resources.
+Machine admission does not yet replace explicit SQL row/schema capacities or
+provide parallel SQL: `elastic_sql_storage` and `parallel_sql` remain false.
+
 Download your platform archive from [Releases](https://github.com/SB0LTD/ramsql/releases),
 check it against the release's `SHA256SUMS.txt` and extract it. Packages include
 the executable, documentation and provenance. Python is only needed for optional
