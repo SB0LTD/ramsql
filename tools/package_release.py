@@ -24,7 +24,7 @@ from release_matrix import ROOT, SIG_ASSET, SIG_SHA256, SIG_TAG, TARGETS, NATIVE
 from qualify_postgres import validate_bundle as validate_qualification_bundle
 
 HOSTED_RUNTIME_TESTS = ["tools/test_cli.py", "tools/test_server.py", "tools/test_clients.py",
-                        "tools/test_auth.py", "tools/test_persistence.py", "tools/test_capacity.py", "tools/test_beta.py", "tools/test_reviewer_runtime.py"]
+                        "tools/test_auth.py", "tools/test_persistence.py", "tools/test_capacity.py", "tools/test_beta.py", "tools/test_reviewer_runtime.py", "tools/test_workers.py"]
 
 
 def sha256(data: bytes) -> str:
@@ -38,7 +38,8 @@ def json_bytes(data: object) -> bytes:
 DOCUMENTS = {name: name for name in ('README.md', 'CHANGELOG.md', 'ROADMAP.md',
     'CAPACITY.md', 'OPERATIONS.md', 'SQL_REFERENCE.md')}
 DOCUMENTS.update({'compatibility/RELEASE.md': 'RELEASE.md',
-                  'compatibility/BETA_USABILITY.md': 'BETA_USABILITY.md'})
+                  'compatibility/BETA_USABILITY.md': 'BETA_USABILITY.md',
+                  'compatibility/REVIEWER_BETA_2.md': 'REVIEWER_BETA_2.md'})
 
 
 def packaged_document(source: str, revision: str) -> bytes:

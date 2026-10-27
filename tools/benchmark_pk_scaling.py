@@ -11,22 +11,23 @@ import multiprocessing as mp
 import os
 from pathlib import Path
 import queue
+import shutil
 import socket
 import time
 from benchmark import process_memory
 from test_server import PG, Server
 
 
-def cpu_seconds(process):
+def cpu_times(process):
     if os.name=='nt':
         fields=[ctypes.c_uint64() for _ in range(4)]
         kernel=ctypes.WinDLL('kernel32',use_last_error=True)
         kernel.GetProcessTimes.argtypes=[ctypes.c_void_p]+[ctypes.POINTER(ctypes.c_uint64)]*4
         if not kernel.GetProcessTimes(ctypes.c_void_p(int(process._handle)),*[ctypes.byref(x) for x in fields]):
             raise OSError(ctypes.get_last_error())
-        return (fields[2].value+fields[3].value)/1e7
+        return dict(kernel=fields[2].value/1e7,user=fields[3].value/1e7)
     fields=Path(f'/proc/{process.pid}/stat').read_text().rsplit(')',1)[1].split()
-    return (int(fields[11])+int(fields[12]))/os.sysconf('SC_CLK_TCK')
+    return dict(user=int(fields[11])/os.sysconf('SC_CLK_TCK'),kernel=int(fields[12])/os.sysconf('SC_CLK_TCK'))
 
 
 def client(port, identity, count, rows, start, messages):
@@ -48,9 +49,10 @@ def client(port, identity, count, rows, start, messages):
         raise
 
 
-def measure(binary, clients, count, rows):
+def measure(binary, clients, count, rows, reactors):
     context=mp.get_context('spawn')
-    with Server(binary,max_clients=clients,extra_arguments=('--rows',str(rows))) as server:
+    arguments=('--rows',str(rows))+ (('--workers',str(reactors)) if reactors>1 else ())
+    with Server(binary,max_clients=clients,extra_arguments=arguments) as server:
         seed=PG(server.raw());seed.startup()
         seed.ok('CREATE TABLE lookup(id INT PRIMARY KEY,value INT)')
         for base in range(0,rows,32):
@@ -63,19 +65,21 @@ def measure(binary, clients, count, rows):
             for _ in children:
                 message=messages.get(timeout=60)
                 assert 'ready' in message,message
-            before=cpu_seconds(server.process);began=time.perf_counter_ns();start.set()
+            before=cpu_times(server.process);began=time.perf_counter_ns();start.set()
             done=[]
             for _ in children:
                 message=messages.get(timeout=120)
                 assert 'done' in message,message
                 done.append(message)
             elapsed=time.perf_counter_ns()-began
-            cpu=cpu_seconds(server.process)-before
+            after=cpu_times(server.process)
+            cpu={key:after[key]-value for key,value in before.items()}
             for child in children:
                 child.join(timeout=10)
                 assert child.exitcode==0,child.exitcode
             return dict(passed=True,operations=sum(x['operations'] for x in done),elapsed_ns=elapsed,
-                server_cpu_seconds=cpu,server_memory=process_memory(server.process),clients=clients,
+                server_cpu_seconds=sum(cpu.values()),server_cpu=cpu,reactors=reactors,
+                server_memory=process_memory(server.process),clients=clients,
                 workers=done,boundary='nonpipelined PostgreSQL simple queries; all values checked; process per client')
         finally:
             for child in children:
@@ -87,26 +91,32 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--binary',action='append',type=Path,required=True)
     parser.add_argument('--clients',type=int,nargs='+',default=[1,4,8])
+    parser.add_argument('--workers',type=int,nargs='+',default=[1],help='native server reactors; SQL remains serialized')
     parser.add_argument('--operations',type=int,default=20000,help='operations per client per trial')
     parser.add_argument('--rows',type=int,default=8192)
     parser.add_argument('--trials',type=int,default=3)
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args()
-    if args.operations<256 or args.rows<32 or args.trials<2 or not all(1<=n<=16 for n in args.clients):parser.error('invalid workload')
+    if args.operations<256 or args.rows<32 or args.trials<2 or not all(1<=n<=16 for n in args.clients+args.workers):parser.error('invalid workload')
     args.output.mkdir(parents=True,exist_ok=False)
+    source=args.output/'source';source.mkdir()
+    for path in (Path(__file__),Path(__file__).with_name('test_server.py'),Path(__file__).with_name('benchmark.py')):
+        shutil.copy2(path,source/path.name)
     report=dict(schema=1,note='Single-host wire comparison; CPU/OS/client costs included. No PostgreSQL/scaling victory claim.',
         rows=args.rows,binaries=[dict(path=str(b.resolve()),sha256=hashlib.sha256(b.read_bytes()).hexdigest()) for b in args.binary],measurements=[])
     def save():(args.output/'results.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
     save()
     for trial in range(args.trials):
         for concurrency in args.clients:
-            for binary in args.binary[::(-1 if trial%2 else 1)]:
-                entry=dict(binary=str(binary.resolve()),trial=trial,clients=concurrency,passed=False)
-                try:entry.update(measure(binary.resolve(),concurrency,args.operations,args.rows))
-                except Exception as error:entry['error']=type(error).__name__+': '+str(error)
-                report['measurements'].append(entry);save()
-                rate=entry.get('operations',0)*1e9/entry.get('elapsed_ns',1)
-                print(binary.parent.parent.name,concurrency,trial,entry['passed'],round(rate),entry.get('error',''),flush=True)
+            for reactors in args.workers[::(-1 if trial%2 else 1)]:
+                if reactors>concurrency:continue
+                for binary in args.binary[::(-1 if trial%2 else 1)]:
+                    entry=dict(binary=str(binary.resolve()),trial=trial,clients=concurrency,reactors=reactors,passed=False)
+                    try:entry.update(measure(binary.resolve(),concurrency,args.operations,args.rows,reactors))
+                    except Exception as error:entry['error']=type(error).__name__+': '+str(error)
+                    report['measurements'].append(entry);save()
+                    rate=entry.get('operations',0)*1e9/entry.get('elapsed_ns',1)
+                    print(binary.parent.parent.name,concurrency,reactors,trial,entry['passed'],round(rate),entry.get('error',''),flush=True)
     return 0 if all(x['passed'] for x in report['measurements']) else 1
 
 

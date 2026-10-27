@@ -126,6 +126,9 @@ jobs:
       - name: Require reviewer runtime capacity, join, loading and admission regressions
         run: python tools/test_reviewer_runtime.py
 
+      - name: Require native worker shared-store and protocol safety
+        run: python tools/test_workers.py
+
       - name: Test durable commits, process crashes, corruption and offline restore
         run: python tools/test_persistence.py
 

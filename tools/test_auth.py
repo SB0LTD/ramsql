@@ -24,6 +24,7 @@ import tempfile
 import threading
 
 ROOT = Path(__file__).resolve().parents[1]
+test_workers = 1
 sys.path.insert(0, str(ROOT / ".sig-cache" / "client-deps"))
 U32 = struct.Struct("!I")
 assertions = 0
@@ -76,7 +77,7 @@ def make_verifier(password, salt, rounds=4096):
 @contextmanager
 def running_server(binary, verifier):
     process = subprocess.Popen(
-        [str(binary), "--memory", "--auth-user", "postgres", "--auth-verifier-file", str(verifier), "--port", "0"],
+        [str(binary), "--memory", "--auth-user", "postgres", "--auth-verifier-file", str(verifier), "--port", "0", "--workers", str(test_workers)],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
     )
     lines = queue.Queue()
@@ -235,9 +236,12 @@ def startup_contracts(binary, directory):
 
 
 def main():
+    global test_workers
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, default=ROOT / "sig-out" / "bin" / ("ramsql.exe" if os.name == "nt" else "ramsql"))
+    parser.add_argument("--workers",type=int,default=1)
     args = parser.parse_args()
+    test_workers=args.workers
     binary = args.binary.resolve()
     with tempfile.TemporaryDirectory(prefix="ramsql-auth-") as temporary:
         directory = Path(temporary)

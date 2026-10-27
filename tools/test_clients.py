@@ -12,8 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / '.sig-cache' / 'client-deps'))
 
 @contextmanager
-def running_server(binary):
-    process = subprocess.Popen([str(binary), '--serve', '--memory', '--insecure-local', '--port', '0', '--mysql-port', '0', '--mssql-port', '0'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+def running_server(binary,workers=1):
+    process = subprocess.Popen([str(binary), '--serve', '--memory', '--insecure-local', '--port', '0', '--mysql-port', '0', '--mssql-port', '0','--workers',str(workers)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     lines = queue.Queue()
     def read_ready():
         for _ in range(3): lines.put(process.stdout.readline())
@@ -37,11 +37,12 @@ def running_server(binary):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--binary', type=Path, default=ROOT/'sig-out'/'bin'/('ramsql.exe' if os.name=='nt' else 'ramsql'))
+    parser.add_argument('--workers',type=int,default=1)
     args = parser.parse_args()
     import psycopg
     import pymysql
     import pytds
-    with running_server(args.binary.resolve()) as ports:
+    with running_server(args.binary.resolve(),args.workers) as ports:
         pg = psycopg.connect(host='127.0.0.1',port=ports['postgres'],user='ramsql',dbname='ramsql',password='',sslmode='disable',autocommit=True,connect_timeout=5)
         with pg.cursor() as cur:
             cur.execute('CREATE TABLE clients (id BIGINT PRIMARY KEY, active BOOLEAN, label TEXT)')

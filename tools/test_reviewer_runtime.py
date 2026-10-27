@@ -55,6 +55,7 @@ def main():
             query='SELECT COUNT(*),SUM(s.amount) FROM sales s JOIN products p ON p.id=s.product JOIN shops t ON t.id=s.shop WHERE s.shop=3'
             selected=[i*7%1000 for i in range(5000) if i%40==3]
             assert db.execute(query,prepare=False).fetchone()==(125,sum(selected))
+            assert db.execute(query.replace('s.shop=3','s.shop=%s'),(3,),prepare=True).fetchone()==(125,sum(selected))
     with running_ramsql(binary,extra_arguments=('--rows','6000','--work-rows','8192','--result-rows','4096','--max-clients','32')) as conn:
         with psycopg.connect(**conn,prepare_threshold=None) as db:
             seed(db)
@@ -71,6 +72,8 @@ def main():
             ]:
                 assert db.execute(sql,prepare=False).fetchone()==wanted,sql
             assert db.execute('SELECT id FROM sales ORDER BY id LIMIT 2000',prepare=False).fetchall()==[(i,) for i in range(2000)]
+            ordered=sorted(range(5000),key=lambda i:(values[i],i))[:500]
+            assert db.execute('SELECT id,amount FROM sales ORDER BY amount,id LIMIT 500',prepare=False).fetchall()==[(i,values[i]) for i in ordered]
             assert db.execute('SELECT 1'+' '*20000,prepare=True).fetchone()==(1,)
             try:
                 db.execute('SELECT 1'+' '*80000,prepare=False)

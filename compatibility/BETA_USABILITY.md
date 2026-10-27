@@ -1,4 +1,17 @@
-# Beta.1 usability and implementation audit
+# Beta usability and implementation audit
+
+## Reviewer follow-up (beta.2 candidate)
+
+The beta.1 review reproduced important limitations. Runtime workspace/results,
+unequal table banks, early safe inner-join predicates, larger parser/PG buffers,
+recoverable oversized SQL, admission errors and runtime PK index masks are now
+implemented. Native socket reactors are experimental; SQL execution is still
+serialized. See [the detailed follow-up](REVIEWER_BETA_2.md) for tests, remaining
+limits, benchmark boundaries and publication status. The sections below retain
+the original beta.1 audit; their old numeric defaults are historical. Use the
+current [capacity inventory](../CAPACITY.md) and exact binary `--capabilities`.
+
+## Original beta.1 source audit
 
 Scope: RAMSQL product sources, pinned ZPM SQL/store/protocol/platform modules,
 CLI/build profiles, independent-client tests, persistence/backup, package and

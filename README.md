@@ -7,7 +7,7 @@ multiple dialects. Its engine, shared transactions, persistence and wire codecs
 are real implementations. There is no SQLite backend, database subprocess,
 query-result mock, heap allocator or garbage collector in the runtime.
 
-**0.3.0-beta.1 is for controlled beta testing, benchmarking and review. It is not
+**0.3.0-beta.2 is for controlled beta testing, benchmarking and review. It is not
 a production PostgreSQL drop-in replacement.** PostgreSQL is the default protocol
 and semantic reference. MySQL and SQL Server/TDS are experimental adapters over
 the shared SQL subset. Supporting all common SQL dialects is the
@@ -109,13 +109,17 @@ before importing a schema; wire compatibility does not establish dialect parity.
 Allocator-free means explicit owned storage, not unlimited RAM. **Stored rows
 are not permanently limited to 512:** hosted `--rows`/`--versions` bind larger
 OS page buffers; checked benchmarks store one million rows. The stock binary
-still defaults to **512 stored rows/table, 512 returned rows/statement, 8 columns,
-128-byte text and 16 clients**. Runtime `--rows` does not enlarge result,
-workspace, text or schema budgets. Excess requests fail; there is no automatic
+defaults to **4,096 stored rows/table, 8,192 returned rows/statement, 4,096 workspace
+rows, 8 columns, 128-byte text and 16 clients**. Use `--work-rows`, `--result-rows`
+and `--max-clients` (up to 60) without rebuilding. `--table-rows n,n,...` and
+`--table-versions n,n,...` assign independent budgets to table slots in creation
+order; supply one value for each compiled table slot. `--rows` is the uniform
+fallback. Text/schema/parser limits still require a build profile. There is no automatic
 disk spill or arbitrarily large result stream.
 
 ```sh
-./ramsql --capabilities --rows 1000000 --versions 2000000
+./ramsql --capabilities --table-rows 1000000,10000,64,1,1,1,1,1 \
+  --work-rows 8192 --result-rows 4096 --max-clients 32
 ```
 
 This reports effective storage/backing bytes and compiled SQL/protocol budgets

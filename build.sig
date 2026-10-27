@@ -80,6 +80,9 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     var pages_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
     const pages_path = try zpm.modulePath("src/platform/page_region.sig", &pages_buf);
     _ = try ctx.addModule("page_region", pages_path);
+    var workers_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    const workers_path = try zpm.modulePath("src/platform/worker_thread.sig", &workers_buf);
+    _ = try ctx.addModule("worker_thread", workers_path);
     const pg_module = try ctx.addModule("postgres", pg_path);
     try ctx.addImport(pg_module, "scram", scram_path);
     const clients = ctx.option(usize, "clients", "Default runtime connection budget (1..60)") orelse 16;
@@ -140,6 +143,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
             importEntry("wall_clock", wall_clock_path),
             importEntry("profile", profile_path),
             importEntry("page_region", pages_path),
+            importEntry("worker_thread", workers_path),
         },
         .compiler_path = "",
     });

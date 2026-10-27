@@ -46,6 +46,7 @@ def startup_packet(user="ramsql"):
 
 
 class Server:
+    test_workers = 1
     def __init__(self, binary, idle_ms=30000, max_clients=16, max_query_work=0, extra_arguments=()):
         self.binary = binary
         self.idle_ms = idle_ms
@@ -60,6 +61,7 @@ class Server:
         self.process = subprocess.Popen(
             [str(self.binary), "--serve", "--memory", "--insecure-local", "--protocol", "postgres", "--port", "0",
              "--idle-ms", str(self.idle_ms), "--max-clients", str(self.max_clients),
+             *(["--workers", str(min(self.test_workers,self.max_clients))] if self.test_workers > 1 else []),
              *(["--max-query-work", str(self.max_query_work)] if self.max_query_work else []), *self.extra_arguments],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1,
         )
@@ -609,7 +611,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     default = Path(__file__).resolve().parents[1] / "sig-out" / "bin" / ("ramsql.exe" if os.name == "nt" else "ramsql")
     parser.add_argument("--binary", type=Path, default=default)
+    parser.add_argument("--workers", type=int, default=1)
     args = parser.parse_args()
+    Server.test_workers = args.workers
     binary = args.binary.resolve(strict=True)
     started = time.monotonic()
     with Server(binary) as server:

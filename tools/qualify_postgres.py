@@ -97,7 +97,8 @@ def validate_entry(entry, revision, binary_sha, reference, mode):
             require(not report.get("skipped"), f"{suite}: unexpected skipped cases")
         if suite == "copy":
             divergences = report.get("divergences", [])
-            require(len(divergences) == 1 and divergences[0].get("name") == "default_profile_capacity_5000_rows"
+            require(len(divergences) == 1 and divergences[0].get("name") == "explicit_row_budget_5000_rows"
+                    and divergences[0].get("runtime_rows") == 512
                     and divergences[0].get("as_documented") is True, "COPY capacity divergence changed")
             require(summary.get("divergences") == 1, "COPY divergence absent from summary")
 
