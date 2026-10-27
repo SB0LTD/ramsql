@@ -137,6 +137,9 @@ jobs:
       - name: Require native worker shared-store and protocol safety
         run: python tools/test_workers.py
 
+      - name: Require bounded three-table aggregates over real SQL-loaded data
+        run: python tools/test_streamed_joins.py
+
       - name: Test durable commits, process crashes, corruption and offline restore
         run: python tools/test_persistence.py
 

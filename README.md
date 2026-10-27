@@ -142,8 +142,7 @@ The default uses one reactor. Windows and no-libc Linux builds offer experimenta
 Published beta.2 serializes SQL execution. In development builds, idle autocommit
 PostgreSQL simple-protocol `SELECT`/`WITH` queries can execute concurrently using
 parser/execution storage owned per worker and results owned per client. Writes,
-transactions, COPY, extended
-protocol queries and dynamic time-zone resolution retain exclusive execution.
+transactions, COPY, extended-protocol queries and dynamic time-zone resolution retain exclusive execution.
 A reader/writer gate prevents publication or reclamation while readers execute.
 Worker read storage is reused between clients and released when its reactor
 becomes idle or stops. It is charged to the machine budget; insufficient headroom
@@ -152,6 +151,21 @@ Check `parallel_simple_reads`, `sql_execution_workers` and
 `native_workers_available` in `--capabilities`. This is inter-query concurrency;
 one query does not yet distribute its work across cores. Benchmark improvements
 must be measured for the actual workload.
+
+## Bounded joined aggregates in development
+
+Grouped/scalar aggregates over a physical fact table and primary-key inner joins
+now stream into group states instead of materializing every intermediate tuple.
+A checked live test loads 100,000 fact rows and two dimensions and runs with
+`--work-rows 32 --result-rows 16`, using one and four workers. Run
+`python tools/test_streamed_joins.py --binary /path/to/ramsql` to reproduce it.
+
+The [matched revision comparison](benchmarks/streamed-join-wire-20261027/README.md)
+measures 34.6 ms/query before and 16.1 ms/query after on one Windows host.
+This compares RAMSQL revisions. Outer/non-key joins, DISTINCT aggregates and
+high-cardinality groups retain their existing bounded paths; physical SQL storage
+is still inline. Neither this test nor the packed-column tests demonstrate a
+100M-row SQL server or a PostgreSQL/IRDB win.
 
 ## Inspect capacity before loading
 

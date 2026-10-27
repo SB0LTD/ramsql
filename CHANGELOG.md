@@ -6,6 +6,13 @@ later binary.
 
 ## Unreleased
 
+- Stream scalar/group aggregates over primary-key inner joins without building
+  input-sized intermediate tuples. Checked live queries load 100,000 fact rows
+  and two dimensions and succeed with 32 workspace rows; the preceding binary
+  returns 54000 on the same fixture. Outer/non-key/DISTINCT shapes retain their
+  existing bounded behavior. The matched single-client memory-only benchmark
+  reduces median latency from 34.6 ms to 16.1 ms on one Windows host; this is a
+  RAMSQL revision comparison, not a PostgreSQL/IRDB or 100M-row capacity claim.
 - Discover effective machine resources on Windows, Linux and macOS, and charge
   server page regions and worker allowances to a shared admission ledger. Add
   `--machine-capacity`, `--memory-budget` and `--os-headroom` diagnostics/options.

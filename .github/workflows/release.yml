@@ -374,11 +374,13 @@ jobs:
 
       - name: Require native worker shared-store and protocol safety on exact artifact
         run: python tools/test_workers.py
+      - name: Require bounded joined aggregates on the exact artifact
+        run: python tools/test_streamed_joins.py
       - name: Bind passed runtime tests to exact archive and binary hashes
         run: |
           python tools/package_release.py runtime-report --verification .sig-cache/verified-artifact.json `
             --report "runtime-evidence/runtime-$env:TARGET_SLUG.json" `
-            --tests tools/test_cli.py tools/test_server.py tools/test_clients.py tools/test_auth.py tools/test_persistence.py tools/test_capacity.py tools/test_beta.py tools/test_reviewer_runtime.py tools/test_workers.py tools/test_machine_capacity.py
+            --tests tools/test_cli.py tools/test_server.py tools/test_clients.py tools/test_auth.py tools/test_persistence.py tools/test_capacity.py tools/test_beta.py tools/test_reviewer_runtime.py tools/test_workers.py tools/test_machine_capacity.py tools/test_streamed_joins.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         with:
