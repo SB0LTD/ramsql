@@ -6,6 +6,14 @@ later binary.
 
 ## Unreleased
 
+- Borrow arithmetic and PK-probe operands, reuse visible key hits, and gather
+  current committed integral fact inputs from the existing column projection.
+  Preserve checkpoint charges, NULL/error evaluation and MVCC fallback. In a
+  corrected matched 100k joined-read experiment, median latency is 7.0 ms versus
+  16.4 ms for streamed versions and 34.0 ms for materialized joins. Raw profiles,
+  source/binary hashes and all checked trials are retained; reference-engine
+  superiority and 100M-row physical SQL capacity remain unproven.
+
 - Stream scalar/group aggregates over primary-key inner joins without building
   input-sized intermediate tuples. Checked live queries load 100,000 fact rows
   and two dimensions and succeed with 32 workspace rows; the preceding binary

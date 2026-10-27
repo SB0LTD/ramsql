@@ -113,6 +113,10 @@ including pending dimension snapshots and cancellation. Live server tests use
 32 workspace rows with one/four workers. The [matched revision benchmark](../benchmarks/streamed-join-wire-20261027/README.md)
 reduces median latency from 34.6 to 16.1 ms at 100,000 rows. These are execution
 and RAMSQL-revision results, not reference-engine or 100M-row storage acceptance.
+[ZPM #39](https://github.com/SB0LTD/zpm/pull/39) adds borrowed operands and
+snapshot-guarded integral gathers. The [corrected three-revision comparison](../benchmarks/final-joined-read-20261027/README.md)
+measures about 34.0 / 16.4 / 7.0 ms, with work-budget regression checks preserved.
+This reuses an existing integer projection; stored rows/versions are still inline.
 Non-key/outer joins and general projections still materialize; per-worker query
 reference reservations still include a legacy term proportional to maximum table
 capacity. Automatic core sizing, per-query grants and compact physical SQL storage
