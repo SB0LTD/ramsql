@@ -1,0 +1,148 @@
+{
+  "schema": 1,
+  "scope": "single-client memory-only PostgreSQL simple-query joined aggregate comparison",
+  "query": "SELECT s.region,COUNT(*),SUM(f.amount*p.unit) FROM facts f JOIN shops s ON s.id=f.shop JOIN products p ON p.id=f.product GROUP BY s.region ORDER BY s.region NULLS LAST",
+  "rows": 100000,
+  "work_rows": 32768,
+  "iterations": 100,
+  "environment": {
+    "cpu": "Intel(R) Core(TM) i9-14900HX",
+    "logical_cpus": 32,
+    "platform": "Windows-10-10.0.26300-SP0",
+    "python": "3.11.15"
+  },
+  "binaries": [
+    {
+      "path": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\star-server-fast\\bin\\ramsql.exe",
+      "sha256": "c296f6df0542399f3e1dbea0781af71f0a1a63606cb08191b62f2c6ad51de0b0"
+    },
+    {
+      "path": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\borrow-server-fast\\bin\\ramsql.exe",
+      "sha256": "7e8f2eab3a96f20574f1c4f9b14567fdb8dc3f2facfa81c1f8f4c2a1afe0d137"
+    }
+  ],
+  "trials": [
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\star-server-fast\\bin\\ramsql.exe",
+      "trial": 0,
+      "passed": true,
+      "operations": 100,
+      "elapsed_ns": 1602632200,
+      "server_cpu_seconds": 1.5625,
+      "memory_before": {
+        "rss_bytes": 141901824,
+        "peak_rss_bytes": 141901824,
+        "private_commit_bytes": 349827072,
+        "source": "GetProcessMemoryInfo"
+      },
+      "memory_after": {
+        "rss_bytes": 141930496,
+        "peak_rss_bytes": 141930496,
+        "private_commit_bytes": 349827072,
+        "source": "GetProcessMemoryInfo"
+      }
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\borrow-server-fast\\bin\\ramsql.exe",
+      "trial": 0,
+      "passed": true,
+      "operations": 100,
+      "elapsed_ns": 1136780900,
+      "server_cpu_seconds": 1.09375,
+      "memory_before": {
+        "rss_bytes": 141897728,
+        "peak_rss_bytes": 141897728,
+        "private_commit_bytes": 349839360,
+        "source": "GetProcessMemoryInfo"
+      },
+      "memory_after": {
+        "rss_bytes": 141926400,
+        "peak_rss_bytes": 141926400,
+        "private_commit_bytes": 349839360,
+        "source": "GetProcessMemoryInfo"
+      }
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\borrow-server-fast\\bin\\ramsql.exe",
+      "trial": 1,
+      "passed": true,
+      "operations": 100,
+      "elapsed_ns": 1154155600,
+      "server_cpu_seconds": 1.09375,
+      "memory_before": {
+        "rss_bytes": 141873152,
+        "peak_rss_bytes": 141873152,
+        "private_commit_bytes": 349798400,
+        "source": "GetProcessMemoryInfo"
+      },
+      "memory_after": {
+        "rss_bytes": 141873152,
+        "peak_rss_bytes": 141873152,
+        "private_commit_bytes": 349798400,
+        "source": "GetProcessMemoryInfo"
+      }
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\star-server-fast\\bin\\ramsql.exe",
+      "trial": 1,
+      "passed": true,
+      "operations": 100,
+      "elapsed_ns": 1581673400,
+      "server_cpu_seconds": 1.5625,
+      "memory_before": {
+        "rss_bytes": 141897728,
+        "peak_rss_bytes": 141897728,
+        "private_commit_bytes": 349822976,
+        "source": "GetProcessMemoryInfo"
+      },
+      "memory_after": {
+        "rss_bytes": 141897728,
+        "peak_rss_bytes": 141897728,
+        "private_commit_bytes": 349822976,
+        "source": "GetProcessMemoryInfo"
+      }
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\star-server-fast\\bin\\ramsql.exe",
+      "trial": 2,
+      "passed": true,
+      "operations": 100,
+      "elapsed_ns": 1598113400,
+      "server_cpu_seconds": 1.578125,
+      "memory_before": {
+        "rss_bytes": 141881344,
+        "peak_rss_bytes": 141881344,
+        "private_commit_bytes": 349794304,
+        "source": "GetProcessMemoryInfo"
+      },
+      "memory_after": {
+        "rss_bytes": 141881344,
+        "peak_rss_bytes": 141881344,
+        "private_commit_bytes": 349794304,
+        "source": "GetProcessMemoryInfo"
+      }
+    },
+    {
+      "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\borrow-server-fast\\bin\\ramsql.exe",
+      "trial": 2,
+      "passed": true,
+      "operations": 100,
+      "elapsed_ns": 1137999500,
+      "server_cpu_seconds": 1.09375,
+      "memory_before": {
+        "rss_bytes": 141901824,
+        "peak_rss_bytes": 141901824,
+        "private_commit_bytes": 349843456,
+        "source": "GetProcessMemoryInfo"
+      },
+      "memory_after": {
+        "rss_bytes": 141901824,
+        "peak_rss_bytes": 141901824,
+        "private_commit_bytes": 349843456,
+        "source": "GetProcessMemoryInfo"
+      }
+    }
+  ],
+  "qualification": "Exploratory, superseded: column-read checkpoint charges differed from baseline; use final-joined-read-20261027 for qualified timing",
+  "candidate_zpm_revision": "40884087c3e91fa730e69e9feefce61e21e8f5f3"
+}

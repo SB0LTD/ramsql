@@ -162,6 +162,10 @@ A checked live test loads 100,000 fact rows and two dimensions and runs with
 
 The [matched revision comparison](benchmarks/streamed-join-wire-20261027/README.md)
 measures 34.6 ms/query before and 16.1 ms/query after on one Windows host.
+Further [profile-guided input changes](benchmarks/final-joined-read-20261027/README.md)
+reduce the final matched median to about 7.0 ms while preserving work-budget
+checks. Current committed integral inputs gather referenced columns; old
+snapshots, own writes and referenced non-integral types retain versioned rows.
 This compares RAMSQL revisions. Outer/non-key joins, DISTINCT aggregates and
 high-cardinality groups retain their existing bounded paths; physical SQL storage
 is still inline. Neither this test nor the packed-column tests demonstrate a
