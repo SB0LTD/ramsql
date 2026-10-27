@@ -4,7 +4,7 @@ Release changes are separated from aspirations. See each tag's exact qualificati
 and benchmark bundle; development measurements do not automatically apply to a
 later binary.
 
-## 0.3.0-beta.2 (candidate)
+## 0.3.0-beta.2 — 2026-10-27
 
 - Bind query scratch and per-client result/response storage from caller-owned OS
   page regions. Runtime `--work-rows` and `--result-rows` no longer require rebuilds
@@ -32,8 +32,12 @@ later binary.
   PostgreSQL parity or universal superiority; see the reviewer follow-up report.
 
 The beta.1 source review was not a published release: its PR workflow validated
-artifacts but skipped publication by design. Beta.2 publication must be confirmed
-from the actual release page/assets, separately from successful PR validation.
+artifacts but skipped publication by design. Beta.2 is
+[published with assets](https://github.com/SB0LTD/ramsql/releases/tag/v0.3.0-beta.2)
+from `defacb76de8f2c95bdf4f80b2575fbfde791d8cf`. The explicit publication
+[workflow](https://github.com/SB0LTD/ramsql/actions/runs/40452582057) passed.
+All 28 checksummed files and eight target packages were independently verified
+after download; the Windows package also executed `--version`/`--capabilities`.
 
 ## 0.3.0-beta.1 (source review; unpublished)
 

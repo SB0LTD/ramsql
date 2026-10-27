@@ -22,6 +22,29 @@ checkpoints and incomplete dialect support remain visible blockers.
 
 ## Resource ownership and planning
 
+Infrastructure progress on 2026-10-27:
+
+- [ZPM resource-budget/grant core](https://github.com/SB0LTD/zpm/pull/32) is merged.
+  It calculates a shared byte budget from supplied physical/commit/scope/CPU
+  observations, with checked arithmetic and generation-checked concurrent grants.
+  Native OS discovery and RAMSQL admission integration are still open.
+- [Effective-capacity headroom correction](https://github.com/SB0LTD/zpm/pull/34)
+  derives defaults from container/operator capacity rather than large host totals.
+  Windows validation passes 25,042 assertions and 80,000 concurrent grant cycles;
+  cross-platform qualification is pending.
+- [Packed integer storage](https://github.com/SB0LTD/zpm/pull/33) has 72,320
+  Windows/Linux correctness assertions. An explicit Windows ReleaseSafe test
+  generated, encoded, parsed and decoded every one of 100M actual values in each
+  of two cases. Frames occupy 337,500,080 bytes without NULLs and 350,000,080 bytes
+  with mixed NULLs; exact sums and every value passed. The retained
+  [evidence](https://github.com/SB0LTD/zpm/blob/d0500cf1ca499d9f68758ed662d54d0dc1229be3/tests/evidence/packed-integer-100m-windows.json)
+  records source/binary hashes. Cross-platform large-column qualification is
+  pending. These are physical-column tests, not SQL, durability or comparative
+  benchmarks; the RAMSQL release does not yet use this primitive.
+
+These changes are outside the published beta.2 dependency pin. Do not attribute
+their behavior or physical-column sizes to the release's inline SQL layout.
+
 1. **Observe effective resources (ZPM platform).** Read CPU affinity, processor
    groups/NUMA topology and process/container CPU quotas. Read available physical
    RAM, process residency/commit, system commit limits and job/cgroup memory
@@ -125,8 +148,8 @@ checksums for every run and recheck versions before a new comparison campaign.
 
 ## Implementation order
 
-1. Finish the portable beta artifact gates and actual publication; keep its
-   limitations explicit.
+1. Portable beta artifact gates and actual beta.2 publication are complete; keep
+   its limitations explicit.
 2. Add pure resource-budget/grant contracts, then real platform observations.
 3. Add compact typed pages and sparse-version ownership; integrate into SQL,
    persistence and recovery before making server capacity claims.
