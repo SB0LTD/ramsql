@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dbmeter" tests="3" failures="1" errors="0" time="2.781">
+  <testcase classname="dbmeter.check" name="a_totals" time="0.008"/>
+  <testcase classname="dbmeter.check" name="q5_high_value_customers" time="2.255">
+    <failure message="error: ERROR: WorkspaceCapacity [SQLState 54000]">error: ERROR: WorkspaceCapacity [SQLState 54000]</failure>
+  </testcase>
+  <testcase classname="dbmeter.check" name="q6_store_category_mix" time="0.518"/>
+</testsuite>

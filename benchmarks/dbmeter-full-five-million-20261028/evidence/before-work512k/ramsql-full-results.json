@@ -1,0 +1,75 @@
+{
+  "schema": 1,
+  "method": "Actual 5M data exported from original PostgreSQL schema after 7/7 CSV checks. No alpha.2 sample schema. Original full query files and expected CSVs; all-suite failures retained. Only successful original checks may be timed.",
+  "binary_sha256": "0671b167640b0fdf26095edd96b29fb09e7527815fa125a2155fb380c5fe3fca",
+  "server_arguments": [
+    "--workers",
+    "4",
+    "--table-rows",
+    "5,200,20,1000,50000,5000000,1,1",
+    "--table-versions",
+    "10,400,40,2000,100000,5065536,2,2",
+    "--work-rows",
+    "524288",
+    "--result-rows",
+    "1024"
+  ],
+  "dbmeter_revision": "630fbb13be21bd4bbdf7afe4b438ce771a8b3fc0",
+  "runs": [
+    {
+      "name": "ramsql-all-checks",
+      "argv": [
+        "java",
+        "-Xms32m",
+        "-Xmx256m",
+        "-jar",
+        "C:\\Just-Things\\Projects\\sb0\\dbMeter\\build\\dbmeter.jar",
+        "check",
+        "--skip-setup",
+        "-c",
+        "C:\\Just-Things\\Projects\\sb0\\dbMeter\\examples\\sales-agg\\ramsql.properties",
+        "--set",
+        "jdbc.url=jdbc:postgresql://127.0.0.1:34251/ramsql",
+        "--set",
+        "run.databaseLabel=RAMSQL full5M",
+        "--junit",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\dbmeter-full-work512k\\ramsql-all-checks.xml"
+      ],
+      "returncode": 1
+    },
+    {
+      "name": "ramsql-supported-checks",
+      "argv": [
+        "java",
+        "-Xms32m",
+        "-Xmx256m",
+        "-jar",
+        "C:\\Just-Things\\Projects\\sb0\\dbMeter\\build\\dbmeter.jar",
+        "check",
+        "--skip-setup",
+        "-c",
+        "C:\\Just-Things\\Projects\\sb0\\dbMeter\\examples\\sales-agg\\ramsql.properties",
+        "--set",
+        "jdbc.url=jdbc:postgresql://127.0.0.1:34251/ramsql",
+        "--set",
+        "run.databaseLabel=RAMSQL full5M",
+        "--only",
+        "a_totals,q5_high_value_customers,q6_store_category_mix",
+        "--junit",
+        "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\dbmeter-full-work512k\\ramsql-supported-checks.xml"
+      ],
+      "returncode": 1
+    }
+  ],
+  "pid": 28388,
+  "port": 34251,
+  "loaded": true,
+  "after_load_memory": {
+    "rss_bytes": 6657253376,
+    "peak_rss_bytes": 6657257472,
+    "private_commit_bytes": 8121835520,
+    "source": "GetProcessMemoryInfo"
+  },
+  "supported_checks_passed": false,
+  "error": "RuntimeError: Full-data supported checks failed; do not score throughput"
+}

@@ -1,0 +1,7 @@
+error: WorkspaceCapacity
+Traceback (most recent call last):
+  File "C:\Just-Things\Projects\sb0\zpm-parallel-read\.sig-cache\check_round_stream.py", line 6, in <module>
+    subprocess.run([str(target)],check=True)
+  File "C:\Users\Shado\AppData\Roaming\uv\python\cpython-3.11-windows-x86_64-none\Lib\subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['C:\\Just-Things\\Projects\\sb0\\zpm-parallel-read\\.sig-cache\\round-stream.exe']' returned non-zero exit status 1.

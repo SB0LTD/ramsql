@@ -1,0 +1,7 @@
+PASS  a_totals                                       7.82 ms
+FAIL  q5_high_value_customers                       72.86 ms
+        error: ERROR: WorkspaceCapacity [SQLState 54000]
+PASS  q6_store_category_mix                        514.18 ms
+
+3 check(s): 2 passed, 1 failed
+JUnit report: C:\Just-Things\Projects\sb0\ramsql\.sig-cache\dbmeter-full\ramsql-supported-checks.xml

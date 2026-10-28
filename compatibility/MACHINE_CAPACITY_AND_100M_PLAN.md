@@ -8,6 +8,16 @@ constant or a larger executable does not satisfy this requirement.
 
 ## Current evidence and blockers
 
+The [actual five-million-row campaign](../benchmarks/dbmeter-full-five-million-20261028/REPORT.md)
+loads the original full data into the default text-128 build using unequal
+runtime banks, 65k spare fact versions, 65k workspace rows and 1,024 final result
+rows. It uses about 7.06 GB private commit after loading. Totals and two original
+queries pass; four queries still require missing formatting/window/ROLLUP
+features. This is memory-only read acceptance with explicit budgets, not
+automatic capacity growth, full-suite support or 100M-row durability acceptance.
+Pure ROUND classification fixes a false input-materialization failure; simply
+increasing workspace eightfold did not fix that operator selection.
+
 The [reviewer follow-up](REVIEWER_BETA_2.md) records actual million-row loading,
 runtime query/result budgets, unequal table banks, protocol corrections and
 experimental socket reactors. The current inline row/version layout still

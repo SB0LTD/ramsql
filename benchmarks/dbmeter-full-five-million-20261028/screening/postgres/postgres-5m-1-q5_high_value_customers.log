@@ -1,0 +1,17 @@
+run postgres-5m-1-q5_high_value_customers, node local, scenarios: q5_high_value_customers(w1)
+opening 1 connection(s)...
+connected to PostgreSQL 18.3
+[   10.1s] measure  ops         18        1.8/s  errors      0  active 1/1
+[   20.1s] measure  ops         36        1.8/s  errors      0  active 1/1
+[   25.4s] done     ops         46        1.9/s  errors      0  active 0/1
+
+Run:       postgres-5m-1-q5_high_value_customers
+Database:  postgres full5M [reports as PostgreSQL 18.3] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-28T02:05:47.720Z .. 2026-10-28T02:06:03.096Z (15.4 s)
+Nodes:     1 node(s), 1 thread(s) total
+  local                host SB0-LAPTOP           1 threads  32 cpus  window +0.0s .. +15.4s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+q5_high_value_customers          27        0         108        1.8    552.02    548.86    563.37    563.37    563.37    563.37
+
+Report: C:\Just-Things\Projects\sb0\ramsql\.sig-cache\dbmeter-full-postgres\postgres-5m-1-q5_high_value_customers\local.json
