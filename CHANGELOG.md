@@ -13,6 +13,12 @@ later binary.
   nullable/wide producer totals or insufficient workspace. Runtime measurements
   and full integration qualification are tracked in the candidate PR; no new
   benchmark leadership, SQL parity or 100M-row capacity is claimed here.
+- Add conservative block-presence summaries to the committed scan projection.
+  Equality can skip a block only when the value's residue bit is absent; every
+  surviving block retains exact value/null/live comparisons. Metadata borrows
+  charged caller backing and follows durable publication, replay, copy and slot
+  compaction. Detailed repeated timings and the retained earlier regressions are
+  tracked with the candidate; full-suite benchmark leadership remains unproven.
 - Reuse binder-validated DATE payloads, refine sparse predicate survivors before
   join probes, and prove when grouped aggregates can use 16-byte state in ZPM.
   Three original five-million-row trials measure median q5/q6 throughput of
