@@ -1,0 +1,8 @@
+Run:       ramsql-5m-8-q6_store_category_mix-trial-1
+Database:  RAMSQL full5M [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-28T20:50:55.482Z .. 2026-10-28T20:51:55.500Z (60.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +60.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+q6_store_category_mix         16102        0      322040      268.3     29.77     28.42     39.42     42.50     46.59     67.76

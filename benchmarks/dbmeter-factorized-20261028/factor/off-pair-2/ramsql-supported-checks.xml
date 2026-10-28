@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dbmeter" tests="3" failures="0" errors="0" time="0.054">
+  <testcase classname="dbmeter.check" name="a_totals" time="0.010"/>
+  <testcase classname="dbmeter.check" name="q5_high_value_customers" time="0.037"/>
+  <testcase classname="dbmeter.check" name="q6_store_category_mix" time="0.007"/>
+</testsuite>
