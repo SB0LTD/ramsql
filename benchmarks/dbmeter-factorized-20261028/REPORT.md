@@ -81,9 +81,10 @@ losses. The combined candidate fails qualification and remains draft.
 
 Native full-SQL CI passes on Windows, Linux and macOS. Broad legacy CI reports
 244 successful steps, four known unrelated SABR/TLS/TTS failures and 22 skips.
-RAMSQL integration has 32 successful active checks and two policy skips, including
-native SB0S/SB0K, hosted systems and PostgreSQL 16/18 memory/durable-SCRAM. It
-remains draft because performance qualification failed. No cause is assigned
+The initial RAMSQL integration had 32 successful active checks and two policy
+skips, including native SB0S/SB0K, hosted systems and PostgreSQL 16/18
+memory/durable-SCRAM. It remained draft because performance qualification failed.
+The later block-filter dependency is being qualified separately. No cause is assigned
 to the timing change: power/topology snapshots do not identify actual thread
 placement, running frequencies or a causal hardware event.
 
@@ -122,6 +123,64 @@ a full-machine pool per client. No such scheduler is implemented by this PR.
 
 ## Remaining blockers and the next access-path change
 
+### Subsequent quiet-host block-presence campaign
+
+`presence/` records six further fresh full-data campaigns. Both binaries use ZPM
+`efc9e232d7dbb2313b90930a82740b3779d691ee` with factorized aggregates enabled;
+only block-presence filtering differs. No local builds, profilers, checkouts,
+repository edits or source work run during measurement. Ordinary desktop
+background activity remains uncontrolled. The JVM, queries, datasets, durations,
+eight clients/workers and all correctness checks remain unchanged.
+
+The filter maintains 256 conservative presence bits per column/64-row block in
+caller-owned storage. Absent bits permit rejection; present bits always use exact
+value/null/live comparisons. Residue collisions and retained old/deleted bits can
+only cause extra comparisons. New blocks initialize before use; durable
+publication, replay, copy across capacities and compaction maintain the invariant.
+
+| Case | On QPS median (range) | Off QPS median (range) | Paired on/off ratios |
+| --- | ---: | ---: | --- |
+| Nested customer totals, untargeted by the filter | 747.81 (737.33–753.37) | 715.22 (108.27–727.26) | 1.036, 6.907, 1.031 |
+| Store/category mix | 1673.94 (1639.16–1677.81) | 380.59 (341.25–902.67) | 4.409, 1.854, 4.803 |
+
+Every timed operation succeeds; the three original supported checks pass, and the
+four unsupported original checks remain retained. Enabled p99 is 13.44–13.95 ms
+for customer totals and 6.08–6.46 ms for store/category. Its matching control p99
+ranges are 14.98–128.00 and 45.57–58.88 ms. These are measurements of this
+candidate and environment, not a claim about other workloads or reference engines.
+
+The enabled runs are consistent and win every pair. Attribution still has a
+material limitation: the untargeted control also varies sharply. The second
+control takes 58.34s/38.88 CPU-seconds to load, versus 11.66–12.02s/8.08–8.84
+CPU-seconds in its other controls, before timed SELECTs begin. The enabled load
+trials take 10.84–12.86s/8.08–9.08 CPU-seconds. This prevents assigning the entire
+QPS ratio or a loading speedup to the SQL filter. The earlier slowdowns remain
+unexplained; neither affinity nor pausing repository work alone eliminates them.
+
+Declared backing grows by exactly **20,206,340 bytes** with identical runtime
+budgets; observed process-private commit increases by about 20.25 MB. See
+`presence-backing-comparison.json`. The declared difference includes block rounding
+for all table reservations and alignment. This memory is runtime backing, not an
+input-sized executable array. No sustained update/churn benefit is established.
+
+The new actual SQL contract passes **24,441 assertions** on Windows/Linux
+ReleaseSafe and legacy Linux Debug, plus the existing 1,824-assertion factor-join
+suite with metadata enabled. Native full-SQL CI passes on Windows, Linux and
+macOS; broad legacy CI has 246 successful steps, the same four unrelated
+SABR/TLS/TTS failures and 22 skips. The reusable code was merged through
+[ZPM PR 65](https://github.com/SB0LTD/zpm/pull/65), preserving disabled library
+defaults. RAMSQL's updated opt-in remains in PR 29 for its own qualification.
+
+`profiles/` retains separate 10ms wall-time instruction-pointer diagnostics from
+the two frozen binaries on the same original full-data query. These pause/resume
+owned threads and include ramp/warmup/runtime waits; they are not PMU cycle
+attribution or throughput comparisons. Both reproduce a fast factorized execution
+path rather than the slow controls. They show comparison/factor-fold instructions
+prominently, but cannot explain the intermittent slowdown or validate an all-case
+speedup. Profiled throughput is not substituted for any unprofiled trial above.
+
+### Unclosed scope
+
 RAMSQL still passes 3/7 original checks. The missing features include date
 formatting in grouping, window ranking/window aggregates and grouping rollups.
 These failures are retained, not removed from a qualification gate. Two passing
@@ -129,13 +188,12 @@ query timings do not qualify mixed workloads, writes, durability, every dialect
 or 100M-row SQL tables. Earlier reference timings are historical context, not a
 new paired three-engine comparison.
 
-Implementation and functional qualification are tracked in
+Earlier implementation and functional qualification are tracked in
 [ZPM PR 63](https://github.com/SB0LTD/zpm/pull/63),
 [ZPM PR 64](https://github.com/SB0LTD/zpm/pull/64) and
 [RAMSQL PR 29](https://github.com/SB0LTD/ramsql/pull/29). None is accepted by this
-report. A subsequent block-presence candidate in
-[ZPM PR 65](https://github.com/SB0LTD/zpm/pull/65) is a separate experiment with
-its own source, backing cost and qualification; it does not erase these results.
+report. Their library changes were subsequently included by PR 65 with disabled
+defaults; the positive later campaign does not erase their rejected measurements.
 
 Factorization removes repeated relational work but still scans necessary fact
 columns. For selective equality/range queries, the next structural change must

@@ -1,7 +1,7 @@
 """Retain complete paired evidence without copying private SQL/data/drivers."""
 import argparse, hashlib, json, pathlib, shutil, statistics, xml.etree.ElementTree as ET
 
-p=argparse.ArgumentParser();p.add_argument('phase',choices=('factor','nested','pcores'));a=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('phase',choices=('factor','nested','pcores','presence'));a=p.parse_args()
 source=pathlib.Path(__file__).resolve().parent
 destination=source.parent.parent/'ramsql-benchmark-evidence/benchmarks/dbmeter-factorized-20261028'
 destination.mkdir(exist_ok=True)
@@ -26,6 +26,7 @@ for run in pairs['runs']:
     folder=base/run['directory'];report=json.loads((folder/'ramsql-full-results.json').read_text())
     assert report['input_sha256']=='9b0e1e556433483e015b141eb90425fbe3c96e60cb4170d9baafde9d85de2d0d'
     assert report['supported_checks_passed'] and 'after_queries_memory' in report
+    if a.phase=='presence': assert report['load_wall_seconds']>0 and report['load_cpu_seconds']>0
     if a.phase=='pcores': assert report['diagnostic_cpu_policy']['server_affinity']=='0xffff' and not report['diagnostic_cpu_policy']['global_settings_changed']
     assert run['binary_sha256']==report['binary_sha256']==proofs[run['mode']]['binary_sha256']
     full=ET.parse(folder/'ramsql-all-checks.xml').getroot();assert int(full.attrib['tests'])==7
