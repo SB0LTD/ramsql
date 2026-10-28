@@ -1,0 +1,16 @@
+run postgres-512-8-topn, node local, scenarios: s512_topn(w1)
+opening 8 connection(s)...
+connected to PostgreSQL 18.3
+[    5.4s] measure  ops     352725    68874.7/s  errors      0  active 8/8
+[    7.0s] done     ops     463727    70277.2/s  errors      0  active 0/8
+
+Run:       postgres-512-8-topn
+Database:  postgres [reports as PostgreSQL 18.3] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-27T19:32:10.599Z .. 2026-10-27T19:32:15.599Z (5.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +5.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s512_topn                    346889        0     3468890    69377.8      0.11      0.11      0.15      0.17      0.19      0.92
+
+Report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-postgres-native-20261027\postgres-512-8-topn\local.json

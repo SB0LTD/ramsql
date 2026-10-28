@@ -1,0 +1,7 @@
+PASS  s100000_a_pk                                   8.46 ms
+PASS  s100000_b_filter                               5.17 ms
+PASS  s100000_c_topn                                 2.81 ms
+PASS  s100000_d_last                                 0.27 ms
+
+4 check(s): 4 passed, 0 failed
+JUnit report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-baseline-100k-bounded-jvm-20261027\checks.xml

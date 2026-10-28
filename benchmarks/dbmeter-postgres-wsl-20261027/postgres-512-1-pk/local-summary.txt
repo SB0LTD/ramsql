@@ -1,0 +1,8 @@
+Run:       postgres-512-1-pk
+Database:  postgres [reports as PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-27T19:20:38.846Z .. 2026-10-27T19:20:43.847Z (5.0 s)
+Nodes:     1 node(s), 1 thread(s) total
+  local                host SB0-LAPTOP           1 threads  32 cpus  window +0.0s .. +5.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s512_pk                       39032        0       39032     7804.8      0.13      0.11      0.16      0.19      0.29      1.67

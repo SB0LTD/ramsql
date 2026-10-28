@@ -1,0 +1,25 @@
+run postgres-1000000-8-mixed, node local, scenarios: s1_region(w2), s2_category(w1), s3_top_products(w2), s4_segment_discount(w2), s5_high_value_customers(w1), s6_store_category_mix(w4)
+opening 8 connection(s)...
+connected to PostgreSQL 18.3
+[   20.3s] measure  ops        532       26.6/s  errors      0  active 8/8
+[   40.3s] measure  ops       1054       26.1/s  errors      0  active 8/8
+[   60.4s] measure  ops       1614       27.9/s  errors      0  active 8/8
+[   80.6s] done     ops       2177       27.9/s  errors      0  active 4/8
+[   80.9s] done     ops       2181       11.4/s  errors      0  active 0/8
+
+Run:       postgres-1000000-8-mixed
+Database:  postgres [reports as PostgreSQL 18.3] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-28T00:19:27.620Z .. 2026-10-28T00:20:28.543Z (60.9 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +60.9s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s1_region                       258        0        1290        4.2    221.23    198.66    274.43    421.89    479.23    490.99
+s2_category                     130        0        2600        2.1   1721.78   1687.55   1851.39   2129.92   2457.60   2541.73
+s3_top_products                 301        0        3010        4.9    123.27    117.76    145.41    186.37    206.85    240.13
+s4_segment_discount             273        0        4368        4.5    227.15    206.85    282.62    405.50    471.04    504.51
+s5_high_value_customers         142        0         568        2.3    457.14    454.66    495.62    512.00    565.25    847.50
+s6_store_category_mix           548        0       10960        9.0     63.83     62.98     72.70     76.80     82.94     89.63
+TOTAL                          1652        0       22796       27.1    290.51    153.60    479.23   1654.78   1818.62   2541.73
+
+Report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-native-million-postgres-20261028\postgres-1000000-8-mixed\local.json

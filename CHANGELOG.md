@@ -6,6 +6,22 @@ later binary.
 
 ## Unreleased
 
+- Reproduce the reviewer's dbMeter JDBC suite with its original SQL/expected
+  results and supplied IRDB Java client. Add a benchmark driver with immutable
+  source checks, per-engine provenance, bounded JVM heaps and retained failures.
+- Execute eligible PostgreSQL extended autocommit reads concurrently, including
+  private Describe metadata, bound portals and named prepared binary queries.
+  Keep transactions, COPY and suspended portals exclusive. Check actual extended
+  overlap, publication exclusion, cancellation, timeout recovery and 640 binary
+  prepared queries alongside the existing live worker contracts.
+- Filter committed non-null integral predicates before fetching full MVCC rows;
+  preserve exact scalar short-circuit work counts and fallbacks. Batch work
+  charging between observable polls with 76,801 equivalence assertions. Avoid
+  clearing/copying full prepared SQL capacity for short Parse/Bind messages.
+- Stream exact integral COUNT(DISTINCT) states from caller-owned bitmap storage.
+  The reviewer's million-row sales subset passes 7/7 checks using an explicit
+  Linux text-32 profile. Sparse/wide unsupported domains retain exact general
+  fallback; this does not provide 100M-row physical SQL storage.
 - Retain a fresh ten-case IRDB 1.10.821 native SQL-string replay at 100k rows.
   Every result passes and every case wins the finite speed screen, including
   sort, range, grouped, mixed and churn cases. Prepared-query comparisons,

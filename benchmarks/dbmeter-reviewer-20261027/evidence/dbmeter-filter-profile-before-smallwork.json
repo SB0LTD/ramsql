@@ -1,0 +1,414 @@
+{
+  "schema": 1,
+  "method": "Wall-time instruction-pointer samples from owned single-worker server during actual dbMeter JDBC load; guaranteed thread resume; not PMU CPU events or benchmark timing",
+  "query": "SELECT id,val FROM t_100000 WHERE grp=? AND val>990000",
+  "rows": 100000,
+  "work_rows": 100000,
+  "sample_interval_ms": 2,
+  "samples": 4823,
+  "binary_sha256": "090573f2ec26187642677c2ae5481928b9c3946e468cd4045be522c608ad39dc",
+  "symbols": [
+    {
+      "name": "truth",
+      "samples": 2561
+    },
+    {
+      "name": "select__func_529",
+      "samples": 856
+    },
+    {
+      "name": "compare",
+      "samples": 525
+    },
+    {
+      "name": "memcpyFast",
+      "samples": 323
+    },
+    {
+      "name": "NtWaitForSingleObject",
+      "samples": 237
+    },
+    {
+      "name": "eval",
+      "samples": 156
+    },
+    {
+      "name": "NtDeviceIoControlFile",
+      "samples": 56
+    },
+    {
+      "name": "___chkstk_ms",
+      "samples": 46
+    },
+    {
+      "name": "pollInterrupts",
+      "samples": 12
+    },
+    {
+      "name": "RtlQueryPerformanceCounter",
+      "samples": 7
+    },
+    {
+      "name": "pollOverflowCancels",
+      "samples": 6
+    },
+    {
+      "name": "WahReferenceContextByHandle",
+      "samples": 2
+    },
+    {
+      "name": "RtlAllocateHeap",
+      "samples": 2
+    },
+    {
+      "name": "find",
+      "samples": 2
+    },
+    {
+      "name": "run",
+      "samples": 2
+    },
+    {
+      "name": "send",
+      "samples": 2
+    },
+    {
+      "name": "lockTable",
+      "samples": 2
+    },
+    {
+      "name": "waitMasked",
+      "samples": 1
+    },
+    {
+      "name": "pollExecution",
+      "samples": 1
+    },
+    {
+      "name": "setPrimary",
+      "samples": 1
+    },
+    {
+      "name": "accept",
+      "samples": 1
+    },
+    {
+      "name": "db",
+      "samples": 1
+    },
+    {
+      "name": "TlsGetValue",
+      "samples": 1
+    },
+    {
+      "name": "query",
+      "samples": 1
+    },
+    {
+      "name": "statement",
+      "samples": 1
+    },
+    {
+      "name": "handle",
+      "samples": 1
+    },
+    {
+      "name": "reserved",
+      "samples": 1
+    },
+    {
+      "name": "resolveColumn",
+      "samples": 1
+    },
+    {
+      "name": "sendto",
+      "samples": 1
+    },
+    {
+      "name": "select",
+      "samples": 1
+    },
+    {
+      "name": "Tcpip6_WSHSetSocketInformation",
+      "samples": 1
+    },
+    {
+      "name": "RtlQueryPerformanceFrequency",
+      "samples": 1
+    },
+    {
+      "name": "GetLastError",
+      "samples": 1
+    },
+    {
+      "name": "wordIs__func_721",
+      "samples": 1
+    },
+    {
+      "name": "QueryPerformanceCounter",
+      "samples": 1
+    },
+    {
+      "name": "interpolate",
+      "samples": 1
+    },
+    {
+      "name": "next",
+      "samples": 1
+    },
+    {
+      "name": "wordIs__func_722",
+      "samples": 1
+    },
+    {
+      "name": "typeExpr",
+      "samples": 1
+    },
+    {
+      "name": "expression",
+      "samples": 1
+    }
+  ],
+  "lines": [
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\expr.sig",
+      "line": 495,
+      "samples": 2235
+    },
+    {
+      "name": "select__func_529",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\exec.sig",
+      "line": 1941,
+      "samples": 688
+    },
+    {
+      "name": "compare",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\types.sig",
+      "line": 548,
+      "samples": 461
+    },
+    {
+      "name": "memcpyFast",
+      "file": "C:/Just-Things/Projects/sb0/ramsql/.sig-cache/portable-toolchain-0df/lib/compiler_rt/memcpy.sig",
+      "line": 44,
+      "samples": 302
+    },
+    {
+      "name": "select__func_529",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\exec.sig",
+      "line": 1942,
+      "samples": 134
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\expr.sig",
+      "line": 449,
+      "samples": 66
+    },
+    {
+      "name": "eval",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\expr.sig",
+      "line": 581,
+      "samples": 62
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\expr.sig",
+      "line": 454,
+      "samples": 60
+    },
+    {
+      "name": "___chkstk_ms",
+      "file": "C:/Just-Things/Projects/sb0/ramsql/.sig-cache/portable-toolchain-0df/lib/compiler_rt/stack_probe.sig",
+      "line": 269,
+      "samples": 46
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\expr.sig",
+      "line": 451,
+      "samples": 39
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\expr.sig",
+      "line": 494,
+      "samples": 39
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\expr.sig",
+      "line": 493,
+      "samples": 35
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\expr.sig",
+      "line": 455,
+      "samples": 35
+    },
+    {
+      "name": "eval",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\expr.sig",
+      "line": 582,
+      "samples": 32
+    },
+    {
+      "name": "select__func_529",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\exec.sig",
+      "line": 1940,
+      "samples": 30
+    },
+    {
+      "name": "eval",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\expr.sig",
+      "line": 587,
+      "samples": 23
+    },
+    {
+      "name": "eval",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\expr.sig",
+      "line": 637,
+      "samples": 19
+    },
+    {
+      "name": "memcpyFast",
+      "file": "C:/Just-Things/Projects/sb0/ramsql/.sig-cache/portable-toolchain-0df/lib/compiler_rt/memcpy.sig",
+      "line": 37,
+      "samples": 19
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\expr.sig",
+      "line": 489,
+      "samples": 17
+    },
+    {
+      "name": "eval",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\expr.sig",
+      "line": 583,
+      "samples": 16
+    },
+    {
+      "name": "compare",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\types.sig",
+      "line": 547,
+      "samples": 16
+    },
+    {
+      "name": "compare",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\types.sig",
+      "line": 542,
+      "samples": 16
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\expr.sig",
+      "line": 453,
+      "samples": 12
+    },
+    {
+      "name": "compare",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\types.sig",
+      "line": 543,
+      "samples": 12
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\expr.sig",
+      "line": 450,
+      "samples": 11
+    },
+    {
+      "name": "compare",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\types.sig",
+      "line": 556,
+      "samples": 11
+    },
+    {
+      "name": "pollInterrupts",
+      "file": "C:\\Just-Things\\Projects\\sb0\\ramsql\\src\\server.sig",
+      "line": 574,
+      "samples": 10
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\expr.sig",
+      "line": 540,
+      "samples": 8
+    },
+    {
+      "name": "pollOverflowCancels",
+      "file": "C:\\Just-Things\\Projects\\sb0\\ramsql\\src\\server.sig",
+      "line": 567,
+      "samples": 6
+    },
+    {
+      "name": "compare",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\types.sig",
+      "line": 544,
+      "samples": 5
+    },
+    {
+      "name": "compare",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\types.sig",
+      "line": 0,
+      "samples": 4
+    },
+    {
+      "name": "eval",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\expr.sig",
+      "line": 584,
+      "samples": 4
+    },
+    {
+      "name": "select__func_529",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\exec.sig",
+      "line": 1990,
+      "samples": 3
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\expr.sig",
+      "line": 456,
+      "samples": 3
+    },
+    {
+      "name": "lockTable",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql.sig",
+      "line": 1676,
+      "samples": 2
+    },
+    {
+      "name": "memcpyFast",
+      "file": "C:/Just-Things/Projects/sb0/ramsql/.sig-cache/portable-toolchain-0df/lib/compiler_rt/memcpy.sig",
+      "line": 42,
+      "samples": 2
+    },
+    {
+      "name": "waitMasked",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\platform\\tcp_server.sig",
+      "line": 260,
+      "samples": 1
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\expr.sig",
+      "line": 457,
+      "samples": 1
+    },
+    {
+      "name": "pollExecution",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\db\\store.sig",
+      "line": 1057,
+      "samples": 1
+    },
+    {
+      "name": "setPrimary",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\b86d3e8eac8c46aeb21b42a8c8426b05848c3aed3a788a1724a2368201d7f3db\\zpm-19e0ce28fe4a85383c57b23858818a2bcca6c3d2\\src\\core\\sql\\parser.sig",
+      "line": 1052,
+      "samples": 1
+    }
+  ]
+}

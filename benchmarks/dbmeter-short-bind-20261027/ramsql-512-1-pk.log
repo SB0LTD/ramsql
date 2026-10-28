@@ -1,0 +1,16 @@
+run ramsql-512-1-pk, node local, scenarios: s512_pk(w1)
+opening 1 connection(s)...
+connected to PostgreSQL 16.0
+[    5.2s] measure  ops     161739    31515.8/s  errors      0  active 1/1
+[    7.0s] done     ops     218776    32484.7/s  errors      0  active 0/1
+
+Run:       ramsql-512-1-pk
+Database:  ramsql [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-27T19:57:46.161Z .. 2026-10-27T19:57:51.161Z (5.0 s)
+Nodes:     1 node(s), 1 thread(s) total
+  local                host SB0-LAPTOP           1 threads  32 cpus  window +0.0s .. +5.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s512_pk                      161476        0      161476    32295.2      0.03      0.03      0.03      0.04      0.07      0.48
+
+Report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-short-bind-20261027\ramsql-512-1-pk\local.json

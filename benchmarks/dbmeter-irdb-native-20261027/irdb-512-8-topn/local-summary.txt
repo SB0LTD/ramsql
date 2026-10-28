@@ -1,0 +1,8 @@
+Run:       irdb-512-8-topn
+Database:  irdb [reports as InMemory.Net IRDB server 127.0.0.1:55660, database size_bench] (driver dbmeter IRDB adapter (jirdb) 0.1)
+Window:    2026-10-27T19:45:35.576Z .. 2026-10-27T19:45:40.577Z (5.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +5.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s512_topn                    234636        0     2346360    46917.8      0.17      0.15      0.23      0.27      0.92     18.91

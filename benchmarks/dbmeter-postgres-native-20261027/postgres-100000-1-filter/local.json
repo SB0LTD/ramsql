@@ -1,0 +1,80 @@
+{
+  "dbmeterReport": 1,
+  "runId": "postgres-100000-1-filter",
+  "measuredStart": 1793129544880,
+  "measuredEnd": 1793129549882,
+  "nodes": [
+    {
+      "node": "local",
+      "host": "SB0-LAPTOP",
+      "threads": 1,
+      "cpus": 32,
+      "os": "Windows 11 10.0",
+      "java": "21.0.12",
+      "startAt": "2026-10-27T19:32:22.880Z",
+      "measuredStart": 1793129544880,
+      "measuredEnd": 1793129549882,
+      "settings": {
+        "threads": 1,
+        "duration": "PT5S",
+        "warmup": "PT2S",
+        "rampUp": "PT0S"
+      }
+    }
+  ],
+  "database": {
+    "product": "PostgreSQL",
+    "productVersion": "18.3",
+    "driver": "PostgreSQL JDBC Driver",
+    "driverVersion": "42.7.4",
+    "jdbcVersion": "4.2",
+    "url": "jdbc:postgresql://127.0.0.1:55439/postgres",
+    "user": "dbmeter",
+    "label": "postgres"
+  },
+  "scenarios": {
+    "s100000_filter": {
+      "count": 1809,
+      "errors": 0,
+      "rows": 180641,
+      "latencyMicros": {
+        "subBits": 5,
+        "count": 1809,
+        "sum": 4992165,
+        "min": 2363,
+        "max": 4346,
+        "buckets": {
+          "228": 2,
+          "229": 23,
+          "230": 73,
+          "231": 132,
+          "232": 178,
+          "233": 216,
+          "234": 273,
+          "235": 279,
+          "236": 261,
+          "237": 145,
+          "238": 87,
+          "239": 58,
+          "240": 27,
+          "241": 18,
+          "242": 19,
+          "243": 7,
+          "244": 7,
+          "245": 2,
+          "247": 1,
+          "257": 1
+        }
+      },
+      "errorMessages": {},
+      "timeline": {
+        "1793129544": [41, 0, 115806, 3179],
+        "1793129545": [358, 0, 998028, 3563],
+        "1793129546": [362, 0, 998238, 3315],
+        "1793129547": [360, 0, 999433, 4346],
+        "1793129548": [363, 0, 998479, 3443],
+        "1793129549": [325, 0, 882181, 3387]
+      }
+    }
+  }
+}

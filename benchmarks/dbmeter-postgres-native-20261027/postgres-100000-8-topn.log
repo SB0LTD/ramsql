@@ -1,0 +1,16 @@
+run postgres-100000-8-topn, node local, scenarios: s100000_topn(w1)
+opening 8 connection(s)...
+connected to PostgreSQL 18.3
+[    5.4s] measure  ops       5539     1081.8/s  errors      0  active 8/8
+[    7.0s] done     ops       7281     1096.0/s  errors      0  active 0/8
+
+Run:       postgres-100000-8-topn
+Database:  postgres [reports as PostgreSQL 18.3] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-27T19:32:53.422Z .. 2026-10-27T19:32:58.430Z (5.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +5.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s100000_topn                   5480        0       54800     1094.2      7.30      6.98      8.00      8.83     10.62     12.82
+
+Report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-postgres-native-20261027\postgres-100000-8-topn\local.json

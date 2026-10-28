@@ -1,0 +1,16 @@
+run postgres-512-8-pk, node local, scenarios: s512_pk(w1)
+opening 8 connection(s)...
+connected to PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
+[    5.2s] measure  ops     207878    40846.8/s  errors      0  active 8/8
+[    7.0s] done     ops     279177    39982.5/s  errors      0  active 0/8
+
+Run:       postgres-512-8-pk
+Database:  postgres [reports as PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-27T19:21:00.201Z .. 2026-10-27T19:21:05.201Z (5.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +5.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s512_pk                      203032        0      203032    40606.4      0.20      0.19      0.24      0.26      0.31      1.57
+
+Report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-postgres-wsl-20261027\postgres-512-8-pk\local.json

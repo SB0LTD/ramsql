@@ -1,0 +1,8 @@
+Run:       ramsql-512-8-topn
+Database:  ramsql [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-27T19:16:12.585Z .. 2026-10-27T19:16:17.586Z (5.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +5.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s512_topn                    393468        0     3934680    78677.9      0.10      0.07      0.10      0.14      1.10     10.69

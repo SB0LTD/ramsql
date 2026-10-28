@@ -1,0 +1,16 @@
+run postgres-100000-8-topn, node local, scenarios: s100000_topn(w1)
+opening 8 connection(s)...
+connected to PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
+[    5.2s] measure  ops       5177     1017.9/s  errors      0  active 8/8
+[    7.0s] done     ops       7028     1037.1/s  errors      0  active 0/8
+
+Run:       postgres-100000-8-topn
+Database:  postgres [reports as PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-27T19:21:57.261Z .. 2026-10-27T19:22:02.266Z (5.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +5.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s100000_topn                   5115        0       51150     1022.0      7.81      7.49      8.58      9.34     11.14     14.07
+
+Report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-postgres-wsl-20261027\postgres-100000-8-topn\local.json

@@ -1,0 +1,16 @@
+run postgres-512-1-pk, node local, scenarios: s512_pk(w1)
+opening 1 connection(s)...
+connected to PostgreSQL 18.3
+[    5.3s] measure  ops     141587    27548.1/s  errors      0  active 1/1
+[    7.0s] done     ops     186906    26219.1/s  errors      0  active 0/1
+
+Run:       postgres-512-1-pk
+Database:  postgres [reports as PostgreSQL 18.3] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-27T19:31:34.908Z .. 2026-10-27T19:31:39.907Z (5.0 s)
+Nodes:     1 node(s), 1 thread(s) total
+  local                host SB0-LAPTOP           1 threads  32 cpus  window +0.0s .. +5.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s512_pk                      137876        0      137876    27580.7      0.04      0.03      0.04      0.05      0.08      0.72
+
+Report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-postgres-native-20261027\postgres-512-1-pk\local.json

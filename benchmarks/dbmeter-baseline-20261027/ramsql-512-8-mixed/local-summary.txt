@@ -1,0 +1,12 @@
+Run:       ramsql-512-8-mixed
+Database:  ramsql [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-27T19:16:19.746Z .. 2026-10-27T19:16:24.746Z (5.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +5.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s512_fetch_all                45676        0    23386112     9135.2      0.26      0.18      0.35      0.66      2.03      6.32
+s512_filter                   45494        0       22774     9098.8      0.21      0.13      0.29      0.66      2.00      6.82
+s512_pk                       45556        0       45556     9111.2      0.19      0.11      0.28      0.65      1.94      6.86
+s512_topn                     45622        0      456220     9124.4      0.20      0.12      0.28      0.68      2.03      7.44
+TOTAL                        182348        0    23910662    36469.6      0.22      0.14      0.31      0.66      2.00      7.44

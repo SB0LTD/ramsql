@@ -39,7 +39,7 @@ hidden ancestor constraints and some OS scheduling partitions remain observation
 gaps. The report exposes coverage instead of inventing unrestricted resources.
 Machine admission does not yet replace explicit SQL row/schema capacities;
 `elastic_sql_storage` remains false. Development builds also support concurrent
-PostgreSQL simple read queries with multiple workers, as described below.
+PostgreSQL simple and extended autocommit read queries with multiple workers, as described below.
 
 Download your platform archive from [Releases](https://github.com/SB0LTD/ramsql/releases),
 check it against the release's `SHA256SUMS.txt` and extract it. Packages include
@@ -140,14 +140,14 @@ The default uses one reactor. Windows and no-libc Linux builds offer experimenta
 ```
 
 Published beta.2 serializes SQL execution. In development builds, idle autocommit
-PostgreSQL simple-protocol `SELECT`/`WITH` queries can execute concurrently using
+PostgreSQL simple and extended-protocol `SELECT`/`WITH` queries can execute concurrently using
 parser/execution storage owned per worker and results owned per client. Writes,
-transactions, COPY, extended-protocol queries and dynamic time-zone resolution retain exclusive execution.
+transactions, COPY, suspended portals and dynamic time-zone resolution retain exclusive execution.
 A reader/writer gate prevents publication or reclamation while readers execute.
 Worker read storage is reused between clients and released when its reactor
 becomes idle or stops. It is charged to the machine budget; insufficient headroom
 falls back to exclusive execution. macOS/native SB0 still use one worker.
-Check `parallel_simple_reads`, `sql_execution_workers` and
+Check `parallel_simple_reads`, `parallel_extended_reads`, `sql_execution_workers` and
 `native_workers_available` in `--capabilities`. This is inter-query concurrency;
 one query does not yet distribute its work across cores. Benchmark improvements
 must be measured for the actual workload.
@@ -166,7 +166,14 @@ Further [profile-guided input changes](benchmarks/final-joined-read-20261027/REA
 reduce the final matched median to about 7.0 ms while preserving work-budget
 checks. Current committed integral inputs gather referenced columns; old
 snapshots, own writes and referenced non-integral types retain versioned rows.
-This compares RAMSQL revisions. Outer/non-key joins, DISTINCT aggregates and
+Exact integral `COUNT(DISTINCT column)` can also stream into caller-backed
+per-group bitmaps, with general exact fallback for unsupported or unaffordable
+domains. The reviewer's million-row sales subset now passes all seven checks,
+including distinct-customer counts, CTEs and selective three-way joins. This used
+an explicit Linux text-32 profile and unequal table banks; it is not a stock-build
+or 100M-row capacity claim.
+
+This compares RAMSQL revisions. Outer/non-key joins, other DISTINCT shapes and
 high-cardinality groups retain their existing bounded paths; physical SQL storage
 is still inline. Neither this test nor the packed-column tests demonstrate a
 100M-row SQL server or a PostgreSQL/IRDB win.
@@ -205,6 +212,29 @@ Inline cells, workspaces and per-client result/response buffers grow with the
 profile. Hosted connection admission currently has a 60-client ceiling.
 
 ## Measured performance
+
+The original reviewer suite is now available locally as sibling `dbMeter`, pinned
+to `630fbb13be21bd4bbdf7afe4b438ce771a8b3fc0`. It exercises stock PostgreSQL
+JDBC 42.7.4 and the reviewer's supplied IRDB Java client. The [dbMeter report](benchmarks/dbmeter-reviewer-20261027/REPORT.md)
+retains actual JDBC checks, failures, profiles and comparison trials. The
+earlier native SQL-string results below are a different measurement boundary.
+
+To reproduce size-scaling runs after building dbMeter, installing its configured
+drivers and running its original generator:
+
+```sh
+python tools/benchmark_dbmeter.py --dbmeter ../dbMeter \
+  --binary /path/to/ReleaseFast/ramsql --sizes 512 100000 \
+  --threads 1 8 --workers 4 --work-rows 4096 --kinds pk filter topn \
+  --output /path/to/fresh/results
+```
+
+The harness rejects changes to dbMeter's tracked sources/configuration, checks
+its original CSV expectations, and retains errors instead of scoring failed
+loads as wins. Use an isolated PostgreSQL test cluster: its original setup drops
+the test schema. JVMs use the same explicit heap limit across engines. Reference
+servers must be prepared separately; `--postgres-url` and `--irdb-url` reuse their
+original configurations and SQL. No local builds/profilers run during timing.
 
 The current development executor's [matched joined-read experiment](benchmarks/final-joined-read-20261027/README.md)
 reduces median latency from 33.98 to 6.95 ms (4.89x) for a checked 100k-row

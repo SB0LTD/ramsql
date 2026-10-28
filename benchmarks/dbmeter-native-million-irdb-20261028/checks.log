@@ -1,0 +1,10 @@
+PASS  a_totals                                     188.65 ms
+PASS  s1_region                                     83.24 ms
+PASS  s2_category                                   72.93 ms
+PASS  s3_top_products                               33.28 ms
+PASS  s4_segment_discount                           72.98 ms
+PASS  s5_high_value_customers                      110.28 ms
+PASS  s6_store_category_mix                         77.19 ms
+
+7 check(s): 7 passed, 0 failed
+JUnit report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-native-million-irdb-20261028\checks.xml

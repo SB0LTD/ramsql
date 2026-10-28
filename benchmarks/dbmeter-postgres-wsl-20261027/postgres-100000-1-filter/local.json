@@ -1,0 +1,89 @@
+{
+  "dbmeterReport": 1,
+  "runId": "postgres-100000-1-filter",
+  "measuredStart": 1793128888725,
+  "measuredEnd": 1793128893727,
+  "nodes": [
+    {
+      "node": "local",
+      "host": "SB0-LAPTOP",
+      "threads": 1,
+      "cpus": 32,
+      "os": "Windows 11 10.0",
+      "java": "21.0.12",
+      "startAt": "2026-10-27T19:21:26.725Z",
+      "measuredStart": 1793128888725,
+      "measuredEnd": 1793128893727,
+      "settings": {
+        "threads": 1,
+        "duration": "PT5S",
+        "warmup": "PT2S",
+        "rampUp": "PT0S"
+      }
+    }
+  ],
+  "database": {
+    "product": "PostgreSQL",
+    "productVersion": "16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)",
+    "driver": "PostgreSQL JDBC Driver",
+    "driverVersion": "42.7.4",
+    "jdbcVersion": "4.2",
+    "url": "jdbc:postgresql://127.0.0.1:55438/postgres",
+    "user": "sb",
+    "label": "postgres"
+  },
+  "scenarios": {
+    "s100000_filter": {
+      "count": 1835,
+      "errors": 0,
+      "rows": 183573,
+      "latencyMicros": {
+        "subBits": 5,
+        "count": 1835,
+        "sum": 4992443,
+        "min": 2253,
+        "max": 4579,
+        "buckets": {
+          "227": 4,
+          "228": 34,
+          "229": 64,
+          "230": 112,
+          "231": 187,
+          "232": 235,
+          "233": 238,
+          "234": 238,
+          "235": 220,
+          "236": 152,
+          "237": 124,
+          "238": 82,
+          "239": 48,
+          "240": 30,
+          "241": 20,
+          "242": 11,
+          "243": 11,
+          "244": 10,
+          "245": 3,
+          "246": 2,
+          "247": 1,
+          "248": 1,
+          "249": 1,
+          "250": 2,
+          "251": 1,
+          "252": 1,
+          "253": 1,
+          "256": 1,
+          "259": 1
+        }
+      },
+      "errorMessages": {},
+      "timeline": {
+        "1793128888": [100, 0, 272666, 3473],
+        "1793128889": [361, 0, 996725, 3913],
+        "1793128890": [362, 0, 998107, 4579],
+        "1793128891": [375, 0, 998639, 4202],
+        "1793128892": [368, 0, 999405, 3897],
+        "1793128893": [269, 0, 726901, 3435]
+      }
+    }
+  }
+}

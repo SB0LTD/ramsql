@@ -1,0 +1,11 @@
+check.setup: 16 statement(s) in 2387.03 ms
+PASS  a_totals                                      71.97 ms
+PASS  s1_region                                    140.75 ms
+PASS  s2_category                                 1111.57 ms
+PASS  s3_top_products                               77.34 ms
+PASS  s4_segment_discount                          132.89 ms
+PASS  s5_high_value_customers                      287.48 ms
+PASS  s6_store_category_mix                         42.46 ms
+
+7 check(s): 7 passed, 0 failed
+JUnit report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-native-million-postgres-20261028\checks.xml

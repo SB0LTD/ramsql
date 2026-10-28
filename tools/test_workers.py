@@ -11,7 +11,7 @@ import sys
 import tempfile
 import time
 from test_postgres_compat import running_ramsql
-from test_server import PG, Server, connection, errors, expect_closed, expect_error, query_packet
+from test_server import PG, Server, connection, errors, expect_closed, expect_error, query_packet, packet, rows
 from benchmark import process_memory
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -43,7 +43,17 @@ def cancel_during_work(binary):
             pg.close()
 
 
-def parallel_read_and_writer_gate(binary):
+def extended_packets(source,values=()):
+    """Actual Parse/Bind/Describe/Execute/Sync, including typed parameters."""
+    parse=b'\0'+source.encode()+b'\0'+struct.pack('!H',len(values))+b''.join(struct.pack('!I',23) for _ in values)
+    bind=b'\0\0'+struct.pack('!HH',0,len(values))
+    for value in values:
+        raw=str(value).encode();bind+=struct.pack('!I',len(raw))+raw
+    bind+=struct.pack('!H',0)
+    return packet(b'P',parse)+packet(b'B',bind)+packet(b'D',b'P\0')+packet(b'E',b'\0'+struct.pack('!I',0))+packet(b'S')
+
+
+def parallel_read_and_writer_gate(binary,extended=False):
     """Prove wire-level read overlap and publication exclusion, without timing throughput."""
     with Server(binary,max_clients=16,extra_arguments=('--workers','4')) as server:
         clients=[PG(server.raw()) for _ in range(3)]
@@ -53,12 +63,25 @@ def parallel_read_and_writer_gate(binary):
             slow.ok('CREATE TABLE overlap(id INT PRIMARY KEY,value INT)')
             for start in range(0,256,64):
                 slow.ok('INSERT INTO overlap VALUES '+','.join(f'({i},{i})' for i in range(start,start+64)))
-            query=('SELECT a.id FROM overlap a WHERE '
+            query=('/* reviewer /* nested */ comment */\n-- JDBC source header\nSELECT a.id FROM overlap a WHERE '
                    '(SELECT COUNT(*) FROM overlap b WHERE b.id < '
                    '(SELECT COUNT(*) FROM overlap c WHERE c.id < a.id)) < 0')
-            slow.sock.sendall(query_packet(query))
+            def send_read(pg,source,prepare_first=False):
+                encoded=extended_packets(source) if extended else query_packet(source)
+                if extended and prepare_first:
+                    # Drain Parse/Bind/Describe acknowledgments explicitly;
+                    # pending metadata must not be mistaken for query completion.
+                    pg.sock.sendall(encoded[:-15]+packet(b'H'))
+                    for expected_tag in (b'1',b'2',b'T'):
+                        tag,_=pg.message();assert tag==expected_tag,(tag,expected_tag)
+                    encoded=encoded[-15:]
+                pg.sock.sendall(encoded)
+            def read(pg,source,expected):
+                send_read(pg,source);messages=pg.ready();assert not errors(messages),errors(messages)
+                assert rows(messages)==expected,(source,rows(messages),expected)
+            send_read(slow,query,prepare_first=True)
             time.sleep(0.04)
-            fast.ok('SELECT value FROM overlap WHERE id=1',[['1']])
+            read(fast,'SELECT value FROM overlap WHERE id=1',[['1']])
             assert not select.select([slow.sock],[],[],0)[0], 'long query ended before overlap was demonstrated'
             writer.sock.sendall(query_packet('UPDATE overlap SET value=99 WHERE id=1'))
             assert not select.select([writer.sock],[],[],0.04)[0], 'writer published during an active reader'
@@ -69,19 +92,42 @@ def parallel_read_and_writer_gate(binary):
                 expect_closed(PG(cancel))
             expect_error(slow.ready(),'57014')
             assert not errors(writer.ready()), 'queued writer failed after reader cancellation'
-            fast.ok('SELECT value FROM overlap WHERE id=1',[['99']])
+            read(fast,'SELECT value FROM overlap WHERE id=1',[['99']])
             slow.ok('SELECT COUNT(*) FROM overlap',[['256']])
             writer.ok('BEGIN',status=b'T')
             writer.ok('UPDATE overlap SET value=100 WHERE id=1',status=b'T')
-            fast.ok('SELECT value FROM overlap WHERE id=1',[['99']])
+            read(fast,'SELECT value FROM overlap WHERE id=1',[['99']])
             writer.ok('ROLLBACK')
-            fast.ok('SELECT value FROM overlap WHERE id=1',[['99']])
+            read(fast,'SELECT value FROM overlap WHERE id=1',[['99']])
             fast.ok('SET statement_timeout=20')
-            expect_error(fast.query(query),'57014')
+            send_read(fast,query);expect_error(fast.ready(),'57014')
             fast.ok('SET statement_timeout=0')
-            fast.ok('SELECT value FROM overlap WHERE id=1',[['99']])
+            read(fast,'SELECT value FROM overlap WHERE id=1',[['99']])
         finally:
             for pg in clients:pg.close()
+
+
+def concurrent_prepared_reads(binary):
+    """Named statements with changing typed parameters and binary results."""
+    import psycopg
+    with Server(binary,max_clients=16,extra_arguments=('--workers','4')) as server:
+        with psycopg.connect(host='127.0.0.1',port=server.port,user='postgres',dbname='ramsql',autocommit=True) as seed:
+            seed.execute('CREATE TABLE prepared_reads(id INT PRIMARY KEY,g INT NOT NULL,value INT NOT NULL,label TEXT)')
+            for start in range(0,512,64):
+                seed.execute('INSERT INTO prepared_reads VALUES '+','.join(f"({i},{i%16},{i*7-9},'row-{i}')" for i in range(start,start+64)))
+        def reader(identity):
+            with psycopg.connect(host='127.0.0.1',port=server.port,user='postgres',dbname='ramsql',autocommit=True,prepare_threshold=0) as db:
+                with db.cursor(binary=True) as cursor:
+                    for trial in range(40):
+                        key=(identity*31+trial*17)%512
+                        cursor.execute('SELECT id,value,label FROM prepared_reads WHERE id=%s',(key,),prepare=True)
+                        assert cursor.fetchall()==[(key,key*7-9,f'row-{key}')]
+                        group=(identity+trial)%16
+                        cursor.execute('SELECT id,value FROM prepared_reads WHERE g=%s AND value>0',(group,),prepare=True)
+                        assert cursor.fetchall()==[(i,i*7-9) for i in range(512) if i%16==group and i*7-9>0]
+            return identity
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            assert sorted(pool.map(reader,range(8)))==list(range(8))
 
 
 def concurrent_join_and_aggregate_reads(binary):
@@ -166,6 +212,7 @@ def main():
         return
     parallel_caps=json.loads(subprocess.check_output([str(binary),'--capabilities','--workers','4']))
     assert parallel_caps['parallel_simple_reads'] and parallel_caps['sql_execution_workers']==4
+    assert parallel_caps['parallel_extended_reads']
     assert parallel_caps['exclusive_sql_workers']==1
     # Reuse the complete framing/fairness/cleanup contracts with native reactors.
     subprocess.run([sys.executable,str(ROOT/'tools/test_server.py'),'--binary',str(binary),'--workers','4'],check=True)
@@ -192,11 +239,14 @@ def main():
                 assert db.execute('SELECT value FROM counter WHERE id=1').fetchone()==(800,)
     cancel_during_work(binary)
     parallel_read_and_writer_gate(binary)
+    parallel_read_and_writer_gate(binary,extended=True)
+    concurrent_prepared_reads(binary)
     concurrent_join_and_aggregate_reads(binary)
     scratch=worker_scratch_reuse(binary)
     print(json.dumps(dict(suite='workers',passed=True,reactors=4,shared_counter_updates=800,durable_restart=True,running_cancel=True,
                          concurrent_reads=True,writer_exclusion=True,uncommitted_visibility=True,three_way_join_and_cte_queries=192,
-                         worker_scratch_reuse=True,reader_session_isolation=True,scratch_reuse=scratch)))
+                         worker_scratch_reuse=True,reader_session_isolation=True,scratch_reuse=scratch,
+                         extended_read_overlap=True,extended_writer_exclusion=True,extended_cancel_timeout=True,named_prepared_binary_queries=640)))
 
 
 if __name__=='__main__':main()
