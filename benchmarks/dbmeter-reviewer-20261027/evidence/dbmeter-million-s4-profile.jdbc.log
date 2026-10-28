@@ -1,0 +1,15 @@
+run 20261028-022151, node SB0-LAPTOP, scenarios: s4_segment_discount(w2)
+opening 1 connection(s)...
+connected to PostgreSQL 16.0
+[   17.0s] done     ops        150        8.9/s  errors      0  active 0/1
+
+Run:       20261028-022151
+Database:  RAMSQL 0.3.0-beta.1 (work-rows 100k build) [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-28T00:21:58.380Z .. 2026-10-28T00:22:08.390Z (10.0 s)
+Nodes:     1 node(s), 1 thread(s) total
+  SB0-LAPTOP           host SB0-LAPTOP           1 threads  32 cpus  window +0.0s .. +10.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s4_segment_discount              87        0        1392        8.7    114.93    111.62    133.12    137.22    176.67    176.67
+
+Report: C:\Just-Things\Projects\sb0\ramsql\.sig-cache\profile-jdbc-s4_segment_discount\SB0-LAPTOP.json

@@ -1,0 +1,108 @@
+{
+  "schema": 1,
+  "method": "Three alternating pairs, native Windows, four workers/eight JDBC clients, default text128, original seven checks then original six-query weights; 5s ramp/5s warmup/30s measured. Single host, no confidence claim.",
+  "experiments": [
+    {
+      "name": "ordered",
+      "variants": [
+        {
+          "name": "before",
+          "trials": [
+            {
+              "path": "benchmarks\\dbmeter-ordered-million-1-before-20261028",
+              "ops_per_second": 29.88672765100228,
+              "binary_sha256": "80f7b74bee8ea48ee716a8e6ab46a6ea8a06296318c29583105b22a9fd4dfed4"
+            },
+            {
+              "path": "benchmarks\\dbmeter-ordered-million-2-before-20261028",
+              "ops_per_second": 28.79027997886952,
+              "binary_sha256": "80f7b74bee8ea48ee716a8e6ab46a6ea8a06296318c29583105b22a9fd4dfed4"
+            },
+            {
+              "path": "benchmarks\\dbmeter-ordered-million-3-before-20261028",
+              "ops_per_second": 29.33597621407334,
+              "binary_sha256": "80f7b74bee8ea48ee716a8e6ab46a6ea8a06296318c29583105b22a9fd4dfed4"
+            }
+          ],
+          "median": 29.33597621407334,
+          "minimum": 28.79027997886952,
+          "maximum": 29.88672765100228
+        },
+        {
+          "name": "after",
+          "trials": [
+            {
+              "path": "benchmarks\\dbmeter-ordered-million-1-after-20261028",
+              "ops_per_second": 31.887797294168237,
+              "binary_sha256": "fe2a049c54cd381d59dad6b65a3638a6a59278f846ef80fa9d543f7e6803cc0c"
+            },
+            {
+              "path": "benchmarks\\dbmeter-ordered-million-2-after-20261028",
+              "ops_per_second": 31.253097228187254,
+              "binary_sha256": "fe2a049c54cd381d59dad6b65a3638a6a59278f846ef80fa9d543f7e6803cc0c"
+            },
+            {
+              "path": "benchmarks\\dbmeter-ordered-million-3-after-20261028",
+              "ops_per_second": 31.501783119799235,
+              "binary_sha256": "fe2a049c54cd381d59dad6b65a3638a6a59278f846ef80fa9d543f7e6803cc0c"
+            }
+          ],
+          "median": 31.501783119799235,
+          "minimum": 31.253097228187254,
+          "maximum": 31.887797294168237
+        }
+      ]
+    },
+    {
+      "name": "directory",
+      "variants": [
+        {
+          "name": "before",
+          "trials": [
+            {
+              "path": "benchmarks\\dbmeter-directory-million-1-before-20261028",
+              "ops_per_second": 30.094810214396617,
+              "binary_sha256": "80f7b74bee8ea48ee716a8e6ab46a6ea8a06296318c29583105b22a9fd4dfed4"
+            },
+            {
+              "path": "benchmarks\\dbmeter-directory-million-2-before-20261028",
+              "ops_per_second": 29.060562079430007,
+              "binary_sha256": "80f7b74bee8ea48ee716a8e6ab46a6ea8a06296318c29583105b22a9fd4dfed4"
+            },
+            {
+              "path": "benchmarks\\dbmeter-directory-million-3-before-20261028",
+              "ops_per_second": 29.134561328086246,
+              "binary_sha256": "80f7b74bee8ea48ee716a8e6ab46a6ea8a06296318c29583105b22a9fd4dfed4"
+            }
+          ],
+          "median": 29.134561328086246,
+          "minimum": 29.060562079430007,
+          "maximum": 30.094810214396617
+        },
+        {
+          "name": "after",
+          "trials": [
+            {
+              "path": "benchmarks\\dbmeter-directory-million-1-after-20261028",
+              "ops_per_second": 33.36091345358266,
+              "binary_sha256": "35df8ab53dce250269a64719c01effd44e27ce7d8afd20e65f051b0f5ff82bd0"
+            },
+            {
+              "path": "benchmarks\\dbmeter-directory-million-2-after-20261028",
+              "ops_per_second": 32.264462809917354,
+              "binary_sha256": "35df8ab53dce250269a64719c01effd44e27ce7d8afd20e65f051b0f5ff82bd0"
+            },
+            {
+              "path": "benchmarks\\dbmeter-directory-million-3-after-20261028",
+              "ops_per_second": 32.78634288361014,
+              "binary_sha256": "35df8ab53dce250269a64719c01effd44e27ce7d8afd20e65f051b0f5ff82bd0"
+            }
+          ],
+          "median": 32.78634288361014,
+          "minimum": 32.264462809917354,
+          "maximum": 33.36091345358266
+        }
+      ]
+    }
+  ]
+}

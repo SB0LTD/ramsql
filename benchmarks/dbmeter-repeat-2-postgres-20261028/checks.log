@@ -1,0 +1,8 @@
+check.setup: 16 statement(s) in 1376.55 ms
+PASS  s100000_a_pk                                   6.59 ms
+PASS  s100000_b_filter                               3.55 ms
+PASS  s100000_c_topn                                 7.51 ms
+PASS  s100000_d_last                                 0.43 ms
+
+4 check(s): 4 passed, 0 failed
+JUnit report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-repeat-2-postgres-20261028\checks.xml

@@ -1,0 +1,45 @@
+{
+  "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\dbmeter-ordered-fast\\bin\\ramsql.exe",
+  "sha256": "fe2a049c54cd381d59dad6b65a3638a6a59278f846ef80fa9d543f7e6803cc0c",
+  "arguments": [
+    "--workers",
+    "4",
+    "--table-rows",
+    "5,200,20,1000,50000,1000000,1,1",
+    "--table-versions",
+    "10,400,40,2000,100000,2000000,2,2",
+    "--work-rows",
+    "65536",
+    "--result-rows",
+    "1024"
+  ],
+  "port": 48113,
+  "pid": 46756,
+  "returncode": 0,
+  "command": [
+    "C:\\Users\\Shado\\AppData\\Local\\hermes\\hermes-agent\\venv\\Scripts\\python.exe",
+    "tools/benchmark_dbmeter.py",
+    "--dbmeter",
+    "../dbMeter",
+    "--ramsql-url",
+    "jdbc:postgresql://127.0.0.1:48113/ramsql",
+    "--suite",
+    "sales-subset",
+    "--threads",
+    "8",
+    "--duration",
+    "30s",
+    "--warmup",
+    "5s",
+    "--output",
+    "benchmarks\\dbmeter-ordered-million-3-after-20261028"
+  ],
+  "server_cpu_seconds_including_checks_and_warmup": 156.109375,
+  "wall_seconds": 45.625,
+  "memory": {
+    "rss_bytes": 1403752448,
+    "peak_rss_bytes": 1761849344,
+    "private_commit_bytes": 2848403456,
+    "source": "GetProcessMemoryInfo"
+  }
+}

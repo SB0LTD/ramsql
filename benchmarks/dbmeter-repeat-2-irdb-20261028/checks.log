@@ -1,0 +1,7 @@
+PASS  s100000_a_pk                                  60.93 ms
+PASS  s100000_b_filter                               3.34 ms
+PASS  s100000_c_topn                                 5.13 ms
+PASS  s100000_d_last                                 1.75 ms
+
+4 check(s): 4 passed, 0 failed
+JUnit report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-repeat-2-irdb-20261028\checks.xml

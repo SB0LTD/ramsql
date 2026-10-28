@@ -1,0 +1,8 @@
+Run:       postgres-100000-8-topn
+Database:  postgres [reports as PostgreSQL 18.3] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-28T00:31:18.095Z .. 2026-10-28T00:31:28.101Z (10.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +10.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s100000_topn                  10815        0      108150     1080.9      7.39      7.23      8.00      8.58     10.11     11.57

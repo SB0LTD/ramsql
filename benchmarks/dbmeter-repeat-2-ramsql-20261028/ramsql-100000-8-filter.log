@@ -1,0 +1,17 @@
+run ramsql-100000-8-filter, node local, scenarios: s100000_filter(w1)
+opening 8 connection(s)...
+connected to PostgreSQL 16.0
+[    5.4s] measure  ops     188784    36856.9/s  errors      0  active 8/8
+[   10.5s] measure  ops     383033    37927.0/s  errors      0  active 8/8
+[   13.0s] done     ops     476569    37912.8/s  errors      0  active 0/8
+
+Run:       ramsql-100000-8-filter
+Database:  ramsql [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-28T00:33:52.198Z .. 2026-10-28T00:34:02.198Z (10.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +10.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s100000_filter               376109        0    37570880    37610.9      0.21      0.20      0.23      0.24      0.40      7.00
+
+Report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-repeat-2-ramsql-20261028\ramsql-100000-8-filter\local.json

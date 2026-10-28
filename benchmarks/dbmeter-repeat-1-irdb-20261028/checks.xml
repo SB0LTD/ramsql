@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dbmeter" tests="4" failures="0" errors="0" time="0.065">
+  <testcase classname="dbmeter.check" name="s100000_a_pk" time="0.053"/>
+  <testcase classname="dbmeter.check" name="s100000_b_filter" time="0.006"/>
+  <testcase classname="dbmeter.check" name="s100000_c_topn" time="0.005"/>
+  <testcase classname="dbmeter.check" name="s100000_d_last" time="0.002"/>
+</testsuite>

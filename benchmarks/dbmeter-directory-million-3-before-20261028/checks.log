@@ -1,0 +1,10 @@
+PASS  a_totals                                       8.83 ms
+PASS  s1_region                                    115.17 ms
+PASS  s2_category                                   85.37 ms
+PASS  s3_top_products                               40.30 ms
+PASS  s4_segment_discount                          146.13 ms
+PASS  s5_high_value_customers                      176.00 ms
+PASS  s6_store_category_mix                        129.59 ms
+
+7 check(s): 7 passed, 0 failed
+JUnit report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-directory-million-3-before-20261028\checks.xml

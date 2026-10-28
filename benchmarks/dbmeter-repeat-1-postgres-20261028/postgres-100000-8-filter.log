@@ -1,0 +1,17 @@
+run postgres-100000-8-filter, node local, scenarios: s100000_filter(w1)
+opening 8 connection(s)...
+connected to PostgreSQL 18.3
+[    5.4s] measure  ops      11571     2262.9/s  errors      0  active 8/8
+[   10.5s] measure  ops      23215     2277.6/s  errors      0  active 8/8
+[   13.0s] done     ops      28881     2299.9/s  errors      0  active 0/8
+
+Run:       postgres-100000-8-filter
+Database:  postgres [reports as PostgreSQL 18.3] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-28T00:29:40.047Z .. 2026-10-28T00:29:50.049Z (10.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +10.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s100000_filter                22805        0     2279399     2280.0      3.51      3.42      3.94      4.16      5.18      7.38
+
+Report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-repeat-1-postgres-20261028\postgres-100000-8-filter\local.json

@@ -169,9 +169,9 @@ snapshots, own writes and referenced non-integral types retain versioned rows.
 Exact integral `COUNT(DISTINCT column)` can also stream into caller-backed
 per-group bitmaps, with general exact fallback for unsupported or unaffordable
 domains. The reviewer's million-row sales subset now passes all seven checks,
-including distinct-customer counts, CTEs and selective three-way joins. This used
-an explicit Linux text-32 profile and unequal table banks; it is not a stock-build
-or 100M-row capacity claim.
+including distinct-customer counts, CTEs and selective three-way joins. These
+checks pass with the default text-128 build on Windows and an explicit text-32
+build on Linux, using unequal runtime table banks. This is not 100M-row capacity.
 
 This compares RAMSQL revisions. Outer/non-key joins, other DISTINCT shapes and
 high-cardinality groups retain their existing bounded paths; physical SQL storage
@@ -218,6 +218,9 @@ to `630fbb13be21bd4bbdf7afe4b438ce771a8b3fc0`. It exercises stock PostgreSQL
 JDBC 42.7.4 and the reviewer's supplied IRDB Java client. The [dbMeter report](benchmarks/dbmeter-reviewer-20261027/REPORT.md)
 retains actual JDBC checks, failures, profiles and comparison trials. The
 earlier native SQL-string results below are a different measurement boundary.
+The million-row analytic mix currently remains substantially slower than IRDB;
+the report records that gap alongside the smaller-query improvements. These
+results do not establish 100M-row capacity or general benchmark leadership.
 
 To reproduce size-scaling runs after building dbMeter, installing its configured
 drivers and running its original generator:
@@ -241,8 +244,9 @@ reduces median latency from 33.98 to 6.95 ms (4.89x) for a checked 100k-row
 three-table aggregate. A fresh [IRDB comparison](benchmarks/guarded-reference-20261027/README.md)
 and its [remaining cases](benchmarks/guarded-reference-remaining-20261027/README.md)
 pass correctness and the finite speed screen in all ten native API cases at
-100k rows. Both engines receive SQL strings; prepared-query performance remains
-unmeasured. These development changes are not in the published beta.2 artifacts.
+100k rows. Both engines receive SQL strings in those earlier reports; use the
+dbMeter report above for actual JDBC prepared-query comparisons. These
+development changes are not in the published beta.2 artifacts.
 
 The [production workload report](benchmarks/production-20261026/REPORT.md)
 compares checked native SQL calls against IRDB 1.10.821 with shuffled keys,

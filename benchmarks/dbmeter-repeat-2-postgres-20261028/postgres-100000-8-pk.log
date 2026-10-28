@@ -1,0 +1,17 @@
+run postgres-100000-8-pk, node local, scenarios: s100000_pk(w1)
+opening 8 connection(s)...
+connected to PostgreSQL 18.3
+[    5.4s] measure  ops     745009   145280.0/s  errors      0  active 8/8
+[   10.5s] measure  ops    1484477   144163.2/s  errors      0  active 8/8
+[   13.0s] done     ops    1835718   143015.6/s  errors      0  active 0/8
+
+Run:       postgres-100000-8-pk
+Database:  postgres [reports as PostgreSQL 18.3] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-28T00:30:51.771Z .. 2026-10-28T00:31:01.771Z (10.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +10.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s100000_pk                  1444715        0     1444715   144471.5      0.05      0.05      0.07      0.08      0.09      0.81
+
+Report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-repeat-2-postgres-20261028\postgres-100000-8-pk\local.json

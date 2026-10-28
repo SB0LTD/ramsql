@@ -1,0 +1,5 @@
+warning: check.setup statement 1 failed: ERROR: TableNotFound [SQLState 42P01]
+check.setup: 1002 statement(s), 1 failed in 223.15 ms
+PASS  s100000_d_last                                 6.24 ms
+
+1 check(s): 1 passed, 0 failed

@@ -1,0 +1,24 @@
+run ramsql-1000000-8-mixed, node local, scenarios: s1_region(w2), s2_category(w1), s3_top_products(w2), s4_segment_discount(w2), s5_high_value_customers(w1), s6_store_category_mix(w4)
+opening 8 connection(s)...
+connected to PostgreSQL 16.0
+[   20.3s] measure  ops        539       26.9/s  errors      0  active 8/8
+[   40.4s] measure  ops       1109       28.4/s  errors      0  active 8/8
+[   60.4s] measure  ops       1692       29.1/s  errors      0  active 8/8
+[   80.3s] done     ops       2256       28.4/s  errors      0  active 0/8
+
+Run:       ramsql-1000000-8-mixed
+Database:  ramsql [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-28T00:24:40.331Z .. 2026-10-28T00:25:40.607Z (60.3 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +60.3s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s1_region                       278        0        1390        4.6    288.13    290.82    348.16    364.54    413.70    476.56
+s2_category                     142        0        2840        2.4    230.50    239.62    290.82    307.20    323.58    367.74
+s3_top_products                 293        0        2930        4.9    204.30    210.94    260.10    274.43    299.01    375.43
+s4_segment_discount             302        0        4832        5.0    325.11    331.78    380.93    397.31    462.85    527.04
+s5_high_value_customers         121        0         484        2.0    351.73    356.35    413.70    430.08    454.66    556.56
+s6_store_category_mix           581        0       11620        9.6    286.16    290.82    348.16    356.35    380.93    488.19
+TOTAL                          1717        0       24096       28.5    279.38    290.82    356.35    380.93    430.08    556.56
+
+Report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-comment-fast-million-20261028\ramsql-1000000-8-mixed\local.json

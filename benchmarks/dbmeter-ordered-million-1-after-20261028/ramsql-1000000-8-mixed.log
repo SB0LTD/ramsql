@@ -1,0 +1,22 @@
+run ramsql-1000000-8-mixed, node local, scenarios: s1_region(w2), s2_category(w1), s3_top_products(w2), s4_segment_discount(w2), s5_high_value_customers(w1), s6_store_category_mix(w4)
+opening 8 connection(s)...
+connected to PostgreSQL 16.0
+[   20.3s] measure  ops        605       30.2/s  errors      0  active 8/8
+[   40.2s] done     ops       1250       32.4/s  errors      0  active 0/8
+
+Run:       ramsql-1000000-8-mixed
+Database:  ramsql [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-28T00:42:15.308Z .. 2026-10-28T00:42:45.539Z (30.2 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +30.2s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s1_region                       154        0         770        5.1    258.85    256.00    323.58    348.16    364.54    426.24
+s2_category                      74        0        1480        2.4    211.60    210.94    260.10    299.01    323.58    326.67
+s3_top_products                 182        0        1820        6.0    185.36    182.27    256.00    266.24    303.28    303.28
+s4_segment_discount             150        0        2400        5.0    304.18    307.20    372.74    389.12    430.08    430.43
+s5_high_value_customers          79        0         316        2.6    316.45    315.39    380.93    389.12    397.31    399.66
+s6_store_category_mix           325        0        6500       10.8    246.67    243.71    307.20    331.78    348.16    465.76
+TOTAL                           964        0       13286       31.9    249.02    247.81    331.78    356.35    397.31    465.76
+
+Report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-ordered-million-1-after-20261028\ramsql-1000000-8-mixed\local.json
