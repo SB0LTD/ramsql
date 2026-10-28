@@ -6,6 +6,14 @@ later binary.
 
 ## Unreleased
 
+- Select safe leading predicates before streaming dimension probes; preserve
+  throwing ON/probe behavior and complete residual evaluation. Discover fact
+  columns per query block, batch visibility masks, preserve typed DATE values
+  in committed projections, and fold bounded wide integral groups in existing
+  caller-owned scratch. Retain original five-million-row checks, profiles and
+  positive/negative timing results in the
+  [streaming campaign](benchmarks/dbmeter-streaming-20261028/REPORT.md).
+  IRDB leadership, full SQL parity and 100M-row SQL capacity remain unproven.
 - Correct Windows workspace admission in ZPM: distinguish commitment from
   residency when applying app/job limits, and count process-private ownership
   separately from app/shared usage. Qualify an untouched native mapping against

@@ -1,0 +1,424 @@
+{
+  "schema": 1,
+  "diagnostic_only": true,
+  "method": "10ms wall-time instruction-pointer samples of every owned non-main server thread (including reactor and runtime workers) during original full5M q5 JDBC load. Threads resumed in finally. Includes ramp/warmup/waiting; not PMU CPU events, cycle attribution or a throughput comparison. No builds/reference services run concurrently.",
+  "binary_sha256": "bf80ed187f6addf81d59f5cb70710de804f66ea2d5caa8d8a584cce2e304ea4c",
+  "rows": 5000000,
+  "workers": 8,
+  "clients": 8,
+  "wall_seconds": 17.42200000002049,
+  "threads": [
+    {
+      "tid": 18884,
+      "cpu_seconds": 0.0625,
+      "samples": 1620
+    },
+    {
+      "tid": 37136,
+      "cpu_seconds": 0.03125,
+      "samples": 1620
+    },
+    {
+      "tid": 45616,
+      "cpu_seconds": 0.015625,
+      "samples": 1620
+    },
+    {
+      "tid": 39628,
+      "cpu_seconds": 16.46875,
+      "samples": 1620
+    },
+    {
+      "tid": 11720,
+      "cpu_seconds": 16.265625,
+      "samples": 1620
+    },
+    {
+      "tid": 35644,
+      "cpu_seconds": 15.71875,
+      "samples": 1620
+    },
+    {
+      "tid": 35760,
+      "cpu_seconds": 15.046875,
+      "samples": 1620
+    },
+    {
+      "tid": 55764,
+      "cpu_seconds": 14.234375,
+      "samples": 1620
+    },
+    {
+      "tid": 55920,
+      "cpu_seconds": 13.765625,
+      "samples": 1620
+    },
+    {
+      "tid": 57584,
+      "cpu_seconds": 13.109375,
+      "samples": 1620
+    },
+    {
+      "tid": 23796,
+      "cpu_seconds": 12.703125,
+      "samples": 1620
+    }
+  ],
+  "samples": 17820,
+  "symbols": [
+    {
+      "name": "compare",
+      "samples": 5346
+    },
+    {
+      "name": "NtWaitForWorkViaWorkerFactory",
+      "samples": 4860
+    },
+    {
+      "name": "NtWaitForSingleObject",
+      "samples": 1643
+    },
+    {
+      "name": "addAggregates",
+      "samples": 1553
+    },
+    {
+      "name": "streamGroup",
+      "samples": 1535
+    },
+    {
+      "name": "accumulate",
+      "samples": 1384
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 605
+    },
+    {
+      "name": "ZwWaitForAlertByThreadId",
+      "samples": 210
+    },
+    {
+      "name": "eval",
+      "samples": 133
+    },
+    {
+      "name": "hash",
+      "samples": 125
+    },
+    {
+      "name": "finishAggregate",
+      "samples": 112
+    },
+    {
+      "name": "run",
+      "samples": 78
+    },
+    {
+      "name": "compareValues",
+      "samples": 58
+    },
+    {
+      "name": "parse",
+      "samples": 30
+    },
+    {
+      "name": "projectRow",
+      "samples": 27
+    },
+    {
+      "name": "mergeSort__func_633",
+      "samples": 23
+    },
+    {
+      "name": "lookupVersionAt",
+      "samples": 17
+    },
+    {
+      "name": "group",
+      "samples": 15
+    },
+    {
+      "name": "___chkstk_ms",
+      "samples": 13
+    },
+    {
+      "name": "add",
+      "samples": 12
+    },
+    {
+      "name": "cast",
+      "samples": 10
+    },
+    {
+      "name": "truth",
+      "samples": 10
+    },
+    {
+      "name": "projectGroup",
+      "samples": 8
+    },
+    {
+      "name": "pollRead",
+      "samples": 7
+    },
+    {
+      "name": "applyTypmod",
+      "samples": 2
+    },
+    {
+      "name": "NtFreeVirtualMemory",
+      "samples": 2
+    },
+    {
+      "name": "groupify",
+      "samples": 1
+    },
+    {
+      "name": "NtDeviceIoControlFile",
+      "samples": 1
+    }
+  ],
+  "lines": [
+    {
+      "name": "compare",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\types.sig",
+      "line": 561,
+      "samples": 4296
+    },
+    {
+      "name": "addAggregates",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 522,
+      "samples": 1378
+    },
+    {
+      "name": "streamGroup",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 1319,
+      "samples": 1161
+    },
+    {
+      "name": "accumulate",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 1365,
+      "samples": 1018
+    },
+    {
+      "name": "compare",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\types.sig",
+      "line": 0,
+      "samples": 899
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 1212,
+      "samples": 336
+    },
+    {
+      "name": "accumulate",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 1374,
+      "samples": 269
+    },
+    {
+      "name": "eval",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\expr.sig",
+      "line": 601,
+      "samples": 121
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 1207,
+      "samples": 95
+    },
+    {
+      "name": "addAggregates",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 528,
+      "samples": 80
+    },
+    {
+      "name": "run",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 221,
+      "samples": 78
+    },
+    {
+      "name": "finishAggregate",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 1430,
+      "samples": 70
+    },
+    {
+      "name": "hash",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\types.sig",
+      "line": 0,
+      "samples": 66
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 1178,
+      "samples": 54
+    },
+    {
+      "name": "streamGroup",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 1309,
+      "samples": 53
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 1213,
+      "samples": 52
+    },
+    {
+      "name": "compare",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\types.sig",
+      "line": 566,
+      "samples": 52
+    },
+    {
+      "name": "streamGroup",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 1317,
+      "samples": 51
+    },
+    {
+      "name": "streamGroup",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 1335,
+      "samples": 41
+    },
+    {
+      "name": "streamGroup",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 1300,
+      "samples": 40
+    },
+    {
+      "name": "hash",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\types.sig",
+      "line": 616,
+      "samples": 39
+    },
+    {
+      "name": "addAggregates",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 521,
+      "samples": 33
+    },
+    {
+      "name": "compare",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\types.sig",
+      "line": 560,
+      "samples": 33
+    },
+    {
+      "name": "addAggregates",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 529,
+      "samples": 29
+    },
+    {
+      "name": "compareValues",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\numeric.sig",
+      "line": 105,
+      "samples": 27
+    },
+    {
+      "name": "accumulate",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 1395,
+      "samples": 27
+    },
+    {
+      "name": "compare",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\types.sig",
+      "line": 565,
+      "samples": 25
+    },
+    {
+      "name": "projectRow",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 374,
+      "samples": 23
+    },
+    {
+      "name": "streamGroup",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 1301,
+      "samples": 23
+    },
+    {
+      "name": "finishAggregate",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 1438,
+      "samples": 21
+    },
+    {
+      "name": "accumulate",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 1366,
+      "samples": 21
+    },
+    {
+      "name": "accumulate",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 1369,
+      "samples": 21
+    },
+    {
+      "name": "streamGroup",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 1308,
+      "samples": 21
+    },
+    {
+      "name": "compare",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\types.sig",
+      "line": 574,
+      "samples": 20
+    },
+    {
+      "name": "hash",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\types.sig",
+      "line": 622,
+      "samples": 19
+    },
+    {
+      "name": "streamGroup",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 1343,
+      "samples": 19
+    },
+    {
+      "name": "streamGroup",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 1336,
+      "samples": 19
+    },
+    {
+      "name": "streamGroup",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 1341,
+      "samples": 19
+    },
+    {
+      "name": "accumulate",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 1364,
+      "samples": 18
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\52e34d77c8081bec6fea32a017e37c43c7aae6299e0367471e6546af534de4a4\\zpm-c828a2ab5e431eb47a81d06a7e594b55db0946bb\\src\\core\\sql\\exec.sig",
+      "line": 1214,
+      "samples": 17
+    }
+  ]
+}
