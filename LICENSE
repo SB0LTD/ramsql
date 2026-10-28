@@ -1,21 +1,92 @@
-MIT License
+SB0 LTD RamSQL Source-Available License, Version 1.0
 
-Copyright (c) 2025-2026 SB0 LTD
+Copyright (c) 2025-2026 SB0 LTD. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This is a proprietary, source-available license. RamSQL is not open-source
+software. SB0 LTD is the sole licensor of RamSQL and the only party that can
+grant rights beyond those stated here.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. Definitions
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+   "Software" means RamSQL, including its source code, binaries, documentation,
+   benchmarks, tools and any updates SB0 LTD provides.
+
+   "Permitted Use" means (a) personal use by an individual for their own
+   learning, hobby projects or experimentation that earns no revenue and is not
+   done for an employer or other organization, and (b) research and teaching
+   by individuals and academic or non-profit institutions, including
+   evaluation, reproduction and publication of research results, provided the
+   use is not part of a commercial product, service or business activity.
+
+   "Commercial Use" means any use that is not Permitted Use. It includes use by
+   or for a company or other for-profit entity, internal business use,
+   production use, offering the Software or a derivative as a hosted or managed
+   service, embedding or bundling it in a product, and use that generates
+   revenue directly or indirectly.
+
+2. Grant
+
+   Subject to this license, SB0 LTD grants you a non-exclusive, non-transferable,
+   non-sublicensable, revocable, worldwide, royalty-free license to use, copy,
+   study and modify the Software for Permitted Use only.
+
+3. Commercial Use requires a separate license
+
+   You may not make any Commercial Use of the Software unless you hold a
+   written commercial license signed by SB0 LTD. Only SB0 LTD may grant such a
+   license. Contact: licensing@ramsql.com.
+
+4. Restrictions
+
+   You may not, except as SB0 LTD expressly permits in writing:
+   (a) distribute, publish, sublicense, sell, lease or otherwise make the
+       Software or any modified version available to third parties, except that
+       you may share unmodified copies for Permitted Use if you include this
+       license and all notices intact;
+   (b) remove or alter copyright, license or attribution notices;
+   (c) use the SB0, SB0 LTD and RamSQL names, logos and emblems except to
+       identify the Software accurately;
+   (d) use the Software to build or train a competing database product offered
+       for Commercial Use.
+
+5. Benchmarks
+
+   You may publish benchmark results of the Software if you disclose the
+   Software version, hardware, configuration and methodology, and do not
+   present the results misleadingly.
+
+6. Contributions
+
+   Unless agreed otherwise in writing, anything you submit to SB0 LTD for
+   inclusion in the Software is licensed to SB0 LTD under a perpetual,
+   irrevocable, worldwide, royalty-free, sublicensable license to use, modify
+   and distribute it, and you confirm you have the right to grant that license.
+
+7. Third-party components
+
+   Components obtained from other parties (for example ZPM packages) remain
+   under their own licenses, which apply to those components.
+
+8. Termination
+
+   This license ends automatically if you breach it. On termination you must
+   stop using the Software and delete all copies. Sections 3 to 11 survive.
+
+9. No warranty
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+   PURPOSE, DURABILITY, DATA INTEGRITY AND NON-INFRINGEMENT. RamSQL is alpha
+   software.
+
+10. Limitation of liability
+
+   TO THE MAXIMUM EXTENT PERMITTED BY LAW, SB0 LTD IS NOT LIABLE FOR ANY
+   INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL OR PUNITIVE DAMAGES, OR FOR LOSS
+   OF DATA, PROFITS OR BUSINESS, ARISING FROM THE SOFTWARE.
+
+11. General
+
+   SB0 LTD retains all rights not expressly granted. This is the entire
+   license for the Software and may be changed only in writing signed by
+   SB0 LTD. Governing law and venue: [TO BE SET BY SB0 LTD].

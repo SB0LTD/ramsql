@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RamSQL | The in-memory SQL database built for speed</title>
+<meta name="description" content="RamSQL is an in-memory SQL server with PostgreSQL wire compatibility, MVCC snapshots and durable WAL. 488x faster than IRDB on key lookups at 1M rows. Free for personal and research use.">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+<meta name="author" content="SB0 LTD">
+<meta name="application-name" content="RamSQL">
+<meta name="apple-mobile-web-app-title" content="RamSQL">
+<meta name="format-detection" content="telephone=no">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#05060a">
+<link rel="canonical" href="https://ramsql.com/">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="RamSQL">
+<meta property="og:locale" content="en_US">
+<meta property="og:url" content="https://ramsql.com/">
+<meta property="og:title" content="RamSQL | SQL at the speed of memory">
+<meta property="og:description" content="In-memory SQL with PostgreSQL wire compatibility. 1.4M point reads/s per worker. Free for personal and research use.">
+<meta property="og:image" content="https://ramsql.com/og-image.jpg">
+<meta property="og:image:secure_url" content="https://ramsql.com/og-image.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="RamSQL logo with the headline: SQL at the speed of memory">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="RamSQL | SQL at the speed of memory">
+<meta name="twitter:description" content="In-memory SQL with PostgreSQL wire compatibility. 1.4M point reads/s per worker. Free for personal and research use.">
+<meta name="twitter:image" content="https://ramsql.com/og-image.jpg">
+<meta name="twitter:image:alt" content="RamSQL logo with the headline: SQL at the speed of memory">
+
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<link rel="sitemap" type="application/xml" href="/sitemap.xml">
+<noscript><style>.reveal{opacity:1!important;transform:none!important}</style></noscript>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+{"@type":"Organization","@id":"https://ramsql.com/#org","name":"SB0 LTD","url":"https://ramsql.com/","logo":"https://ramsql.com/android-chrome-512x512.png","email":"licensing@ramsql.com"},
+{"@type":"WebSite","@id":"https://ramsql.com/#site","url":"https://ramsql.com/","name":"RamSQL","publisher":{"@id":"https://ramsql.com/#org"},"inLanguage":"en"},
+{"@type":"SoftwareApplication","name":"RamSQL","applicationCategory":"DeveloperApplication","applicationSubCategory":"Database","operatingSystem":"Windows, Linux, macOS","description":"In-memory SQL server written in Sig with PostgreSQL wire protocol compatibility, MVCC snapshot isolation and durable write-ahead logging.","url":"https://ramsql.com/","image":"https://ramsql.com/og-image.jpg","publisher":{"@id":"https://ramsql.com/#org"},"softwareVersion":"0.3.0-alpha","offers":{"@type":"Offer","price":"0","priceCurrency":"USD","description":"Free for personal and research use. Commercial use requires a license from SB0 LTD."}}
+]}
+</script><link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<canvas id="bg" aria-hidden="true"></canvas>
+<div class="noise" aria-hidden="true"></div>
+
+<header class="nav" id="nav">
+  <a class="brand" href="#top"><img src="/img/chip.png" alt="RamSQL" width="44" height="22"><span>RamSQL</span></a>
+  <nav>
+    <a href="#performance">Performance</a>
+    <a href="#honesty">Evidence</a>
+    <a href="#engine">Engine</a>
+    <a href="#license">Licensing</a>
+    <a class="btn btn-sm" href="mailto:licensing@ramsql.com">Contact</a>
+  </nav>
+</header>
+
+<main id="top">
+<section class="hero">
+  <div class="hero-inner">
+    <p class="eyebrow reveal"><span class="dot"></span> Alpha &middot; Pure Sig &middot; Zero allocators</p>
+    <h1 class="reveal d1">SQL at the speed<br>of <span class="grad">memory.</span></h1>
+    <p class="lede reveal d2">RamSQL is an in-memory SQL server written entirely in Sig. PostgreSQL wire protocol, MVCC snapshots, durable WAL, and no heap allocator on the hot path.</p>
+    <div class="cta reveal d3">
+      <a class="btn btn-primary" href="#performance">See the benchmarks</a>
+      <a class="btn btn-ghost" href="https://github.com/SB0LTD/ramsql">View on GitHub</a>
+    </div>
+    <div class="hero-stats reveal d4">
+      <div><b data-count="1.43" data-dec="2" data-suffix="M">0</b><span>point reads / s, single worker, 1M rows</span></div>
+      <div><b data-count="488" data-suffix="&times;">0</b><span>vs IRDB 1.10.821, uniform reads at 1M rows</span></div>
+      <div><b data-count="25" data-suffix="&times;">0</b><span>vs PostgreSQL 18.3, filtered scan, 100k rows</span></div>
+    </div>
+  </div>
+  <div class="hero-visual reveal d2">
+    <div class="glow"></div>
+    <img class="shield" src="/img/shield.jpg" alt="RamSQL by SB0 shield emblem" width="520" height="520">
+  </div>
+  <a class="scroll" href="#performance" aria-label="Scroll"><i></i></a>
+</section>
+
+<section class="logos reveal">
+  <p>Measured head-to-head against</p>
+  <div class="vs"><span>PostgreSQL 18.3</span><span>IRDB 1.10.821</span><span>PostgreSQL 16</span></div>
+</section>
+
+<section id="performance" class="section">
+  <div class="head reveal">
+    <p class="eyebrow">Performance</p>
+    <h2>Built to out-run the field.</h2>
+    <p class="sub">Operations per second on identical data, same host, same checks. Every request is validated against an independent model before it counts.</p>
+  </div>
+
+  <div class="tabs reveal" role="tablist">
+    <button class="tab active" data-tab="irdb" role="tab">vs IRDB &middot; native SQL, 1M rows</button>
+    <button class="tab" data-tab="pg" role="tab">vs PostgreSQL 18.3 &middot; JDBC, 100k rows</button>
+    <button class="tab" data-tab="target" role="tab">Roadmap targets</button>
+  </div>
+
+  <div class="panel reveal" id="chart"></div>
+  <p class="foot reveal" id="chart-note"></p><table class="sr"><caption>Median operations per second, 1,000,000 rows, native SQL API, RamSQL vs IRDB 1.10.821</caption><tr><th>Workload</th><th>RamSQL</th><th>IRDB</th></tr><tr><td>Uniform key lookup</td><td>1,425,602</td><td>2,920</td></tr><tr><td>Range page</td><td>166,535</td><td>93</td></tr><tr><td>Mixed 50/50</td><td>1,412,211</td><td>149</td></tr><tr><td>Filtered SUM</td><td>5,830</td><td>1,167</td></tr><tr><td>Grouped aggregate</td><td>1,251</td><td>628</td></tr><tr><td>Top-k sort</td><td>51</td><td>18</td></tr></table>
+</section>
+
+<section class="section band">
+  <div class="head reveal">
+    <p class="eyebrow">Latency</p>
+    <h2>From text to rows in microseconds.</h2>
+  </div>
+  <div class="split">
+    <div class="term reveal" id="term" aria-label="Animated SQL session">
+      <div class="term-bar"><i></i><i></i><i></i><span>psql &mdash; ramsql://127.0.0.1:5432</span></div>
+      <pre id="term-out"></pre>
+    </div>
+    <ul class="points reveal">
+      <li><b>Wire-compatible.</b> Connect with <code>psql</code>, JDBC and standard PostgreSQL drivers.</li>
+      <li><b>Allocator-free.</b> Fixed-capacity, caller-owned storage. No GC pauses, no malloc on the query path.</li>
+      <li><b>Columnar fast paths.</b> Vectorized predicate masks and grouped COUNT/SUM kernels over committed column projections.</li>
+      <li><b>Snapshot isolation.</b> Shared MVCC storage. Readers never block writers.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="honesty" class="section">
+  <div class="head reveal">
+    <p class="eyebrow">Evidence</p>
+    <h2>Every number is reproducible.</h2>
+    <p class="sub">Benchmarks run from published harnesses in public GitHub Actions and local runs, with raw logs, binary hashes and source snapshots retained. We publish the cases where we are not first, too.</p>
+  </div>
+  <div class="cards">
+    <article class="card reveal"><h3>Correctness first</h3><p>Each timed request is checked against an independent Python model and a 2,038-check PostgreSQL oracle. A fast wrong answer scores zero.</p></article>
+    <article class="card reveal d1"><h3>Latest versions</h3><p>PostgreSQL 16 and 18 and the newest stable IRDB, verified against the live NuGet feed, run on the same host with matched settings.</p></article>
+    <article class="card reveal d2"><h3>Open methodology</h3><p>Warmup, alternating engine order, five-trial medians, equal JVM heap. Commands and harnesses are in the repository.</p></article>
+    <article class="card card-warn reveal d3"><h3>Where we are still climbing</h3><p>On a one-million-row analytic mix with eight clients IRDB currently leads. Joins, large working sets and recovery speed are in active qualification.</p></article>
+  </div>
+  <p class="foot reveal"><a href="https://github.com/SB0LTD/ramsql/actions">Latest CI runs</a> &middot; <a href="https://github.com/SB0LTD/ramsql/tree/main/benchmarks">Benchmark reports and raw data</a></p>
+</section>
+
+<section id="engine" class="section band">
+  <div class="head reveal">
+    <p class="eyebrow">Engine</p>
+    <h2>A database with nothing to waste.</h2>
+  </div>
+  <div class="grid">
+    <div class="feat reveal"><div class="ic">&#9889;</div><h3>Pure Sig</h3><p>The whole runtime is Sig. No C libraries, no SQLite, no language runtime to load.</p></div>
+    <div class="feat reveal d1"><div class="ic">&#128274;</div><h3>Durable by design</h3><p>Flush-before-publication WAL, exclusive writer locking and fail-closed recovery.</p></div>
+    <div class="feat reveal d2"><div class="ic">&#128273;</div><h3>SCRAM auth</h3><p>PostgreSQL SCRAM credentials are required by default on the server.</p></div>
+    <div class="feat reveal d3"><div class="ic">&#9878;</div><h3>Atomic statements</h3><p>Statement atomicity and resource ownership on every error path.</p></div>
+    <div class="feat reveal d4"><div class="ic">&#128230;</div><h3>Bounded memory</h3><p>Explicit capacity profiles. Inspect capacity before loading, no surprise growth.</p></div>
+    <div class="feat reveal d5"><div class="ic">&#128260;</div><h3>Offline backup</h3><p>Validated backups that never overwrite a destination.</p></div>
+  </div>
+</section>
+
+<section id="license" class="section">
+  <div class="head reveal">
+    <p class="eyebrow">Licensing</p>
+    <h2>Free to learn on. Licensed to ship.</h2>
+  </div>
+  <div class="plans">
+    <div class="plan reveal">
+      <h3>Personal &amp; research</h3>
+      <div class="price">Free</div>
+      <ul><li>Personal, non-revenue projects</li><li>Academic and non-profit research</li><li>Teaching and evaluation</li><li>Full engine, no feature limits</li></ul>
+      <a class="btn btn-ghost" href="https://github.com/SB0LTD/ramsql">Get RamSQL</a>
+    </div>
+    <div class="plan plan-hl reveal d1">
+      <h3>Business &amp; all other use</h3>
+      <div class="price">Contact us</div>
+      <ul><li>Production and company use</li><li>Hosting, redistribution and embedding</li><li>Granted by SB0 LTD only</li><li>Priority support and tuning</li></ul>
+      <a class="btn btn-primary" href="mailto:licensing@ramsql.com?subject=RamSQL%20commercial%20license">Request a license</a>
+    </div>
+  </div>
+</section>
+
+<section class="final section">
+  <img src="/img/chip.png" alt="" class="final-chip reveal" width="300" height="150">
+  <h2 class="reveal">Put your data where the speed is.</h2>
+  <div class="cta reveal d1">
+    <a class="btn btn-primary" href="mailto:licensing@ramsql.com">Talk to us</a>
+    <a class="btn btn-ghost" href="https://github.com/SB0LTD/ramsql">Star on GitHub</a>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div><img src="/img/chip.png" alt="" width="36" height="18"> <span>RamSQL &middot; by SB0 LTD</span></div>
+  <p>Benchmarks are finite, single-host measurements on recorded hardware and versions; results do not generalize to every workload. RamSQL is alpha software, proprietary to SB0 LTD and not open source. See the <a href="https://github.com/SB0LTD/ramsql/blob/main/LICENSE">license</a>.</p>
+  <p>&copy; 2026 SB0 LTD</p>
+</footer>
+<script src="/app.js"></script>
+</body>
+</html>

@@ -337,3 +337,7 @@ concurrency, raw trials and correctness checks in performance reports. Never
 include passwords, verifiers or private data.
 
 MIT License — SB0 LTD.
+
+## License
+
+RamSQL is proprietary, source-available software owned by SB0 LTD. It is free for personal use and for research and teaching. Any business, production, hosted, embedded or other commercial use requires a written license from SB0 LTD, the only party that can grant one (licensing@ramsql.com). See [LICENSE](LICENSE). It is not open-source software.
