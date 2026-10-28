@@ -1,0 +1,11 @@
+PASS  s100000_a_pk                                1087.27 ms
+PASS  s100000_b_filter                              36.53 ms
+PASS  s100000_c_topn                                25.83 ms
+PASS  s100000_d_last                                10.70 ms
+PASS  s512_a_pk                                     30.51 ms
+PASS  s512_b_filter                                 29.47 ms
+PASS  s512_c_topn                                    0.75 ms
+PASS  s512_d_last                                    0.69 ms
+
+8 check(s): 8 passed, 0 failed
+JUnit report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-irdb-native-20261027\checks.xml

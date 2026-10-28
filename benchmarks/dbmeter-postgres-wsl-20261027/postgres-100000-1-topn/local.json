@@ -1,0 +1,87 @@
+{
+  "dbmeterReport": 1,
+  "runId": "postgres-100000-1-topn",
+  "measuredStart": 1793128895874,
+  "measuredEnd": 1793128900878,
+  "nodes": [
+    {
+      "node": "local",
+      "host": "SB0-LAPTOP",
+      "threads": 1,
+      "cpus": 32,
+      "os": "Windows 11 10.0",
+      "java": "21.0.12",
+      "startAt": "2026-10-27T19:21:33.874Z",
+      "measuredStart": 1793128895874,
+      "measuredEnd": 1793128900878,
+      "settings": {
+        "threads": 1,
+        "duration": "PT5S",
+        "warmup": "PT2S",
+        "rampUp": "PT0S"
+      }
+    }
+  ],
+  "database": {
+    "product": "PostgreSQL",
+    "productVersion": "16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)",
+    "driver": "PostgreSQL JDBC Driver",
+    "driverVersion": "42.7.4",
+    "jdbcVersion": "4.2",
+    "url": "jdbc:postgresql://127.0.0.1:55438/postgres",
+    "user": "sb",
+    "label": "postgres"
+  },
+  "scenarios": {
+    "s100000_topn": {
+      "count": 828,
+      "errors": 0,
+      "rows": 8280,
+      "latencyMicros": {
+        "subBits": 5,
+        "count": 828,
+        "sum": 4992410,
+        "min": 5211,
+        "max": 10227,
+        "buckets": {
+          "264": 1,
+          "265": 15,
+          "266": 37,
+          "267": 77,
+          "268": 83,
+          "269": 109,
+          "270": 129,
+          "271": 125,
+          "272": 80,
+          "273": 63,
+          "274": 34,
+          "275": 20,
+          "276": 15,
+          "277": 12,
+          "278": 4,
+          "279": 5,
+          "280": 2,
+          "281": 6,
+          "282": 1,
+          "283": 2,
+          "285": 1,
+          "286": 1,
+          "288": 2,
+          "289": 1,
+          "290": 1,
+          "291": 1,
+          "295": 1
+        }
+      },
+      "errorMessages": {},
+      "timeline": {
+        "1793128895": [20, 0, 118271, 6294],
+        "1793128896": [158, 0, 994359, 10227],
+        "1793128897": [163, 0, 996910, 7957],
+        "1793128898": [168, 0, 1004793, 7403],
+        "1793128899": [169, 0, 997835, 7549],
+        "1793128900": [150, 0, 880242, 7068]
+      }
+    }
+  }
+}

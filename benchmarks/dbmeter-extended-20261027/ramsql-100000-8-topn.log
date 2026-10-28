@@ -1,0 +1,16 @@
+run ramsql-100000-8-topn, node local, scenarios: s100000_topn(w1)
+opening 8 connection(s)...
+connected to PostgreSQL 16.0
+[    5.4s] measure  ops      14929     2912.2/s  errors      0  active 8/8
+[    7.0s] done     ops      19790     3051.6/s  errors      0  active 0/8
+
+Run:       ramsql-100000-8-topn
+Database:  ramsql [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-27T19:44:47.171Z .. 2026-10-27T19:44:52.173Z (5.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +5.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s100000_topn                  14932        0      149320     2985.2      2.67      2.46      3.62      3.87      4.80      9.06
+
+Report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-extended-20261027\ramsql-100000-8-topn\local.json

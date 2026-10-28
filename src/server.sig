@@ -268,16 +268,12 @@ const Client = struct {
     fn dispatchRead(self:*Client) !bool {
         if(!parallel or self.session!=.postgres or !self.connection.detachedReadEligible()) return false;
         const session=&self.session.postgres;
-        if(!session.startup or session.failed or session.copy.mode!=.none or session.active_portal!=null or
-            (session.authentication!=null and session.authentication.?.state!=.complete)) return false;
         const input=self.input[self.input_start..][0..self.input_len];
-        if(input.len<5 or input[0]!='Q') return false;
-        const size=std.mem.readInt(u32,input[1..5],.big);
-        if(size<5 or size>pg.max_packet or size+1>input.len or input[size]!=0) return false;
-        const source=input[5..size];
-        if(std.mem.indexOfScalar(u8,source,0)!=null) return false;
-        const first=std.mem.trimStart(u8,source," \t\r\n");
-        if(!std.ascii.startsWithIgnoreCase(first,"select") and !std.ascii.startsWithIgnoreCase(first,"with")) return false;
+        const candidate=session.detachedCandidate(input) orelse return false;
+        const source:?[]const u8=switch(candidate){.metadata=>null,.describe,.execute=>|text|text};
+        if(source) |text| {
+            if(!Raw.queryCandidate(text)) return false;
+        }
         const required=try session.requiredCapacity();
         if(self.output.len-self.output_len<required) return false;
         const reader=self.reader orelse return false;
@@ -285,6 +281,9 @@ const Client = struct {
         reader.provision() catch {reader.retry_at=monotonicClock()+1000000000;return false;};
         data_gate.lockRead();defer data_gate.unlockRead();
         const context=reader.context.?;
+        // Protocol Describe may lend stack-local interpolation text. No plan
+        // or source reference survives the complete codec call or worker reuse.
+        defer {context.prepared=null;context.preparation_error=null;context.database=null;context.source=&.{};}
         self.cancel_request.store(0,.release);
         self.connection.execution.reset(store.max_query_work);
         self.connection.execution.context=self;self.connection.execution.poll=pollRead;
@@ -293,13 +292,13 @@ const Client = struct {
         context.session=self.connection.detachedReadSession(&self.connection.execution,statement_us);
         context.dialect=.postgres;
         var prepared=true;
-        context.prepare(&store.database,source,.{.csn=store.database.csn}) catch |err| switch(err) {
+        if(source) |text| context.prepare(&store.database,text,.{.csn=store.database.csn}) catch |err| switch(err) {
             error.QueryCanceled,error.QueryWorkLimit=>{prepared=false;},
             else=>return false,
         };
         // Dynamic named-zone resolution retains the existing serialized cache
         // ownership. Typed temporal values use the immutable session zone.
-        if(prepared and context.needsZoneResolver()) return false;
+        if(source!=null and prepared and context.needsZoneResolver()) return false;
         self.connection.read_context=context;self.connection.running_statement=true;
         defer {self.connection.read_context=null;self.connection.running_statement=false;self.read_deadline=null;}
         const output=self.output[self.output_len..];
@@ -841,8 +840,8 @@ pub fn describe(options: Options) !void {
     }
     var policy_buffer:[384]u8=undefined;
     try out.writeStreamingAll(.{},try std.fmt.bufPrint(&policy_buffer,
-        "],\"server_region_budgeting\":true,\"memory_budget_bytes\":{?d},\"os_headroom_bytes\":{?d},\"read_context_payload_bytes_per_worker\":{d}}}\n",
-        .{options.memory_budget,options.os_headroom,read_payload[0]}));
+        "],\"server_region_budgeting\":true,\"memory_budget_bytes\":{?d},\"os_headroom_bytes\":{?d},\"read_context_payload_bytes_per_worker\":{d},\"parallel_extended_reads\":{s}}}\n",
+        .{options.memory_budget,options.os_headroom,read_payload[0],if(options.workers>1) "true" else "false"}));
 }
 
 pub fn describeMachine(options:Options) !void {

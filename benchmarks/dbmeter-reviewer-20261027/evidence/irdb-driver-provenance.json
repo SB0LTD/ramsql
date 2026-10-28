@@ -1,0 +1,6 @@
+{
+  "jirdb_sha256": "385c342151d42d6654e36796191987f50ac28a24fe261b28d3fd34e5a75b7838",
+  "reviewer_ini_sha256": "f37948f07703a53f827dcc2be52673eeba1e1a8a52c8de811f1ebd09dade3aad",
+  "fastutil_url": "https://repo.maven.apache.org/maven2/it/unimi/dsi/fastutil/8.5.15/fastutil-8.5.15.jar",
+  "fastutil_sha256": "cffeb6673bdf1e6e4377d684df2f55ac359cf5cf6df613e05e62deeea500936a"
+}

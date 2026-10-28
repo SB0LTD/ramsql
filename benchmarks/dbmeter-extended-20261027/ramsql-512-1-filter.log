@@ -1,0 +1,16 @@
+run ramsql-512-1-filter, node local, scenarios: s512_filter(w1)
+opening 1 connection(s)...
+connected to PostgreSQL 16.0
+[    5.2s] measure  ops     148872    29080.9/s  errors      0  active 1/1
+[    7.0s] done     ops     200151    29096.4/s  errors      0  active 0/1
+
+Run:       ramsql-512-1-filter
+Database:  ramsql [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-27T19:43:35.880Z .. 2026-10-27T19:43:40.880Z (5.0 s)
+Nodes:     1 node(s), 1 thread(s) total
+  local                host SB0-LAPTOP           1 threads  32 cpus  window +0.0s .. +5.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s512_filter                  146443        0       73338    29288.6      0.03      0.03      0.04      0.05      0.08      0.78
+
+Report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-extended-20261027\ramsql-512-1-filter\local.json

@@ -1,0 +1,8 @@
+{
+  "original_query_sha256": "e6e74d2545657d2fb8d93e537557844da8b5fd68fa045f3aa9ec7d31b48977b2",
+  "overlay_query_sha256": "c53442bca9359b55f7cfa74369887000d433adafcd517fcd97b58ec26eb76bf4",
+  "changes": [
+    "Only remove DATE keyword from two ISO date literals; retain inclusive BETWEEN, predicates, parameters, expected CSV and workload weights"
+  ],
+  "config_sha256": "bdd460e009602604db8d594f740735af509b5b11853ade163c2573ca75155ac2"
+}

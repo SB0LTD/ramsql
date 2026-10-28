@@ -1,0 +1,14 @@
+Run:       postgres-1000000-8-mixed
+Database:  postgres [reports as PostgreSQL 18.3] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-28T00:19:27.620Z .. 2026-10-28T00:20:28.543Z (60.9 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +60.9s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s1_region                       258        0        1290        4.2    221.23    198.66    274.43    421.89    479.23    490.99
+s2_category                     130        0        2600        2.1   1721.78   1687.55   1851.39   2129.92   2457.60   2541.73
+s3_top_products                 301        0        3010        4.9    123.27    117.76    145.41    186.37    206.85    240.13
+s4_segment_discount             273        0        4368        4.5    227.15    206.85    282.62    405.50    471.04    504.51
+s5_high_value_customers         142        0         568        2.3    457.14    454.66    495.62    512.00    565.25    847.50
+s6_store_category_mix           548        0       10960        9.0     63.83     62.98     72.70     76.80     82.94     89.63
+TOTAL                          1652        0       22796       27.1    290.51    153.60    479.23   1654.78   1818.62   2541.73

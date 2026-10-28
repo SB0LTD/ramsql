@@ -1,0 +1,2 @@
+run ramsql-100000-8-topn, node local, scenarios: s100000_topn(w1)
+error: FATAL: database memory budget exhausted [SQLState 53200]

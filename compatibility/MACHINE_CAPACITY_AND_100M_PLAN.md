@@ -16,8 +16,11 @@ Uniformly reserving that capacity for every table is worse. This layout must be
 replaced; successful 1M-row tests cannot be extrapolated into 100M-row claims.
 
 Published beta.2 serializes SQL. Development now supports concurrent simple
-autocommit PostgreSQL reads; extended queries, transactions and mutations remain
-exclusive. Checked wire throughput improves but CPU/query remains higher. Schema/value/parser/connection bounds,
+autocommit PostgreSQL simple and eligible extended reads; transactions, suspended
+portals and mutations remain exclusive. The reviewer's actual dbMeter JDBC suite
+now reproduces concurrency and passes 7/7 million-row sales-subset checks with an
+explicit Linux text-32 profile. Exact integral COUNT(DISTINCT) uses bounded bitmap
+states. Schema/value/parser/connection bounds,
 fully materialized intermediates, per-client response reservations, absent
 checkpoints and incomplete dialect support remain visible blockers.
 
@@ -143,6 +146,14 @@ cancel/timeout at operator checkpoints, no starvation, memory pressure, process
 loss, corruption and durable restore. Measure CPU/query as well as throughput.
 
 ## Benchmark matrix and acceptance
+
+Use the actual reviewer repository `benor1470/dbMeter`, immutable source revision
+`630fbb13be21bd4bbdf7afe4b438ce771a8b3fc0`, as a separate JDBC tier. Record driver
+and supplied IRDB client hashes and preserve its original SQL/CSV expectations.
+The [reviewer report](../benchmarks/dbmeter-reviewer-20261027/REPORT.md) retains
+failures and native-platform comparisons. Do not conflate these results with the
+native API tier below. The full 5M-row analytic suite, stock-profile capacity,
+100M-row multi-table storage and universal/significant wins remain open targets.
 
 The fresh [guarded-input reference run](../benchmarks/guarded-reference-20261027/README.md)
 and [remaining cases](../benchmarks/guarded-reference-remaining-20261027/README.md)

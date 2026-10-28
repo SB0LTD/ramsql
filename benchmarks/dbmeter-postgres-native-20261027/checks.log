@@ -1,0 +1,12 @@
+check.setup: 16 statement(s) in 1254.77 ms
+PASS  s100000_a_pk                                   7.83 ms
+PASS  s100000_b_filter                               3.59 ms
+PASS  s100000_c_topn                                 6.68 ms
+PASS  s100000_d_last                                 0.58 ms
+PASS  s512_a_pk                                      0.94 ms
+PASS  s512_b_filter                                  0.37 ms
+PASS  s512_c_topn                                    0.42 ms
+PASS  s512_d_last                                    0.31 ms
+
+8 check(s): 8 passed, 0 failed
+JUnit report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-postgres-native-20261027\checks.xml

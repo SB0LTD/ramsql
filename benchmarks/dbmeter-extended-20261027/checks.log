@@ -1,0 +1,11 @@
+PASS  s100000_a_pk                                   8.43 ms
+PASS  s100000_b_filter                               5.86 ms
+PASS  s100000_c_topn                                 2.17 ms
+PASS  s100000_d_last                                 0.26 ms
+PASS  s512_a_pk                                      0.22 ms
+PASS  s512_b_filter                                  0.21 ms
+PASS  s512_c_topn                                    0.25 ms
+PASS  s512_d_last                                    0.22 ms
+
+8 check(s): 8 passed, 0 failed
+JUnit report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-extended-20261027\checks.xml

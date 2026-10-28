@@ -1,0 +1,7 @@
+PASS  s100000_a_pk                                   7.89 ms
+PASS  s100000_b_filter                               4.76 ms
+PASS  s100000_c_topn                                 2.32 ms
+PASS  s100000_d_last                                 0.24 ms
+
+4 check(s): 4 passed, 0 failed
+JUnit report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-filter-100k-20261027\checks.xml

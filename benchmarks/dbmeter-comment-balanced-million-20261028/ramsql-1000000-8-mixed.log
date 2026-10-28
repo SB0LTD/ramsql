@@ -1,0 +1,24 @@
+run ramsql-1000000-8-mixed, node local, scenarios: s1_region(w2), s2_category(w1), s3_top_products(w2), s4_segment_discount(w2), s5_high_value_customers(w1), s6_store_category_mix(w4)
+opening 8 connection(s)...
+connected to PostgreSQL 16.0
+[   20.4s] measure  ops        874       43.5/s  errors      0  active 8/8
+[   40.4s] measure  ops       1752       43.8/s  errors      0  active 8/8
+[   60.5s] measure  ops       2636       44.1/s  errors      0  active 8/8
+[   80.2s] done     ops       3491       43.3/s  errors      0  active 0/8
+
+Run:       ramsql-1000000-8-mixed
+Database:  ramsql [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-28T00:11:33.402Z .. 2026-10-28T00:12:33.637Z (60.2 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +60.2s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s1_region                       429        0        2145        7.1    188.50    190.46    231.42    247.81    274.43    322.62
+s2_category                     222        0        4440        3.7    184.18    186.37    227.33    251.90    260.10    280.28
+s3_top_products                 468        0        4680        7.8    117.68    121.86    165.89    178.18    198.66    281.26
+s4_segment_discount             396        0        6336        6.6    231.74    231.42    274.43    290.82    331.78    342.41
+s5_high_value_customers         235        0         940        3.9    210.29    210.94    243.71    266.24    307.20    315.87
+s6_store_category_mix           875        0       17500       14.5    185.20    190.46    227.33    243.71    266.24    278.04
+TOTAL                          2625        0       36041       43.6    182.88    190.46    243.71    260.10    290.82    342.41
+
+Report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-comment-balanced-million-20261028\ramsql-1000000-8-mixed\local.json

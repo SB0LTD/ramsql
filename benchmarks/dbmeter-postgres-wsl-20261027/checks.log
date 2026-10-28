@@ -1,0 +1,12 @@
+check.setup: 16 statement(s) in 919.95 ms
+PASS  s100000_a_pk                                   6.71 ms
+PASS  s100000_b_filter                               3.39 ms
+PASS  s100000_c_topn                                 6.36 ms
+PASS  s100000_d_last                                 0.70 ms
+PASS  s512_a_pk                                      0.53 ms
+PASS  s512_b_filter                                  0.42 ms
+PASS  s512_c_topn                                    0.44 ms
+PASS  s512_d_last                                    0.36 ms
+
+8 check(s): 8 passed, 0 failed
+JUnit report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-postgres-wsl-20261027\checks.xml

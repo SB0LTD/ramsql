@@ -70,6 +70,15 @@ def main():
                 else:
                     pg.ok(QUERY,expected)
                     pg.ok(QUERY+' LIMIT 2 OFFSET 1',expected[1:3])
+                    distinct=[set() for _ in range(5)]
+                    for identity in range(args.rows):
+                        if identity%23==0 or identity%17==0 or identity%19==0:continue
+                        group=4 if identity%16==7 else identity%4
+                        distinct[group].add(identity%97-48)
+                    pg.ok('SELECT s.region,COUNT(DISTINCT f.amount) FROM facts f '
+                          'JOIN shops s ON s.id=f.shop JOIN products p ON p.id=f.product '
+                          'GROUP BY s.region ORDER BY s.region NULLS LAST',
+                          [[str(g) if g<4 else None,str(len(distinct[g]))] for g in range(5)])
                     pg.ok('SELECT COUNT(*),SUM(f.amount*p.unit) FROM facts f '
                           'JOIN shops s ON s.id=f.shop JOIN products p ON p.id=f.product WHERE f.id<0',
                           [['0',None]])
@@ -77,7 +86,7 @@ def main():
             finally:pg.close()
     print(json.dumps(dict(suite='streamed-joins',passed=True,loaded_fact_rows=args.rows,
                          work_rows=args.work_rows,result_rows=16,groups=5,workers=workers,
-                         expected_old_capacity_error=args.expect_capacity_error)))
+                         expected_old_capacity_error=args.expect_capacity_error,exact_integral_distinct=not args.expect_capacity_error)))
 
 
 if __name__=='__main__':main()

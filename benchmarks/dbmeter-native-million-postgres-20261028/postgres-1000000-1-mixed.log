@@ -1,0 +1,24 @@
+run postgres-1000000-1-mixed, node local, scenarios: s1_region(w2), s2_category(w1), s3_top_products(w2), s4_segment_discount(w2), s5_high_value_customers(w1), s6_store_category_mix(w4)
+opening 1 connection(s)...
+connected to PostgreSQL 18.3
+[   20.2s] measure  ops        100        5.0/s  errors      0  active 1/1
+[   40.2s] measure  ops        202        5.1/s  errors      0  active 1/1
+[   60.2s] measure  ops        331        6.4/s  errors      0  active 1/1
+[   80.1s] done     ops        444        5.7/s  errors      0  active 0/1
+
+Run:       postgres-1000000-1-mixed
+Database:  postgres [reports as PostgreSQL 18.3] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-28T00:18:07.347Z .. 2026-10-28T00:19:07.461Z (60.1 s)
+Nodes:     1 node(s), 1 thread(s) total
+  local                host SB0-LAPTOP           1 threads  32 cpus  window +0.0s .. +60.1s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s1_region                        66        0         330        1.1    125.24    123.90    130.05    130.05    140.23    140.23
+s2_category                      28        0         560        0.5   1030.11   1024.00   1062.16   1062.16   1062.16   1062.16
+s3_top_products                  57        0         570        0.9     70.48     70.66     72.70     74.75     76.30     76.30
+s4_segment_discount              47        0         752        0.8    122.04    121.86    128.00    133.12    136.86    136.86
+s5_high_value_customers          31        0         124        0.5    270.03    266.24    274.43    280.13    280.13    280.13
+s6_store_category_mix           114        0        2280        1.9     37.91     37.38     39.42     40.45     44.45     44.45
+TOTAL                           343        0        4616        5.7    173.63    115.71    274.43   1024.00   1062.16   1062.16
+
+Report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-native-million-postgres-20261028\postgres-1000000-1-mixed\local.json
