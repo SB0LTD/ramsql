@@ -6,6 +6,12 @@ later binary.
 
 ## Unreleased
 
+- Evaluate later safe predicates only at surviving fact slots in selective
+  factorized joins; retain vectors for dense masks and canonical execution for
+  unsupported expressions/snapshots. Reuse exact comparison/null semantics and
+  preserve logical work totals. This candidate is qualified separately; no
+  all-workload or production-ready claim follows from operation counts.
+
 - Enable ZPM's guarded factorized aggregate operators: aggregate fact measures
   before unique-key dimension joins, and carry typed COUNT/SUM producer state
   through eligible grouped CTE/derived consumers. Both borrow initialized query
