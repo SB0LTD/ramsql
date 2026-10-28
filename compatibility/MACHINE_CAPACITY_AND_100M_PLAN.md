@@ -18,9 +18,11 @@ replaced; successful 1M-row tests cannot be extrapolated into 100M-row claims.
 Published beta.2 serializes SQL. Development now supports concurrent simple
 autocommit PostgreSQL simple and eligible extended reads; transactions, suspended
 portals and mutations remain exclusive. The reviewer's actual dbMeter JDBC suite
-now reproduces concurrency and passes 7/7 million-row sales-subset checks with an
-explicit Linux text-32 profile. Exact integral COUNT(DISTINCT) uses bounded bitmap
-states. Schema/value/parser/connection bounds,
+now reproduces concurrency and passes 7/7 million-row sales-subset checks with the
+default Windows text-128 build and an explicit Linux text-32 profile, using
+unequal runtime banks. Eight-client analytics reach 28.5 / 43.6 queries/s for
+Windows text-128 / text-32; IRDB reaches 1,053.6 in the matched reference trial.
+Exact integral COUNT(DISTINCT) uses bounded bitmap states. Schema/value/parser/connection bounds,
 fully materialized intermediates, per-client response reservations, absent
 checkpoints and incomplete dialect support remain visible blockers.
 

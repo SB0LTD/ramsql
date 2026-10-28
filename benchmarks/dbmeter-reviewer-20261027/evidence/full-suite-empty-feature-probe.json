@@ -1,0 +1,148 @@
+{
+  "schema": 1,
+  "method": "Empty-table SQL capability probe only; no five-million-row dataset, expected CSV check or throughput claim. Schema definitions adapted to memory mode, no schema namespace or generator SQL. Original query text retained except bound store_id=1.",
+  "binary_sha256": "35df8ab53dce250269a64719c01effd44e27ce7d8afd20e65f051b0f5ff82bd0",
+  "schema_statements": [
+    "CREATE TABLE regions(id INT PRIMARY KEY,name TEXT NOT NULL)",
+    "CREATE TABLE stores(id INT PRIMARY KEY,region_id INT NOT NULL,name TEXT NOT NULL)",
+    "CREATE TABLE categories(id INT PRIMARY KEY,name TEXT NOT NULL)",
+    "CREATE TABLE products(id INT PRIMARY KEY,category_id INT NOT NULL,unit_price_cents INT NOT NULL)",
+    "CREATE TABLE customers(id INT PRIMARY KEY,segment TEXT NOT NULL)",
+    "CREATE TABLE sales(id BIGINT PRIMARY KEY,product_id INT NOT NULL,store_id INT NOT NULL,customer_id INT NOT NULL,sale_date DATE NOT NULL,quantity INT NOT NULL,discount_pct INT NOT NULL,amount_cents BIGINT NOT NULL)"
+  ],
+  "queries": [
+    {
+      "file": "q1_region_month.sql",
+      "original_sha256": "dccd89d79939fb6fd36c8c7d05521f1c5c57bef79a1db1b27a8ade834f998c78",
+      "errors": [
+        {
+          "S": "ERROR",
+          "V": "ERROR",
+          "C": "42883",
+          "M": "UndefinedFunction"
+        }
+      ],
+      "empty_rows": []
+    },
+    {
+      "file": "q2_category_rank.sql",
+      "original_sha256": "2d940af6636182ea30ff7bd6c40e21ded2a18b60652e99d45dd8877b73ae416d",
+      "errors": [
+        {
+          "S": "ERROR",
+          "V": "ERROR",
+          "C": "42601",
+          "M": "Syntax"
+        }
+      ],
+      "empty_rows": []
+    },
+    {
+      "file": "q3_top_products.sql",
+      "original_sha256": "86814a8853215ca44d6686120ad7bc22f230ff8bf2d8b1e495c6a5666881b3f0",
+      "errors": [
+        {
+          "S": "ERROR",
+          "V": "ERROR",
+          "C": "42601",
+          "M": "Syntax"
+        }
+      ],
+      "empty_rows": []
+    },
+    {
+      "file": "q4_segment_discount_rollup.sql",
+      "original_sha256": "60a9369f688e0056b5ff5f057e3f8cb4ddf0f276f2cda153ae3a6e32c6d99277",
+      "errors": [
+        {
+          "S": "ERROR",
+          "V": "ERROR",
+          "C": "42883",
+          "M": "UndefinedFunction"
+        }
+      ],
+      "empty_rows": []
+    },
+    {
+      "file": "q5_high_value_customers.sql",
+      "original_sha256": "3422d4d062b751cf5454a307fea515ba74b9efdca950f2e890a6cab6f97f77e8",
+      "errors": [
+        {
+          "S": "ERROR",
+          "V": "ERROR",
+          "C": "42883",
+          "M": "UndefinedFunction"
+        }
+      ],
+      "empty_rows": []
+    },
+    {
+      "file": "q6_store_category_mix.sql",
+      "original_sha256": "e6e74d2545657d2fb8d93e537557844da8b5fd68fa045f3aa9ec7d31b48977b2",
+      "errors": [],
+      "empty_rows": []
+    }
+  ],
+  "isolated_features": [
+    {
+      "name": "date_format",
+      "sql": "SELECT to_char(DATE '2025-01-01','YYYY-MM')",
+      "errors": [
+        {
+          "S": "ERROR",
+          "V": "ERROR",
+          "C": "42883",
+          "M": "UndefinedFunction"
+        }
+      ]
+    },
+    {
+      "name": "numeric_round",
+      "sql": "SELECT ROUND(12.345,2)",
+      "errors": [
+        {
+          "S": "ERROR",
+          "V": "ERROR",
+          "C": "42883",
+          "M": "UndefinedFunction"
+        }
+      ]
+    },
+    {
+      "name": "window_rank",
+      "sql": "SELECT RANK() OVER (ORDER BY id) FROM sales",
+      "errors": [
+        {
+          "S": "ERROR",
+          "V": "ERROR",
+          "C": "42601",
+          "M": "Syntax"
+        }
+      ]
+    },
+    {
+      "name": "window_sum",
+      "sql": "SELECT SUM(id) OVER () FROM sales",
+      "errors": [
+        {
+          "S": "ERROR",
+          "V": "ERROR",
+          "C": "42601",
+          "M": "Syntax"
+        }
+      ]
+    },
+    {
+      "name": "rollup",
+      "sql": "SELECT store_id,COUNT(*) FROM sales GROUP BY ROLLUP(store_id)",
+      "errors": [
+        {
+          "S": "ERROR",
+          "V": "ERROR",
+          "C": "42883",
+          "M": "UndefinedFunction"
+        }
+      ]
+    }
+  ]
+}

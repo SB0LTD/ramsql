@@ -1,0 +1,3 @@
+{"suite":"sql-index","pass":true,"assertions":239627,"statements":50245,"model_steps":8192,"rejected":1928}
+{"suite":"sql-mvcc","pass":true,"assertions":122,"database_bytes":205024}
+{"suite":"sql-stream-group","pass":true,"assertions":1438,"rows":100000,"query_refs":1024,"joined_rows":100000,"joined_query_refs":512}

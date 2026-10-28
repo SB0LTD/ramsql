@@ -1,0 +1,14 @@
+Run:       ramsql-1000000-8-mixed
+Database:  ramsql [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-28T00:41:27.341Z .. 2026-10-28T00:41:57.622Z (30.3 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +30.3s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s1_region                       124        0         620        4.1    274.20    282.62    331.78    364.54    380.93    541.19
+s2_category                      78        0        1560        2.6    212.96    223.23    274.43    290.82    315.39    316.30
+s3_top_products                 163        0        1630        5.4    191.35    198.66    256.00    266.24    290.82    295.40
+s4_segment_discount             148        0        2368        4.9    314.47    315.39    380.93    389.12    454.66    484.14
+s5_high_value_customers          77        0         308        2.5    335.48    339.97    397.31    413.70    581.31    581.31
+s6_store_category_mix           315        0        6300       10.4    271.27    274.43    331.78    339.97    356.35    368.78
+TOTAL                           905        0       12786       29.9    264.78    274.43    348.16    364.54    405.50    581.31

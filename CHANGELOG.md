@@ -6,6 +6,11 @@ later binary.
 
 ## Unreleased
 
+- Validate direct row-directory candidates for dense integer primary keys using
+  canonical snapshot visibility and exact key checks, with ordinary hash/MVCC
+  fallback. A fixed per-table hint adds no query workspace or per-row index.
+  Three matched million-row JDBC trials improve median throughput from 29.1 to
+  32.8 queries/s; IRDB remains substantially faster on the analytic mix.
 - Reproduce the reviewer's dbMeter JDBC suite with its original SQL/expected
   results and supplied IRDB Java client. Add a benchmark driver with immutable
   source checks, per-engine provenance, bounded JVM heaps and retained failures.
@@ -19,8 +24,9 @@ later binary.
   charging between observable polls with 76,801 equivalence assertions. Avoid
   clearing/copying full prepared SQL capacity for short Parse/Bind messages.
 - Stream exact integral COUNT(DISTINCT) states from caller-owned bitmap storage.
-  The reviewer's million-row sales subset passes 7/7 checks using an explicit
-  Linux text-32 profile. Sparse/wide unsupported domains retain exact general
+  The reviewer's million-row sales subset passes 7/7 checks on Windows with the
+  default text-128 build and Linux with an explicit text-32 profile, using unequal
+  runtime table banks. Sparse/wide unsupported domains retain exact general
   fallback; this does not provide 100M-row physical SQL storage.
 - Retain a fresh ten-case IRDB 1.10.821 native SQL-string replay at 100k rows.
   Every result passes and every case wins the finite speed screen, including

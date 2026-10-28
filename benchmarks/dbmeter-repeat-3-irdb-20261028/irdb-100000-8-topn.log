@@ -1,0 +1,17 @@
+run irdb-100000-8-topn, node local, scenarios: s100000_topn(w1)
+opening 8 connection(s)...
+connected to InMemory.Net IRDB server 127.0.0.1:55660, database size_bench
+[    5.2s] measure  ops       4935      963.8/s  errors      0  active 8/8
+[   10.3s] measure  ops       9691      932.5/s  errors      0  active 8/8
+[   13.0s] done     ops      12347      973.9/s  errors      0  active 0/8
+
+Run:       irdb-100000-8-topn
+Database:  irdb [reports as InMemory.Net IRDB server 127.0.0.1:55660, database size_bench] (driver dbmeter IRDB adapter (jirdb) 0.1)
+Window:    2026-10-28T00:38:17.210Z .. 2026-10-28T00:38:27.217Z (10.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +10.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s100000_topn                   9568        0       95680      956.1      8.35      5.31     19.20     25.86     32.00     55.64
+
+Report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-repeat-3-irdb-20261028\irdb-100000-8-topn\local.json

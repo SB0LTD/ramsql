@@ -1,0 +1,8 @@
+Run:       postgres-100000-8-pk
+Database:  postgres [reports as PostgreSQL 18.3] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-28T00:30:51.771Z .. 2026-10-28T00:31:01.771Z (10.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +10.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s100000_pk                  1444715        0     1444715   144471.5      0.05      0.05      0.07      0.08      0.09      0.81

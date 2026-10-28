@@ -1,0 +1,17 @@
+run ramsql-100000-8-pk, node local, scenarios: s100000_pk(w1)
+opening 8 connection(s)...
+connected to PostgreSQL 16.0
+[    5.4s] measure  ops     831585   161915.2/s  errors      0  active 8/8
+[   10.6s] measure  ops    1652316   159949.8/s  errors      0  active 8/8
+[   13.0s] done     ops    2052321   163910.9/s  errors      0  active 0/8
+
+Run:       ramsql-100000-8-pk
+Database:  ramsql [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-28T00:35:02.934Z .. 2026-10-28T00:35:12.935Z (10.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +10.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s100000_pk                  1625100        0     1625100   162493.8      0.05      0.04      0.06      0.08      0.09      0.96
+
+Report: C:\Just-Things\Projects\sb0\ramsql\benchmarks\dbmeter-repeat-3-ramsql-20261028\ramsql-100000-8-pk\local.json

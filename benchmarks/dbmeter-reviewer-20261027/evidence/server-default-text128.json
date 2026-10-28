@@ -1,0 +1,27 @@
+{
+  "binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\dbmeter-comment-fast\\bin\\ramsql.exe",
+  "sha256": "80f7b74bee8ea48ee716a8e6ab46a6ea8a06296318c29583105b22a9fd4dfed4",
+  "arguments": [
+    "--workers",
+    "4",
+    "--table-rows",
+    "5,200,20,1000,50000,1000000,1,1",
+    "--table-versions",
+    "10,400,40,2000,100000,2000000,2,2",
+    "--work-rows",
+    "65536",
+    "--result-rows",
+    "1024"
+  ],
+  "port": 60466,
+  "pid": 50936,
+  "server_cpu_seconds": 314.578125,
+  "wall_seconds": 85.70299999997951,
+  "memory": {
+    "rss_bytes": 1402851328,
+    "peak_rss_bytes": 1761009664,
+    "private_commit_bytes": 2848411648,
+    "source": "GetProcessMemoryInfo"
+  },
+  "average_cpu_cores_including_checks_and_warmup": 3.670561415587263
+}

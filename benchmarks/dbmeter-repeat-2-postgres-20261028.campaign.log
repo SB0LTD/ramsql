@@ -1,0 +1,7 @@
+checks 0
+postgres-100000-1-pk 0
+postgres-100000-1-filter 0
+postgres-100000-1-topn 0
+postgres-100000-8-pk 0
+postgres-100000-8-filter 0
+postgres-100000-8-topn 0

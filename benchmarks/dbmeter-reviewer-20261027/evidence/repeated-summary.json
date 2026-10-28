@@ -1,0 +1,332 @@
+{
+  "schema": 1,
+  "method": "Three independent JVMs per case, rotating engine order, 3s warmup / 10s measured, original reviewer checks; median/min/max, no confidence claim",
+  "sources": [
+    {
+      "path": "benchmarks\\dbmeter-repeat-1-ramsql-20261028\\results.json",
+      "engine": "ramsql",
+      "trial": 1,
+      "binary": {
+        "path": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\dbmeter-comment-fast\\bin\\ramsql.exe",
+        "sha256": "80f7b74bee8ea48ee716a8e6ab46a6ea8a06296318c29583105b22a9fd4dfed4"
+      },
+      "revision": "630fbb13be21bd4bbdf7afe4b438ce771a8b3fc0"
+    },
+    {
+      "path": "benchmarks\\dbmeter-repeat-1-postgres-20261028\\results.json",
+      "engine": "postgres",
+      "trial": 1,
+      "binary": null,
+      "revision": "630fbb13be21bd4bbdf7afe4b438ce771a8b3fc0"
+    },
+    {
+      "path": "benchmarks\\dbmeter-repeat-1-irdb-20261028\\results.json",
+      "engine": "irdb",
+      "trial": 1,
+      "binary": null,
+      "revision": "630fbb13be21bd4bbdf7afe4b438ce771a8b3fc0"
+    },
+    {
+      "path": "benchmarks\\dbmeter-repeat-2-ramsql-20261028\\results.json",
+      "engine": "ramsql",
+      "trial": 2,
+      "binary": {
+        "path": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\dbmeter-comment-fast\\bin\\ramsql.exe",
+        "sha256": "80f7b74bee8ea48ee716a8e6ab46a6ea8a06296318c29583105b22a9fd4dfed4"
+      },
+      "revision": "630fbb13be21bd4bbdf7afe4b438ce771a8b3fc0"
+    },
+    {
+      "path": "benchmarks\\dbmeter-repeat-2-postgres-20261028\\results.json",
+      "engine": "postgres",
+      "trial": 2,
+      "binary": null,
+      "revision": "630fbb13be21bd4bbdf7afe4b438ce771a8b3fc0"
+    },
+    {
+      "path": "benchmarks\\dbmeter-repeat-2-irdb-20261028\\results.json",
+      "engine": "irdb",
+      "trial": 2,
+      "binary": null,
+      "revision": "630fbb13be21bd4bbdf7afe4b438ce771a8b3fc0"
+    },
+    {
+      "path": "benchmarks\\dbmeter-repeat-3-ramsql-20261028\\results.json",
+      "engine": "ramsql",
+      "trial": 3,
+      "binary": {
+        "path": "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\dbmeter-comment-fast\\bin\\ramsql.exe",
+        "sha256": "80f7b74bee8ea48ee716a8e6ab46a6ea8a06296318c29583105b22a9fd4dfed4"
+      },
+      "revision": "630fbb13be21bd4bbdf7afe4b438ce771a8b3fc0"
+    },
+    {
+      "path": "benchmarks\\dbmeter-repeat-3-postgres-20261028\\results.json",
+      "engine": "postgres",
+      "trial": 3,
+      "binary": null,
+      "revision": "630fbb13be21bd4bbdf7afe4b438ce771a8b3fc0"
+    },
+    {
+      "path": "benchmarks\\dbmeter-repeat-3-irdb-20261028\\results.json",
+      "engine": "irdb",
+      "trial": 3,
+      "binary": null,
+      "revision": "630fbb13be21bd4bbdf7afe4b438ce771a8b3fc0"
+    }
+  ],
+  "groups": [
+    {
+      "engine": "irdb",
+      "rows": 100000,
+      "clients": 1,
+      "query": "filter",
+      "trials": [
+        3013.9,
+        2937.906209379062,
+        2998.0003999200158
+      ],
+      "median": 2998.0003999200158,
+      "minimum": 2937.906209379062,
+      "maximum": 3013.9
+    },
+    {
+      "engine": "irdb",
+      "rows": 100000,
+      "clients": 1,
+      "query": "pk",
+      "trials": [
+        2781.5218478152187,
+        2780.6219378062196,
+        2760.2239776022398
+      ],
+      "median": 2780.6219378062196,
+      "minimum": 2760.2239776022398,
+      "maximum": 2781.5218478152187
+    },
+    {
+      "engine": "irdb",
+      "rows": 100000,
+      "clients": 1,
+      "query": "topn",
+      "trials": [
+        207.7,
+        205.75884823035392,
+        207.2
+      ],
+      "median": 207.2,
+      "minimum": 205.75884823035392,
+      "maximum": 207.7
+    },
+    {
+      "engine": "irdb",
+      "rows": 100000,
+      "clients": 8,
+      "query": "filter",
+      "trials": [
+        6728.925289652417,
+        6597.1833799440665,
+        6768.7
+      ],
+      "median": 6728.925289652417,
+      "minimum": 6597.1833799440665,
+      "maximum": 6768.7
+    },
+    {
+      "engine": "irdb",
+      "rows": 100000,
+      "clients": 8,
+      "query": "pk",
+      "trials": [
+        5617.5382461753825,
+        7672.6,
+        6887.411258874113
+      ],
+      "median": 6887.411258874113,
+      "minimum": 5617.5382461753825,
+      "maximum": 7672.6
+    },
+    {
+      "engine": "irdb",
+      "rows": 100000,
+      "clients": 8,
+      "query": "topn",
+      "trials": [
+        997.7011494252873,
+        1003.9948067512235,
+        956.1307085040472
+      ],
+      "median": 997.7011494252873,
+      "minimum": 956.1307085040472,
+      "maximum": 1003.9948067512235
+    },
+    {
+      "engine": "postgres",
+      "rows": 100000,
+      "clients": 1,
+      "query": "filter",
+      "trials": [
+        367.78966310106966,
+        364.9635036496351,
+        367.1
+      ],
+      "median": 367.1,
+      "minimum": 364.9635036496351,
+      "maximum": 367.78966310106966
+    },
+    {
+      "engine": "postgres",
+      "rows": 100000,
+      "clients": 1,
+      "query": "pk",
+      "trials": [
+        28985.6,
+        28019.5,
+        29189.6
+      ],
+      "median": 28985.6,
+      "minimum": 28019.5,
+      "maximum": 29189.6
+    },
+    {
+      "engine": "postgres",
+      "rows": 100000,
+      "clients": 1,
+      "query": "topn",
+      "trials": [
+        176.78232176782322,
+        181.80909545227385,
+        179.828068772491
+      ],
+      "median": 179.828068772491,
+      "minimum": 176.78232176782322,
+      "maximum": 181.80909545227385
+    },
+    {
+      "engine": "postgres",
+      "rows": 100000,
+      "clients": 8,
+      "query": "filter",
+      "trials": [
+        2280.0439912017596,
+        2312.97481007597,
+        2324.235152969406
+      ],
+      "median": 2312.97481007597,
+      "minimum": 2280.0439912017596,
+      "maximum": 2324.235152969406
+    },
+    {
+      "engine": "postgres",
+      "rows": 100000,
+      "clients": 8,
+      "query": "pk",
+      "trials": [
+        144244.2,
+        144471.5,
+        142431.0
+      ],
+      "median": 144244.2,
+      "minimum": 142431.0,
+      "maximum": 144471.5
+    },
+    {
+      "engine": "postgres",
+      "rows": 100000,
+      "clients": 8,
+      "query": "topn",
+      "trials": [
+        1090.3548225887055,
+        1080.851489106536,
+        1107.65693722511
+      ],
+      "median": 1090.3548225887055,
+      "minimum": 1080.851489106536,
+      "maximum": 1107.65693722511
+    },
+    {
+      "engine": "ramsql",
+      "rows": 100000,
+      "clients": 1,
+      "query": "filter",
+      "trials": [
+        9450.05499450055,
+        9272.472752724729,
+        9392.9
+      ],
+      "median": 9392.9,
+      "minimum": 9272.472752724729,
+      "maximum": 9450.05499450055
+    },
+    {
+      "engine": "ramsql",
+      "rows": 100000,
+      "clients": 1,
+      "query": "pk",
+      "trials": [
+        33419.05809419059,
+        32582.1,
+        32695.830416958306
+      ],
+      "median": 32695.830416958306,
+      "minimum": 32582.1,
+      "maximum": 33419.05809419059
+    },
+    {
+      "engine": "ramsql",
+      "rows": 100000,
+      "clients": 1,
+      "query": "topn",
+      "trials": [
+        772.4772477247724,
+        764.2,
+        816.5183481651835
+      ],
+      "median": 772.4772477247724,
+      "minimum": 764.2,
+      "maximum": 816.5183481651835
+    },
+    {
+      "engine": "ramsql",
+      "rows": 100000,
+      "clients": 8,
+      "query": "filter",
+      "trials": [
+        37555.44445555445,
+        37610.9,
+        37708.829117088295
+      ],
+      "median": 37610.9,
+      "minimum": 37555.44445555445,
+      "maximum": 37708.829117088295
+    },
+    {
+      "engine": "ramsql",
+      "rows": 100000,
+      "clients": 8,
+      "query": "pk",
+      "trials": [
+        147141.48585141488,
+        162515.34846515348,
+        162493.75062493753
+      ],
+      "median": 162493.75062493753,
+      "minimum": 147141.48585141488,
+      "maximum": 162515.34846515348
+    },
+    {
+      "engine": "ramsql",
+      "rows": 100000,
+      "clients": 8,
+      "query": "topn",
+      "trials": [
+        2930.9138172365524,
+        2902.929121263621,
+        3122.1267239656204
+      ],
+      "median": 2930.9138172365524,
+      "minimum": 2902.929121263621,
+      "maximum": 3122.1267239656204
+    }
+  ]
+}
