@@ -1,0 +1,8 @@
+Run:       irdb-5m-8-q5_high_value_customers-trial-1
+Database:  irdb isolated full5M [reports as InMemory.Net IRDB server 127.0.0.1:55660, database full_bench_20261028] (driver dbmeter IRDB adapter (jirdb) 0.1)
+Window:    2026-10-28T14:08:16.515Z .. 2026-10-28T14:09:16.544Z (60.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +60.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+q5_high_value_customers        9635        0       38540      160.5     49.80     47.62     66.56     74.75     99.33    970.81

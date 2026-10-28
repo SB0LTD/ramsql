@@ -85,7 +85,7 @@ Two further experiments were measured and excluded from integration:
 | Narrow groups, accepted candidate | 3 | 151.00 | 1369.80 | Integrate SQL changes |
 | Candidate plus byte fingerprints | 3 | 119.84 | 1162.67 | Hold ZPM PR 58 |
 | Candidate plus cancellation load-before-swap | 3 | 117.50 | 1084.06 | Revert server experiment |
-| Fresh unchanged candidate control | 1 | 119.22 | 1083.14 | Retain host-variation evidence |
+| Fresh unchanged candidate control | 1 | 119.24 | 1083.12 | Retain host-variation evidence |
 
 The fresh unchanged control overlaps the cancellation experiment's performance.
 Thus the measurements establish no repeatable benefit from the server change;
@@ -101,7 +101,21 @@ A fresh original-duration IRDB 1.10.821 single-pair recheck measured **201.7 /
 archive hash matches the latest downloadable archive checked on October 28.
 That reference still exceeds the accepted RAMSQL three-trial medians; mixed
 trial counts and host variation preclude a confidence claim. PostgreSQL and
-IRDB repeated comparisons are being retained separately when complete.
+IRDB repeated comparisons subsequently completed, each running alone with
+fresh JVMs and the same original durations/data/checks:
+
+| Engine | q5 three-trial range/s | q5 median/s | q6 three-trial range/s | q6 median/s | Original checks |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| RAMSQL accepted candidate | 150.10–178.37 | 151.00 | 1255.93–1498.33 | 1369.80 | 3/7 |
+| IRDB 1.10.821 | 160.51–198.43 | 184.21 | 1379.97–1483.48 | 1443.32 | 7/7 |
+| PostgreSQL 18.3 | 4.01–4.43 | 4.28 | 13.28–13.58 | 13.43 | 7/7 |
+
+Every timed operation succeeded. The earlier unchanged RAMSQL control and
+changing reference results show why these sequential campaigns do not prove
+a stable speedup ratio. These two analytical cases also do not establish
+lookup, mixed-write, durable, full-suite or 100M-row leadership. Per-engine
+repeat folders retain every trial, independent check and exact throughput
+calculation; there is no dropped slow trial or substituted workload.
 
 The live workflow [40681800172](https://github.com/benor1470/dbMeter/actions/runs/40681800172)
 completed build and all three collection jobs, then correctly failed the
@@ -110,6 +124,13 @@ actual hosted memory budget rejects the full-data RAMSQL configuration, and
 stock text/column/table capability probes still fail. No reduced data or
 compiled text size substitutes for the original workload. The dbMeter PR
 remains unmerged and no benchmark leadership claim is authorized by this run.
+
+The newer workflow [40703594713](https://github.com/benor1470/dbMeter/actions/runs/40703594713)
+tests the accepted DATE/cascade/narrow-group candidate, with the same outcome:
+build and all three collection jobs succeed; advantage qualification fails,
+without gate-format errors. Stock capability gaps and actual full-data memory
+admission remain blockers. A short smoke mixed run also misses a declared
+scenario, so it supplies no valid mixed-workload comparison.
 
 ## Correctness and measurement evidence
 
@@ -134,6 +155,10 @@ threads at 10ms intervals. They include waiting/ramp/warmup and are diagnostic
 wall-time samples, not hardware cycle counters or throughput measurements.
 The successive profiles identify dimension probes, canonical fact borrowing,
 group comparisons/dispatch, then bucket arithmetic and typed-value overhead.
+The accepted candidate's `profiles/narrow-q5.json` still samples column-value
+returns, numeric comparisons/conversions and group scanning. Draft ZPM PR 59
+tests using private projection destinations and immediate borrowed-column
+copies; it is not included in the accepted candidate or its measurements.
 
 To repeat after preparing the same original full data export and reviewer JAR:
 
