@@ -6,6 +6,13 @@ later binary.
 
 ## Unreleased
 
+- Enable ZPM's guarded factorized aggregate operators: aggregate fact measures
+  before unique-key dimension joins, and carry typed COUNT/SUM producer state
+  through eligible grouped CTE/derived consumers. Both borrow initialized query
+  scratch and retain canonical SQL for unsupported expressions, snapshots,
+  nullable/wide producer totals or insufficient workspace. Runtime measurements
+  and full integration qualification are tracked in the candidate PR; no new
+  benchmark leadership, SQL parity or 100M-row capacity is claimed here.
 - Reuse binder-validated DATE payloads, refine sparse predicate survivors before
   join probes, and prove when grouped aggregates can use 16-byte state in ZPM.
   Three original five-million-row trials measure median q5/q6 throughput of

@@ -91,6 +91,7 @@ const config: sql.Config = .{
     .work_rows = profile.work_rows,
     .summary_groups = profile.summary_groups,
     .compact_integral_scans = profile.compact_integral_scans,
+    .factorized_aggregates = true,
 };
 const Raw = sql.Database(config);
 const Store = stores.Store(Raw);
