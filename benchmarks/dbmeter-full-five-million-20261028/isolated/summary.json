@@ -1,0 +1,142 @@
+{
+  "schema": 1,
+  "method": "Original reviewer full 5M data; one database active; eight JDBC clients; fresh JVM per case, 5s ramp, 15s warmup, 60s measurement. One trial per case, not confidence estimates. RAMSQL all-suite gaps retained. CPU averages include all JVM wall time, not only measured phase.",
+  "runs": [
+    {
+      "engine": "ramsql-w4",
+      "query": "q5_high_value_customers",
+      "count": 250,
+      "errors": 0,
+      "measured_seconds": 61.668,
+      "qps": 4.053966400726471,
+      "report": "isolated/ramsql-w4/ramsql-5m-8-q5_high_value_customers/local.json",
+      "average_server_cores_including_warmup": 3.8958850466481563
+    },
+    {
+      "engine": "ramsql-w4",
+      "query": "q6_store_category_mix",
+      "count": 419,
+      "errors": 0,
+      "measured_seconds": 60.774,
+      "qps": 6.894395629710074,
+      "report": "isolated/ramsql-w4/ramsql-5m-8-q6_store_category_mix/local.json",
+      "average_server_cores_including_warmup": 3.902290930217288
+    },
+    {
+      "engine": "ramsql-w8",
+      "query": "q5_high_value_customers",
+      "count": 405,
+      "errors": 0,
+      "measured_seconds": 60.887,
+      "qps": 6.6516662013237635,
+      "report": "isolated/ramsql-w8/ramsql-5m-8-q5_high_value_customers/local.json",
+      "average_server_cores_including_warmup": 7.667274056976091
+    },
+    {
+      "engine": "ramsql-w8",
+      "query": "q6_store_category_mix",
+      "count": 315,
+      "errors": 0,
+      "measured_seconds": 61.44,
+      "qps": 5.126953125,
+      "report": "isolated/ramsql-w8/ramsql-5m-8-q6_store_category_mix/local.json",
+      "average_server_cores_including_warmup": 2.681817206541129
+    },
+    {
+      "engine": "postgres",
+      "query": "q5_high_value_customers",
+      "count": 332,
+      "errors": 0,
+      "measured_seconds": 61.228,
+      "qps": 5.422355784934997,
+      "report": "isolated/postgres/postgres-5m-8-q5_high_value_customers/local.json"
+    },
+    {
+      "engine": "postgres",
+      "query": "q6_store_category_mix",
+      "count": 1227,
+      "errors": 0,
+      "measured_seconds": 60.239,
+      "qps": 20.368864024967216,
+      "report": "isolated/postgres/postgres-5m-8-q6_store_category_mix/local.json"
+    },
+    {
+      "engine": "irdb",
+      "query": "q5_high_value_customers",
+      "count": 12604,
+      "errors": 0,
+      "measured_seconds": 60.008,
+      "qps": 210.0386615117984,
+      "report": "isolated/irdb/irdb-5m-8-q5_high_value_customers/local.json"
+    },
+    {
+      "engine": "irdb",
+      "query": "q6_store_category_mix",
+      "count": 91867,
+      "errors": 0,
+      "measured_seconds": 60.004,
+      "qps": 1531.0145990267315,
+      "report": "isolated/irdb/irdb-5m-8-q6_store_category_mix/local.json"
+    },
+    {
+      "engine": "ramsql-commit-w8",
+      "query": "q5_high_value_customers",
+      "count": 404,
+      "errors": 0,
+      "measured_seconds": 60.814,
+      "qps": 6.643207156246917,
+      "report": "isolated/ramsql-commit-w8/ramsql-5m-8-q5_high_value_customers/local.json",
+      "average_server_cores_including_warmup": 7.670830039279008
+    },
+    {
+      "engine": "ramsql-commit-w8",
+      "query": "q6_store_category_mix",
+      "count": 752,
+      "errors": 0,
+      "measured_seconds": 60.557,
+      "qps": 12.41805241342867,
+      "report": "isolated/ramsql-commit-w8/ramsql-5m-8-q6_store_category_mix/local.json",
+      "average_server_cores_including_warmup": 7.674042298734191
+    },
+    {
+      "engine": "ramsql-before-repeat2",
+      "query": "q6_store_category_mix",
+      "count": 201,
+      "errors": 0,
+      "measured_seconds": 61.602,
+      "qps": 3.2628810752897635,
+      "report": "isolated/ramsql-before-repeat2/ramsql-5m-8-q6_store_category_mix/local.json",
+      "average_server_cores_including_warmup": 1.7705133226446554
+    },
+    {
+      "engine": "ramsql-before-repeat3",
+      "query": "q6_store_category_mix",
+      "count": 206,
+      "errors": 0,
+      "measured_seconds": 62.517,
+      "qps": 3.2951037317849545,
+      "report": "isolated/ramsql-before-repeat3/ramsql-5m-8-q6_store_category_mix/local.json",
+      "average_server_cores_including_warmup": 1.6690620272314676
+    },
+    {
+      "engine": "ramsql-commit-repeat2",
+      "query": "q6_store_category_mix",
+      "count": 721,
+      "errors": 0,
+      "measured_seconds": 60.571,
+      "qps": 11.903386108863979,
+      "report": "isolated/ramsql-commit-repeat2/ramsql-5m-8-q6_store_category_mix/local.json",
+      "average_server_cores_including_warmup": 7.695924424943204
+    },
+    {
+      "engine": "ramsql-commit-repeat3",
+      "query": "q6_store_category_mix",
+      "count": 706,
+      "errors": 0,
+      "measured_seconds": 60.523,
+      "qps": 11.664986864497793,
+      "report": "isolated/ramsql-commit-repeat3/ramsql-5m-8-q6_store_category_mix/local.json",
+      "average_server_cores_including_warmup": 7.686748201889137
+    }
+  ]
+}

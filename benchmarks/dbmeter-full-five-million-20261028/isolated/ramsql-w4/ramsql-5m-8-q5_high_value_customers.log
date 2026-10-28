@@ -1,0 +1,19 @@
+run ramsql-5m-8-q5_high_value_customers, node local, scenarios: q5_high_value_customers(w1)
+opening 8 connection(s)...
+connected to PostgreSQL 16.0
+[   20.4s] measure  ops         79        3.9/s  errors      0  active 8/8
+[   40.5s] measure  ops        163        4.2/s  errors      0  active 8/8
+[   60.6s] measure  ops        247        4.2/s  errors      0  active 8/8
+[   80.7s] done     ops        329        4.1/s  errors      0  active 6/8
+[   81.7s] done     ops        335        5.9/s  errors      0  active 0/8
+
+Run:       ramsql-5m-8-q5_high_value_customers
+Database:  RAMSQL full5M [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-28T02:50:13.133Z .. 2026-10-28T02:51:14.801Z (61.7 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +61.7s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+q5_high_value_customers         250        0        1000        4.1   1923.32   1916.93   2015.23   2048.00   2080.77   2111.94
+
+Report: C:\Just-Things\Projects\sb0\ramsql\.sig-cache\dbmeter-isolated-full-ramsql-w4\ramsql-5m-8-q5_high_value_customers\local.json

@@ -1,0 +1,13 @@
+2026-10-28 05:16:27.065 IST [43408] LOG:  starting PostgreSQL 18.3 on x86_64-windows, compiled by msvc-19.44.35222, 64-bit
+2026-10-28 05:16:27.066 IST [43408] LOG:  listening on IPv4 address "127.0.0.1", port 55439
+2026-10-28 05:16:27.118 IST [34176] LOG:  database system was shut down at 2026-10-28 04:49:38 IST
+2026-10-28 05:16:27.127 IST [43408] LOG:  database system is ready to accept connections
+2026-10-28 05:18:10.536 IST [43408] LOG:  could not reserve shared memory region (addr=00000243D3BE0000) for child 00000000000016A8: error code 487
+2026-10-28 05:19:06.556 IST [43408] LOG:  could not reserve shared memory region (addr=00000243D3BE0000) for child 0000000000000F80: error code 487
+2026-10-28 05:19:17.807 IST [43408] LOG:  received fast shutdown request
+2026-10-28 05:19:17.810 IST [43408] LOG:  aborting any active transactions
+2026-10-28 05:19:17.813 IST [43408] LOG:  background worker "logical replication launcher" (PID 33044) exited with exit code 1
+2026-10-28 05:19:17.814 IST [21996] LOG:  shutting down
+2026-10-28 05:19:17.814 IST [21996] LOG:  checkpoint starting: shutdown immediate
+2026-10-28 05:19:17.821 IST [21996] LOG:  checkpoint complete: wrote 0 buffers (0.0%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.003 s, sync=0.002 s, total=0.008 s; sync files=2, longest=0.001 s, average=0.001 s; distance=0 kB, estimate=0 kB; lsn=0/1FAFB30, redo lsn=0/1FAFB30
+2026-10-28 05:19:17.850 IST [43408] LOG:  database system is shut down

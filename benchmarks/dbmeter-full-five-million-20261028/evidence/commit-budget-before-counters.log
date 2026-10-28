@@ -1,0 +1,14 @@
+compile: tests/test_machine_resources.sig -> C:\Just-Things\Projects\sb0\zpm-parallel-read\sig-out\bin\contract-machine-resources.exe (178 modules)
+compile: tests/test_budgeted_region.sig -> C:\Just-Things\Projects\sb0\zpm-parallel-read\sig-out\bin\contract-budgeted-region.exe (178 modules)
+compile: executable verified at C:\Just-Things\Projects\sb0\zpm-parallel-read\sig-out\bin\contract-budgeted-region.exe
+compile: executable verified at C:\Just-Things\Projects\sb0\zpm-parallel-read\sig-out\bin\contract-machine-resources.exe
+PASS budgeted regions: native rounding, unique ownership, pressure and OS failure rollback
+process commit observation=154333184, independent private commit=68390912, resident=4784128
+FAILED resource observation assertion 30060
+error: ResourceObservationContract
+
+FAIL: step 'run-contract-machine-resources' exited with code 1
+
+Build summary: 260 total, 3 succeeded, 0 cached, 1 failed, 256 skipped in 7095 ms
+error: native build runner failed with exited with code 1:
+.sig-cache\o/5b5bf390d66d9eff20a54cab1298162e/sig_build_runner.exe C:\Users\Shado\AppData\Local\Programs\Sig\0.6.4\bin\sig.exe C:\Just-Things\Projects\sb0\ramsql\.sig-cache\portable-toolchain-0df\lib C:\Just-Things\Projects\sb0\zpm-parallel-read .sig-cache C:\Users\Shado\AppData\Local\sig C:\Just-Things\Projects\sb0\zpm-parallel-read\build.sig test-machine-resources -Doptimize=ReleaseSafe

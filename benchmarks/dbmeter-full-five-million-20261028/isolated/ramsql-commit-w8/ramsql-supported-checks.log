@@ -1,0 +1,6 @@
+PASS  a_totals                                       8.28 ms
+PASS  q5_high_value_customers                      798.01 ms
+PASS  q6_store_category_mix                        641.58 ms
+
+3 check(s): 3 passed, 0 failed
+JUnit report: C:\Just-Things\Projects\sb0\ramsql\.sig-cache\dbmeter-isolated-full-ramsql-commit-w8\ramsql-supported-checks.xml

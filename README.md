@@ -226,6 +226,8 @@ The [actual five-million-row campaign](benchmarks/dbmeter-full-five-million-2026
 loads the full data with the default text build and passes totals plus two
 original queries. Four queries remain unsupported, and the tested scans/joins
 remain substantially slower than IRDB. This is not full-suite qualification.
+The report includes isolated original-duration comparisons, raw reports and
+workspace-admission diagnostics; results apply to the recorded binary hashes.
 
 To reproduce size-scaling runs after building dbMeter, installing its configured
 drivers and running its original generator:

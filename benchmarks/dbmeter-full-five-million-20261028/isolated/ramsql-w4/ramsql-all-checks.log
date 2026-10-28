@@ -1,0 +1,14 @@
+PASS  a_totals                                       8.64 ms
+FAIL  q1_region_month                                1.36 ms
+        error: ERROR: UndefinedFunction [SQLState 42883]
+FAIL  q2_category_rank                               0.39 ms
+        error: ERROR: Syntax [SQLState 42601]
+FAIL  q3_top_products                                0.26 ms
+        error: ERROR: Syntax [SQLState 42601]
+FAIL  q4_segment_discount_rollup                     0.23 ms
+        error: ERROR: UndefinedFunction [SQLState 42883]
+PASS  q5_high_value_customers                      943.35 ms
+PASS  q6_store_category_mix                        608.96 ms
+
+7 check(s): 3 passed, 4 failed
+JUnit report: C:\Just-Things\Projects\sb0\ramsql\.sig-cache\dbmeter-isolated-full-ramsql-w4\ramsql-all-checks.xml

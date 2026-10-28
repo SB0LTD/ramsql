@@ -1,0 +1,11 @@
+compile: tests/test_machine_resources.sig -> C:\Just-Things\Projects\sb0\zpm-parallel-read\sig-out\bin\contract-machine-resources.exe (178 modules)
+compile: tests/test_resource_budget.sig -> C:\Just-Things\Projects\sb0\zpm-parallel-read\sig-out\bin\contract-resource-budget.exe (178 modules)
+compile: tests/test_budgeted_region.sig -> C:\Just-Things\Projects\sb0\zpm-parallel-read\sig-out\bin\contract-budgeted-region.exe (178 modules)
+compile: executable verified at C:\Just-Things\Projects\sb0\zpm-parallel-read\sig-out\bin\contract-resource-budget.exe
+compile: executable verified at C:\Just-Things\Projects\sb0\zpm-parallel-read\sig-out\bin\contract-budgeted-region.exe
+compile: executable verified at C:\Just-Things\Projects\sb0\zpm-parallel-read\sig-out\bin\contract-machine-resources.exe
+PASS budgeted regions: native rounding, unique ownership, pressure and OS failure rollback
+PASS native resource observations: 30073 assertions; native=windows
+PASS resource budgets: 25050 assertions; synthetic observations; native concurrent grants=80000
+
+Build summary: 260 total, 8 succeeded, 0 cached, 0 failed, 252 skipped in 7382 ms

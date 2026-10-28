@@ -1,0 +1,19 @@
+run ramsql-5m-8-q6_store_category_mix, node local, scenarios: q6_store_category_mix(w4)
+opening 8 connection(s)...
+connected to PostgreSQL 16.0
+[   20.3s] measure  ops        101        5.0/s  errors      0  active 8/8
+[   40.4s] measure  ops        214        5.6/s  errors      0  active 8/8
+[   60.4s] measure  ops        303        4.4/s  errors      0  active 8/8
+[   80.5s] done     ops        420        5.8/s  errors      0  active 4/8
+[   81.4s] done     ops        424        4.3/s  errors      0  active 0/8
+
+Run:       ramsql-5m-8-q6_store_category_mix
+Database:  RAMSQL full5M [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-28T02:54:30.723Z .. 2026-10-28T02:55:32.163Z (61.4 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +61.4s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+q6_store_category_mix           315        0        6300        5.1   1531.74   1523.71   2654.21   3047.42   3506.18   5221.32
+
+Report: C:\Just-Things\Projects\sb0\ramsql\.sig-cache\dbmeter-isolated-full-ramsql-w8\ramsql-5m-8-q6_store_category_mix\local.json
