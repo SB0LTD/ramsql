@@ -1,5 +1,10 @@
 # Benchmarks
 
+Latest repeated screening and unchanged-build controls:
+[projection, operator specialization and exact byte-domain experiments](dbmeter-follow-up-20261028/REPORT.md).
+All three remain draft experiments; their measured ranges do not establish
+the required significant advantage. Complete positive/negative trials are retained.
+
 Latest full-data profiling campaign:
 [streaming execution on the reviewer's actual five million rows](dbmeter-streaming-20261028/REPORT.md).
 It retains the remaining unsupported checks and a slower experimental result;

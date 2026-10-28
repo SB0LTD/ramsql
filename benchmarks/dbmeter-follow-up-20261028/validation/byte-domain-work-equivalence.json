@@ -1,0 +1,16 @@
+{
+  "equivalent": true,
+  "cases": [
+    "literal-work implicit used=732",
+    "literal-work store=0 used=706",
+    "literal-work store=1 used=692",
+    "literal-work store=2 used=825",
+    "literal-work store=3 used=825",
+    "literal-work store=4 used=704",
+    "literal-work store=5 used=704",
+    "literal-work store=6 used=837",
+    "literal-work store=7 used=837"
+  ],
+  "before_source": "9606877fcd05157af52e2965c5240388d68cc4a9",
+  "after_source": "b0312de136513434d6863dad285b7eb54853b4b2"
+}

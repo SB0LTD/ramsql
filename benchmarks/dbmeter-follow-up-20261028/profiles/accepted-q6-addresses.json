@@ -1,0 +1,1594 @@
+{
+  "schema": 1,
+  "diagnostic_only": true,
+  "method": "10ms wall-time instruction-pointer samples of every owned non-main server thread (including reactor and runtime workers) during original full5M q6 JDBC load. Threads resumed in finally. Includes ramp/warmup/waiting; not PMU CPU events, cycle attribution or a throughput comparison. No builds/reference services run concurrently.",
+  "binary_sha256": "13295d70629a19c5eaf67d8ac5a219bf340cc2b252ed018601e17f78ee3b4ba1",
+  "rows": 5000000,
+  "workers": 8,
+  "clients": 8,
+  "wall_seconds": 17.18799999996554,
+  "threads": [
+    {
+      "tid": 60300,
+      "cpu_seconds": 0.03125,
+      "samples": 1590
+    },
+    {
+      "tid": 56704,
+      "cpu_seconds": 0.0,
+      "samples": 1590
+    },
+    {
+      "tid": 41836,
+      "cpu_seconds": 0.015625,
+      "samples": 1590
+    },
+    {
+      "tid": 65520,
+      "cpu_seconds": 16.21875,
+      "samples": 1590
+    },
+    {
+      "tid": 66828,
+      "cpu_seconds": 16.03125,
+      "samples": 1590
+    },
+    {
+      "tid": 19244,
+      "cpu_seconds": 15.40625,
+      "samples": 1590
+    },
+    {
+      "tid": 59544,
+      "cpu_seconds": 14.8125,
+      "samples": 1590
+    },
+    {
+      "tid": 47416,
+      "cpu_seconds": 14.125,
+      "samples": 1590
+    },
+    {
+      "tid": 65512,
+      "cpu_seconds": 13.609375,
+      "samples": 1590
+    },
+    {
+      "tid": 22168,
+      "cpu_seconds": 13.015625,
+      "samples": 1590
+    },
+    {
+      "tid": 43568,
+      "cpu_seconds": 12.421875,
+      "samples": 1590
+    }
+  ],
+  "samples": 17490,
+  "instruction_addresses": [
+    {
+      "name": "NtWaitForWorkViaWorkerFactory",
+      "samples": 4770,
+      "rip": "0x7ffd3d7e5a24",
+      "module_offset": null,
+      "symbol_offset": "0x14"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 3103,
+      "rip": "0x7ff6dd009e9e",
+      "module_offset": "0x79e9e",
+      "symbol_offset": "0xb6e"
+    },
+    {
+      "name": "NtWaitForSingleObject",
+      "samples": 1679,
+      "rip": "0x7ffd3d7e1dd4",
+      "module_offset": null,
+      "symbol_offset": "0x14"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 1207,
+      "rip": "0x7ff6dd00d028",
+      "module_offset": "0x7d028",
+      "symbol_offset": "0x3cf8"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 480,
+      "rip": "0x7ff6dd00a8b0",
+      "module_offset": "0x7a8b0",
+      "symbol_offset": "0x1580"
+    },
+    {
+      "name": "pollRead",
+      "samples": 273,
+      "rip": "0x7ff6dd054f01",
+      "module_offset": "0xc4f01",
+      "symbol_offset": "0x11"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 256,
+      "rip": "0x7ff6dd00a8e8",
+      "module_offset": "0x7a8e8",
+      "symbol_offset": "0x15b8"
+    },
+    {
+      "name": "ZwWaitForAlertByThreadId",
+      "samples": 242,
+      "rip": "0x7ffd3d7e59c4",
+      "module_offset": null,
+      "symbol_offset": "0x14"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 190,
+      "rip": "0x7ff6dd00a842",
+      "module_offset": "0x7a842",
+      "symbol_offset": "0x1512"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 159,
+      "rip": "0x7ff6dd00a879",
+      "module_offset": "0x7a879",
+      "symbol_offset": "0x1549"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 155,
+      "rip": "0x7ff6dd00a91c",
+      "module_offset": "0x7a91c",
+      "symbol_offset": "0x15ec"
+    },
+    {
+      "name": "lookupVersionAt",
+      "samples": 154,
+      "rip": "0x7ff6dcfdccae",
+      "module_offset": "0x4ccae",
+      "symbol_offset": "0x3be"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 150,
+      "rip": "0x7ff6dd00a950",
+      "module_offset": "0x7a950",
+      "symbol_offset": "0x1620"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 117,
+      "rip": "0x7ff6dd00a7e0",
+      "module_offset": "0x7a7e0",
+      "symbol_offset": "0x14b0"
+    },
+    {
+      "name": "NtDeviceIoControlFile",
+      "samples": 114,
+      "rip": "0x7ffd3d7e1e34",
+      "module_offset": null,
+      "symbol_offset": "0x14"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 113,
+      "rip": "0x7ff6dd00a80b",
+      "module_offset": "0x7a80b",
+      "symbol_offset": "0x14db"
+    },
+    {
+      "name": "lookupVersionAt",
+      "samples": 84,
+      "rip": "0x7ff6dcfdc9e0",
+      "module_offset": "0x4c9e0",
+      "symbol_offset": "0xf0"
+    },
+    {
+      "name": "truth",
+      "samples": 79,
+      "rip": "0x7ff6dcff06fd",
+      "module_offset": "0x606fd",
+      "symbol_offset": "0xf0d"
+    },
+    {
+      "name": "lookupVersionAt",
+      "samples": 63,
+      "rip": "0x7ff6dcfdcc7a",
+      "module_offset": "0x4cc7a",
+      "symbol_offset": "0x38a"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 41,
+      "rip": "0x7ff6dd009c8e",
+      "module_offset": "0x79c8e",
+      "symbol_offset": "0x95e"
+    },
+    {
+      "name": "truth",
+      "samples": 38,
+      "rip": "0x7ff6dcff03e5",
+      "module_offset": "0x603e5",
+      "symbol_offset": "0xbf5"
+    },
+    {
+      "name": "streamGroup",
+      "samples": 37,
+      "rip": "0x7ff6dd006223",
+      "module_offset": "0x76223",
+      "symbol_offset": "0x12a3"
+    },
+    {
+      "name": "compare",
+      "samples": 37,
+      "rip": "0x7ff6dd084151",
+      "module_offset": "0xf4151",
+      "symbol_offset": "0x21"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 34,
+      "rip": "0x7ff6dd00a8ba",
+      "module_offset": "0x7a8ba",
+      "symbol_offset": "0x158a"
+    },
+    {
+      "name": "fastMemset",
+      "samples": 34,
+      "rip": "0x7ff6dd114200",
+      "module_offset": "0x184200",
+      "symbol_offset": "0xe0"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 33,
+      "rip": "0x7ff6dd00a926",
+      "module_offset": "0x7a926",
+      "symbol_offset": "0x15f6"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 32,
+      "rip": "0x7ff6dd00a8be",
+      "module_offset": "0x7a8be",
+      "symbol_offset": "0x158e"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 31,
+      "rip": "0x7ff6dd009d22",
+      "module_offset": "0x79d22",
+      "symbol_offset": "0x9f2"
+    },
+    {
+      "name": "truth",
+      "samples": 30,
+      "rip": "0x7ff6dcfefd73",
+      "module_offset": "0x5fd73",
+      "symbol_offset": "0x583"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 30,
+      "rip": "0x7ff6dd00a7ea",
+      "module_offset": "0x7a7ea",
+      "symbol_offset": "0x14ba"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 29,
+      "rip": "0x7ff6dd00a92a",
+      "module_offset": "0x7a92a",
+      "symbol_offset": "0x15fa"
+    },
+    {
+      "name": "fastMemset",
+      "samples": 29,
+      "rip": "0x7ff6dd1141ed",
+      "module_offset": "0x1841ed",
+      "symbol_offset": "0xcd"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 28,
+      "rip": "0x7ff6dd00a815",
+      "module_offset": "0x7a815",
+      "symbol_offset": "0x14e5"
+    },
+    {
+      "name": "fastMemset",
+      "samples": 26,
+      "rip": "0x7ff6dd1141f7",
+      "module_offset": "0x1841f7",
+      "symbol_offset": "0xd7"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 26,
+      "rip": "0x7ff6dd009c7a",
+      "module_offset": "0x79c7a",
+      "symbol_offset": "0x94a"
+    },
+    {
+      "name": "fastMemset",
+      "samples": 25,
+      "rip": "0x7ff6dd1141e0",
+      "module_offset": "0x1841e0",
+      "symbol_offset": "0xc0"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 25,
+      "rip": "0x7ff6dd009ea2",
+      "module_offset": "0x79ea2",
+      "symbol_offset": "0xb72"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 24,
+      "rip": "0x7ff6dd00d1d2",
+      "module_offset": "0x7d1d2",
+      "symbol_offset": "0x3ea2"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 24,
+      "rip": "0x7ff6dd00a95e",
+      "module_offset": "0x7a95e",
+      "symbol_offset": "0x162e"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 23,
+      "rip": "0x7ff6dd00a7d9",
+      "module_offset": "0x7a7d9",
+      "symbol_offset": "0x14a9"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 23,
+      "rip": "0x7ff6dd00a7ee",
+      "module_offset": "0x7a7ee",
+      "symbol_offset": "0x14be"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 22,
+      "rip": "0x7ff6dd00a8f6",
+      "module_offset": "0x7a8f6",
+      "symbol_offset": "0x15c6"
+    },
+    {
+      "name": "truth",
+      "samples": 21,
+      "rip": "0x7ff6dcfefcbe",
+      "module_offset": "0x5fcbe",
+      "symbol_offset": "0x4ce"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 21,
+      "rip": "0x7ff6dd00a0f1",
+      "module_offset": "0x7a0f1",
+      "symbol_offset": "0xdc1"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 21,
+      "rip": "0x7ff6dd00a883",
+      "module_offset": "0x7a883",
+      "symbol_offset": "0x1553"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 21,
+      "rip": "0x7ff6dd00a84c",
+      "module_offset": "0x7a84c",
+      "symbol_offset": "0x151c"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 20,
+      "rip": "0x7ff6dd00a8f2",
+      "module_offset": "0x7a8f2",
+      "symbol_offset": "0x15c2"
+    },
+    {
+      "name": "lookupVersionAt",
+      "samples": 20,
+      "rip": "0x7ff6dcfdcc2c",
+      "module_offset": "0x4cc2c",
+      "symbol_offset": "0x33c"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 19,
+      "rip": "0x7ff6dd00a887",
+      "module_offset": "0x7a887",
+      "symbol_offset": "0x1557"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 19,
+      "rip": "0x7ff6dd00a95a",
+      "module_offset": "0x7a95a",
+      "symbol_offset": "0x162a"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 19,
+      "rip": "0x7ff6dd00a8de",
+      "module_offset": "0x7a8de",
+      "symbol_offset": "0x15ae"
+    },
+    {
+      "name": "truth",
+      "samples": 17,
+      "rip": "0x7ff6dcfefc47",
+      "module_offset": "0x5fc47",
+      "symbol_offset": "0x457"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 17,
+      "rip": "0x7ff6dd00a819",
+      "module_offset": "0x7a819",
+      "symbol_offset": "0x14e9"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 17,
+      "rip": "0x7ff6dd009610",
+      "module_offset": "0x79610",
+      "symbol_offset": "0x2e0"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 17,
+      "rip": "0x7ff6dd009a10",
+      "module_offset": "0x79a10",
+      "symbol_offset": "0x6e0"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 17,
+      "rip": "0x7ff6dd009c84",
+      "module_offset": "0x79c84",
+      "symbol_offset": "0x954"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 17,
+      "rip": "0x7ff6dd0099da",
+      "module_offset": "0x799da",
+      "symbol_offset": "0x6aa"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 16,
+      "rip": "0x7ff6dd00a8b4",
+      "module_offset": "0x7a8b4",
+      "symbol_offset": "0x1584"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 16,
+      "rip": "0x7ff6dd009627",
+      "module_offset": "0x79627",
+      "symbol_offset": "0x2f7"
+    },
+    {
+      "name": "truth",
+      "samples": 16,
+      "rip": "0x7ff6dcfefdc7",
+      "module_offset": "0x5fdc7",
+      "symbol_offset": "0x5d7"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 16,
+      "rip": "0x7ff6dd00a80f",
+      "module_offset": "0x7a80f",
+      "symbol_offset": "0x14df"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 16,
+      "rip": "0x7ff6dd00a846",
+      "module_offset": "0x7a846",
+      "symbol_offset": "0x1516"
+    },
+    {
+      "name": "truth",
+      "samples": 15,
+      "rip": "0x7ff6dcff0540",
+      "module_offset": "0x60540",
+      "symbol_offset": "0xd50"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 15,
+      "rip": "0x7ff6dd009a2b",
+      "module_offset": "0x79a2b",
+      "symbol_offset": "0x6fb"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 15,
+      "rip": "0x7ff6dd009d14",
+      "module_offset": "0x79d14",
+      "symbol_offset": "0x9e4"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 15,
+      "rip": "0x7ff6dd0095e6",
+      "module_offset": "0x795e6",
+      "symbol_offset": "0x2b6"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 15,
+      "rip": "0x7ff6dd00a8a6",
+      "module_offset": "0x7a8a6",
+      "symbol_offset": "0x1576"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 14,
+      "rip": "0x7ff6dd00a8fd",
+      "module_offset": "0x7a8fd",
+      "symbol_offset": "0x15cd"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 14,
+      "rip": "0x7ff6dd00a850",
+      "module_offset": "0x7a850",
+      "symbol_offset": "0x1520"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 14,
+      "rip": "0x7ff6dd00a946",
+      "module_offset": "0x7a946",
+      "symbol_offset": "0x1616"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 14,
+      "rip": "0x7ff6dd009a49",
+      "module_offset": "0x79a49",
+      "symbol_offset": "0x719"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 14,
+      "rip": "0x7ff6dd00a962",
+      "module_offset": "0x7a962",
+      "symbol_offset": "0x1632"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 14,
+      "rip": "0x7ff6dd009c87",
+      "module_offset": "0x79c87",
+      "symbol_offset": "0x957"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 14,
+      "rip": "0x7ff6dd0096e0",
+      "module_offset": "0x796e0",
+      "symbol_offset": "0x3b0"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 13,
+      "rip": "0x7ff6dd00964a",
+      "module_offset": "0x7964a",
+      "symbol_offset": "0x31a"
+    },
+    {
+      "name": "pollRead",
+      "samples": 13,
+      "rip": "0x7ff6dd054ef0",
+      "module_offset": "0xc4ef0",
+      "symbol_offset": "0x0"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 13,
+      "rip": "0x7ff6dd009ce2",
+      "module_offset": "0x79ce2",
+      "symbol_offset": "0x9b2"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 13,
+      "rip": "0x7ff6dd009c69",
+      "module_offset": "0x79c69",
+      "symbol_offset": "0x939"
+    },
+    {
+      "name": "truth",
+      "samples": 13,
+      "rip": "0x7ff6dcfefbc1",
+      "module_offset": "0x5fbc1",
+      "symbol_offset": "0x3d1"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 13,
+      "rip": "0x7ff6dd00d126",
+      "module_offset": "0x7d126",
+      "symbol_offset": "0x3df6"
+    },
+    {
+      "name": "compare",
+      "samples": 12,
+      "rip": "0x7ff6dd084130",
+      "module_offset": "0xf4130",
+      "symbol_offset": "0x0"
+    },
+    {
+      "name": "fastMemset",
+      "samples": 12,
+      "rip": "0x7ff6dd1141e8",
+      "module_offset": "0x1841e8",
+      "symbol_offset": "0xc8"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 12,
+      "rip": "0x7ff6dd00a7cd",
+      "module_offset": "0x7a7cd",
+      "symbol_offset": "0x149d"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 12,
+      "rip": "0x7ff6dd00addb",
+      "module_offset": "0x7addb",
+      "symbol_offset": "0x1aab"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 12,
+      "rip": "0x7ff6dd00a88d",
+      "module_offset": "0x7a88d",
+      "symbol_offset": "0x155d"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 12,
+      "rip": "0x7ff6dd00a100",
+      "module_offset": "0x7a100",
+      "symbol_offset": "0xdd0"
+    },
+    {
+      "name": "compare",
+      "samples": 12,
+      "rip": "0x7ff6dd0841d2",
+      "module_offset": "0xf41d2",
+      "symbol_offset": "0xa2"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 11,
+      "rip": "0x7ff6dd009c82",
+      "module_offset": "0x79c82",
+      "symbol_offset": "0x952"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 11,
+      "rip": "0x7ff6dd009e60",
+      "module_offset": "0x79e60",
+      "symbol_offset": "0xb30"
+    },
+    {
+      "name": "___chkstk_ms",
+      "samples": 11,
+      "rip": "0x7ff6dd1154ff",
+      "module_offset": "0x1854ff",
+      "symbol_offset": "0x1f"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 11,
+      "rip": "0x7ff6dd009cb0",
+      "module_offset": "0x79cb0",
+      "symbol_offset": "0x980"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 11,
+      "rip": "0x7ff6dd00964e",
+      "module_offset": "0x7964e",
+      "symbol_offset": "0x31e"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 11,
+      "rip": "0x7ff6dd00a8c5",
+      "module_offset": "0x7a8c5",
+      "symbol_offset": "0x1595"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 11,
+      "rip": "0x7ff6dd009cc9",
+      "module_offset": "0x79cc9",
+      "symbol_offset": "0x999"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 11,
+      "rip": "0x7ff6dd00a912",
+      "module_offset": "0x7a912",
+      "symbol_offset": "0x15e2"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 11,
+      "rip": "0x7ff6dd00a804",
+      "module_offset": "0x7a804",
+      "symbol_offset": "0x14d4"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 11,
+      "rip": "0x7ff6dd0096e7",
+      "module_offset": "0x796e7",
+      "symbol_offset": "0x3b7"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 11,
+      "rip": "0x7ff6dd00a8fa",
+      "module_offset": "0x7a8fa",
+      "symbol_offset": "0x15ca"
+    },
+    {
+      "name": "truth",
+      "samples": 11,
+      "rip": "0x7ff6dcfefd1a",
+      "module_offset": "0x5fd1a",
+      "symbol_offset": "0x52a"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 10,
+      "rip": "0x7ff6dd009e9a",
+      "module_offset": "0x79e9a",
+      "symbol_offset": "0xb6a"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 10,
+      "rip": "0x7ff6dd00a87d",
+      "module_offset": "0x7a87d",
+      "symbol_offset": "0x154d"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 10,
+      "rip": "0x7ff6dd00a88a",
+      "module_offset": "0x7a88a",
+      "symbol_offset": "0x155a"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 10,
+      "rip": "0x7ff6dd009d70",
+      "module_offset": "0x79d70",
+      "symbol_offset": "0xa40"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 10,
+      "rip": "0x7ff6dd00a86f",
+      "module_offset": "0x7a86f",
+      "symbol_offset": "0x153f"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 10,
+      "rip": "0x7ff6dd00a936",
+      "module_offset": "0x7a936",
+      "symbol_offset": "0x1606"
+    },
+    {
+      "name": "compare",
+      "samples": 10,
+      "rip": "0x7ff6dd084142",
+      "module_offset": "0xf4142",
+      "symbol_offset": "0x12"
+    },
+    {
+      "name": "lookupVersionAt",
+      "samples": 10,
+      "rip": "0x7ff6dcfdc994",
+      "module_offset": "0x4c994",
+      "symbol_offset": "0xa4"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 10,
+      "rip": "0x7ff6dd00d295",
+      "module_offset": "0x7d295",
+      "symbol_offset": "0x3f65"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 10,
+      "rip": "0x7ff6dd00a838",
+      "module_offset": "0x7a838",
+      "symbol_offset": "0x1508"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 10,
+      "rip": "0x7ff6dd00add9",
+      "module_offset": "0x7add9",
+      "symbol_offset": "0x1aa9"
+    },
+    {
+      "name": "___chkstk_ms",
+      "samples": 10,
+      "rip": "0x7ff6dd1154f9",
+      "module_offset": "0x1854f9",
+      "symbol_offset": "0x19"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 9,
+      "rip": "0x7ff6dd009d4c",
+      "module_offset": "0x79d4c",
+      "symbol_offset": "0xa1c"
+    },
+    {
+      "name": "truth",
+      "samples": 9,
+      "rip": "0x7ff6dcfef867",
+      "module_offset": "0x5f867",
+      "symbol_offset": "0x77"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 9,
+      "rip": "0x7ff6dd00a902",
+      "module_offset": "0x7a902",
+      "symbol_offset": "0x15d2"
+    },
+    {
+      "name": "truth",
+      "samples": 9,
+      "rip": "0x7ff6dcfef81e",
+      "module_offset": "0x5f81e",
+      "symbol_offset": "0x2e"
+    },
+    {
+      "name": "truth",
+      "samples": 9,
+      "rip": "0x7ff6dcff0613",
+      "module_offset": "0x60613",
+      "symbol_offset": "0xe23"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 9,
+      "rip": "0x7ff6dd0099d0",
+      "module_offset": "0x799d0",
+      "symbol_offset": "0x6a0"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 9,
+      "rip": "0x7ff6dd009635",
+      "module_offset": "0x79635",
+      "symbol_offset": "0x305"
+    },
+    {
+      "name": "truth",
+      "samples": 9,
+      "rip": "0x7ff6dcfef7fc",
+      "module_offset": "0x5f7fc",
+      "symbol_offset": "0xc"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 9,
+      "rip": "0x7ff6dd009a1e",
+      "module_offset": "0x79a1e",
+      "symbol_offset": "0x6ee"
+    },
+    {
+      "name": "fastMemset",
+      "samples": 9,
+      "rip": "0x7ff6dd1141fc",
+      "module_offset": "0x1841fc",
+      "symbol_offset": "0xdc"
+    },
+    {
+      "name": "truth",
+      "samples": 9,
+      "rip": "0x7ff6dcff0611",
+      "module_offset": "0x60611",
+      "symbol_offset": "0xe21"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 9,
+      "rip": "0x7ff6dd00a931",
+      "module_offset": "0x7a931",
+      "symbol_offset": "0x1601"
+    },
+    {
+      "name": "truth",
+      "samples": 9,
+      "rip": "0x7ff6dcff0708",
+      "module_offset": "0x60708",
+      "symbol_offset": "0xf18"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 9,
+      "rip": "0x7ff6dd009a03",
+      "module_offset": "0x79a03",
+      "symbol_offset": "0x6d3"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 9,
+      "rip": "0x7ff6dd009650",
+      "module_offset": "0x79650",
+      "symbol_offset": "0x320"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 9,
+      "rip": "0x7ff6dd009a2e",
+      "module_offset": "0x79a2e",
+      "symbol_offset": "0x6fe"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 9,
+      "rip": "0x7ff6dd00a93c",
+      "module_offset": "0x7a93c",
+      "symbol_offset": "0x160c"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 8,
+      "rip": "0x7ff6dd009cbd",
+      "module_offset": "0x79cbd",
+      "symbol_offset": "0x98d"
+    },
+    {
+      "name": "truth",
+      "samples": 8,
+      "rip": "0x7ff6dcfef7f0",
+      "module_offset": "0x5f7f0",
+      "symbol_offset": "0x0"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 8,
+      "rip": "0x7ff6dd009b03",
+      "module_offset": "0x79b03",
+      "symbol_offset": "0x7d3"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 8,
+      "rip": "0x7ff6dd009ad0",
+      "module_offset": "0x79ad0",
+      "symbol_offset": "0x7a0"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 8,
+      "rip": "0x7ff6dd00a85b",
+      "module_offset": "0x7a85b",
+      "symbol_offset": "0x152b"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 8,
+      "rip": "0x7ff6dd009c6c",
+      "module_offset": "0x79c6c",
+      "symbol_offset": "0x93c"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 8,
+      "rip": "0x7ff6dd0099d5",
+      "module_offset": "0x799d5",
+      "symbol_offset": "0x6a5"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 8,
+      "rip": "0x7ff6dd009ee5",
+      "module_offset": "0x79ee5",
+      "symbol_offset": "0xbb5"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 8,
+      "rip": "0x7ff6dd00a965",
+      "module_offset": "0x7a965",
+      "symbol_offset": "0x1635"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 8,
+      "rip": "0x7ff6dd00a0fa",
+      "module_offset": "0x7a0fa",
+      "symbol_offset": "0xdca"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 8,
+      "rip": "0x7ff6dd009608",
+      "module_offset": "0x79608",
+      "symbol_offset": "0x2d8"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 8,
+      "rip": "0x7ff6dd009639",
+      "module_offset": "0x79639",
+      "symbol_offset": "0x309"
+    },
+    {
+      "name": "evalRef",
+      "samples": 8,
+      "rip": "0x7ff6dcfef737",
+      "module_offset": "0x5f737",
+      "symbol_offset": "0xf7"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 8,
+      "rip": "0x7ff6dd0095f8",
+      "module_offset": "0x795f8",
+      "symbol_offset": "0x2c8"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 8,
+      "rip": "0x7ff6dd00a92e",
+      "module_offset": "0x7a92e",
+      "symbol_offset": "0x15fe"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 8,
+      "rip": "0x7ff6dd00964c",
+      "module_offset": "0x7964c",
+      "symbol_offset": "0x31c"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 8,
+      "rip": "0x7ff6dd009a45",
+      "module_offset": "0x79a45",
+      "symbol_offset": "0x715"
+    },
+    {
+      "name": "addAggregates",
+      "samples": 8,
+      "rip": "0x7ff6dd008fd3",
+      "module_offset": "0x78fd3",
+      "symbol_offset": "0x53"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 8,
+      "rip": "0x7ff6dd00a920",
+      "module_offset": "0x7a920",
+      "symbol_offset": "0x15f0"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 8,
+      "rip": "0x7ff6dd00a7c8",
+      "module_offset": "0x7a7c8",
+      "symbol_offset": "0x1498"
+    },
+    {
+      "name": "truth",
+      "samples": 8,
+      "rip": "0x7ff6dcfefbea",
+      "module_offset": "0x5fbea",
+      "symbol_offset": "0x3fa"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 8,
+      "rip": "0x7ff6dd009703",
+      "module_offset": "0x79703",
+      "symbol_offset": "0x3d3"
+    },
+    {
+      "name": "pollRead",
+      "samples": 8,
+      "rip": "0x7ff6dd054f19",
+      "module_offset": "0xc4f19",
+      "symbol_offset": "0x29"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 8,
+      "rip": "0x7ff6dd009eab",
+      "module_offset": "0x79eab",
+      "symbol_offset": "0xb7b"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 8,
+      "rip": "0x7ff6dd00a824",
+      "module_offset": "0x7a824",
+      "symbol_offset": "0x14f4"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 7,
+      "rip": "0x7ff6dd009662",
+      "module_offset": "0x79662",
+      "symbol_offset": "0x332"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 7,
+      "rip": "0x7ff6dd009ac5",
+      "module_offset": "0x79ac5",
+      "symbol_offset": "0x795"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 7,
+      "rip": "0x7ff6dd009a41",
+      "module_offset": "0x79a41",
+      "symbol_offset": "0x711"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 7,
+      "rip": "0x7ff6dd0095ef",
+      "module_offset": "0x795ef",
+      "symbol_offset": "0x2bf"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 7,
+      "rip": "0x7ff6dd009eaf",
+      "module_offset": "0x79eaf",
+      "symbol_offset": "0xb7f"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 7,
+      "rip": "0x7ff6dd009641",
+      "module_offset": "0x79641",
+      "symbol_offset": "0x311"
+    },
+    {
+      "name": "nextStreamTuple",
+      "samples": 7,
+      "rip": "0x7ff6dd009ca6",
+      "module_offset": "0x79ca6",
+      "symbol_offset": "0x976"
+    }
+  ],
+  "symbols": [
+    {
+      "name": "nextStreamTuple",
+      "samples": 8319
+    },
+    {
+      "name": "NtWaitForWorkViaWorkerFactory",
+      "samples": 4770
+    },
+    {
+      "name": "NtWaitForSingleObject",
+      "samples": 1679
+    },
+    {
+      "name": "truth",
+      "samples": 594
+    },
+    {
+      "name": "lookupVersionAt",
+      "samples": 429
+    },
+    {
+      "name": "pollRead",
+      "samples": 327
+    },
+    {
+      "name": "ZwWaitForAlertByThreadId",
+      "samples": 242
+    },
+    {
+      "name": "compare",
+      "samples": 206
+    },
+    {
+      "name": "fastMemset",
+      "samples": 152
+    },
+    {
+      "name": "eval",
+      "samples": 143
+    },
+    {
+      "name": "NtDeviceIoControlFile",
+      "samples": 114
+    },
+    {
+      "name": "streamGroup",
+      "samples": 112
+    },
+    {
+      "name": "evalRef",
+      "samples": 78
+    },
+    {
+      "name": "addAggregates",
+      "samples": 73
+    },
+    {
+      "name": "hash",
+      "samples": 52
+    },
+    {
+      "name": "accumulate",
+      "samples": 49
+    },
+    {
+      "name": "___chkstk_ms",
+      "samples": 45
+    },
+    {
+      "name": "checkpoint",
+      "samples": 26
+    },
+    {
+      "name": "sendBinary",
+      "samples": 12
+    },
+    {
+      "name": "next",
+      "samples": 9
+    },
+    {
+      "name": "interpolate",
+      "samples": 5
+    },
+    {
+      "name": "parse",
+      "samples": 3
+    },
+    {
+      "name": "memcpyFast",
+      "samples": 2
+    },
+    {
+      "name": "bindColumn",
+      "samples": 2
+    },
+    {
+      "name": "projectGroup",
+      "samples": 2
+    },
+    {
+      "name": "expression",
+      "samples": 2
+    },
+    {
+      "name": "collectCascade",
+      "samples": 2
+    },
+    {
+      "name": "entry",
+      "samples": 2
+    },
+    {
+      "name": "bindWhere",
+      "samples": 2
+    },
+    {
+      "name": "ready",
+      "samples": 2
+    },
+    {
+      "name": "dispatch",
+      "samples": 2
+    },
+    {
+      "name": "finishAggregate",
+      "samples": 2
+    },
+    {
+      "name": "find",
+      "samples": 2
+    },
+    {
+      "name": "WahReferenceContextByHandle",
+      "samples": 1
+    },
+    {
+      "name": "keyword",
+      "samples": 1
+    },
+    {
+      "name": "primary",
+      "samples": 1
+    },
+    {
+      "name": "mergeSort__func_630",
+      "samples": 1
+    },
+    {
+      "name": "projectionNode",
+      "samples": 1
+    },
+    {
+      "name": "QueryPerformanceFrequency",
+      "samples": 1
+    },
+    {
+      "name": "RtlVirtualUnwind2",
+      "samples": 1
+    }
+  ],
+  "lines": [
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\exec.sig",
+      "line": 1258,
+      "samples": 3149
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\exec.sig",
+      "line": 1244,
+      "samples": 2450
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\exec.sig",
+      "line": 1274,
+      "samples": 1257
+    },
+    {
+      "name": "pollRead",
+      "file": "C:\\Just-Things\\Projects\\sb0\\ramsql\\src\\server.sig",
+      "line": 265,
+      "samples": 277
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\exec.sig",
+      "line": 1238,
+      "samples": 222
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\exec.sig",
+      "line": 1242,
+      "samples": 217
+    },
+    {
+      "name": "lookupVersionAt",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\storage.sig",
+      "line": 581,
+      "samples": 216
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\exec.sig",
+      "line": 1255,
+      "samples": 174
+    },
+    {
+      "name": "lookupVersionAt",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\storage.sig",
+      "line": 583,
+      "samples": 165
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\expr.sig",
+      "line": 497,
+      "samples": 154
+    },
+    {
+      "name": "fastMemset",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\Programs\\Sig\\0.6.4\\lib\\compiler_rt.sig",
+      "line": 669,
+      "samples": 109
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\exec.sig",
+      "line": 1253,
+      "samples": 106
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\exec.sig",
+      "line": 1259,
+      "samples": 99
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\exec.sig",
+      "line": 1252,
+      "samples": 77
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\exec.sig",
+      "line": 1263,
+      "samples": 55
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\exec.sig",
+      "line": 1239,
+      "samples": 54
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\exec.sig",
+      "line": 1243,
+      "samples": 51
+    },
+    {
+      "name": "compare",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\types.sig",
+      "line": 561,
+      "samples": 51
+    },
+    {
+      "name": "compare",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\types.sig",
+      "line": 570,
+      "samples": 51
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\expr.sig",
+      "line": 518,
+      "samples": 47
+    },
+    {
+      "name": "___chkstk_ms",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\Programs\\Sig\\0.6.4\\lib\\compiler_rt\\stack_probe.sig",
+      "line": 269,
+      "samples": 45
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\expr.sig",
+      "line": 496,
+      "samples": 45
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\expr.sig",
+      "line": 522,
+      "samples": 43
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\exec.sig",
+      "line": 1254,
+      "samples": 43
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\exec.sig",
+      "line": 1261,
+      "samples": 41
+    },
+    {
+      "name": "streamGroup",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\exec.sig",
+      "line": 1487,
+      "samples": 39
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\exec.sig",
+      "line": 1237,
+      "samples": 38
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\expr.sig",
+      "line": 514,
+      "samples": 37
+    },
+    {
+      "name": "evalRef",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\expr.sig",
+      "line": 440,
+      "samples": 37
+    },
+    {
+      "name": "addAggregates",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\exec.sig",
+      "line": 531,
+      "samples": 37
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\expr.sig",
+      "line": 513,
+      "samples": 36
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\expr.sig",
+      "line": 451,
+      "samples": 36
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\expr.sig",
+      "line": 495,
+      "samples": 36
+    },
+    {
+      "name": "compare",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\types.sig",
+      "line": 565,
+      "samples": 35
+    },
+    {
+      "name": "fastMemset",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\Programs\\Sig\\0.6.4\\lib\\compiler_rt.sig",
+      "line": 671,
+      "samples": 34
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\exec.sig",
+      "line": 1287,
+      "samples": 33
+    },
+    {
+      "name": "eval",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\expr.sig",
+      "line": 583,
+      "samples": 32
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\expr.sig",
+      "line": 515,
+      "samples": 32
+    },
+    {
+      "name": "eval",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\expr.sig",
+      "line": 584,
+      "samples": 31
+    },
+    {
+      "name": "compare",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\e10a4f9b17dc9bbba7641c9261ca05e5acdffefc79575b7e207027fef1422e4a\\zpm-9606877fcd05157af52e2965c5240388d68cc4a9\\src\\core\\sql\\types.sig",
+      "line": 560,
+      "samples": 30
+    }
+  ]
+}

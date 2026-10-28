@@ -1,0 +1,19 @@
+literal-work implicit used=732
+literal-work store=0 used=706
+prefix store=0 dimension_probes=20 rejected=224
+literal-work store=1 used=692
+prefix store=1 dimension_probes=18 rejected=225
+literal-work store=2 used=825
+prefix store=2 dimension_probes=39 rejected=225
+literal-work store=3 used=825
+prefix store=3 dimension_probes=38 rejected=225
+literal-work store=4 used=704
+prefix store=4 dimension_probes=21 rejected=225
+literal-work store=5 used=704
+prefix store=5 dimension_probes=20 rejected=225
+literal-work store=6 used=837
+prefix store=6 dimension_probes=41 rejected=225
+literal-work store=7 used=837
+prefix store=7 dimension_probes=41 rejected=225
+plan-local gathered=256 expected=256
+PASS stream prefix: 513 assertions, typed dates, exact independent row model, partial blocks, snapshots, NULL/error ordering and cancellation
