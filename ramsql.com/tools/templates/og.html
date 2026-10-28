@@ -1,0 +1,23 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;box-sizing:border-box}
+body{width:1200px;height:630px;overflow:hidden;background:#05060a;color:#f4f6fb;font-family:Inter,sans-serif;position:relative}
+.bg{position:absolute;inset:0;background:radial-gradient(600px 500px at 88% 50%,rgba(123,92,255,.55),transparent 70%),radial-gradient(500px 400px at 70% 100%,rgba(56,232,255,.25),transparent 70%)}
+.grid{position:absolute;inset:0;background-image:radial-gradient(rgba(150,160,200,.22) 2px,transparent 2px);background-size:40px 40px;-webkit-mask-image:linear-gradient(90deg,transparent 20%,#000 90%)}
+.shield{position:absolute;right:70px;top:50%;transform:translateY(-50%);width:430px;height:430px;-webkit-mask-image:radial-gradient(closest-side,#000 68%,transparent 100%);mix-blend-mode:screen;filter:drop-shadow(0 0 60px rgba(56,232,255,.4))}
+.l{position:absolute;left:72px;top:0;bottom:0;width:680px;display:flex;flex-direction:column;justify-content:center}
+.tag{font:500 22px 'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:#38e8ff;margin-bottom:26px}
+h1{font-size:96px;line-height:1;font-weight:800;letter-spacing:-.045em}
+.g{background:linear-gradient(100deg,#38e8ff,#7b5cff 55%,#ff4ecd);-webkit-background-clip:text;color:transparent}
+.stats{display:flex;gap:44px;margin-top:40px}
+.stats b{display:block;font-size:46px;font-weight:800;letter-spacing:-.03em}
+.stats span{font-size:19px;color:#8b93a7}
+.url{position:absolute;right:72px;top:44px;font:500 24px 'JetBrains Mono',monospace;color:#8b93a7}
+</style></head><body>
+<div class="bg"></div><div class="grid"></div>
+<img class="shield" src="/img/shield.jpg" alt="">
+<div class="l"><div class="tag">RamSQL</div><h1>SQL at the speed of <span class="g">memory.</span></h1>
+<div class="stats"><div><b>1.4M</b><span>reads / sec</span></div><div><b>488&times;</b><span>vs IRDB</span></div><div><b>Free</b><span>personal use</span></div></div></div>
+<div class="url">ramsql.com</div>
+</body></html>
