@@ -1,0 +1,472 @@
+{
+  "schema": 1,
+  "diagnostic_only": true,
+  "method": "10ms wall-time instruction-pointer samples of every owned non-main server thread (including reactor and runtime workers) during original full5M q6 JDBC load. Threads resumed in finally. Includes ramp/warmup/waiting; not PMU CPU events, cycle attribution or a throughput comparison. No builds/reference services run concurrently.",
+  "binary_sha256": "81fe86e6a007d60823c84cb87c6b1f879d74dd8858d9e9b8bd7a6bdb6fdef359",
+  "rows": 5000000,
+  "workers": 8,
+  "clients": 8,
+  "wall_seconds": 17.155999999959022,
+  "threads": [
+    {
+      "tid": 3912,
+      "cpu_seconds": 0.015625,
+      "samples": 1593
+    },
+    {
+      "tid": 55896,
+      "cpu_seconds": 0.0,
+      "samples": 1593
+    },
+    {
+      "tid": 26636,
+      "cpu_seconds": 0.0,
+      "samples": 1593
+    },
+    {
+      "tid": 27212,
+      "cpu_seconds": 16.453125,
+      "samples": 1593
+    },
+    {
+      "tid": 59724,
+      "cpu_seconds": 16.125,
+      "samples": 1593
+    },
+    {
+      "tid": 55928,
+      "cpu_seconds": 15.546875,
+      "samples": 1593
+    },
+    {
+      "tid": 38880,
+      "cpu_seconds": 14.953125,
+      "samples": 1593
+    },
+    {
+      "tid": 54612,
+      "cpu_seconds": 14.296875,
+      "samples": 1593
+    },
+    {
+      "tid": 40124,
+      "cpu_seconds": 13.65625,
+      "samples": 1593
+    },
+    {
+      "tid": 59188,
+      "cpu_seconds": 13.09375,
+      "samples": 1593
+    },
+    {
+      "tid": 54032,
+      "cpu_seconds": 12.546875,
+      "samples": 1593
+    }
+  ],
+  "samples": 17523,
+  "symbols": [
+    {
+      "name": "nextStreamTuple",
+      "samples": 6221
+    },
+    {
+      "name": "NtWaitForWorkViaWorkerFactory",
+      "samples": 4779
+    },
+    {
+      "name": "NtWaitForSingleObject",
+      "samples": 1636
+    },
+    {
+      "name": "eval",
+      "samples": 1559
+    },
+    {
+      "name": "truth",
+      "samples": 959
+    },
+    {
+      "name": "lookupVersionAt",
+      "samples": 565
+    },
+    {
+      "name": "parse",
+      "samples": 246
+    },
+    {
+      "name": "ZwWaitForAlertByThreadId",
+      "samples": 211
+    },
+    {
+      "name": "parseDate",
+      "samples": 170
+    },
+    {
+      "name": "parseFields",
+      "samples": 155
+    },
+    {
+      "name": "applyTypmod",
+      "samples": 145
+    },
+    {
+      "name": "___chkstk_ms",
+      "samples": 121
+    },
+    {
+      "name": "accumulate",
+      "samples": 115
+    },
+    {
+      "name": "cast",
+      "samples": 114
+    },
+    {
+      "name": "compare",
+      "samples": 108
+    },
+    {
+      "name": "pollRead",
+      "samples": 108
+    },
+    {
+      "name": "streamGroup",
+      "samples": 70
+    },
+    {
+      "name": "addAggregates",
+      "samples": 61
+    },
+    {
+      "name": "fastMemset",
+      "samples": 55
+    },
+    {
+      "name": "hash",
+      "samples": 42
+    },
+    {
+      "name": "NtDeviceIoControlFile",
+      "samples": 28
+    },
+    {
+      "name": "monthLength",
+      "samples": 17
+    },
+    {
+      "name": "evalRef",
+      "samples": 13
+    },
+    {
+      "name": "next",
+      "samples": 5
+    },
+    {
+      "name": "RtlTryAcquireSRWLockExclusive",
+      "samples": 2
+    },
+    {
+      "name": "send",
+      "samples": 2
+    },
+    {
+      "name": "run",
+      "samples": 2
+    },
+    {
+      "name": "query",
+      "samples": 2
+    },
+    {
+      "name": "findView",
+      "samples": 1
+    },
+    {
+      "name": "provision",
+      "samples": 1
+    },
+    {
+      "name": "entry",
+      "samples": 1
+    },
+    {
+      "name": "memcpyFast",
+      "samples": 1
+    },
+    {
+      "name": "bind",
+      "samples": 1
+    },
+    {
+      "name": "bindPlan",
+      "samples": 1
+    },
+    {
+      "name": "RtlReleaseSRWLockShared",
+      "samples": 1
+    },
+    {
+      "name": "additive",
+      "samples": 1
+    },
+    {
+      "name": "execute",
+      "samples": 1
+    },
+    {
+      "name": "GetSystemTimePreciseAsFileTime",
+      "samples": 1
+    },
+    {
+      "name": "notExpr",
+      "samples": 1
+    },
+    {
+      "name": "finishAggregate",
+      "samples": 1
+    }
+  ],
+  "lines": [
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\exec.sig",
+      "line": 1150,
+      "samples": 3323
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\exec.sig",
+      "line": 1130,
+      "samples": 970
+    },
+    {
+      "name": "eval",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\expr.sig",
+      "line": 601,
+      "samples": 846
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\exec.sig",
+      "line": 1125,
+      "samples": 746
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\exec.sig",
+      "line": 1158,
+      "samples": 678
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\expr.sig",
+      "line": 496,
+      "samples": 448
+    },
+    {
+      "name": "lookupVersionAt",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\storage.sig",
+      "line": 577,
+      "samples": 297
+    },
+    {
+      "name": "eval",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\expr.sig",
+      "line": 590,
+      "samples": 253
+    },
+    {
+      "name": "parse",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\value.sig",
+      "line": 292,
+      "samples": 207
+    },
+    {
+      "name": "eval",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\expr.sig",
+      "line": 687,
+      "samples": 165
+    },
+    {
+      "name": "lookupVersionAt",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\storage.sig",
+      "line": 579,
+      "samples": 154
+    },
+    {
+      "name": "applyTypmod",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\value.sig",
+      "line": 297,
+      "samples": 138
+    },
+    {
+      "name": "___chkstk_ms",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\Programs\\Sig\\0.6.4\\lib\\compiler_rt\\stack_probe.sig",
+      "line": 269,
+      "samples": 121
+    },
+    {
+      "name": "parseDate",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\temporal.sig",
+      "line": 337,
+      "samples": 105
+    },
+    {
+      "name": "accumulate",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\exec.sig",
+      "line": 1312,
+      "samples": 105
+    },
+    {
+      "name": "eval",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\expr.sig",
+      "line": 593,
+      "samples": 105
+    },
+    {
+      "name": "pollRead",
+      "file": "C:\\Just-Things\\Projects\\sb0\\ramsql\\src\\server.sig",
+      "line": 265,
+      "samples": 92
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\expr.sig",
+      "line": 495,
+      "samples": 91
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\exec.sig",
+      "line": 1128,
+      "samples": 80
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\exec.sig",
+      "line": 1123,
+      "samples": 77
+    },
+    {
+      "name": "lookupVersionAt",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\storage.sig",
+      "line": 575,
+      "samples": 69
+    },
+    {
+      "name": "parseFields",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\temporal.sig",
+      "line": 253,
+      "samples": 63
+    },
+    {
+      "name": "cast",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\value.sig",
+      "line": 348,
+      "samples": 62
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\expr.sig",
+      "line": 512,
+      "samples": 62
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\expr.sig",
+      "line": 517,
+      "samples": 57
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\exec.sig",
+      "line": 1138,
+      "samples": 57
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\expr.sig",
+      "line": 521,
+      "samples": 54
+    },
+    {
+      "name": "addAggregates",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\exec.sig",
+      "line": 529,
+      "samples": 47
+    },
+    {
+      "name": "eval",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\expr.sig",
+      "line": 582,
+      "samples": 47
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\expr.sig",
+      "line": 513,
+      "samples": 45
+    },
+    {
+      "name": "fastMemset",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\Programs\\Sig\\0.6.4\\lib\\compiler_rt.sig",
+      "line": 669,
+      "samples": 37
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\exec.sig",
+      "line": 1163,
+      "samples": 36
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\expr.sig",
+      "line": 450,
+      "samples": 35
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\exec.sig",
+      "line": 1157,
+      "samples": 35
+    },
+    {
+      "name": "eval",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\expr.sig",
+      "line": 583,
+      "samples": 35
+    },
+    {
+      "name": "parseFields",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\temporal.sig",
+      "line": 318,
+      "samples": 35
+    },
+    {
+      "name": "cast",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\value.sig",
+      "line": 350,
+      "samples": 34
+    },
+    {
+      "name": "nextStreamTuple",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\exec.sig",
+      "line": 1142,
+      "samples": 32
+    },
+    {
+      "name": "truth",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\expr.sig",
+      "line": 452,
+      "samples": 31
+    },
+    {
+      "name": "eval",
+      "file": "C:\\Users\\Shado\\AppData\\Local\\sig\\p\\5f836761838bc043515f9807dee9c692e31cebc797dc7a2930850fa388a04f9d\\zpm-159cbf66ea8c95bc36b564351dd03aee083df49d\\src\\core\\sql\\expr.sig",
+      "line": 599,
+      "samples": 31
+    }
+  ]
+}

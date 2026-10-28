@@ -1,5 +1,10 @@
 # Benchmarks
 
+Latest full-data profiling campaign:
+[streaming execution on the reviewer's actual five million rows](dbmeter-streaming-20261028/REPORT.md).
+It retains the remaining unsupported checks and a slower experimental result;
+the complete dbMeter advantage gate has not passed.
+
 Latest infrastructure experiment:
 [capacity-safe streaming aggregation, IRDB 1.10.821 and PostgreSQL](streaming-budget-20261025/REPORT.md).
 It includes separate native/wire tiers, raw correctness-checked trials, fixed

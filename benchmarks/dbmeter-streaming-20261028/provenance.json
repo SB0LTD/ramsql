@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "data_load_sha256": "9b0e1e556433483e015b141eb90425fbe3c96e60cb4170d9baafde9d85de2d0d",
+  "dbmeter_source": "cd7e87effeae29ec1391ea30bd3f257f18fcdcc1",
+  "mode": "in-memory; default text-128; 8 native workers; 8 JDBC clients; isolated services",
+  "phases": {
+    "prior": {
+      "zpm_source": "ca3ccc622f51df8a46e39cbba75f55381ad3113d",
+      "binary_sha256": "8595fb41ba8f10a13985534f1c3555d7f62e83f721570c5dedc2eef69cdde8c1"
+    },
+    "prefix": {
+      "zpm_source": "159cbf66ea8c95bc36b564351dd03aee083df49d",
+      "binary_sha256": "81fe86e6a007d60823c84cb87c6b1f879d74dd8858d9e9b8bd7a6bdb6fdef359"
+    },
+    "plan-local": {
+      "zpm_source": "28f7f2074c97845a79d9265994935ff76dc7299f",
+      "binary_sha256": "1dc3bbf77650c2c3dd3860995aed9814fe7ba4dd0e23ab479cf8b8063cca3c81"
+    },
+    "date": {
+      "zpm_source": "c828a2ab5e431eb47a81d06a7e594b55db0946bb",
+      "binary_sha256": "bf80ed187f6addf81d59f5cb70710de804f66ea2d5caa8d8a584cce2e304ea4c"
+    },
+    "wide": {
+      "zpm_source": "c3b0c93fdb65837bba4738841a8e29aea3a6c3d9",
+      "binary_sha256": "4798608be719e5755ea055cd33c0da67c4e814f3409becde86d9ffaf08413912"
+    },
+    "value-experiment": {
+      "zpm_source": "13e92095d867e3193556d471247dda968a39ec70",
+      "binary_sha256": "1c22f9557883e99475206737a6b03041b962e83b211f9134a62d8b78e8db3883"
+    }
+  },
+  "universal_advantage_proven": false,
+  "complete_original_suite_passed": false,
+  "reference_note": "Earlier original-duration reference results are in ../dbmeter-full-five-million-20261028. These per-phase trials are not a new repeated three-engine comparison."
+}
