@@ -1,0 +1,8 @@
+Run:       irdb-5m-8-q6_store_category_mix-trial-1
+Database:  irdb isolated full5M [reports as InMemory.Net IRDB server 127.0.0.1:55660, database full_bench_20261028] (driver dbmeter IRDB adapter (jirdb) 0.1)
+Window:    2026-10-28T14:09:36.715Z .. 2026-10-28T14:10:36.719Z (60.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +60.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+q6_store_category_mix         82804        0     1656080     1380.0      5.79      3.87     11.14     19.71     28.42     89.39

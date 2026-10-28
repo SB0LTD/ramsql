@@ -1,0 +1,7 @@
+{
+  "timing_valid": true,
+  "benchmark_final_report_utc": "2026-10-28T13:14:54.823142+00:00",
+  "subsequent_compile_started_utc": "2026-10-28T13:14:58.802244+00:00",
+  "gap_seconds": 3.9791014194488525,
+  "reason": "The full benchmark campaign finished before the subsequent local compiler was started. No measured query window overlapped that build."
+}

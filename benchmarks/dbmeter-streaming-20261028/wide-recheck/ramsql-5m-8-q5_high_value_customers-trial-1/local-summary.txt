@@ -1,0 +1,8 @@
+Run:       ramsql-5m-8-q5_high_value_customers-trial-1
+Database:  RAMSQL full5M [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-28T09:20:11.191Z .. 2026-10-28T09:21:11.223Z (60.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +60.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+q5_high_value_customers       10328        0       41312      172.0     46.45     45.57     50.69     52.74     58.88     83.02

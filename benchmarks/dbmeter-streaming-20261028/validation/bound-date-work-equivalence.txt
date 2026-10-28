@@ -1,0 +1,1 @@
+Exact old/new work charges match: ['literal-work implicit used=732', 'literal-work store=0 used=835', 'literal-work store=1 used=823', 'literal-work store=2 used=863', 'literal-work store=3 used=863', 'literal-work store=4 used=825', 'literal-work store=5 used=825', 'literal-work store=6 used=865', 'literal-work store=7 used=865']

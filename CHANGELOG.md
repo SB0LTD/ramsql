@@ -6,6 +6,13 @@ later binary.
 
 ## Unreleased
 
+- Reuse binder-validated DATE payloads, refine sparse predicate survivors before
+  join probes, and prove when grouped aggregates can use 16-byte state in ZPM.
+  Three original five-million-row trials measure median q5/q6 throughput of
+  151.00/1369.80 queries/s, with zero timed errors and 3/7 original checks passing.
+  Preserve rejected fingerprint/cancellation experiments and host-variation
+  controls in the streaming report. IRDB remains ahead; the live advantage gate
+  has not passed and dbMeter remains unmerged.
 - Select safe leading predicates before streaming dimension probes; preserve
   throwing ON/probe behavior and complete residual evaluation. Discover fact
   columns per query block, batch visibility masks, preserve typed DATE values

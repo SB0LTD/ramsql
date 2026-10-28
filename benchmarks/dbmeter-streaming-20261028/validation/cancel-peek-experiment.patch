@@ -1,0 +1,20 @@
+diff --git a/src/server.sig b/src/server.sig
+index 7139417..ad0cfd9 100644
+--- a/src/server.sig
++++ b/src/server.sig
+@@ -261,8 +261,13 @@ const Client = struct {
+ 
+     fn pollRead(raw:?*anyopaque) Raw.SqlError!void {
+         const self:*Client=@ptrCast(@alignCast(raw.?));
+-        const requested=self.cancel_request.swap(0,.acq_rel);
+-        if(requested!=0 and requested==self.cancel_key.load(.acquire)) return error.QueryCanceled;
++        // The common empty case needs no write ownership of this cache line.
++        // A request arriving after the load remains pending for the next poll;
++        // once nonzero, consume and validate the generation atomically as before.
++        if(self.cancel_request.load(.acquire)!=0) {
++            const requested=self.cancel_request.swap(0,.acq_rel);
++            if(requested!=0 and requested==self.cancel_key.load(.acquire)) return error.QueryCanceled;
++        }
+         if(self.read_deadline) |deadline| if(monotonicClock()>=deadline) return error.QueryCanceled;
+     }
+     fn dispatchRead(self:*Client) !bool {

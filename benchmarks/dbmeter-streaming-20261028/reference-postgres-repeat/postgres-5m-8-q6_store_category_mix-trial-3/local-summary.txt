@@ -1,0 +1,8 @@
+Run:       postgres-5m-8-q6_store_category_mix-trial-3
+Database:  postgres isolated full5M [reports as PostgreSQL 18.3] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-28T14:24:22.495Z .. 2026-10-28T14:25:22.964Z (60.5 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +60.5s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+q6_store_category_mix           803        0       16060       13.3    595.32    462.85   1097.73   1163.26   1228.80   1330.68

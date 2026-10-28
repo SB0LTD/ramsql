@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "data_load_sha256": "9b0e1e556433483e015b141eb90425fbe3c96e60cb4170d9baafde9d85de2d0d",
-  "dbmeter_source": "cd7e87effeae29ec1391ea30bd3f257f18fcdcc1",
+  "dbmeter_source_note": "Per-campaign report records the actual orchestration revision. Original benchmark Java, SQL, expected results and adapters are unchanged; later commits change CI only.",
   "mode": "in-memory; default text-128; 8 native workers; 8 JDBC clients; isolated services",
   "phases": {
     "prior": {
@@ -27,6 +27,43 @@
     "value-experiment": {
       "zpm_source": "13e92095d867e3193556d471247dda968a39ec70",
       "binary_sha256": "1c22f9557883e99475206737a6b03041b962e83b211f9134a62d8b78e8db3883"
+    },
+    "wide-recheck": {
+      "zpm_source": "c3b0c93fdb65837bba4738841a8e29aea3a6c3d9",
+      "binary_sha256": "4798608be719e5755ea055cd33c0da67c4e814f3409becde86d9ffaf08413912"
+    },
+    "value-recheck": {
+      "zpm_source": "13e92095d867e3193556d471247dda968a39ec70",
+      "binary_sha256": "1c22f9557883e99475206737a6b03041b962e83b211f9134a62d8b78e8db3883"
+    },
+    "fingerprint-experiment": {
+      "zpm_source": "bbf080652a6ed723a4e1c8847c79accdfcb934d9",
+      "binary_sha256": "fb80a81d63027711caef32ad2ebd89b21183ec2584efe6c11b81310f0e779a8e"
+    },
+    "bound-date": {
+      "zpm_source": "129a89db7e4b9057a63fe6d254893d0887bcab74",
+      "binary_sha256": "a9378adfab8023c26670cd895e80f489275ea8ba937585ab40b3760b81e6e13d"
+    },
+    "cascade": {
+      "zpm_source": "8df79cb2b473cd4cdf6e250a46d6f83a074f68ae",
+      "binary_sha256": "d06cf5f586af032827ec82907af287bc35c54262320444141c2859480279598e"
+    },
+    "narrow-repeat": {
+      "zpm_source": "9606877fcd05157af52e2965c5240388d68cc4a9",
+      "binary_sha256": "13295d70629a19c5eaf67d8ac5a219bf340cc2b252ed018601e17f78ee3b4ba1"
+    },
+    "combined-repeat-experiment": {
+      "zpm_source": "d4ba393068b493af2fc677c1dcb7aafe7e98df3b",
+      "binary_sha256": "777c4c58f4c9111598d025aa39a0c9cda0f12dd1d2d1ec2fefe87f9195cd66a1"
+    },
+    "cancel-peek-repeat-experiment": {
+      "zpm_source": "9606877fcd05157af52e2965c5240388d68cc4a9",
+      "binary_sha256": "214a36e50384ec3f55836959ac009564a1738d5fe88b3d93472336a2ebada6e9",
+      "server_patch": "validation/cancel-peek-experiment.patch"
+    },
+    "narrow-control": {
+      "zpm_source": "9606877fcd05157af52e2965c5240388d68cc4a9",
+      "binary_sha256": "13295d70629a19c5eaf67d8ac5a219bf340cc2b252ed018601e17f78ee3b4ba1"
     }
   },
   "universal_advantage_proven": false,

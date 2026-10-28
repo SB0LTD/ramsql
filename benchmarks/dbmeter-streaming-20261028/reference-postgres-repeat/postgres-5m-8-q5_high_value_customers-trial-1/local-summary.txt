@@ -1,0 +1,8 @@
+Run:       postgres-5m-8-q5_high_value_customers-trial-1
+Database:  postgres isolated full5M [reports as PostgreSQL 18.3] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-28T14:17:34.796Z .. 2026-10-28T14:18:36.710Z (61.9 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +61.9s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+q5_high_value_customers         274        0        1096        4.4   1746.37   1130.50   3440.64   3506.18   3702.78   4376.98
