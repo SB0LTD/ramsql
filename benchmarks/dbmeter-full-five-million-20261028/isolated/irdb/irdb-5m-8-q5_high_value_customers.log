@@ -1,0 +1,22 @@
+run irdb-5m-8-q5_high_value_customers, node local, scenarios: q5_high_value_customers(w1)
+opening 8 connection(s)...
+connected to InMemory.Net IRDB server 127.0.0.1:55660, database full_bench_20261028
+[   10.1s] warmup   ops       1895      189.3/s  errors      0  active 8/8
+[   20.1s] measure  ops       4234      232.7/s  errors      0  active 8/8
+[   30.2s] measure  ops       6420      217.5/s  errors      0  active 8/8
+[   40.3s] measure  ops       8609      215.1/s  errors      0  active 8/8
+[   50.4s] measure  ops      10680      206.8/s  errors      0  active 8/8
+[   60.4s] measure  ops      12793      210.3/s  errors      0  active 8/8
+[   70.4s] measure  ops      14844      204.5/s  errors      0  active 8/8
+[   80.0s] done     ops      16817      206.0/s  errors      0  active 0/8
+
+Run:       irdb-5m-8-q5_high_value_customers
+Database:  irdb isolated full5M [reports as InMemory.Net IRDB server 127.0.0.1:55660, database full_bench_20261028] (driver dbmeter IRDB adapter (jirdb) 0.1)
+Window:    2026-10-28T03:22:00.793Z .. 2026-10-28T03:23:00.801Z (60.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host SB0-LAPTOP           8 threads  32 cpus  window +0.0s .. +60.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+q5_high_value_customers       12604        0       50416      210.0     38.07     35.33     53.76     62.98     76.80    186.21
+
+Report: C:\Just-Things\Projects\sb0\ramsql\.sig-cache\dbmeter-isolated-full-irdb\irdb-5m-8-q5_high_value_customers\local.json

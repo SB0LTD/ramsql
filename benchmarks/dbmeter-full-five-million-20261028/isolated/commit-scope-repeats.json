@@ -1,0 +1,75 @@
+{
+  "schema": 1,
+  "method": "Three eight-worker/eight-client trials per binary, original 5s ramp / 15s warmup / 60s measurement, real 5M data reloaded into a fresh RAMSQL process. Trial 1 separated by isolated reference engine runs; later pairs alternate after/before, then before/after. Single-host medians/ranges, not confidence intervals. Other database services stopped.",
+  "groups": {
+    "before": {
+      "median_qps": 3.2951037317849545,
+      "min_qps": 3.2628810752897635,
+      "max_qps": 5.126953125,
+      "runs": [
+        {
+          "label": "ramsql-w8",
+          "binary_sha256": "19581f82272209cbd752f2353446232f1db290e91a711c8ed715f3fa2132ddb7",
+          "qps": 5.126953125,
+          "count": 315,
+          "measured_seconds": 61.44,
+          "errors": 0,
+          "average_server_cores_including_warmup": 2.681817206541129
+        },
+        {
+          "label": "ramsql-before-repeat2",
+          "binary_sha256": "19581f82272209cbd752f2353446232f1db290e91a711c8ed715f3fa2132ddb7",
+          "qps": 3.2628810752897635,
+          "count": 201,
+          "measured_seconds": 61.602,
+          "errors": 0,
+          "average_server_cores_including_warmup": 1.7705133226446554
+        },
+        {
+          "label": "ramsql-before-repeat3",
+          "binary_sha256": "19581f82272209cbd752f2353446232f1db290e91a711c8ed715f3fa2132ddb7",
+          "qps": 3.2951037317849545,
+          "count": 206,
+          "measured_seconds": 62.517,
+          "errors": 0,
+          "average_server_cores_including_warmup": 1.6690620272314676
+        }
+      ]
+    },
+    "after": {
+      "median_qps": 11.903386108863979,
+      "min_qps": 11.664986864497793,
+      "max_qps": 12.41805241342867,
+      "runs": [
+        {
+          "label": "ramsql-commit-w8",
+          "binary_sha256": "8595fb41ba8f10a13985534f1c3555d7f62e83f721570c5dedc2eef69cdde8c1",
+          "qps": 12.41805241342867,
+          "count": 752,
+          "measured_seconds": 60.557,
+          "errors": 0,
+          "average_server_cores_including_warmup": 7.674042298734191
+        },
+        {
+          "label": "ramsql-commit-repeat2",
+          "binary_sha256": "8595fb41ba8f10a13985534f1c3555d7f62e83f721570c5dedc2eef69cdde8c1",
+          "qps": 11.903386108863979,
+          "count": 721,
+          "measured_seconds": 60.571,
+          "errors": 0,
+          "average_server_cores_including_warmup": 7.695924424943204
+        },
+        {
+          "label": "ramsql-commit-repeat3",
+          "binary_sha256": "8595fb41ba8f10a13985534f1c3555d7f62e83f721570c5dedc2eef69cdde8c1",
+          "qps": 11.664986864497793,
+          "count": 706,
+          "measured_seconds": 60.523,
+          "errors": 0,
+          "average_server_cores_including_warmup": 7.686748201889137
+        }
+      ]
+    }
+  },
+  "median_ratio": 3.612446550329366
+}

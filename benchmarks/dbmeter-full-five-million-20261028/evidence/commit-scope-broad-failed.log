@@ -1,0 +1,626 @@
+native-sig	Test ZPM library and transport graph with Sig	﻿2026-10-28T03:30:23.8842158Z ##[group]Run "$SIG" build test \
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:23.8842497Z [36;1m"$SIG" build test \[0m
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:23.8842775Z [36;1m  --Sig-lib-dir "$SIG_LIB_DIR" \[0m
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:23.8843103Z [36;1m  --cache-dir /tmp/zpm-root-cache \[0m
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:23.8843631Z [36;1m  --global-cache-dir /tmp/zpm-global-cache \[0m
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:23.8843958Z [36;1m  --keep-going[0m
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:23.8844262Z [36;1m"$SIG" build test-integration test-server-initial \[0m
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:23.8844617Z [36;1m  --Sig-lib-dir "$SIG_LIB_DIR" \[0m
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:23.8844931Z [36;1m  --cache-dir /tmp/zpm-network-cache \[0m
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:23.8845269Z [36;1m  --global-cache-dir /tmp/zpm-global-cache \[0m
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:23.8845584Z [36;1m  --keep-going[0m
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:23.8908800Z shell: /usr/bin/bash -e {0}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:23.8909067Z env:
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:23.8909294Z   SIG_RELEASE_TAG: sig-0.5.9-zig0.17.0.786a282
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:23.8909682Z   SIG_RELEASE_ASSET: sig-0.5.9-zig0.17.0.786a282-x86_64-linux.tar.xz
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:23.8910264Z   SIG_RELEASE_SHA256: 9f8db6dc445b40f588832b7a60d25f289ab2d4da589e0edb3f35926d9561fed1
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:23.8910778Z   SIG: /tmp/sig/sig-0.5.9-zig0.17.0.786a282-x86_64-linux/bin/sig
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:23.8911206Z   SIG_LIB_DIR: /tmp/sig/sig-0.5.9-zig0.17.0.786a282-x86_64-linux/lib
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:23.8911548Z ##[endgroup]
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:37.9422419Z compile: tests/test_sql.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-sql (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:37.9474675Z compile: tests/test_sql_index.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-index (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:37.9480317Z compile: tests/test_sql_storage.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-storage (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:37.9482239Z compile: tests/test_sql_change_log.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-change-log (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:40.5649914Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-change-log
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:40.5653137Z compile: tests/test_sql_expr.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-expr (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:41.3577981Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-sql
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:41.3599420Z compile: tests/test_sql_mvcc.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-mvcc (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:41.4605889Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-index
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:41.4651682Z compile: tests/test_sql_types.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-types (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:41.4682520Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-storage
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:41.4707594Z compile: tests/test_sql_query.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-query (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:43.4386510Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-mvcc
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:43.4470051Z compile: tests/test_sql_dml.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-dml (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:43.4580137Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-expr
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:43.4581943Z compile: tests/test_sql_catalog.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-catalog (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:44.3440782Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-types
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:44.3467399Z compile: tests/test_sql_external.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-external (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:45.4239777Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-query
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:45.4242191Z compile: tests/test_sql_stream_group.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-stream-group (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:45.6250142Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-catalog
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:45.6271624Z compile: tests/test_sql_projected_filter.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-projected-filter (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:46.1780106Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-dml
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:46.1809852Z compile: tests/test_sql_work_control.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-work-control (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:46.7899981Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-external
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:46.7920322Z compile: tests/test_sql_integer_topk.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-integer-topk (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:48.0057283Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-work-control
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:48.0114865Z compile: tests/test_sql_layout_order.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-layout-order (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:48.7810604Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-projected-filter
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:48.7890070Z compile: tests/test_sql_summary.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-summary (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:49.1096377Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-integer-topk
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:49.1182822Z compile: tests/test_sql_dense_group.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-dense-group (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:50.7087763Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-layout-order
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:50.7110776Z compile: tests/test_sql_rollup.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-rollup (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:50.9329824Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-stream-group
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:50.9380077Z compile: tests/test_sql_ordered_probes.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-ordered-probes (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:51.0410318Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-summary
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:51.0465379Z compile: tests/test_sql_compact_scan.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-compact-scan (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:51.7016792Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-dense-group
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:51.7080034Z compile: tests/test_sql_runtime_workspace.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-runtime-workspace (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:53.2790042Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-rollup
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:53.2819913Z compile: tests/test_packed_integer.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-packed-integer (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:53.3957856Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-ordered-probes
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:53.3966286Z compile: tests/test_resource_budget.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-resource-budget (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:53.5701466Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-compact-scan
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:53.5720415Z compile: tests/test_worker_thread.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-worker-thread (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:54.1321619Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-sql-runtime-workspace
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:54.1362993Z compile: tests/test_rwlock.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-rwlock (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:54.8646254Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-resource-budget
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:54.8682438Z compile: tests/test_sql_parallel_read.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-parallel-read (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:54.9570025Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-packed-integer
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:54.9599631Z compile: tests/test_postgres.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-postgres (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:54.9857718Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-worker-thread
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:54.9859685Z compile: tests/test_mysql.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-mysql (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:55.4329699Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-rwlock
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:55.4337228Z compile: tests/test_tds.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-tds (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:57.4229512Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-parallel-read
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:57.4233764Z compile: tests/test_db_store.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-db_store (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:57.7485835Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-mysql
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:57.7497257Z compile: tests/test_tcp_server.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-tcp_server (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:58.1520612Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-tds
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:58.1590191Z compile: tests/test_scram.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-scram (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:58.4445126Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-postgres
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:58.4502463Z compile: tests/test_durable_log.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-durable_log (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:59.4030071Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-tcp_server
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:59.4059977Z compile: tests/test_db_file.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-db_file (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:59.8199808Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-db_store
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:59.8260026Z compile: tests/test_entropy.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-entropy (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:59.8889898Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-scram
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:30:59.8894658Z compile: tests/test_db_stream.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-db_stream (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:00.1582136Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-durable_log
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:00.1639980Z compile: tests/test_pg_stream.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-pg_stream (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:00.9660584Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-db_file
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:00.9667467Z compile: tests/test_wall_clock.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-wall_clock (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:01.4680181Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-db_stream
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:01.4720073Z compile: tests/test_pg_copy.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-pg_copy (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:01.5029671Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-entropy
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:01.5069462Z compile: tests/test_page_region.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-page_region (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:02.5639983Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-wall_clock
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:02.5689728Z compile: tests/test_machine_resources.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-machine-resources (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:02.8329932Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-page_region
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:02.8359611Z compile: tests/test_budgeted_region.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-budgeted-region (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:03.0163232Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-pg_stream
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:03.0241900Z compile: tests/test_safetensors.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-safetensors (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:04.1975087Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-machine-resources
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:04.1999894Z compile: tests/test_asr_mel.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-asr-mel (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:04.2626396Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-budgeted-region
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:04.2628259Z compile: tests/test_asr_frontend_consumers.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-asr-consumers (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:04.4070012Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-pg_copy
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:04.4097227Z compile: tests/test_ephemeral_scene.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-ephemeral-scene (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:04.6819943Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-safetensors
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:04.6879833Z compile: tests/test_now_voice_output.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-now-voice (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:05.9180368Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-ephemeral-scene
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:05.9209893Z compile: tests/test_device_control.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-device-control (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:06.1421701Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-now-voice
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:06.1423712Z compile: tests/test_speech_text.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-speech-text (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:06.1697916Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-asr-mel
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:06.1725135Z testStepFn: entered for step handle 115
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:06.1744078Z testStepFn: about to spawn nested 'sig test' for step 'test-png-decode'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:06.8775139Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-asr-consumers
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:06.8800166Z testStepFn: entered for step handle 116
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:06.8831559Z testStepFn: about to spawn nested 'sig test' for step 'test-image'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:07.0990309Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-device-control
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:07.0991993Z testStepFn: entered for step handle 117
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:07.0992987Z testStepFn: about to spawn nested 'sig test' for step 'test-layout'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:07.2280492Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-speech-text
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:07.2281465Z testStepFn: entered for step handle 118
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:07.2282135Z testStepFn: about to spawn nested 'sig test' for step 'test-text-analyze'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:12.3920264Z testStepFn: nested 'sig test' returned exit=0 stderr_len=353
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:12.3949470Z testStepFn: entered for step handle 119
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:12.3979069Z testStepFn: about to spawn nested 'sig test' for step 'test-elementor-document'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:12.4090106Z testStepFn: nested 'sig test' returned exit=0 stderr_len=276
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:12.4093245Z testStepFn: entered for step handle 120
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:12.4168109Z testStepFn: about to spawn nested 'sig test' for step 'test-http-parse'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:12.4899718Z testStepFn: nested 'sig test' returned exit=0 stderr_len=300
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:12.4939381Z testStepFn: entered for step handle 121
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:12.4969240Z testStepFn: about to spawn nested 'sig test' for step 'test-http-chunked'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:12.8869742Z testStepFn: nested 'sig test' returned exit=0 stderr_len=275
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:12.8927791Z testStepFn: entered for step handle 122
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:12.8957646Z testStepFn: about to spawn nested 'sig test' for step 'test-http-url'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:13.9191816Z testStepFn: nested 'sig test' returned exit=0 stderr_len=288
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:13.9229293Z testStepFn: entered for step handle 123
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:13.9239454Z testStepFn: about to spawn nested 'sig test' for step 'test-http-errors'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:14.0670984Z testStepFn: nested 'sig test' returned exit=0 stderr_len=1468
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:14.0727312Z testStepFn: entered for step handle 124
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:14.0794165Z testStepFn: about to spawn nested 'sig test' for step 'test-http-transport'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:14.3919728Z testStepFn: nested 'sig test' returned exit=0 stderr_len=2409
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:14.3920579Z testStepFn: entered for step handle 125
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:14.3974983Z testStepFn: about to spawn nested 'sig test' for step 'test-http-cookie'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:14.4789565Z testStepFn: nested 'sig test' returned exit=0 stderr_len=941
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:14.4819231Z testStepFn: entered for step handle 126
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:14.4879479Z testStepFn: about to spawn nested 'sig test' for step 'test-http-request'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:15.5979761Z testStepFn: nested 'sig test' returned exit=0 stderr_len=295
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:15.6022178Z testStepFn: entered for step handle 127
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:15.6040198Z testStepFn: about to spawn nested 'sig test' for step 'test-http-protocol'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:15.9429896Z testStepFn: nested 'sig test' returned exit=0 stderr_len=706
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:15.9459357Z testStepFn: entered for step handle 128
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:15.9475567Z testStepFn: about to spawn nested 'sig test' for step 'test-http-retry'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:16.0930973Z testStepFn: nested 'sig test' returned exit=0 stderr_len=443
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:16.0969233Z testStepFn: entered for step handle 129
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:16.0970410Z testStepFn: about to spawn nested 'sig test' for step 'test-http-redirect'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:16.1701080Z testStepFn: nested 'sig test' returned exit=0 stderr_len=2486
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:16.1729253Z testStepFn: entered for step handle 130
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:16.1759313Z testStepFn: about to spawn nested 'sig test' for step 'test-http-socket-ext'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:17.6209654Z testStepFn: nested 'sig test' returned exit=0 stderr_len=4096
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:17.6210384Z testStepFn: entered for step handle 131
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:17.6249548Z testStepFn: about to spawn nested 'sig test' for step 'test-http-client'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:17.6370151Z testStepFn: nested 'sig test' returned exit=0 stderr_len=795
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:17.6399450Z testStepFn: entered for step handle 132
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:17.6404098Z testStepFn: about to spawn nested 'sig test' for step 'test-http-noalloc'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:17.7481129Z testStepFn: nested 'sig test' returned exit=0 stderr_len=1518
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:17.7500601Z testStepFn: entered for step handle 133
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:17.7519601Z testStepFn: about to spawn nested 'sig test' for step 'test-protobuf'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:17.7972127Z testStepFn: nested 'sig test' returned exit=0 stderr_len=87
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:17.7999430Z testStepFn: entered for step handle 134
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:17.8027892Z testStepFn: about to spawn nested 'sig test' for step 'test-sabr-ump'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:19.4090075Z testStepFn: nested 'sig test' returned exit=0 stderr_len=3923
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:19.4091292Z testStepFn: entered for step handle 135
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:19.4092192Z testStepFn: about to spawn nested 'sig test' for step 'test-sabr-request'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:19.4244662Z testStepFn: nested 'sig test' returned exit=0 stderr_len=506
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:19.4247453Z testStepFn: entered for step handle 136
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:19.4262456Z testStepFn: about to spawn nested 'sig test' for step 'test-sabr-player-fields'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:19.4706674Z testStepFn: nested 'sig test' returned exit=0 stderr_len=415
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:19.4707904Z testStepFn: entered for step handle 137
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:19.4710003Z testStepFn: about to spawn nested 'sig test' for step 'test-sabr-loop'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:19.5404358Z testStepFn: nested 'sig test' returned exit=0 stderr_len=3765
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:19.5431745Z testStepFn: entered for step handle 138
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:19.5464908Z testStepFn: about to spawn nested 'sig test' for step 'test-manifest-sabr'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:19.6956525Z testStepFn: nested 'sig test' returned exit=1 stderr_len=183
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:19.6999457Z test step 'test-sabr-loop' failed:
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:19.7009509Z src/youtube/sabr/stream.sig:26:27: error: import of file outside module path
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:19.7039234Z const profiling = @import("../download_profile.sig");
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:19.7059406Z                           ^~~~~~~~~~~~~~~~~~~~~~~~~
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:19.7083151Z 
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:19.7099178Z testStepFn: entered for step handle 139
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:19.7129167Z testStepFn: about to spawn nested 'sig test' for step 'test-ai-core'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:20.9079869Z testStepFn: nested 'sig test' returned exit=0 stderr_len=171
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:20.9129284Z testStepFn: entered for step handle 140
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:20.9189505Z testStepFn: about to spawn nested 'sig test' for step 'test-quantized-linear'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:21.0149673Z testStepFn: nested 'sig test' returned exit=0 stderr_len=257
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:21.0239428Z testStepFn: entered for step handle 141
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:21.0299502Z testStepFn: about to spawn nested 'sig test' for step 'test-transformer-ops'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:21.5567745Z testStepFn: nested 'sig test' returned exit=0 stderr_len=580
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:21.5569152Z testStepFn: entered for step handle 142
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:21.5600073Z testStepFn: about to spawn nested 'sig test' for step 'test-audio-dsp'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.5679850Z testStepFn: nested 'sig test' returned exit=0 stderr_len=131
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.5769679Z testStepFn: entered for step handle 143
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.5839655Z testStepFn: about to spawn nested 'sig test' for step 'test-math'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.7876150Z testStepFn: nested 'sig test' returned exit=0 stderr_len=547
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.7910897Z testStepFn: entered for step handle 144
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.7929395Z testStepFn: about to spawn nested 'sig test' for step 'test-sig-math'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.8532507Z testStepFn: nested 'sig test' returned exit=1 stderr_len=2262
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.8561726Z test step 'test-manifest-sabr' failed:
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.8563211Z src/youtube/botguard/jsvm/builtins.sig:36:8: error: dependency on dynamic library 'kernel32' requires enabling Position Independent Code; fixed by '-lkernel32' or '-fPIC'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.8610158Z extern "kernel32" fn WriteFile(?*anyopaque, [*]const u8, u32, ?*u32, ?*anyopaque) c_int;
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.8639135Z        ^~~~~~~~~~
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.8674710Z referenced by:
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.8705721Z     dbgPrint: src/youtube/botguard/jsvm/builtins.sig:50:9
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.8733502Z     nConsoleLog: src/youtube/botguard/jsvm/builtins.sig:53:13
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.8783048Z     8 reference(s) hidden; use '-freference-trace=10' to see all references
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.8805189Z src/youtube/botguard/jsvm/builtins.sig:38:8: error: dependency on dynamic library 'kernel32' requires enabling Position Independent Code; fixed by '-lkernel32' or '-fPIC'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.8840837Z extern "kernel32" fn GetSystemTimeAsFileTime(*FileTime) void;
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.8900867Z        ^~~~~~~~~~
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.8931670Z src/youtube/botguard/jsvm/builtins.sig:40:8: error: dependency on dynamic library 'kernel32' requires enabling Position Independent Code; fixed by '-lkernel32' or '-fPIC'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.8968649Z extern "kernel32" fn FileTimeToSystemTime(*const FileTime, *SystemTime) c_int;
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.9019145Z        ^~~~~~~~~~
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.9042624Z src/youtube/botguard/jsvm/builtins.sig:42:8: error: dependency on dynamic library 'bcrypt' requires enabling Position Independent Code; fixed by '-lbcrypt' or '-fPIC'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.9050361Z extern "bcrypt" fn BCryptGenRandom(?*anyopaque, [*]u8, u32, u32) callconv(.c) i32;
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.9057202Z        ^~~~~~~~
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.9059005Z src/youtube/botguard/jsvm/builtins.sig:43:8: error: dependency on dynamic library 'kernel32' requires enabling Position Independent Code; fixed by '-lkernel32' or '-fPIC'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.9060703Z extern "kernel32" fn QueryPerformanceCounter(*i64) c_int;
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.9061500Z        ^~~~~~~~~~
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.9063463Z src/youtube/botguard/jsvm/builtins.sig:44:8: error: dependency on dynamic library 'kernel32' requires enabling Position Independent Code; fixed by '-lkernel32' or '-fPIC'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.9065147Z extern "kernel32" fn QueryPerformanceFrequency(*i64) c_int;
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.9066288Z        ^~~~~~~~~~
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.9067678Z src/youtube/botguard/jsvm/builtins.sig:45:8: error: dependency on dynamic library 'kernel32' requires enabling Position Independent Code; fixed by '-lkernel32' or '-fPIC'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.9069582Z extern "kernel32" fn GetTickCount64() u64;
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.9070269Z        ^~~~~~~~~~
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.9071643Z src/youtube/botguard/jsvm/builtins.sig:48:8: error: dependency on dynamic library 'kernel32' requires enabling Position Independent Code; fixed by '-lkernel32' or '-fPIC'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.9073362Z extern "kernel32" fn GetTimeZoneInformation(*TimeZoneInformation) u32;
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.9074251Z        ^~~~~~~~~~
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.9074651Z 
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.9075037Z testStepFn: entered for step handle 145
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:22.9099487Z testStepFn: about to spawn nested 'sig test' for step 'test-synth_voice'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:23.2942102Z testStepFn: nested 'sig test' returned exit=0 stderr_len=375
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:23.2949545Z testStepFn: entered for step handle 146
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:23.3009649Z testStepFn: about to spawn nested 'sig test' for step 'test-wav'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:24.0474607Z testStepFn: nested 'sig test' returned exit=0 stderr_len=152
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:24.0533994Z testStepFn: entered for step handle 147
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:24.0585988Z testStepFn: about to spawn nested 'sig test' for step 'test-tts-voice'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:24.3760988Z testStepFn: nested 'sig test' returned exit=0 stderr_len=415
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:24.3850566Z testStepFn: entered for step handle 148
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:24.3881497Z testStepFn: about to spawn nested 'sig test' for step 'test-vector-memory'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:24.5559385Z testStepFn: nested 'sig test' returned exit=0 stderr_len=20
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:24.5629307Z testStepFn: entered for step handle 149
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:24.5710367Z testStepFn: about to spawn nested 'sig test' for step 'test-moment-activation'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:25.1649902Z testStepFn: nested 'sig test' returned exit=0 stderr_len=283
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:25.1679761Z testStepFn: entered for step handle 150
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:25.1681028Z testStepFn: about to spawn nested 'sig test' for step 'test-agent-runtime'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:25.5751479Z testStepFn: nested 'sig test' returned exit=0 stderr_len=325
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:25.5789543Z testStepFn: entered for step handle 151
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:25.5829712Z testStepFn: about to spawn nested 'sig test' for step 'test-model-observability'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:26.0390795Z testStepFn: nested 'sig test' returned exit=0 stderr_len=431
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:26.0437309Z testStepFn: entered for step handle 152
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:26.0513253Z testStepFn: about to spawn nested 'sig test' for step 'test-context-projection'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:26.2868803Z testStepFn: nested 'sig test' returned exit=0 stderr_len=531
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:26.2926871Z testStepFn: entered for step handle 153
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:26.2959388Z testStepFn: about to spawn nested 'sig test' for step 'test-context-history'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:26.8859764Z testStepFn: nested 'sig test' returned exit=0 stderr_len=387
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:26.8889454Z testStepFn: entered for step handle 154
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:26.8909535Z testStepFn: about to spawn nested 'sig test' for step 'test-multimodal-now'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:27.1725462Z testStepFn: nested 'sig test' returned exit=0 stderr_len=308
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:27.1789511Z testStepFn: entered for step handle 155
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:27.1849684Z testStepFn: about to spawn nested 'sig test' for step 'test-sb0x-format'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:27.8580923Z testStepFn: nested 'sig test' returned exit=0 stderr_len=303
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:27.8614821Z testStepFn: entered for step handle 156
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:27.8679486Z testStepFn: about to spawn nested 'sig test' for step 'test-cognitive-receipt'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:27.8739525Z testStepFn: nested 'sig test' returned exit=0 stderr_len=1686
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:27.8780874Z testStepFn: entered for step handle 157
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:27.8859429Z testStepFn: about to spawn nested 'sig test' for step 'test-c3-capital'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:28.7459810Z testStepFn: nested 'sig test' returned exit=0 stderr_len=394
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:28.7509335Z testStepFn: entered for step handle 158
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:28.7569608Z testStepFn: about to spawn nested 'sig test' for step 'test-c3-audit'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:28.7579632Z testStepFn: nested 'sig test' returned exit=0 stderr_len=368
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:28.7649610Z testStepFn: entered for step handle 159
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:28.7735087Z testStepFn: about to spawn nested 'sig test' for step 'test-c3-allocation'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:29.4630271Z testStepFn: nested 'sig test' returned exit=0 stderr_len=198
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:29.4669381Z testStepFn: entered for step handle 160
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:29.4699700Z testStepFn: about to spawn nested 'sig test' for step 'test-c3-settlement'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:29.5394431Z testStepFn: nested 'sig test' returned exit=0 stderr_len=217
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:29.5419367Z testStepFn: entered for step handle 161
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:29.5469759Z testStepFn: about to spawn nested 'sig test' for step 'test-c3-entity'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:30.3579742Z testStepFn: nested 'sig test' returned exit=0 stderr_len=191
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:30.3609223Z testStepFn: entered for step handle 162
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:30.3655432Z testStepFn: about to spawn nested 'sig test' for step 'test-c3-wallet-auth'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:30.4224983Z testStepFn: nested 'sig test' returned exit=0 stderr_len=93
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:30.4255479Z testStepFn: entered for step handle 163
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:30.4261190Z testStepFn: about to spawn nested 'sig test' for step 'test-sha256'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:31.0969605Z testStepFn: nested 'sig test' returned exit=0 stderr_len=102
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:31.0989353Z testStepFn: entered for step handle 164
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:31.1029391Z testStepFn: about to spawn nested 'sig test' for step 'test-hmac'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:31.2249886Z testStepFn: nested 'sig test' returned exit=0 stderr_len=161
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:31.2319925Z testStepFn: entered for step handle 165
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:31.2370226Z testStepFn: about to spawn nested 'sig test' for step 'test-hkdf'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:31.9941961Z testStepFn: nested 'sig test' returned exit=0 stderr_len=418
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:31.9959659Z testStepFn: entered for step handle 166
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:31.9989758Z testStepFn: about to spawn nested 'sig test' for step 'test-aes'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:32.4111980Z testStepFn: nested 'sig test' returned exit=0 stderr_len=200
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:32.4129549Z testStepFn: entered for step handle 167
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:32.4159757Z testStepFn: about to spawn nested 'sig test' for step 'test-gcm'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:32.6486670Z testStepFn: nested 'sig test' returned exit=0 stderr_len=360
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:32.6488044Z testStepFn: entered for step handle 168
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:32.6489326Z testStepFn: about to spawn nested 'sig test' for step 'test-x25519'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:32.7469665Z testStepFn: nested 'sig test' returned exit=0 stderr_len=273
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:32.7489538Z testStepFn: entered for step handle 169
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:32.7504908Z testStepFn: about to spawn nested 'sig test' for step 'test-chacha20poly1305'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:33.7929720Z testStepFn: nested 'sig test' returned exit=0 stderr_len=301
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:33.7952340Z testStepFn: entered for step handle 170
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:33.7977671Z testStepFn: about to spawn nested 'sig test' for step 'test-p384'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:34.2649668Z testStepFn: nested 'sig test' returned exit=0 stderr_len=416
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:34.2669218Z testStepFn: entered for step handle 171
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:34.2729983Z testStepFn: about to spawn nested 'sig test' for step 'test-p256'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:34.3149933Z testStepFn: nested 'sig test' returned exit=0 stderr_len=245
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:34.3151036Z testStepFn: entered for step handle 172
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:34.3179490Z testStepFn: about to spawn nested 'sig test' for step 'test-tls13-keys'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:34.3549699Z testStepFn: nested 'sig test' returned exit=0 stderr_len=364
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:34.3569625Z testStepFn: entered for step handle 173
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:34.3599643Z testStepFn: about to spawn nested 'sig test' for step 'test-tls-client'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:35.4303728Z testStepFn: nested 'sig test' returned exit=0 stderr_len=130
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:35.4309794Z testStepFn: entered for step handle 174
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:35.4310973Z testStepFn: about to spawn nested 'sig test' for step 'test-websocket'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:35.9680525Z testStepFn: nested 'sig test' returned exit=0 stderr_len=498
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:35.9709352Z testStepFn: entered for step handle 187
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:35.9738972Z testStepFn: about to spawn nested 'sig test' for step 'test-quic-keys'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:36.5126097Z testStepFn: nested 'sig test' returned exit=1 stderr_len=450
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:36.5127442Z test step 'test-tls-client' failed:
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:36.5149028Z src/core/crypto/tls/winsock.sig:104:19: error: root source file struct 'linux_platform' has no member named 'addrinfo'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:36.5150864Z     var hints: w32.addrinfo = .{};
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:36.5179146Z                ~~~^~~~~~~~~
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:36.5219366Z src/transport/linux_platform.sig:8:1: note: struct declared here
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:36.5221399Z const std = @import("std");
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:36.5222008Z ^~~~~
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:36.5222483Z referenced by:
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:36.5223416Z     refAllDecls__func_962: /tmp/sig/sig-0.5.9-zig0.17.0.786a282-x86_64-linux/lib/std/testing.sig:1243:14
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:36.5224431Z     test_0: src/core/crypto/tls/client.sig:54:39
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:36.5225458Z 
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:36.5225861Z testStepFn: entered for step handle 188
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:36.5226930Z testStepFn: about to spawn nested 'sig test' for step 'test-inflate'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:36.7438625Z testStepFn: nested 'sig test' returned exit=0 stderr_len=526
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:36.7479299Z testStepFn: entered for step handle 189
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:36.7509348Z testStepFn: about to spawn nested 'sig test' for step 'test-pdf-parser'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:36.8225546Z testStepFn: nested 'sig test' returned exit=0 stderr_len=381
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:36.8267439Z testStepFn: entered for step handle 190
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:36.8305903Z testStepFn: about to spawn nested 'sig test' for step 'test-pdf-text'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:37.4810037Z testStepFn: nested 'sig test' returned exit=0 stderr_len=302
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:37.4869649Z testStepFn: entered for step handle 191
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:37.4871069Z testStepFn: about to spawn nested 'sig test' for step 'test-jsonl'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:38.2666714Z testStepFn: nested 'sig test' returned exit=0 stderr_len=643
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:38.2710265Z compile: tests/test_qwen_executor.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-qwen-executor (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:38.5190037Z testStepFn: nested 'sig test' returned exit=0 stderr_len=608
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:38.5209972Z compile: tests/test_inference_session_contract.sig -> /home/runner/work/zpm/zpm/sig-out/bin/contract-inference-session (178 modules)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:38.5294766Z testStepFn: nested 'sig test' returned exit=0 stderr_len=109
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:38.5339392Z testStepFn: entered for step handle 198
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:38.5369409Z testStepFn: about to spawn nested 'sig test' for step 'test-gguf'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:39.0419877Z testStepFn: nested 'sig test' returned exit=0 stderr_len=544
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:39.0465185Z testStepFn: entered for step handle 199
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:39.0491236Z testStepFn: about to spawn nested 'sig test' for step 'test-gguf-file'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:39.8750916Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-qwen-executor
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:39.8769457Z testStepFn: entered for step handle 200
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:39.8789602Z testStepFn: about to spawn nested 'sig test' for step 'test-sampling'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:40.0049930Z testStepFn: nested 'sig test' returned exit=0 stderr_len=20
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:40.0155265Z testStepFn: entered for step handle 201
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:40.0200125Z testStepFn: about to spawn nested 'sig test' for step 'test-kv-cache'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:40.5870124Z testStepFn: nested 'sig test' returned exit=0 stderr_len=20
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:40.5899420Z testStepFn: entered for step handle 202
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:40.5909836Z testStepFn: about to spawn nested 'sig test' for step 'test-tokenizer-index'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:40.6229386Z compile: executable verified at /home/runner/work/zpm/zpm/sig-out/bin/contract-inference-session
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:40.6235390Z testStepFn: entered for step handle 203
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:40.6279574Z testStepFn: about to spawn nested 'sig test' for step 'test-tokenizer'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:41.5959992Z testStepFn: nested 'sig test' returned exit=0 stderr_len=296
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:41.5989313Z testStepFn: entered for step handle 204
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:41.6044251Z testStepFn: about to spawn nested 'sig test' for step 'test-qwen35-plan'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:41.6574388Z testStepFn: nested 'sig test' returned exit=0 stderr_len=530
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:41.6597772Z testStepFn: entered for step handle 205
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:41.6599237Z testStepFn: about to spawn nested 'sig test' for step 'test-qwen35-gdn'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:42.0644870Z testStepFn: nested 'sig test' returned exit=0 stderr_len=20
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:42.0674101Z testStepFn: entered for step handle 206
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:42.0702531Z testStepFn: about to spawn nested 'sig test' for step 'test-qwen35-attn'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:42.4346824Z testStepFn: nested 'sig test' returned exit=0 stderr_len=20
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:42.4379697Z testStepFn: entered for step handle 207
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:42.4380683Z testStepFn: about to spawn nested 'sig test' for step 'test-qwen3-plan'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:42.9711783Z testStepFn: nested 'sig test' returned exit=0 stderr_len=20
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:42.9769201Z testStepFn: entered for step handle 208
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:42.9819342Z testStepFn: about to spawn nested 'sig test' for step 'test-qwen3-executor'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:43.5089715Z testStepFn: nested 'sig test' returned exit=0 stderr_len=141
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:43.5109303Z testStepFn: entered for step handle 209
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:43.5128902Z testStepFn: about to spawn nested 'sig test' for step 'test-inference-session'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:43.5343780Z testStepFn: nested 'sig test' returned exit=0 stderr_len=120
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:43.5354429Z testStepFn: entered for step handle 210
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:43.5371941Z testStepFn: about to spawn nested 'sig test' for step 'test-qwen35-kernels'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:44.1221859Z testStepFn: nested 'sig test' returned exit=0 stderr_len=20
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:44.1249477Z testStepFn: entered for step handle 213
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:44.1339583Z testStepFn: about to spawn nested 'sig test' for step 'test-tts-model-container'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:44.6930169Z testStepFn: nested 'sig test' returned exit=0 stderr_len=20
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:44.6989375Z testStepFn: entered for step handle 214
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:44.7028143Z testStepFn: about to spawn nested 'sig test' for step 'test-tts-talker-plan'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:45.0402495Z testStepFn: nested 'sig test' returned exit=0 stderr_len=20
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:45.0419936Z testStepFn: entered for step handle 215
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:45.0449681Z testStepFn: about to spawn nested 'sig test' for step 'test-tts-talker-native-plan'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:45.3341369Z testStepFn: nested 'sig test' returned exit=0 stderr_len=95
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:45.3369613Z testStepFn: entered for step handle 216
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:45.3400552Z testStepFn: about to spawn nested 'sig test' for step 'test-tts-gpu'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:45.7589619Z testStepFn: nested 'sig test' returned exit=0 stderr_len=187
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:45.7590494Z testStepFn: entered for step handle 217
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:45.7619355Z testStepFn: about to spawn nested 'sig test' for step 'test-tts-talker-backend'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:46.2651229Z testStepFn: nested 'sig test' returned exit=0 stderr_len=99
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:46.2671087Z testStepFn: entered for step handle 218
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:46.2729471Z testStepFn: about to spawn nested 'sig test' for step 'test-tts-talker-executor'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:46.6280066Z testStepFn: nested 'sig test' returned exit=1 stderr_len=381
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:46.6309263Z test step 'test-tts-gpu' failed:
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:46.6310798Z src/tts/gpu.sig:64:8: error: dependency on dynamic library 'kernel32' requires enabling Position Independent Code; fixed by '-lkernel32' or '-fPIC'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:46.6339296Z extern "kernel32" fn QueryPerformanceCounter(*u64) c_int;
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:46.6379158Z        ^~~~~~~~~~
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:46.6385949Z referenced by:
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:46.6409214Z     nowNs: src/tts/gpu.sig:69:9
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:46.6417948Z     matvec: src/tts/gpu.sig:229:21
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:46.6438196Z     1 reference(s) hidden; use '-freference-trace=3' to see all references
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:46.6439216Z 
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:46.6439581Z testStepFn: entered for step handle 219
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:46.6440456Z testStepFn: about to spawn nested 'sig test' for step 'test-tts-sampler'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:46.7769567Z testStepFn: nested 'sig test' returned exit=0 stderr_len=107
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:46.7809145Z testStepFn: entered for step handle 220
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:46.7839229Z testStepFn: about to spawn nested 'sig test' for step 'test-tts-synth'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:47.7279637Z testStepFn: nested 'sig test' returned exit=0 stderr_len=104
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:47.7309492Z testStepFn: entered for step handle 221
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:47.7329569Z testStepFn: about to spawn nested 'sig test' for step 'test-tts-codec-plan'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:47.8096140Z testStepFn: nested 'sig test' returned exit=0 stderr_len=194
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:47.8109398Z testStepFn: entered for step handle 222
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:47.8193051Z testStepFn: about to spawn nested 'sig test' for step 'test-tts-codec-backend'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:48.3665820Z testStepFn: nested 'sig test' returned exit=0 stderr_len=228
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:48.3670718Z testStepFn: entered for step handle 223
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:48.3699942Z testStepFn: about to spawn nested 'sig test' for step 'test-tts-codec-transformer'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:48.5443796Z testStepFn: nested 'sig test' returned exit=0 stderr_len=325
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:48.5469533Z testStepFn: entered for step handle 224
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:48.5489724Z testStepFn: about to spawn nested 'sig test' for step 'test-tts-vocoder'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:49.1534849Z testStepFn: nested 'sig test' returned exit=0 stderr_len=99
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:49.1541373Z testStepFn: entered for step handle 225
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:49.1542410Z testStepFn: about to spawn nested 'sig test' for step 'test-tts-codec'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:49.3514673Z testStepFn: nested 'sig test' returned exit=0 stderr_len=172
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:49.3539436Z testStepFn: entered for step handle 226
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:49.3560435Z testStepFn: about to spawn nested 'sig test' for step 'test-lsp-jwrite'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:50.0691200Z testStepFn: nested 'sig test' returned exit=0 stderr_len=189
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:50.0719493Z testStepFn: entered for step handle 227
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:50.0749376Z testStepFn: about to spawn nested 'sig test' for step 'test-lsp-document'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:50.3449793Z testStepFn: nested 'sig test' returned exit=0 stderr_len=166
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:50.3479464Z testStepFn: entered for step handle 228
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:50.3480922Z testStepFn: about to spawn nested 'sig test' for step 'test-lsp-position'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:50.5949689Z testStepFn: nested 'sig test' returned exit=0 stderr_len=162
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:50.6007915Z testStepFn: entered for step handle 229
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:50.6009822Z testStepFn: about to spawn nested 'sig test' for step 'test-lsp-symbols'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:51.2845503Z testStepFn: nested 'sig test' returned exit=0 stderr_len=136
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:51.2846269Z testStepFn: entered for step handle 230
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:51.2848135Z testStepFn: about to spawn nested 'sig test' for step 'test-lsp-message'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:51.6775136Z testStepFn: nested 'sig test' returned exit=0 stderr_len=262
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:51.6800365Z testStepFn: entered for step handle 231
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:51.6804411Z testStepFn: about to spawn nested 'sig test' for step 'test-lsp-server'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:52.3148341Z testStepFn: nested 'sig test' returned exit=0 stderr_len=200
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:52.3192638Z testStepFn: entered for step handle 232
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:52.3193824Z testStepFn: about to spawn nested 'sig test' for step 'test-net-checksum'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:52.7359806Z testStepFn: nested 'sig test' returned exit=0 stderr_len=904
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:52.7383443Z testStepFn: entered for step handle 233
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:52.7384276Z testStepFn: about to spawn nested 'sig test' for step 'test-net-ethernet'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:53.1111402Z testStepFn: nested 'sig test' returned exit=0 stderr_len=206
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:53.1159820Z testStepFn: entered for step handle 234
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:53.1192586Z testStepFn: about to spawn nested 'sig test' for step 'test-net-ipv4'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:53.8829815Z testStepFn: nested 'sig test' returned exit=0 stderr_len=334
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:53.8830606Z testStepFn: entered for step handle 235
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:53.8831496Z testStepFn: about to spawn nested 'sig test' for step 'test-net-arp'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:53.9980394Z testStepFn: nested 'sig test' returned exit=0 stderr_len=210
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:54.0031698Z testStepFn: entered for step handle 236
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:54.0059566Z testStepFn: about to spawn nested 'sig test' for step 'test-net-icmp'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:54.5099084Z testStepFn: nested 'sig test' returned exit=0 stderr_len=292
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:54.5124126Z testStepFn: entered for step handle 237
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:54.5140159Z testStepFn: about to spawn nested 'sig test' for step 'test-net-udp'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:54.8364084Z testStepFn: nested 'sig test' returned exit=0 stderr_len=396
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:54.8389174Z testStepFn: entered for step handle 238
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:54.8430942Z testStepFn: about to spawn nested 'sig test' for step 'test-net-tcp'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:55.3109973Z testStepFn: nested 'sig test' returned exit=0 stderr_len=20
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:55.3170931Z testStepFn: entered for step handle 239
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:55.3230399Z testStepFn: about to spawn nested 'sig test' for step 'test-subprocess'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:55.9040454Z testStepFn: nested 'sig test' returned exit=0 stderr_len=20
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:55.9069307Z testStepFn: entered for step handle 240
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:55.9133085Z testStepFn: about to spawn nested 'sig test' for step 'test-ui-detect'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:56.2660691Z testStepFn: nested 'sig test' returned exit=0 stderr_len=588
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:56.2689229Z testStepFn: entered for step handle 241
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:56.2749471Z testStepFn: about to spawn nested 'sig test' for step 'test-udp'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:56.2781866Z testStepFn: nested 'sig test' returned exit=0 stderr_len=196
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:56.2810682Z testStepFn: entered for step handle 242
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:56.2845718Z testStepFn: about to spawn nested 'sig test' for step 'test-packet'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:57.1031529Z testStepFn: nested 'sig test' returned exit=0 stderr_len=511
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:57.1035614Z testStepFn: entered for step handle 243
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:57.1124971Z testStepFn: about to spawn nested 'sig test' for step 'test-transport-crypto'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:57.5062720Z testStepFn: nested 'sig test' returned exit=0 stderr_len=1253
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:57.5129412Z testStepFn: entered for step handle 244
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:57.5173706Z testStepFn: about to spawn nested 'sig test' for step 'test-recovery'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:58.0979678Z testStepFn: nested 'sig test' returned exit=0 stderr_len=251
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:58.0995433Z testStepFn: entered for step handle 245
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:58.1030931Z testStepFn: about to spawn nested 'sig test' for step 'test-streams'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:58.1997424Z testStepFn: nested 'sig test' returned exit=0 stderr_len=2832
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:58.2021168Z testStepFn: entered for step handle 246
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:58.2022262Z testStepFn: about to spawn nested 'sig test' for step 'test-datagram'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:58.7980345Z testStepFn: nested 'sig test' returned exit=0 stderr_len=1178
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:58.8030345Z testStepFn: entered for step handle 247
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:58.8089661Z testStepFn: about to spawn nested 'sig test' for step 'test-telemetry'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:59.1194633Z testStepFn: nested 'sig test' returned exit=0 stderr_len=1277
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:59.1230493Z testStepFn: entered for step handle 248
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:59.1270451Z testStepFn: about to spawn nested 'sig test' for step 'test-conn'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:59.8330687Z testStepFn: nested 'sig test' returned exit=0 stderr_len=445
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:59.8429739Z testStepFn: entered for step handle 249
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:59.8491571Z testStepFn: about to spawn nested 'sig test' for step 'test-scheduler'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:59.9199788Z testStepFn: nested 'sig test' returned exit=0 stderr_len=1037
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:59.9259508Z testStepFn: entered for step handle 250
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:31:59.9289467Z testStepFn: about to spawn nested 'sig test' for step 'test-appmap'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:00.1241725Z testStepFn: nested 'sig test' returned exit=0 stderr_len=401
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:00.1260156Z testStepFn: entered for step handle 251
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:00.1289596Z testStepFn: about to spawn nested 'sig test' for step 'test-h3'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:01.5787071Z testStepFn: nested 'sig test' returned exit=0 stderr_len=239
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:01.5789108Z testStepFn: entered for step handle 252
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:01.5809220Z testStepFn: about to spawn nested 'sig test' for step 'test-h3-server'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:01.6905089Z testStepFn: nested 'sig test' returned exit=0 stderr_len=1789
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:01.6929893Z testStepFn: entered for step handle 253
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:01.6955497Z testStepFn: about to spawn nested 'sig test' for step 'test-no-alloc'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:01.7021124Z testStepFn: nested 'sig test' returned exit=0 stderr_len=891
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:01.7022297Z testStepFn: entered for step handle 254
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:01.7023276Z testStepFn: about to spawn nested 'sig test' for step 'test-comptime-sizes'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:02.0125557Z testStepFn: nested 'sig test' returned exit=0 stderr_len=2873
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:02.0143814Z testStepFn: entered for step handle 255
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:02.0189649Z testStepFn: about to spawn nested 'sig test' for step 'test-layer'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:03.1220425Z testStepFn: nested 'sig test' returned exit=0 stderr_len=20
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:03.1249316Z testStepFn: entered for step handle 256
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:03.1289183Z testStepFn: about to spawn nested 'sig test' for step 'test-domain-agnostic'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:03.4565764Z testStepFn: nested 'sig test' returned exit=0 stderr_len=720
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:03.4591146Z testStepFn: entered for step handle 257
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:03.4619668Z testStepFn: about to spawn nested 'sig test' for step 'test-shared-source'
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:03.7714423Z testStepFn: nested 'sig test' returned exit=0 stderr_len=95
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:03.8717611Z testStepFn: nested 'sig test' returned exit=0 stderr_len=270
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:04.3857529Z testStepFn: nested 'sig test' returned exit=0 stderr_len=117
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:04.4102352Z testStepFn: nested 'sig test' returned exit=0 stderr_len=101
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:04.4157561Z FAIL: step 'test-sabr-loop' exited with code 1
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:04.4167623Z FAIL: step 'test-manifest-sabr' exited with code 1
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:04.4209166Z FAIL: step 'test-tls-client' exited with code 1
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:04.4210163Z FAIL: step 'test-tts-gpu' exited with code 1
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:04.4499608Z {"suite":"sql-change-log","pass":true,"assertions":876,"rejected_flips":202,"accepted_flips":52}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:04.4531506Z {"suite":"sql-storage","pass":true,"assertions":619,"small_bytes":212064,"server_profile_bytes":12684160,"server_versions_per_table":1024}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:04.4810167Z {"suite":"sql","pass":true,"cases":14,"assertions":8431,"statements":1426,"fuzz_inputs":1313,"database_bytes":229888}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:04.4856180Z {"suite":"sql-expr","pass":true,"assertions":397,"database_bytes":315152,"wide_bytes":621120}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:04.4906223Z {"suite":"sql-mvcc","pass":true,"assertions":122,"database_bytes":205024}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:04.4906841Z 
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:04.5261363Z {"suite":"sql-types","pass":true,"assertions":4491,"database_bytes":563264}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:04.5715489Z {"suite":"sql-query","pass":true,"assertions":63417,"database_bytes":479568,"big_bytes":1253888,"work_rows":512}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:04.5885118Z {"suite":"sql-dml","pass":true,"assertions":220,"database_bytes":289024}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:04.6049398Z {"suite":"sql-catalog","pass":true,"assertions":36,"database_bytes":269264}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:04.9259917Z {"suite":"sql-index","pass":true,"assertions":239627,"statements":50245,"model_steps":8192,"rejected":1928}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:04.9620193Z PASS exact batched work control: 76801 assertions
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:04.9649267Z 
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.0555271Z {"suite":"sql-integer-topk","pass":true,"assertions":3140}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.0556169Z 
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.0612410Z {"suite":"sql-layout-order","pass":true,"assertions":108}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.0613188Z 
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.0916600Z {"suite":"sql-summary","pass":true,"assertions":4136}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.0917579Z 
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.1006021Z {"suite":"sql-dense-group","pass":true,"assertions":610}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.1019621Z 
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.1310442Z {"suite":"sql-rollup","pass":true,"assertions":6409}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.1329053Z 
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.1352550Z {"suite":"sql-ordered-probes","pass":true,"assertions":188}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.1354810Z 
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.2576049Z {"suite":"sql-compact-scan","pass":true,"assertions":23371}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.2576893Z 
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.2736415Z {"suite":"runtime-workspace","passed":true,"assertions":153,"inline_bytes":242704}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.3067840Z PASS packed integer physical columns: 72320 assertions; SQL integration not claimed
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.3214376Z PASS resource budgets: 25048 assertions; synthetic observations; native concurrent grants=0
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.3343287Z PASS native worker ownership/mutex/signal: 3 assertions
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.3468867Z SKIP native reader/writer contention: unsupported worker backend
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.4655253Z PASS isolated SQL read contexts: 40 assertions, 2400 real queries, native_threads=0; server integration not claimed
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.4974594Z {"suite":"postgres","pass":true,"assertions":15804,"packets":347,"fuzz_inputs":4096,"session_bytes":1124520}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.5135827Z {"suite":"mysql","pass":true,"assertions":1168,"fuzz_inputs":1024}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.5386424Z {"suite":"tds","pass":true,"assertions":2661,"fuzz_inputs":1337}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.5579816Z store: 3154 assertions passed
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.5580222Z 
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.5697240Z {"suite":"tcp_server","pass":true,"assertions":76}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.7346880Z {"suite":"scram","pass":true,"assertions":24759,"fuzz_inputs":8192,"server_bytes":1792}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.7504839Z {"suite":"durable_log","pass":true,"assertions":4834}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.7687496Z {"suite":"db_file","pass":true,"assertions":27}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.7823654Z {"suite":"entropy","pass":true,"assertions":1042,"os":"linux"}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.7856426Z {"suite":"db-stream","assertions":39}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.7857675Z 
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.7896678Z {"suite":"postgres-stream","pass":true,"assertions":749}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.7897330Z 
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.8002699Z {"suite":"wall_clock","pass":true,"assertions":4002,"os":"linux"}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.8274005Z {"suite":"pg-copy","pass":true,"assertions":478,"session_bytes":1340088}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.8313692Z page-region: mapping, bounds, alignment and idempotent release passed
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.8314743Z 
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.8778963Z PASS native resource observations: 30065 assertions; native=linux
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.8917314Z PASS budgeted regions: native rounding, unique ownership, pressure and OS failure rollback
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.8977469Z external-storage: 100000 rows, 21 assertions, database metadata 228112 bytes
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.8979298Z 
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.9120333Z PASS safetensors: 14395 executed assertions
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.9245469Z PASS ASR frontend consumers: unloaded model, empty input and insufficient caller storage rejected before inference
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.9301145Z PASS ASR mel: 5658 assertions, maximum reference error=0.00000011920929, workspace=11208
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.9373813Z {"suite":"ephemeral-scene","pass":true,"assertions":2600,"runtime_bytes":2856}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.9504441Z PASS now-voice-output: 4 executed cases (cancellation/provenance, complete text, rejection, saturation)
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.9545411Z device control: 65536 wire commands, typed dispatch, readiness and driver failure contracts passed
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.9546439Z 
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.9664443Z PASS speech-text: 2090 executed assertions
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:05.9829712Z {"suite":"qwen-executor","pass":true,"cases":11,"assertions":3080}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:06.0039482Z PASS inference-session: 55 executed assertions
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:06.0277328Z PASS intentional assertion failure detected
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:09.3535512Z PASS projected filter: 959 assertions, independent scalar executor and row models
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:09.3536058Z 
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:09.3536496Z {"suite":"sql-stream-group","pass":true,"assertions":1702,"rows":100000,"query_refs":1024,"joined_rows":100000,"joined_query_refs":512}
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:09.3537082Z 
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:09.3544928Z 
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:09.3545481Z Build summary: 260 total, 234 succeeded, 0 cached, 4 failed, 22 skipped in 91418 ms
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:09.3575293Z error: native build runner failed with exited with code 1:
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:09.3577317Z /tmp/zpm-root-cache/o/38e408473eee9514730d9f82db944e35/sig_build_runner /tmp/sig/sig-0.5.9-zig0.17.0.786a282-x86_64-linux/bin/sig /tmp/sig/sig-0.5.9-zig0.17.0.786a282-x86_64-linux/lib /home/runner/work/zpm/zpm /tmp/zpm-root-cache /tmp/zpm-global-cache /home/runner/work/zpm/zpm/build.sig test --keep-going
+native-sig	Test ZPM library and transport graph with Sig	2026-10-28T03:32:09.3703470Z ##[error]Process completed with exit code 1.

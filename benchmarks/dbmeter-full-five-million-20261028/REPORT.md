@@ -59,8 +59,84 @@ The screening data show substantial deficits, particularly q6: RAMSQL with four
 workers/eight clients reaches 6.87 queries/s, PostgreSQL 20.79 and IRDB 1,629.06.
 These are not repeated confidence estimates or isolated final comparisons.
 Fresh tests with only one database active use the original five-second ramp,
-15-second warmup and 60-second measurement; results will be recorded separately.
+15-second warmup and 60-second measurement. Their results follow below.
 No benchmark leadership, full production readiness or new release is claimed.
+
+## Isolated original-duration comparisons
+
+The reference services are stopped before each RAMSQL run. PostgreSQL then runs
+alone and shuts down cleanly before IRDB starts. Both reference engines pass all
+seven original checks again; RAMSQL passes the same three supported checks, with
+the other four failures retained. Eight JDBC clients run each query in a fresh
+JVM. All measured runs have zero SQL errors. These are single trials, not repeated
+confidence estimates. QPS uses the actual recorded measurement window, including
+queries finishing after the requested 60-second boundary.
+
+| Query | RAMSQL before fix, 4 workers | RAMSQL before fix, 8 workers | PostgreSQL 18.3 | IRDB 1.10.821 |
+| --- | ---: | ---: | ---: | ---: |
+| q5 high-value customers | 4.05 | 6.65 | 5.42 | 210.04 |
+| q6 selective store/category join | 6.89 | 5.13 | 20.37 | 1,531.01 |
+
+The eight-worker RAMSQL run uses an average of 7.67 server CPU cores for q5,
+but only 2.68 for q6. Four workers average 3.90 cores for either query. CPU
+averages include the ramp/warmup and JVM command wall time; they are diagnostic,
+not per-query cycle measurements. IRDB remains substantially faster in both
+cases. These results do not establish a RAMSQL win across the full suite.
+
+[`isolated/summary.json`](isolated/summary.json) links each original raw report;
+the per-engine folders retain command provenance, checks and logs. Raw CSV input,
+bulk SQL, private driver binaries and the reviewer's source remain excluded.
+
+## Workspace-admission diagnosis
+
+Separate instrumented runs are diagnostic and are excluded from the throughput
+table. Most q6 Execute frames take the parallel shared path. An all-frame trace
+also captures `BudgetExceeded` while provisioning a private read arena, followed
+by the one-second retry delay and serialized fallback. The trace records about
+8.51 GB of charged regions, only 163–189 MB of remaining grant allowance, and a
+231 MB scratch request. That fallback takes the exclusive database gate and
+therefore can stall otherwise independent readers. No named-zone or unsupported
+query fallback appears in this trace.
+
+The accounting investigation distinguishes Windows committed-memory limits from
+resident-memory limits. A committed but untouched arena must remain owned when
+computing remaining commit capacity. The previous ZPM budget used residency for
+both scope types, subtracting the nonresident commitment again. ZPM
+`ca3ccc622f51df8a46e39cbba75f55381ad3113d` distinguishes scope charges and uses
+the process-private commitment counter for ownership. App/shared usage remains
+charged to the app scope; physical capacity, headroom and operator caps still
+constrain new grants. A native untouched-64-MB regression fails before the
+adapter correction and passes afterward. The independent private counter reads
+68,390,912 bytes where the old ownership observation reports 154,333,184 bytes.
+The native contracts cover real job limits, pressure and grant rollback too.
+
+## Repeated workspace-accounting correction
+
+The corrected binary uses the same default text-128 layout, explicit table banks,
+65k workspace, eight workers and eight clients. The real dataset is reloaded into
+a fresh server for each run. All three supported original checks pass before
+timing and every timed query succeeds. There are three trials per binary; the
+later pairs alternate corrected/baseline and baseline/corrected order. Other
+database services are stopped throughout. These single-host medians and ranges
+are not statistical confidence intervals.
+
+| q6 selective join | Median queries/s | Minimum | Maximum | Average server cores, including warmup |
+| --- | ---: | ---: | ---: | ---: |
+| Before correction | 3.30 | 3.26 | 5.13 | 1.67–2.68 |
+| After correction | 11.90 | 11.66 | 12.42 | 7.67–7.70 |
+
+The median improves **3.61x**. The original single q5 comparison stays essentially
+unchanged: 6.65 before and 6.64 after. This fixes a workspace-admission/concurrency
+loss, not the remaining fact-scan execution cost. PostgreSQL's isolated q6 result
+is still faster, and IRDB remains far ahead. Four full-suite feature gaps and
+the 100M-row SQL-server capacity gap remain open.
+
+[`isolated/commit-scope-repeats.json`](isolated/commit-scope-repeats.json) records
+every trial, actual measurement window, CPU average and binary hash. All 125
+tracked reviewer inputs still match the pinned checkout after CRLF-to-LF-only
+normalization; [`reviewer-input-integrity.json`](evidence/reviewer-input-integrity.json)
+records their hashes. The original binaries, rejected trials and unsupported
+queries remain visible alongside the improvement.
 
 ## Reproduction and evidence
 

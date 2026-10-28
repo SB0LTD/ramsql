@@ -6,6 +6,13 @@ later binary.
 
 ## Unreleased
 
+- Correct Windows workspace admission in ZPM: distinguish commitment from
+  residency when applying app/job limits, and count process-private ownership
+  separately from app/shared usage. Qualify an untouched native mapping against
+  independent OS counters and retain isolated five-million-row JDBC comparisons
+  with PostgreSQL and IRDB, including the remaining query and performance gaps.
+  Three eight-worker selective-join trials improve median throughput from 3.30
+  to 11.90 queries/s; this remains slower than either reference on that query.
 - Add PostgreSQL ROUND numeric/float8 overloads, preserve NULL/type/signed-zero
   behavior, and guard extreme-scale arithmetic. Keep pure ROUND expressions on
   bounded streaming aggregate paths while retaining sequence/subquery guards.
