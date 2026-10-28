@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "ramsql_source": "0cf7784e4965cd8daba7f7ae7b15553d72ab5c36",
+  "phases": {
+    "projection": {
+      "zpm_source": "8b08cadcc8581bd74ff14d55754b4a7070273970",
+      "binary_sha256": "5ffc37c1b1cd9cc4bc24a904e269e7bb812878cb0c6f6e815a28104b0626a65a",
+      "adopted": false
+    },
+    "operator-specialization": {
+      "zpm_source": "129eabbd8157a8a4cbfe0697a2ab11aed911f5ce",
+      "binary_sha256": "792de52ed240873c5d63c0a801f230a231e3f788f60939f71386f37c23ea6acc",
+      "adopted": false
+    },
+    "exact-byte": {
+      "zpm_source": "b0312de136513434d6863dad285b7eb54853b4b2",
+      "binary_sha256": "fec8fc1865162c40e4e51f980c19fdf10e867b34ea77f74186a69c9e66a30bd0",
+      "adopted": false
+    },
+    "unchanged-control": {
+      "zpm_source": "9606877fcd05157af52e2965c5240388d68cc4a9",
+      "binary_sha256": "13295d70629a19c5eaf67d8ac5a219bf340cc2b252ed018601e17f78ee3b4ba1",
+      "adopted": true
+    }
+  },
+  "universal_advantage_proven": false,
+  "complete_original_suite_passed": false
+}
