@@ -6,6 +6,12 @@ later binary.
 
 ## Unreleased
 
+- Add PostgreSQL ROUND numeric/float8 overloads, preserve NULL/type/signed-zero
+  behavior, and guard extreme-scale arithmetic. Keep pure ROUND expressions on
+  bounded streaming aggregate paths while retaining sequence/subquery guards.
+  Load the reviewer's actual five-million-row data with the default text build;
+  totals and two original query checks pass. Four full-suite SQL feature gaps
+  remain. Retain failures and exploratory performance deficits explicitly.
 - Validate direct row-directory candidates for dense integer primary keys using
   canonical snapshot visibility and exact key checks, with ordinary hash/MVCC
   fallback. A fixed per-table hint adds no query workspace or per-row index.

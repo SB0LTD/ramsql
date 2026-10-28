@@ -124,7 +124,8 @@ There is no Oracle, SQLite, DB2 or other dialect endpoint in this beta.
 
 Implemented SQL includes typed CRUD/RETURNING, primary keys, defaults/generated
 columns, sequences, joins, aggregates, CTEs/set operations, savepoints and
-transactional DDL. Isolation is READ COMMITTED only. Secondary/foreign-key
+transactional DDL. Development adds PostgreSQL ROUND over numeric and float8
+values, including aggregate expressions. Isolation is READ COMMITTED only. Secondary/foreign-key
 indexes, window functions, complete catalogs, stored procedures/extensions and
 full dialect semantics are missing. Some MySQL/TDS types are rendered as text.
 Read the [SQL reference](SQL_REFERENCE.md) and [usability audit](compatibility/BETA_USABILITY.md)
@@ -221,6 +222,10 @@ earlier native SQL-string results below are a different measurement boundary.
 The million-row analytic mix currently remains substantially slower than IRDB;
 the report records that gap alongside the smaller-query improvements. These
 results do not establish 100M-row capacity or general benchmark leadership.
+The [actual five-million-row campaign](benchmarks/dbmeter-full-five-million-20261028/REPORT.md)
+loads the full data with the default text build and passes totals plus two
+original queries. Four queries remain unsupported, and the tested scans/joins
+remain substantially slower than IRDB. This is not full-suite qualification.
 
 To reproduce size-scaling runs after building dbMeter, installing its configured
 drivers and running its original generator:

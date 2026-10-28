@@ -1,0 +1,10 @@
+PASS  a_totals                                      67.22 ms
+PASS  q1_region_month                              200.24 ms
+PASS  q2_category_rank                              95.37 ms
+PASS  q3_top_products                               62.84 ms
+PASS  q4_segment_discount_rollup                   305.37 ms
+PASS  q5_high_value_customers                      126.05 ms
+PASS  q6_store_category_mix                          6.32 ms
+
+7 check(s): 7 passed, 0 failed
+JUnit report: C:\Just-Things\Projects\sb0\ramsql\.sig-cache\dbmeter-full-irdb\all-checks.xml

@@ -1,0 +1,17 @@
+run irdb-5m-1-q6_store_category_mix, node local, scenarios: q6_store_category_mix(w4)
+opening 1 connection(s)...
+connected to InMemory.Net IRDB server 127.0.0.1:55660, database full_bench_20261028
+[   10.1s] measure  ops       5922      592.0/s  errors      0  active 1/1
+[   20.2s] measure  ops      12115      608.5/s  errors      0  active 1/1
+[   25.0s] done     ops      14907      586.0/s  errors      0  active 0/1
+
+Run:       irdb-5m-1-q6_store_category_mix
+Database:  irdb full5M [reports as InMemory.Net IRDB server 127.0.0.1:55660, database full_bench_20261028] (driver dbmeter IRDB adapter (jirdb) 0.1)
+Window:    2026-10-28T02:07:56.416Z .. 2026-10-28T02:08:11.416Z (15.0 s)
+Nodes:     1 node(s), 1 thread(s) total
+  local                host SB0-LAPTOP           1 threads  32 cpus  window +0.0s .. +15.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+q6_store_category_mix          9023        0      180460      601.5      1.66      1.33      1.65      1.84     16.64     26.63
+
+Report: C:\Just-Things\Projects\sb0\ramsql\.sig-cache\dbmeter-full-irdb\irdb-5m-1-q6_store_category_mix\local.json

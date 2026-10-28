@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "method": "Exact native PostgreSQL data export after all seven original 5M CSV checks passed; ordered by PK; unchanged values converted to bounded INSERT batches of 50. No sample data or formula reimplementation.",
+  "tables": [
+    {
+      "table": "regions",
+      "rows": 5,
+      "csv_sha256": "466726eb6243a4579627301bc5b164a49a10cc6569944da6588948d2623650df",
+      "csv_bytes": 54
+    },
+    {
+      "table": "stores",
+      "rows": 200,
+      "csv_sha256": "7f6073babe3f5e48546d52c1293c0557d38f738b4cf9c6fe36863d8e9e5e8e71",
+      "csv_bytes": 3203
+    },
+    {
+      "table": "categories",
+      "rows": 20,
+      "csv_sha256": "a237b44aa8460bbb8090db3f4ee0a505d8d6831f7cdcc08ba6928e7c08c47341",
+      "csv_bytes": 320
+    },
+    {
+      "table": "products",
+      "rows": 1000,
+      "csv_sha256": "afb8300e9fec9bb10d975a6f8764aa29142ce6e72648853f33668a8c196155e5",
+      "csv_bytes": 12396
+    },
+    {
+      "table": "customers",
+      "rows": 50000,
+      "csv_sha256": "a95d5fee6371e435a29e10ef8edd23a772627ecb07453af767b6c6099174224a",
+      "csv_bytes": 913906
+    },
+    {
+      "table": "sales",
+      "rows": 5000000,
+      "csv_sha256": "ed795fdf69da795fe17fc49cea0705ff37e6851ddd46d23271a286927674cbd2",
+      "csv_bytes": 214986183
+    }
+  ],
+  "sql_sha256": "9b0e1e556433483e015b141eb90425fbe3c96e60cb4170d9baafde9d85de2d0d",
+  "sql_bytes": 233597882
+}

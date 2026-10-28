@@ -79,11 +79,20 @@ UNION [ALL] to a fixpoint, and UNION, INTERSECT and EXCEPT [ALL]. AVG(interval),
 LATERAL, NATURAL joins, parenthesized join trees, window functions (flag F6)
 and data-modifying CTEs (flag F7) are not provided.
 Default ordering follows PostgreSQL: ASC NULLS LAST, DESC NULLS FIRST. A WHERE
-holds at most 8 leaf predicates and a statement at most 512 expression nodes
-nested 64 deep. Unquoted names are ASCII and case insensitive, quoted names keep
+holds at most 8 leaf predicates. The default embedded profile has 512 expression
+nodes; the current hosted profile has 8,192, nested 64 deep. Check the actual
+binary's `--capabilities` because these profile limits are configurable.
+Unquoted names are ASCII and case insensitive, quoted names keep
 case; text is bytewise and text bounds count bytes (including `||` results).
 Apostrophes are doubled in SQL text. Each execute call accepts one statement.
-Other functions (including `pg_typeof`), window functions,
+Development supports `ROUND(numeric)`, `ROUND(numeric, integer)` and
+`ROUND(double precision)`, including column and aggregate inputs. Decimal ties
+round away from zero; floating ties use nearest-even and retain signed zero.
+The existing numeric coefficient/display-scale capacities still apply; an
+unrepresentable result returns a capacity error. Function arguments remain
+subject to normal type conversion and NULL rules.
+
+Other functions (including `pg_typeof` and `to_char`), ROLLUP, window functions,
 arrays, JSON (non-B) operators, jsonpath, zone abbreviations (`EST`),
 non-ISO DateStyle and non-postgres IntervalStyle are not supported. MySQL and
 TDS clients receive NUMERIC, REAL/DOUBLE, temporal and JSON values as text

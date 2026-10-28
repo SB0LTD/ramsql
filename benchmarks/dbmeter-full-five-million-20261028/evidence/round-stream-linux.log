@@ -1,0 +1,2 @@
+{"suite":"sql-stream-group","pass":true,"assertions":1702,"rows":100000,"query_refs":1024,"joined_rows":100000,"joined_query_refs":512}
+{"suite":"sql-stream-group","pass":true,"assertions":1702,"rows":100000,"query_refs":1024,"joined_rows":100000,"joined_query_refs":512}

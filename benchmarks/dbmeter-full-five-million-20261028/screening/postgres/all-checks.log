@@ -1,0 +1,10 @@
+PASS  a_totals                                     162.32 ms
+PASS  q1_region_month                              920.43 ms
+PASS  q2_category_rank                            5016.00 ms
+PASS  q3_top_products                              233.89 ms
+PASS  q4_segment_discount_rollup                  1717.16 ms
+PASS  q5_high_value_customers                      571.47 ms
+PASS  q6_store_category_mix                         96.63 ms
+
+7 check(s): 7 passed, 0 failed
+JUnit report: C:\Just-Things\Projects\sb0\ramsql\.sig-cache\dbmeter-full-postgres\all-checks.xml
