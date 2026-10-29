@@ -12,11 +12,9 @@ later binary.
   expressions, snapshots and budgets. No local throughput measurement or
   all-workload speedup is claimed; qualify the candidate in CI.
 
-- Evaluate later safe predicates only at surviving fact slots in selective
-  factorized joins; retain vectors for dense masks and canonical execution for
-  unsupported expressions/snapshots. Reuse exact comparison/null semantics and
-  preserve logical work totals. This candidate is qualified separately; no
-  all-workload or production-ready claim follows from operation counts.
+- Validate single-character LIKE escapes through the scalar UTF-8 decoder.
+  Preserve malformed-input rejection while supporting native SB0 toolchains
+  without the whole-buffer validator's vector reduction.
 
 - Enable ZPM's guarded factorized aggregate operators: aggregate fact measures
   before unique-key dimension joins, and carry typed COUNT/SUM producer state
