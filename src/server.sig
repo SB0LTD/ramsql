@@ -93,7 +93,7 @@ const config: sql.Config = .{
     .compact_integral_scans = profile.compact_integral_scans,
     .factorized_aggregates = true,
     .block_presence_filters = true,
-    .typed_grouped_aggregates = false,
+    .typed_grouped_aggregates = true,
 };
 const Raw = sql.Database(config);
 const Store = stores.Store(Raw);
