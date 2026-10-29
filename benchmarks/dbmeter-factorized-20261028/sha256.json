@@ -244,7 +244,7 @@
   "presence-backing-comparison.json": "14c1b26ad82303d1c3a1f3d995ccf3782c8fe326328bada3bddee916a52958c4",
   "profiles/off-q6.json": "7fe0f5108271b4066fd6933051e25516c417b4ecb6c8949589a464b8c57b790e",
   "profiles/on-q6.json": "c2442b6e2f4ddfc2f8c13c5fafe0e1615ec4dbc335c4de0f1cf07697be267235",
-  "REPORT.md": "d76d13dbf6cebd8ec39bef55cd3bb724d10aa43b6aafd1b95dff899a8de73296",
+  "REPORT.md": "cec730bb09269ade28c8c7fbf6f809027b64c698719192affc077464cd8a2cca",
   "scripts/benchmark_factor_pairs.py": "1a7d4772d54108521020b9467159d1f7e06aece738b80c6edd42da3330535034",
   "scripts/benchmark_full_affinity.py": "d13e2f5bec1946ecd516d47cbf2e9e6d4f17830d0625666a9af278b791f9e352",
   "scripts/benchmark_full_presence.py": "a66ce01bdbb1dfb414af1c1537cc93f6c4c5c1ba69d3f048161b62775dc353eb",

@@ -254,7 +254,7 @@ diagnostics, not throughput trials, and do not replace any measurement above.
 | Selected fact rows in join factor | 0 | 6,292 |
 | Presence-rejected blocks | 0 | 55,112 |
 | Final groups | 4 | 20 |
-| Dimension probes | 23,866 | 1,000 |
+| Final grouping hash probes | 23,866 | 1,000 |
 
 Only the enabled store/category execution records sparse work: **44,328 masks
 containing 47,987 candidate positions**, rather than full-width evaluation at
