@@ -1,0 +1,22 @@
+{
+  "diagnostic_only": true,
+  "throughput_qualified": false,
+  "mode": "on",
+  "binary_sha256": "3bdcf2bacd7873165add7640d0ebef71c828a1e315697062f4012c3d879fb837",
+  "checks": [
+    {
+      "case": "q5_high_value_customers",
+      "passed": true,
+      "records": [
+        "DIAGNOSTIC factor=0 keys=0 selected=0 nested=1 nested_keys=50000 rejected_blocks=0 sparse_masks=0 sparse_rows=0 rows=5000000 groups=4 probes=23866"
+      ]
+    },
+    {
+      "case": "q6_store_category_mix",
+      "passed": true,
+      "records": [
+        "DIAGNOSTIC factor=1 keys=1000 selected=6292 nested=0 nested_keys=0 rejected_blocks=55112 sparse_masks=44328 sparse_rows=47987 rows=5000000 groups=20 probes=1000"
+      ]
+    }
+  ]
+}

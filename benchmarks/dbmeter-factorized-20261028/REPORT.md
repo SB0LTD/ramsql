@@ -238,6 +238,34 @@ claimed from these measurements. The next investigation must distinguish
 execution-path selection and actual kernel work from host scheduling/frequency
 effects before another throughput qualification attempt.
 
+### Original-query path counters
+
+Separate instrumented binaries execute the unchanged original JDBC correctness
+checks on the same full dataset. They emit existing counters after a detached
+execute, without emitting SQL text. Their binary hashes and complete patch
+scripts are retained in `diagnostics/` and `scripts/`. These are correctness/path
+diagnostics, not throughput trials, and do not replace any measurement above.
+
+| Counter | Customer totals, either mode | Store/category, either mode |
+| --- | ---: | ---: |
+| Logical fact rows | 5,000,000 | 5,000,000 |
+| Nested factor plans / producer keys | 1 / 50,000 | 0 / 0 |
+| Join factor plans / participating keys | 0 / 0 | 1 / 1,000 |
+| Selected fact rows in join factor | 0 | 6,292 |
+| Presence-rejected blocks | 0 | 55,112 |
+| Final groups | 4 | 20 |
+| Dimension probes | 23,866 | 1,000 |
+
+Only the enabled store/category execution records sparse work: **44,328 masks
+containing 47,987 candidate positions**, rather than full-width evaluation at
+those later-predicate steps. These counts include positions considered at
+different predicates and are not distinct fact rows. The disabled execution
+records zero sparse masks/positions. Every other recorded counter agrees
+between modes, and both original result checks pass. The customer query records
+zero sparse work in both modes. This establishes actual path usage and a real
+reduction in later-predicate candidate evaluation; it does not establish a
+stable wall-clock gain or explain the untargeted query's timing variation.
+
 ### Unclosed scope
 
 RAMSQL still passes 3/7 original checks. The missing features include date
