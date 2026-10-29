@@ -1,0 +1,2792 @@
+{
+  "schema": 1,
+  "method": "Quiet host campaign: no local builds, profiling, repository edits/checkouts or source work during measurements; ordinary desktop background activity uncontrolled. Both binaries factorized_aggregates=true and block_presence_filters=true; only sparse_factor_predicates differs. Three paired original-duration full5M campaigns, AB/BA/AB order. Same immutable SQL source; only sparse_factor_predicates toggles. Fresh server/data load and JVM per case; default text128, eight workers/clients. No builds, profilers or reference database services concurrently.",
+  "runs": [
+    {
+      "pair": 1,
+      "mode": "on",
+      "directory": "on-pair-1",
+      "binary_sha256": "75c21aa22c51044f4ca7dd9aeae7f3501c7341c5d5d59d0a00d0bc6e174b9251",
+      "qps": {
+        "q5_high_value_customers": 734.023229848856,
+        "q6_store_category_mix": 1643.096408632614
+      },
+      "wall_seconds": 173.0
+    },
+    {
+      "pair": 1,
+      "mode": "off",
+      "directory": "off-pair-1",
+      "binary_sha256": "4fb38ff16e5e3faa3efb134724b23fb548d18db9f606d1ce559a06cbb56b2a0d",
+      "qps": {
+        "q5_high_value_customers": 689.6362091089372,
+        "q6_store_category_mix": 632.463681194189
+      },
+      "wall_seconds": 178.13999999995576
+    },
+    {
+      "pair": 2,
+      "mode": "off",
+      "directory": "off-pair-2",
+      "binary_sha256": "4fb38ff16e5e3faa3efb134724b23fb548d18db9f606d1ce559a06cbb56b2a0d",
+      "qps": {
+        "q5_high_value_customers": 108.69130869130869,
+        "q6_store_category_mix": 599.1833333333333
+      },
+      "wall_seconds": 248.59400000004098
+    },
+    {
+      "pair": 2,
+      "mode": "on",
+      "directory": "on-pair-2",
+      "binary_sha256": "75c21aa22c51044f4ca7dd9aeae7f3501c7341c5d5d59d0a00d0bc6e174b9251",
+      "qps": {
+        "q5_high_value_customers": 742.6419119362688,
+        "q6_store_category_mix": 1771.0319312045863
+      },
+      "wall_seconds": 172.875
+    },
+    {
+      "pair": 3,
+      "mode": "on",
+      "directory": "on-pair-3",
+      "binary_sha256": "75c21aa22c51044f4ca7dd9aeae7f3501c7341c5d5d59d0a00d0bc6e174b9251",
+      "qps": {
+        "q5_high_value_customers": 738.8666666666667,
+        "q6_store_category_mix": 1820.2619825344977
+      },
+      "wall_seconds": 173.60899999999674
+    },
+    {
+      "pair": 3,
+      "mode": "off",
+      "directory": "off-pair-3",
+      "binary_sha256": "4fb38ff16e5e3faa3efb134724b23fb548d18db9f606d1ce559a06cbb56b2a0d",
+      "qps": {
+        "q5_high_value_customers": 715.5617771556177,
+        "q6_store_category_mix": 989.1039952017594
+      },
+      "wall_seconds": 173.56199999997625
+    }
+  ],
+  "process_watch": [
+    {
+      "run": "on-pair-1",
+      "interval_seconds": 2,
+      "checks": 87,
+      "observed": [
+        {
+          "at_epoch_ms": 1793229413580,
+          "pid": 59820,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229415605,
+          "pid": 59820,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229417625,
+          "pid": 59820,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229419649,
+          "pid": 59820,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229421671,
+          "pid": 59820,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229423684,
+          "pid": 59820,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229425712,
+          "pid": 59820,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229427726,
+          "pid": 59040,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229512904,
+          "pid": 49592,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229514935,
+          "pid": 49592,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229516961,
+          "pid": 49592,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229518990,
+          "pid": 49592,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229521018,
+          "pid": 49592,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229523048,
+          "pid": 49592,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229525072,
+          "pid": 49592,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229527097,
+          "pid": 49592,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229529130,
+          "pid": 49592,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229531163,
+          "pid": 49592,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229533184,
+          "pid": 49592,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229535213,
+          "pid": 49592,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229537235,
+          "pid": 49592,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229539267,
+          "pid": 49592,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229541303,
+          "pid": 49592,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229543323,
+          "pid": 49592,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229545354,
+          "pid": 49592,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229547380,
+          "pid": 49592,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229549410,
+          "pid": 49592,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229551443,
+          "pid": 49592,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229553479,
+          "pid": 49592,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229555511,
+          "pid": 68124,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229557539,
+          "pid": 68124,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229559576,
+          "pid": 68124,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229561611,
+          "pid": 68124,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229563638,
+          "pid": 68124,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229565667,
+          "pid": 68124,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229567688,
+          "pid": 68124,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229569716,
+          "pid": 68124,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229571746,
+          "pid": 68124,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229573779,
+          "pid": 68124,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229575807,
+          "pid": 68124,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229577825,
+          "pid": 68124,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229579848,
+          "pid": 68124,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229581884,
+          "pid": 68124,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229583917,
+          "pid": 68124,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229585939,
+          "pid": 68124,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229586558,
+          "pid": 68124,
+          "image": "sig.exe"
+        }
+      ],
+      "errors": [],
+      "limitations": "Periodic image-name inventory can miss short processes, treats any Sig process conservatively, and does not observe every background workload. No process is stopped or reprioritized; no command lines are captured."
+    },
+    {
+      "run": "off-pair-1",
+      "interval_seconds": 2,
+      "checks": 88,
+      "observed": [
+        {
+          "at_epoch_ms": 1793229586584,
+          "pid": 68124,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229588608,
+          "pid": 68124,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229590634,
+          "pid": 68124,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229592647,
+          "pid": 68124,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229594664,
+          "pid": 62020,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229596688,
+          "pid": 62020,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229598706,
+          "pid": 62020,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229600725,
+          "pid": 62020,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229602752,
+          "pid": 62020,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229604776,
+          "pid": 62020,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229606799,
+          "pid": 62020,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229608822,
+          "pid": 62020,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229610858,
+          "pid": 62020,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229612893,
+          "pid": 62020,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229614913,
+          "pid": 62020,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229616952,
+          "pid": 62020,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229618985,
+          "pid": 62020,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229621018,
+          "pid": 62020,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229623050,
+          "pid": 62020,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229623050,
+          "pid": 59324,
+          "image": "postgres.exe"
+        },
+        {
+          "at_epoch_ms": 1793229623050,
+          "pid": 52292,
+          "image": "postgres.exe"
+        },
+        {
+          "at_epoch_ms": 1793229623050,
+          "pid": 63276,
+          "image": "postgres.exe"
+        },
+        {
+          "at_epoch_ms": 1793229623050,
+          "pid": 68092,
+          "image": "postgres.exe"
+        },
+        {
+          "at_epoch_ms": 1793229623050,
+          "pid": 49556,
+          "image": "postgres.exe"
+        },
+        {
+          "at_epoch_ms": 1793229623050,
+          "pid": 33464,
+          "image": "postgres.exe"
+        },
+        {
+          "at_epoch_ms": 1793229623050,
+          "pid": 65248,
+          "image": "postgres.exe"
+        },
+        {
+          "at_epoch_ms": 1793229623050,
+          "pid": 24764,
+          "image": "postgres.exe"
+        },
+        {
+          "at_epoch_ms": 1793229623050,
+          "pid": 29660,
+          "image": "postgres.exe"
+        },
+        {
+          "at_epoch_ms": 1793229625080,
+          "pid": 62020,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229627115,
+          "pid": 62020,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229629150,
+          "pid": 62020,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229631170,
+          "pid": 62020,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229633206,
+          "pid": 62020,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229635245,
+          "pid": 62020,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229637276,
+          "pid": 62020,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229639313,
+          "pid": 62020,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229641349,
+          "pid": 49144,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229643374,
+          "pid": 49144,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229645398,
+          "pid": 49144,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229647432,
+          "pid": 49144,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229649457,
+          "pid": 49144,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229651481,
+          "pid": 49144,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229653512,
+          "pid": 49144,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229655539,
+          "pid": 49144,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229657572,
+          "pid": 49144,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229659604,
+          "pid": 49144,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229661636,
+          "pid": 49144,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229663672,
+          "pid": 49144,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229665699,
+          "pid": 49144,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229667759,
+          "pid": 49144,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229669790,
+          "pid": 49144,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229671824,
+          "pid": 49144,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229673856,
+          "pid": 49144,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229675887,
+          "pid": 49144,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229677927,
+          "pid": 49144,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229677927,
+          "pid": 65248,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229679960,
+          "pid": 65248,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229679960,
+          "pid": 63088,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229681996,
+          "pid": 65248,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229681996,
+          "pid": 63088,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229684026,
+          "pid": 65248,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229684026,
+          "pid": 63088,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229686045,
+          "pid": 65248,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229686045,
+          "pid": 63088,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229688075,
+          "pid": 65248,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229688075,
+          "pid": 63088,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229690111,
+          "pid": 65248,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229690111,
+          "pid": 63088,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229692151,
+          "pid": 65248,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229692151,
+          "pid": 63088,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229694180,
+          "pid": 65248,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229694180,
+          "pid": 63088,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229696212,
+          "pid": 65248,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229696212,
+          "pid": 63088,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229698244,
+          "pid": 65248,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229698244,
+          "pid": 63088,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229700276,
+          "pid": 65248,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229700276,
+          "pid": 63088,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229702306,
+          "pid": 65248,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229702306,
+          "pid": 63088,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229704339,
+          "pid": 65248,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229704339,
+          "pid": 63088,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229706367,
+          "pid": 65248,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229706367,
+          "pid": 63088,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229708404,
+          "pid": 65248,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229708404,
+          "pid": 63088,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229710437,
+          "pid": 63088,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229712456,
+          "pid": 63088,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229714496,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229716528,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229718557,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229720580,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229722618,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229724700,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229726844,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229728997,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229731121,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229733243,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229735355,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229737464,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229739553,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229741667,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229743768,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229745901,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229747991,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229750110,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229752232,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229754328,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229756430,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229758541,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229760663,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229762776,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229764640,
+          "pid": 35508,
+          "image": "sig.exe"
+        }
+      ],
+      "errors": [],
+      "limitations": "Periodic image-name inventory can miss short processes, treats any Sig process conservatively, and does not observe every background workload. No process is stopped or reprioritized; no command lines are captured."
+    },
+    {
+      "run": "off-pair-2",
+      "interval_seconds": 2,
+      "checks": 120,
+      "observed": [
+        {
+          "at_epoch_ms": 1793229764733,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229766788,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229766788,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229766788,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229768855,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229768855,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229768855,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229770910,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229770910,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229770910,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229772971,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229772971,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229772971,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229775044,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229775044,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229775044,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229775044,
+          "pid": 55752,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229777128,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229777128,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229777128,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229777128,
+          "pid": 55752,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229779188,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229779188,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229779188,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229779188,
+          "pid": 55752,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229781299,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229781299,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229781299,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229781299,
+          "pid": 55752,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229783370,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229783370,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229783370,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229783370,
+          "pid": 55752,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229785429,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229785429,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229785429,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229785429,
+          "pid": 55752,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229787494,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229787494,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229787494,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229787494,
+          "pid": 55752,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229789555,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229789555,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229789555,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229789555,
+          "pid": 55752,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229791682,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229791682,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229791682,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229791682,
+          "pid": 55752,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229793750,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229793750,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229793750,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229793750,
+          "pid": 55752,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229795819,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229795819,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229795819,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229795819,
+          "pid": 55752,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229797883,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229797883,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229797883,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229797883,
+          "pid": 55752,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229799942,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229799942,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229799942,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229799942,
+          "pid": 55752,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229802008,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229802008,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229802008,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229804068,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229804068,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229804068,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229806129,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229806129,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229806129,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229808179,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229808179,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229808179,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229810235,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229810235,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229810235,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229812289,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229812289,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229812289,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229814342,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229814342,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229814342,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229816400,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229816400,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229816400,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229818448,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229818448,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229818448,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229820510,
+          "pid": 35508,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229820510,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229820510,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229822561,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229822561,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229822561,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229824624,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229824624,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229824624,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229826696,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229826696,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229826696,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229828760,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229828760,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229828760,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229830817,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229830817,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229830817,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229832884,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229832884,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229832884,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229834938,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229834938,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229834938,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229836997,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229836997,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229836997,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229839057,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229839057,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229839057,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229841118,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229841118,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229841118,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229843194,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229843194,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229843194,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229845259,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229845259,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229845259,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229847328,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229847328,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229847328,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229849388,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229849388,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229849388,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229851481,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229851481,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229851481,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229853571,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229853571,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229853571,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229855635,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229855635,
+          "pid": 41696,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229855635,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229855635,
+          "pid": 31952,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229857758,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229857758,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229857758,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229859893,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229859893,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229859893,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229862024,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229862024,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229862024,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229864166,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229864166,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229864166,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229866280,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229866280,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229866280,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229868407,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229868407,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229868407,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229870543,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229870543,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229870543,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229872668,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229872668,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229872668,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229874776,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229874776,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229874776,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229876910,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229876910,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229876910,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229879042,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229879042,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229879042,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229881149,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229881149,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229881149,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229883285,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229883285,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229883285,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229885412,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229885412,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229885412,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229887530,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229887530,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229887530,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229889660,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229889660,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229889660,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229891801,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229891801,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229891801,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229893915,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229893915,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229893915,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229896041,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229896041,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229896041,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229898151,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229898151,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229898151,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229900270,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229900270,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229900270,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229902385,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229902385,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229902385,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229904520,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229904520,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229904520,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229906651,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229906651,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229906651,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229908759,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229908759,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229908759,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229910893,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229910893,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229910893,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229913039,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229913039,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229913039,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229915165,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229915165,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229915165,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229917306,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229917306,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229917306,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229919429,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229919429,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229919429,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229921584,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229921584,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229921584,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229923743,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229923743,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229923743,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229925869,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229925869,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229925869,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229928000,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229928000,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229928000,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229930120,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229930120,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229930120,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229932232,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229932232,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229932232,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229934314,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229934314,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229934314,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229936403,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229936403,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229936403,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229938525,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229938525,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229938525,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229940665,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229940665,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229940665,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229942776,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229942776,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229942776,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229944884,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229944884,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229944884,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229946995,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229946995,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229946995,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229949119,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229949119,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229949119,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229951256,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229951256,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229951256,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229953376,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229953376,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229953376,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229955483,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229955483,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229955483,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229957587,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229957587,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229957587,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229959698,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229959698,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229959698,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229961852,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229961852,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229961852,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229964008,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229964008,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229964008,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229966168,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229966168,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229966168,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229968274,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229968274,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229968274,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229970426,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229970426,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229970426,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229972541,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229972541,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229972541,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229974675,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229974675,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229974675,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229976787,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229976787,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229976787,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229978898,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229978898,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229978898,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229981030,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229981030,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229981030,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229983145,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229983145,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229983145,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229985273,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229985273,
+          "pid": 62092,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229985273,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229987392,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229987392,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229989520,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229989520,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229989520,
+          "pid": 60060,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229991658,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229991658,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229991658,
+          "pid": 60060,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229993763,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229993763,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229993763,
+          "pid": 60060,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229995901,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229995901,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229995901,
+          "pid": 60060,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229998040,
+          "pid": 29736,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229998040,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793229998040,
+          "pid": 60060,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793230000149,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793230000149,
+          "pid": 60060,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793230000149,
+          "pid": 29712,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793230002169,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793230002169,
+          "pid": 60060,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793230002169,
+          "pid": 29712,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793230004205,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793230004205,
+          "pid": 60060,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793230004205,
+          "pid": 29712,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793230006222,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793230006222,
+          "pid": 60060,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793230006222,
+          "pid": 29712,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793230008255,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793230008255,
+          "pid": 60060,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793230008255,
+          "pid": 29712,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793230010289,
+          "pid": 48848,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793230010289,
+          "pid": 60060,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793230010289,
+          "pid": 29712,
+          "image": "sig.exe"
+        }
+      ],
+      "errors": [],
+      "limitations": "Periodic image-name inventory can miss short processes, treats any Sig process conservatively, and does not observe every background workload. No process is stopped or reprioritized; no command lines are captured."
+    },
+    {
+      "run": "on-pair-2",
+      "interval_seconds": 2,
+      "checks": 87,
+      "observed": [],
+      "errors": [],
+      "limitations": "Periodic image-name inventory can miss short processes, treats any Sig process conservatively, and does not observe every background workload. No process is stopped or reprioritized; no command lines are captured."
+    },
+    {
+      "run": "on-pair-3",
+      "interval_seconds": 2,
+      "checks": 87,
+      "observed": [],
+      "errors": [],
+      "limitations": "Periodic image-name inventory can miss short processes, treats any Sig process conservatively, and does not observe every background workload. No process is stopped or reprioritized; no command lines are captured."
+    },
+    {
+      "run": "off-pair-3",
+      "interval_seconds": 2,
+      "checks": 87,
+      "observed": [],
+      "errors": [],
+      "limitations": "Periodic image-name inventory can miss short processes, treats any Sig process conservatively, and does not observe every background workload. No process is stopped or reprioritized; no command lines are captured."
+    }
+  ],
+  "timing_watch_clear": false,
+  "summary": {
+    "on": {
+      "q5_high_value_customers": {
+        "trials": [
+          734.023229848856,
+          742.6419119362688,
+          738.8666666666667
+        ],
+        "median": 738.8666666666667,
+        "minimum": 734.023229848856,
+        "maximum": 742.6419119362688
+      },
+      "q6_store_category_mix": {
+        "trials": [
+          1643.096408632614,
+          1771.0319312045863,
+          1820.2619825344977
+        ],
+        "median": 1771.0319312045863,
+        "minimum": 1643.096408632614,
+        "maximum": 1820.2619825344977
+      }
+    },
+    "off": {
+      "q5_high_value_customers": {
+        "trials": [
+          689.6362091089372,
+          108.69130869130869,
+          715.5617771556177
+        ],
+        "median": 689.6362091089372,
+        "minimum": 108.69130869130869,
+        "maximum": 715.5617771556177
+      },
+      "q6_store_category_mix": {
+        "trials": [
+          632.463681194189,
+          599.1833333333333,
+          989.1039952017594
+        ],
+        "median": 632.463681194189,
+        "minimum": 599.1833333333333,
+        "maximum": 989.1039952017594
+      }
+    }
+  }
+}

@@ -15,11 +15,16 @@ the original 5s ramp, 15s warmup and 60s measurement. Default text capacity is
 128. No SQL, expected results, data sizes or durations are changed.
 
 Within each phase, both binaries use identical immutable SQL/server sources;
-only the compile-time `factorized_aggregates` switch differs. Build provenance
+only the named compile-time execution switch differs. The first three phases
+toggle `factorized_aggregates`, the fourth toggles `block_presence_filters`, and
+the last two toggle `sparse_factor_predicates`. Build provenance
 records both source revisions, archive checksum, exact configuration patch,
 command and binary SHA-256. Query results, measurement windows, histograms and
 full/supported JUnit checks are retained for every campaign. There are no local
-builds, profilers or other database services during throughput measurement.
+builds or profilers initiated by this benchmark task during throughput measurement.
+The final two phases inventory competing Windows process images; their records
+show overlaps with compiler/database images, as detailed below. Earlier phases
+have no equivalent inventory and cannot establish host isolation.
 
 The host is Windows 11, Intel i9-14900HX, 24 physical cores/32 logical CPUs,
 32 GB RAM. No affinity or power-plan settings were changed. Earlier unchanged
@@ -169,7 +174,8 @@ suite with metadata enabled. Native full-SQL CI passes on Windows, Linux and
 macOS; broad legacy CI has 246 successful steps, the same four unrelated
 SABR/TLS/TTS failures and 22 skips. The reusable code was merged through
 [ZPM PR 65](https://github.com/SB0LTD/zpm/pull/65), preserving disabled library
-defaults. RAMSQL's updated opt-in remains in PR 29 for its own qualification.
+defaults. RAMSQL's updated opt-in passed all 32 active integration/release checks
+and was merged through PR 29 as `22c55a4268c506df83e31b88879c686d94c1d5b1`.
 
 `profiles/` retains separate 10ms wall-time instruction-pointer diagnostics from
 the two frozen binaries on the same original full-data query. These pause/resume
@@ -178,6 +184,59 @@ attribution or throughput comparisons. Both reproduce a fast factorized executio
 path rather than the slow controls. They show comparison/factor-fold instructions
 prominently, but cannot explain the intermittent slowdown or validate an all-case
 speedup. Profiled throughput is not substituted for any unprofiled trial above.
+
+## Sparse residual predicates: experimental, not accepted
+
+ZPM source `00b4bb2737a870e960477faaa13a0c8d8b3e168e` evaluates later,
+nonthrowing fact predicates only at surviving row positions when a 64-row mask
+has at most eight candidates. Leading and dense masks retain vector execution.
+It uses existing caller scratch, adds no persistent index, and preserves charged
+work and cancellation behavior. Both binaries enable the already merged
+factorization and block-presence paths; only the sparse switch differs.
+
+The dedicated scalar/vector/model contract executes 1,537 assertions and the
+snapshot, replay, fallback and failure-atomicity contract executes 1,838, each on
+Windows/Linux ReleaseSafe and legacy Linux Debug. Native full-SQL CI passes on
+Windows, Linux and macOS. Broad legacy CI reports 250 successful steps, 22 skips
+and the same four SABR/TLS/TTS failures as before. RAMSQL's candidate integration
+passes all 32 active checks, including the native SB0 targets and hosted release
+artifacts. These checks establish tested behavior, not throughput qualification.
+
+Two complete fixed three-pair campaigns are retained separately in `sparse/`
+and `sparse-repeat/`. Together with the earlier four phases this report retains
+**72 original timed cases**, including all slow trials and original check failures.
+
+| Campaign | Case | On QPS median (range) | Off QPS median (range) | Paired on/off ratios |
+| --- | --- | ---: | ---: | --- |
+| First | Customer totals, untargeted | 738.87 (734.02–742.64) | 689.64 (108.69–715.56) | 1.064, 6.833, 1.033 |
+| First | Store/category | 1771.03 (1643.10–1820.26) | 632.46 (599.18–989.10) | 2.598, 2.956, 1.840 |
+| Repeat | Customer totals, untargeted | 174.91 (146.28–690.56) | 133.74 (122.75–169.52) | 5.626, 1.094, 1.032 |
+| Repeat | Store/category | 402.48 (330.17–1521.04) | 284.28 (265.87–325.14) | 5.351, 1.242, 1.238 |
+
+Each campaign includes a two-second Windows process-image inventory. The first
+records Sig images in its first three runs and PostgreSQL images in its first
+control. The repeat records Sig images in its first enabled run. Both campaigns
+therefore have `timing_watch_clear=false`. These records invalidate a clean
+host interpretation; they do not establish process ownership or CPU usage.
+The benchmark task itself did not launch those competing jobs, and stopped or
+reprioritized none of them.
+
+The repeat's remaining five runs have no observed matching images or inventory
+errors, yet both binaries still slow sharply. Background interference is thus
+not an established complete explanation. Periodic image inventory can miss short
+jobs, WSL builds and unrelated workloads; absence of observations does not prove
+a dedicated host. The repeat remains separate from the first campaign, and no
+post-hoc subset or pooled median is used to qualify the optimization.
+
+All timed operations succeed and all three supported original checks pass in
+both campaigns. Four original checks still fail. The sparse candidate remains
+disabled in ZPM defaults and held in draft
+[ZPM PR 66](https://github.com/SB0LTD/zpm/pull/66) and
+[RAMSQL PR 31](https://github.com/SB0LTD/ramsql/pull/31).
+No reference-engine superiority, all-workload speedup or release readiness is
+claimed from these measurements. The next investigation must distinguish
+execution-path selection and actual kernel work from host scheduling/frequency
+effects before another throughput qualification attempt.
 
 ### Unclosed scope
 

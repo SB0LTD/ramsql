@@ -1,11 +1,11 @@
 """Retain complete paired evidence without copying private SQL/data/drivers."""
 import argparse, hashlib, json, pathlib, shutil, statistics, xml.etree.ElementTree as ET
 
-p=argparse.ArgumentParser();p.add_argument('phase',choices=('factor','nested','pcores','presence'));a=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('phase',choices=('factor','nested','pcores','presence','sparse','sparse-repeat'));a=p.parse_args()
 source=pathlib.Path(__file__).resolve().parent
 destination=source.parent.parent/'ramsql-benchmark-evidence/benchmarks/dbmeter-factorized-20261028'
 destination.mkdir(exist_ok=True)
-base=source/('dbmeter-nested-pcores-paired' if a.phase=='pcores' else f'dbmeter-{a.phase}-paired')
+base=source/({'pcores':'dbmeter-nested-pcores-paired','sparse-repeat':'dbmeter-sparse-clear-repeat'}.get(a.phase,f'dbmeter-{a.phase}-paired'))
 pairs=json.loads((base/'pairs.json').read_text())
 assert 'error' not in pairs and len(pairs['runs'])==6 and 'summary' in pairs
 expected=[(1,'on'),(1,'off'),(2,'off'),(2,'on'),(3,'on'),(3,'off')]
@@ -15,7 +15,7 @@ if target.exists():
     assert list(target.iterdir())==[target/'pairs.json'] and (target/'pairs.json').read_bytes()==(base/'pairs.json').read_bytes(), 'Refuse existing complete/different evidence'
 else: target.mkdir()
 shutil.copy2(base/'pairs.json',target/'pairs.json')
-proof_phase='nested' if a.phase=='pcores' else a.phase
+proof_phase={'pcores':'nested','sparse-repeat':'sparse'}.get(a.phase,a.phase)
 proofs={mode:json.loads((source/f'{proof_phase}-{mode}-build-provenance.json').read_text()) for mode in ('on','off')}
 assert proofs['on']['zpm_source']==proofs['off']['zpm_source']
 assert proofs['on']['zpm_archive_sha256']==proofs['off']['zpm_archive_sha256']
@@ -27,6 +27,7 @@ for run in pairs['runs']:
     assert report['input_sha256']=='9b0e1e556433483e015b141eb90425fbe3c96e60cb4170d9baafde9d85de2d0d'
     assert report['supported_checks_passed'] and 'after_queries_memory' in report
     if a.phase=='presence': assert report['load_wall_seconds']>0 and report['load_cpu_seconds']>0
+    if a.phase.startswith('sparse'): assert report['load_wall_seconds']>0 and report['load_cpu_seconds']>0
     if a.phase=='pcores': assert report['diagnostic_cpu_policy']['server_affinity']=='0xffff' and not report['diagnostic_cpu_policy']['global_settings_changed']
     assert run['binary_sha256']==report['binary_sha256']==proofs[run['mode']]['binary_sha256']
     full=ET.parse(folder/'ramsql-all-checks.xml').getroot();assert int(full.attrib['tests'])==7
