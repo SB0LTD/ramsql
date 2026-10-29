@@ -6,6 +6,12 @@ later binary.
 
 ## Unreleased
 
+- Keep multiple direct COUNT/SUM/AVG channels in typed caller-owned group state
+  for eligible committed column scans. This covers two-sum grouped CTEs while
+  preserving existing specialized paths and ordinary SQL for unsupported
+  expressions, snapshots and budgets. No local throughput measurement or
+  all-workload speedup is claimed; qualify the candidate in CI.
+
 - Evaluate later safe predicates only at surviving fact slots in selective
   factorized joins; retain vectors for dense masks and canonical execution for
   unsupported expressions/snapshots. Reuse exact comparison/null semantics and

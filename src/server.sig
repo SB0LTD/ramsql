@@ -94,6 +94,7 @@ const config: sql.Config = .{
     .factorized_aggregates = true,
     .block_presence_filters = true,
     .sparse_factor_predicates = true,
+    .typed_grouped_aggregates = true,
 };
 const Raw = sql.Database(config);
 const Store = stores.Store(Raw);
