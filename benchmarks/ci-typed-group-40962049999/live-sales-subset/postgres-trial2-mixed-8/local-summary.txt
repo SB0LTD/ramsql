@@ -1,0 +1,14 @@
+Run:       postgres-trial2-mixed-8
+Database:  postgres [reports as PostgreSQL 18.3 (Debian 18.3-1.pgdg12+1)] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-29T22:09:57.968Z .. 2026-10-29T22:11:00.953Z (63.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host runnervm48cm3        8 threads   4 cpus  window +0.0s .. +63.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s1_region                        61        0         305        1.0    876.77    794.62   1163.26   1916.93   2040.43   2040.43
+s2_category                      24        0         480        0.4  10270.47  10878.98  12451.84  12713.98  13174.86  13174.86
+s3_top_products                  67        0         670        1.1    400.35    389.12    495.62    598.02    986.89    986.89
+s4_segment_discount              67        0        1072        1.1    866.63    843.78   1007.62   1228.80   1884.16   1885.51
+s5_high_value_customers          36        0         144        0.6    985.77    958.46   1294.34   1359.87   1425.41   1439.01
+s6_store_category_mix           133        0        2660        2.1    207.32    202.75    251.90    282.62    339.97    346.91
+TOTAL                           388        0        5331        6.2   1154.44    495.62   1228.80   8519.68  12189.70  13174.86

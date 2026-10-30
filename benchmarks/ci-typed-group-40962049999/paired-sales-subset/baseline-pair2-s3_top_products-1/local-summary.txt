@@ -1,0 +1,8 @@
+Run:       baseline-pair2-s3_top_products-1
+Database:  ramsql [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-29T22:19:33.341Z .. 2026-10-29T22:20:33.401Z (60.1 s)
+Nodes:     1 node(s), 1 thread(s) total
+  local                host runnervm48cm3        1 threads   4 cpus  window +0.0s .. +60.1s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s3_top_products                 381        0        3810        6.3    157.35    157.70    157.70    174.08    190.46    214.74

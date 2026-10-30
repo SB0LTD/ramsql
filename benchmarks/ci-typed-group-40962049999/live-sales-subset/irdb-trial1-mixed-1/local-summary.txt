@@ -1,0 +1,14 @@
+Run:       irdb-trial1-mixed-1
+Database:  irdb [reports as InMemory.Net IRDB server 127.0.0.1:44349, database live_sales_subset] (driver dbmeter IRDB adapter (jirdb) 0.1)
+Window:    2026-10-29T22:05:56.782Z .. 2026-10-29T22:06:56.784Z (60.0 s)
+Nodes:     1 node(s), 1 thread(s) total
+  local                host runnervm48cm3        1 threads   4 cpus  window +0.0s .. +60.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s1_region                      1804        0        9020       30.1      5.03      4.42      6.34      7.36     12.42     15.83
+s2_category                     953        0       19060       15.9     12.04     11.65     13.18     13.95     16.00     21.67
+s3_top_products                1774        0       17740       29.6      3.56      3.10      4.54      5.70     10.37     12.68
+s4_segment_discount            1756        0       28096       29.3      6.28      5.82      7.62      8.58     13.44     15.48
+s5_high_value_customers         882        0        3528       14.7     16.58     15.74     22.27     23.30     25.34     32.57
+s6_store_category_mix          3427        0       68540       57.1      2.16      1.62      2.98      4.80      9.60    149.64
+TOTAL                         10596        0      145984      176.6      5.66      4.29     12.67     14.98     21.76    149.64
