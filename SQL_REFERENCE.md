@@ -76,7 +76,7 @@ column, `42P01` for an unknown qualifier); scalar subqueries (`21000` for more
 than one row), [NOT] IN and [NOT] EXISTS subqueries (correlated or not) and
 derived tables; WITH CTEs (at most 4 per statement), WITH RECURSIVE over
 UNION [ALL] to a fixpoint, and UNION, INTERSECT and EXCEPT [ALL]. AVG(interval),
-LATERAL, NATURAL joins, parenthesized join trees, window functions (flag F6)
+LATERAL, NATURAL joins, parenthesized join trees, complete window coverage (flag F6)
 and data-modifying CTEs (flag F7) are not provided.
 Default ordering follows PostgreSQL: ASC NULLS LAST, DESC NULLS FIRST. A WHERE
 holds at most 8 leaf predicates. The default embedded profile has 512 expression
@@ -92,7 +92,34 @@ The existing numeric coefficient/display-scale capacities still apply; an
 unrepresentable result returns a capacity error. Function arguments remain
 subject to normal type conversion and NULL rules.
 
-Other functions (including `pg_typeof` and `to_char`), ROLLUP, window functions,
+The reporting candidate adds temporal `to_char(timestamp/timestamptz, text)`
+(DATE uses the existing implicit cast), including calendar/time fields, English
+names, fill/ordinal modifiers and quoted literals. Session zones apply to
+timestamptz; NULL, infinity and empty templates return NULL. Output remains
+bounded by `text_bytes`; numeric/interval, ISO-week, timezone-name/offset,
+Roman-month and localized templates are not implemented.
+
+`RANK`, `DENSE_RANK`, `ROW_NUMBER` and ordinary aggregate windows accept
+`OVER (PARTITION BY ... ORDER BY ... [NULLS FIRST/LAST])`. Default ordered
+aggregate frames include current peers; unordered defaults cover the full
+partition. Unbounded prefix/full ROWS frames are implemented. Grouping/HAVING
+run before windows; final DISTINCT/order/OFFSET/LIMIT follow them. Window
+FILTER/DISTINCT, bounded/moving/explicit RANGE/GROUPS frames, named windows
+and correlated subqueries in the same window target projection remain gaps.
+Each window-bearing query block consumes an extra plan; dependencies/windows
+use the configured column/expression/query budgets and can return capacity
+errors. Invalid placement/nesting reports `42P20`.
+
+Flat `GROUP BY ROLLUP(a,b,...)`, `GROUP BY ()` and `GROUPING(...)` are available
+in the reporting candidate. Real NULL groups and subtotals remain separate;
+each level owns exact aggregates and integral DISTINCT membership. Empty input
+produces a grand total. Composite/multiple ROLLUP elements, CUBE/general GROUPING
+SETS and nonintegral/computed DISTINCT membership are not provided. Integral
+bitmap domains and all window/group state must fit the caller's query arena.
+See the [qualification record](compatibility/REPORTING_SQL_PROGRESS.md);
+these additions do not close full PostgreSQL compatibility or dbMeter's gate.
+
+Other functions (including `pg_typeof`), complete formatting/grouping/windows,
 arrays, JSON (non-B) operators, jsonpath, zone abbreviations (`EST`),
 non-ISO DateStyle and non-postgres IntervalStyle are not supported. MySQL and
 TDS clients receive NUMERIC, REAL/DOUBLE, temporal and JSON values as text
@@ -174,7 +201,7 @@ data row (text line, CSV record or binary tuple) is at most 8192 bytes
 `WHERE`, encodings other than UTF-8 and COPY over the extended query protocol
 are not supported (`0A000`); option SQLSTATEs follow PostgreSQL 16.
 
-Foreign keys, secondary indexes, window functions and complete SQL-standard
+Foreign keys, secondary indexes, complete window coverage and complete SQL-standard
 semantics remain release blockers. The committed finite differential gate
 reports ([PostgreSQL 18](compatibility/postgres-report.json),
 [PostgreSQL 16](compatibility/postgres16-report.json)) match 37/37 probes, and
