@@ -1,13 +1,15 @@
 # PostgreSQL feature gaps and divergences (ZPM SQL front end)
 
-**Current update, 30 October 2026:** main now pins ZPM `0f5af8d` after the
-[PR consolidation](../../compatibility/PR_CONSOLIDATION_20261030.md). The table
-and line references below originated from the `2f060c2` audit; updated rows are
-marked explicitly. Bounded ROWS/GROUPS, integral RANGE, exclusions and aggregate
-FILTER are implemented, while named/remaining built-in windows and other RANGE
-types remain open. NET-01, STO-01, STO-03 and SRV-01 have merged fixes; they do
-not close the SQLF findings below. The temporal/value/numeric/JSON implementation
-files behind those findings were unchanged by this consolidation.
+**Current update, 30 October 2026:** main pins ZPM `3301526`. The temporal
+follow-up fixes SQLF-01's six reported overflow paths and SQLF-05 infinite DATE
+subtraction. FV-12 remains an open formal proof obligation; interval syntax,
+JSONB and wider SQL features remain open. See [qualification and scope](../../compatibility/TEMPORAL_CORRECTNESS_20261030.md).
+
+The preceding [PR consolidation](../../compatibility/PR_CONSOLIDATION_20261030.md)
+at `0f5af8d` implemented bounded ROWS/GROUPS, integral RANGE, exclusions and
+aggregate FILTER, plus NET-01/STO-01/STO-03/SRV-01 fixes. Named/remaining built-in
+windows and other RANGE types remain open. Tables/line locations below began
+at the `2f060c2` audit; current updates are marked explicitly.
 
 The [original SQL TDD map](https://github.com/SB0LTD/zpm/blob/main/tests/sql_conformance/README.md)
 is refreshed: **8 passes, 93 failures, 17 unexecuted scopes/comparators**.
@@ -76,7 +78,7 @@ table distinguishes the completed window/ROLLUP slices from remaining work.
 
 | Divergence | PostgreSQL | RAMSQL at ZPM 2f060c2 | Evidence | Finding | Priority | Lane |
 | --- | --- | --- | --- | --- | --- | --- |
-| Timestamps near the upper range limit, DATE to TIMESTAMP after year 294276, `date ± bigint`, extreme interval units | 22008, or 42883 for `date + bigint` | Fixed in temporal boundary follow-up: checked arithmetic, strict date offset types, checked interval accumulation/ago; FV-12 formal proof remains open | `temporal.sig:355`, `606-610`, `733-737`, `779`, `826`, `834`; `value.sig:529`; `binder.sig:510-517` | SQLF-01 | P0 | B7 |
+| Timestamps near the upper range limit, DATE to TIMESTAMP after year 294276, `date ± bigint`, extreme interval units | 22008 for date/time overflow, 22015 for input interval overflow, 42883 for `date + bigint` | Fixed in temporal boundary follow-up: checked arithmetic, strict date offset types, checked interval accumulation/ago; FV-12 formal proof remains open | `temporal.sig:355`, `606-610`, `733-737`, `779`, `826`, `834`; `value.sig:529`; `binder.sig:510-517` | SQLF-01 | P0 | B7 |
 | `'1-2'::interval`, `'3 4:05:06'::interval` | `1 year 2 mons`, `3 days 04:05:06` | **Silently wrong**: `-00:00:01`, `04:05:09` | `temporal.sig:716-729` | SQLF-02 | P1 | B7 |
 | `SELECT INTERVAL '1' DAY` | `1 day` | **Silently wrong**: 1 second in a column named `day` | `parser.sig:1747-1758`, `1090` | SQLF-02 | P1 | B7 |
 | `jsonb \|\| '{"b":2}'` | jsonb merge | **Silently wrong**: text concatenation | `binder.sig:1509-1514` | SQLF-04 | P1 | B7 |
@@ -90,7 +92,7 @@ table distinguishes the completed window/ROLLUP slices from remaining work.
 | `'NaN'::float8 / 0` | NaN (from PostgreSQL source; unverified live) | Error 22012 | `float_text.sig:238` | SQLF-11 | P3 | B7 |
 | `'1._5'::numeric` | Error 22P02 (from PostgreSQL source; unverified live) | Accepted as 1.5 | `numeric.sig:174-183` | SQLF-11 | P3 | B7 |
 | Casting multi-byte text to NAME at 63 bytes | Clips on a character boundary | May split a UTF-8 character | `value.sig:290`, `424`, `428` | SQLF-11 | P3 | B7 |
-| TIMESTAMP(p) rounding at the upper limit | Error 22008 | Returns an out-of-range value | `temporal.sig:377-384` | SQLF-11 | P3 | B7 |
+| TIMESTAMP(p) rounding at the upper limit | Native PostgreSQL permits rounding across the documented finite bound (16.15 measured; 18.3 source verified) | Native behavior preserved and covered by a boundary regression | `temporal.sig:377-384` | SQLF-11 | P3 | B7 |
 | Fractional interval units, for example `'0.5 microseconds'` | `rint` (half to even) (unverified) | Half up | `temporal.sig:606-633` | SQLF-11 | P3 | B7 |
 | Zone names such as `CET`, `EET`, `MET`, `WET` in timestamptz input | Abbreviation table, fixed offset (unverified) | Passed to the tzdata resolver, which may apply DST (unverified) | `temporal.sig:360-365` | SQLF-11 | P3 | B7 |
 | `pg_get_expr` and `column_default` text for quoted or mixed-case identifiers and typmod casts | Quoted where needed; typmod shown | Raw spelling; typmod dropped | `deparse.sig:205-207`, `252` | SQLF-11 | P3 | B7 |
