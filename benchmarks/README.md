@@ -1,5 +1,13 @@
 # Benchmarks
 
+Latest CI-only matched comparisons:
+[dimension group IDs](ci-dimension-ids-40982373535/REPORT.md) and
+[typed aggregation on the main configuration](ci-typed-main-40976650837/REPORT.md).
+Each preserves all 24 A/B cases and six fresh correctness checks with its exact
+historical validator. The dimension experiment improves mixed throughput in every
+pair, but its separate three-engine comparison still trails IRDB. The unchanged
+full-suite gate remains unqualified. Older local measurements below are historical.
+
 Latest repeated screening and unchanged-build controls:
 [projection, operator specialization and exact byte-domain experiments](dbmeter-follow-up-20261028/REPORT.md).
 All three remain draft experiments; their measured ranges do not establish

@@ -1,0 +1,14 @@
+Run:       ramsql-trial1-mixed-1
+Database:  ramsql [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-30T00:55:05.364Z .. 2026-10-30T00:56:05.454Z (60.1 s)
+Nodes:     1 node(s), 1 thread(s) total
+  local                host runnervm48cm3        1 threads   4 cpus  window +0.0s .. +60.1s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s1_region                       621        0        3105       10.3      6.76      6.72      6.85      6.85      6.98      9.99
+s2_category                     301        0        6020        5.0    132.11    133.12    133.12    133.12    137.22    142.21
+s3_top_products                 613        0        6130       10.2      6.61      6.59      6.72      6.72      7.10      8.85
+s4_segment_discount             627        0       10032       10.4     11.25     11.14     11.39     11.39     11.90     18.09
+s5_high_value_customers         329        0        1316        5.5      7.06      7.10      7.36      7.49      8.13      9.00
+s6_store_category_mix          1291        0       25820       21.5      2.06      2.14      2.27      2.34      2.53      7.09
+TOTAL                          3782        0       52423       62.9     15.88      6.72     11.39    133.12    133.12    142.21
