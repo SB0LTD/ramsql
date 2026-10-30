@@ -604,10 +604,14 @@ SUITES["q06"] = (
         ("SELECT id,MIN(v) OVER (ORDER BY id GROUPS %s PRECEDING),COUNT(*) FILTER (WHERE v>%s) OVER (ORDER BY id RANGE %s PRECEDING) FROM compat ORDER BY id", (1, 15, 1), {"binary": True}),
         ("SELECT SUM(v) OVER (ROWS %s PRECEDING) FROM compat", (None,)),
         ("SELECT SUM(v) OVER (ROWS %s PRECEDING) FROM compat", (-1,)))),
-    Case("q06_window_final_projection", "q06", 3.4, feature="window results precede LIMIT; direct sort trims unused output expressions", setup=(
+    Case("q06_window_final_projection", "q06", 3.4, feature="window results precede LIMIT; projection values and selected-row errors", setup=(
         "CREATE TABLE compat(id INTEGER PRIMARY KEY,v INTEGER)",
         "INSERT INTO compat VALUES(1,10),(2,20),(3,30)"), statements=(
-        "SELECT id,10/(id-1),SUM(v) OVER () FROM compat ORDER BY id DESC LIMIT 1",
+        # PG16 returns a row for the unfiltered DESC form while PG18 raises
+        # 22012. Retain that native-reference disagreement in the progress
+        # record; portable assertions must not demand both incompatible plans.
+        "SELECT id,10/(id-1),SUM(v) OVER () FROM compat WHERE id>1 ORDER BY id DESC LIMIT 1",
+        "SELECT id,10/(id-1),SUM(v) OVER () FROM compat ORDER BY id LIMIT 1",
         "SELECT id,10/(id-1),SUM(v) OVER () FROM compat ORDER BY (id+0) DESC LIMIT 1",
         "SELECT id,SUM(v) OVER ()+id AS marker FROM compat ORDER BY marker DESC LIMIT 2",
         "SELECT id,SUM(v) OVER (ORDER BY id ROWS 1 PRECEDING) FROM compat ORDER BY id DESC LIMIT 1 OFFSET 1")),
@@ -622,6 +626,7 @@ SUITES["q06"] = (
         "SELECT id,COUNT(*) FILTER (WHERE nextval('frame_seq')>0) OVER () FROM compat ORDER BY id",
         "SELECT currval('frame_seq')",
         "SELECT id,nextval('frame_seq'),SUM(v) OVER () FROM compat ORDER BY id DESC LIMIT 2",
+        "SELECT id,id+SUM(v) OVER () AS amount,nextval('frame_seq') FROM compat ORDER BY id DESC LIMIT 2",
         "SELECT currval('frame_seq')")),
     Case("q06_window_rank_peers", "q06", 3.4, feature="ranking peers, partitions, NULL ordering and window SQLSTATE", setup=(
         "CREATE TABLE compat(id INTEGER PRIMARY KEY,k INTEGER,v INTEGER)",

@@ -60,13 +60,42 @@ format change is introduced. Materialization and expression/schema budgets still
 apply, and numeric/complex moving expressions may scan each frame.
 
 The new library contract matches 397 captured PostgreSQL 16.15 queries and has
-106,870 assertions, including every-checkpoint work/cancellation sweeps, private
+106,873 assertions, including every-checkpoint work/cancellation sweeps, private
 writes/snapshots, poisoned scratch, constrained grants, integer extrema, sequence
 effects and operation-count checks. The existing window, grouping, query, types,
 formatter and 100k-row streaming contracts are regression gates. No local
 throughput was measured. Eight new PG16/18 semantic cases exercise frames,
 exclusions, FILTER, SQLSTATEs, parameters/binary results, projection and sequence
-evaluation. Final independent server/platform qualification is pending.
+evaluation. Native SB0X/SB0K QEMU also exercises prefix/tree/FILTER/GROUPS/RANGE,
+exclusions and maximum offsets. Final independent server/platform qualification
+of the revised source is pending.
+
+### Initial CI findings retained
+
+[Initial run 41039729179](https://github.com/SB0LTD/ramsql/actions/runs/41039729179)
+matched all 157 memory / 167 durable semantic cases on PG16. PG18 matched
+156/157 and 166/167: its sole mismatch was final projection error timing, not
+a frame/FILTER row or metadata failure. For `SELECT id,10/(id-1),SUM(v) OVER ()
+FROM compat ORDER BY id DESC LIMIT 1` over ids 1..3, PG16 returned the selected
+row while PG18 raised 22012 on a discarded row. Exact extracted cases and
+reference/binary/report identities from all four cells are retained in
+[the disagreement evidence](evidence/window-projection-reference-disagreement-41039729179.json).
+
+The revised engine retains eager evaluation of complex deterministic targets
+and defers unsorted volatile targets until their rows are returned. The concrete
+unselected-error probe consequently remains a documented PG16/PG18 timing
+difference; both native versions cannot be matched simultaneously for that SQL.
+The portable projection case now filters out the invalid denominator and also
+tests an invalid **selected** row, with its justification beside the SQL. This
+changes only a newly introduced semantic probe, never the reviewer's dbMeter
+SQL, dataset, expectations or performance policy. The former probe/result is
+retained above, not represented as passing both versions.
+
+The initial native release build also rejected an i128 min/max intrinsic in the
+frame clamp. Explicit widened comparisons replace that intrinsic; hosted and
+legacy frame reruns pass, while native build/QEMU reruns must qualify the final
+archive. No compiler change, disabled native feature or relaxed release gate
+is used to resolve it.
 
 ## Remaining scope
 

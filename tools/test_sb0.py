@@ -284,6 +284,13 @@ def exercise(guest, kind, proof):
     guest.query("SELECT id FROM range_probe WHERE id < -9223372036854775808 ORDER BY id LIMIT 3", [])
     guest.query("SELECT id FROM range_probe WHERE id > 9223372036854775807 ORDER BY id LIMIT 3", [])
     guest.query("SELECT COUNT(*) FROM range_probe", [["64"]])
+    guest.query("SELECT id,SUM(id) OVER (ORDER BY id ROWS 1 PRECEDING),MIN(id) OVER (ORDER BY id ROWS 1 PRECEDING EXCLUDE CURRENT ROW) FROM range_probe ORDER BY id LIMIT 3",
+                [["0", "0", None], ["1", "1", "0"], ["2", "3", "1"]])
+    guest.query("SELECT id,COUNT(*) FILTER (WHERE id>0) OVER (ORDER BY id GROUPS 1 PRECEDING EXCLUDE TIES),MAX(id) OVER (ORDER BY id GROUPS 1 PRECEDING) FROM range_probe ORDER BY id LIMIT 3",
+                [["0", "0", "0"], ["1", "1", "1"], ["2", "2", "2"]])
+    guest.query("SELECT id,COUNT(*) OVER (ORDER BY id ROWS BETWEEN 9223372036854775807 PRECEDING AND 9223372036854775807 FOLLOWING),COUNT(*) OVER (ORDER BY id RANGE BETWEEN 9223372036854775807 PRECEDING AND 9223372036854775807 FOLLOWING) FROM range_probe ORDER BY id LIMIT 3",
+                [["0", "64", "64"], ["1", "64", "64"], ["2", "64", "64"]])
+    proof.tests.append("bounded_window_prefix_tree_FILTER_GROUPS_RANGE_exclusion_extreme_offsets")
     guest.query("DROP TABLE range_probe")
     proof.tests.append("dense_ordered_PK_ranges_and_i64_endpoints")
     guest.query("BEGIN", status=b"T")
