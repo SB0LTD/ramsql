@@ -271,7 +271,7 @@ def candidate_mode(work_directory, *, durable=False, scram=False, timezone_dir=N
     """Yield running_ramsql keyword arguments and report metadata for a gate mode.
 
     --durable owns a fresh WAL under a unique directory in --work-dir instead of
-    --memory. --scram derives a verifier exactly like tools/test_auth.py and
+    --memory; the first start creates it with --create-data. --scram derives a verifier exactly like tools/test_auth.py and
     connects with the generated password instead of --insecure-local. The
     owned directory (WAL and verifier) is removed on exit.
     """
@@ -286,6 +286,7 @@ def candidate_mode(work_directory, *, durable=False, scram=False, timezone_dir=N
             directory.mkdir(parents=True)
         if durable:
             arguments["data_path"] = directory / "database.wal"
+            arguments["create_data"] = True
         if scram:
             password = secrets.token_urlsafe(32)
             verifier = directory / "ramsql.verifier"
@@ -302,10 +303,10 @@ def candidate_mode(work_directory, *, durable=False, scram=False, timezone_dir=N
 
 
 @contextmanager
-def running_ramsql(binary, legacy_cli=False, extra_arguments=(), *, data_path=None, auth=None, startup_timeout=20):
+def running_ramsql(binary, legacy_cli=False, extra_arguments=(), *, data_path=None, create_data=False, auth=None, startup_timeout=20):
     command = [str(binary), "--serve", "--port", "0"]
     if data_path is not None:
-        command += ["--data", str(data_path)]
+        command += ["--data", str(data_path)] + (["--create-data"] if create_data else [])
     elif not legacy_cli:
         command += ["--memory"]
     if auth is not None:

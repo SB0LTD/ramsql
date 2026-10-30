@@ -19,6 +19,12 @@ later binary.
   passed in runs 41024653323/41024653363. The full-data timings retain a substantial
   IRDB lead; this is correctness progress, not an all-engine performance claim.
 
+- **Behavior change:** durable startup no longer creates a missing data file.
+  Pass `--create-data` on the first start; otherwise a missing `--data` path
+  (default `ramsql.wal`, relative to the working directory) fails with
+  `DataFileMissing` and its absolute path before any listener opens. Startup
+  prints the absolute data file path to stderr (SRV-01).
+
 - Add ranking and aggregate windows after grouping/HAVING, including partition
   and peer ordering, total shares before LIMIT, and unbounded prefix/full ROWS
   frames. Add flat ROLLUP/GROUPING with exact independent subtotal state and

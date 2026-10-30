@@ -449,6 +449,30 @@ pub fn main(init: std.process.Init) !void {
     try connection.execute("SELECT * FROM t ORDER BY id", &result);
     try check(result.row_count == 3);
     persistence.close();
+    // Server startup without --create-data: an existing WAL reopens with its
+    // committed state; a missing path fails, creates nothing, stays fail-closed.
+    store = .{};
+    const existing = try persistence.initExisting(path, &store, &recovery_buffer);
+    try check(existing.sequence == 4 and !store.storage_failed);
+    try connection.execute("SELECT * FROM t ORDER BY id", &result);
+    try check(result.row_count == 3);
+    persistence.close();
+    var missing_buffer: [272]u8 = undefined;
+    const missing_path = try std.fmt.bufPrint(&missing_buffer, "{s}.missing", .{path});
+    store = .{};
+    if (persistence.initExisting(missing_path, &store, &recovery_buffer)) |_| return error.MissingDataFileCreated else |err| try check(err == error.FileNotFound);
+    try check(store.storage_failed and store.commit_fn == null and !persistence.active);
+    if (connection.execute("CREATE TABLE never (id INTEGER)", &result)) |_| return error.MissingDataFileAcceptedWrite else |err| try check(err == error.StorageUnavailable);
+    if (disk.File.openExisting(missing_path)) |value| {
+        var unexpected = value;
+        unexpected.close();
+        return error.MissingDataFileCreated;
+    } else |err| try check(err == error.FileNotFound);
+    // --create-data: after FileNotFound the same persistence and store create it.
+    const fresh = try persistence.init(missing_path, &store, &recovery_buffer);
+    try check(fresh.sequence == 0 and !store.storage_failed and persistence.active);
+    persistence.close();
+    try disk.remove(missing_path);
 
     // Legacy records replay as one MVCC transaction each, with no database
     // copy: afterwards no transaction, lock or uncommitted version remains.

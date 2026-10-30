@@ -221,7 +221,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix='ramsql-worker-restart-') as directory:
         wal=Path(directory)/'database.wal'
         options=('--workers','4','--max-clients','32')
-        with running_ramsql(binary,extra_arguments=options,data_path=wal) as conn:
+        with running_ramsql(binary,extra_arguments=options,data_path=wal,create_data=True) as conn:
             with psycopg.connect(**conn,prepare_threshold=None) as db:
                 db.execute('CREATE TABLE counter(id INT PRIMARY KEY,value INT)')
                 db.execute('INSERT INTO counter VALUES(1,0)')

@@ -1272,6 +1272,7 @@ class Candidate:
     def start(self):
         self.manager = running_ramsql(self.binary, **self.arguments)
         started = self.manager.__enter__()
+        self.arguments = dict(self.arguments, create_data=False)  # restarts reopen the created WAL
         if self.connection is None:
             self.connection = started
         else:
