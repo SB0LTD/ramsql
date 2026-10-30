@@ -1,0 +1,24 @@
+run ramsql-trial1-mixed-8, node local, scenarios: s1_region(w2), s2_category(w1), s3_top_products(w2), s4_segment_discount(w2), s5_high_value_customers(w1), s6_store_category_mix(w4)
+opening 8 connection(s)...
+connected to PostgreSQL 16.0
+[   20.3s] measure  ops       2362      118.0/s  errors      0  active 8/8
+[   40.3s] measure  ops       4519      107.7/s  errors      0  active 8/8
+[   60.3s] measure  ops       6916      119.7/s  errors      0  active 8/8
+[   80.1s] done     ops       9272      119.0/s  errors      0  active 0/8
+
+Run:       ramsql-trial1-mixed-8
+Database:  ramsql [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-30T08:15:23.499Z .. 2026-10-30T08:16:23.631Z (60.1 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host runnervm48cm3        8 threads   4 cpus  window +0.0s .. +60.1s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s1_region                      1126        0        5630       18.7     49.13     24.32     54.78    290.82    315.39    570.13
+s2_category                     592        0       11840        9.8    312.84    290.82    339.97    548.86    598.02    640.78
+s3_top_products                1157        0       11570       19.2     49.14     24.83     57.86    290.82    315.39    573.18
+s4_segment_discount            1150        0       18400       19.1     60.43     39.42     62.98    299.01    323.58    373.55
+s5_high_value_customers         576        0        2304        9.6     44.19     22.27     47.62    282.62    307.20    380.45
+s6_store_category_mix          2330        0       46600       38.7     37.63     14.46     34.30    274.43    307.20    570.01
+TOTAL                          6931        0       96344      115.3     69.25     24.83    282.62    299.01    348.16    640.78
+
+Report: /home/runner/work/dbMeter/dbMeter/reports/live/sales-subset/ramsql-trial1-mixed-8/local.json

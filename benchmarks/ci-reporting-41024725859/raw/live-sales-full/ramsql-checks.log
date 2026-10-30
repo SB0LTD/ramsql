@@ -1,0 +1,10 @@
+PASS  a_totals                                      14.37 ms
+PASS  q1_region_month                             3560.37 ms
+PASS  q2_category_rank                             861.05 ms
+PASS  q3_top_products                               40.67 ms
+PASS  q4_segment_discount_rollup                  2307.34 ms
+PASS  q5_high_value_customers                       17.25 ms
+PASS  q6_store_category_mix                         10.42 ms
+
+7 check(s): 7 passed, 0 failed
+JUnit report: /home/runner/work/dbMeter/dbMeter/reports/live/sales-full/ramsql-checks.xml

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dbmeter" tests="7" failures="0" errors="0" time="4.338">
+  <testcase classname="dbmeter.check" name="a_totals" time="2.271"/>
+  <testcase classname="dbmeter.check" name="q1_region_month" time="0.325"/>
+  <testcase classname="dbmeter.check" name="q2_category_rank" time="0.275"/>
+  <testcase classname="dbmeter.check" name="q3_top_products" time="0.129"/>
+  <testcase classname="dbmeter.check" name="q4_segment_discount_rollup" time="0.605"/>
+  <testcase classname="dbmeter.check" name="q5_high_value_customers" time="0.473"/>
+  <testcase classname="dbmeter.check" name="q6_store_category_mix" time="0.260"/>
+</testsuite>

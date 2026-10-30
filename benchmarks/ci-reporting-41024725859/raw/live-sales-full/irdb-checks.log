@@ -1,0 +1,10 @@
+PASS  a_totals                                    2271.03 ms
+PASS  q1_region_month                              324.77 ms
+PASS  q2_category_rank                             274.85 ms
+PASS  q3_top_products                              128.59 ms
+PASS  q4_segment_discount_rollup                   604.94 ms
+PASS  q5_high_value_customers                      473.44 ms
+PASS  q6_store_category_mix                        260.37 ms
+
+7 check(s): 7 passed, 0 failed
+JUnit report: /home/runner/work/dbMeter/dbMeter/reports/live/sales-full/irdb-checks.xml

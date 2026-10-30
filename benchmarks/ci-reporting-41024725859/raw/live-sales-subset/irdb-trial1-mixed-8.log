@@ -1,0 +1,24 @@
+run irdb-trial1-mixed-8, node local, scenarios: s1_region(w2), s2_category(w1), s3_top_products(w2), s4_segment_discount(w2), s5_high_value_customers(w1), s6_store_category_mix(w4)
+opening 8 connection(s)...
+connected to InMemory.Net IRDB server 127.0.0.1:47501, database live_sales_subset
+[   20.2s] measure  ops       4795      239.1/s  errors      0  active 8/8
+[   40.2s] measure  ops       9697      244.2/s  errors      0  active 8/8
+[   60.3s] measure  ops      14540      241.4/s  errors      0  active 8/8
+[   80.0s] done     ops      19341      243.6/s  errors      0  active 0/8
+
+Run:       irdb-trial1-mixed-8
+Database:  irdb [reports as InMemory.Net IRDB server 127.0.0.1:47501, database live_sales_subset] (driver dbmeter IRDB adapter (jirdb) 0.1)
+Window:    2026-10-30T08:20:49.353Z .. 2026-10-30T08:21:49.370Z (60.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host runnervm48cm3        8 threads   4 cpus  window +0.0s .. +60.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s1_region                      2530        0       12650       42.2     32.83     33.28     47.62     51.71     60.93     79.77
+s2_category                    1205        0       24100       20.1     43.54     43.52     57.86     61.95     70.66     90.15
+s3_top_products                2379        0       23790       39.6     26.11     25.86     39.42     43.52     50.69     61.97
+s4_segment_discount            2409        0       38544       40.1     34.43     34.30     48.64     53.76     61.95     74.06
+s5_high_value_customers        1210        0        4840       20.2     70.47     70.66     89.09     95.23    105.47    123.79
+s6_store_category_mix          4846        0       96920       80.7     23.52     23.30     37.38     41.47     49.66     65.26
+TOTAL                         14579        0      200844      242.9     32.91     30.46     54.78     66.56     87.04    123.79
+
+Report: /home/runner/work/dbMeter/dbMeter/reports/live/sales-subset/irdb-trial1-mixed-8/local.json

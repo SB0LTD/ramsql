@@ -1,5 +1,10 @@
 # Benchmarks
 
+Original reporting SQL now passes all seven full/subset correctness checks for
+all three engines in [CI run 41024725859](ci-reporting-41024725859/REPORT.md).
+That bundle retains the full-data IRDB lead and invalid PostgreSQL trial; the
+candidate/control revisions are identical, and the advantage gate remains false.
+
 Latest CI-only matched comparisons:
 [dimension group IDs](ci-dimension-ids-40982373535/REPORT.md) and
 [typed aggregation on the main configuration](ci-typed-main-40976650837/REPORT.md).

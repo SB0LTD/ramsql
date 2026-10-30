@@ -1,0 +1,24 @@
+run postgres-trial3-mixed-1, node local, scenarios: s1_region(w2), s2_category(w1), s3_top_products(w2), s4_segment_discount(w2), s5_high_value_customers(w1), s6_store_category_mix(w4)
+opening 1 connection(s)...
+connected to PostgreSQL 18.3 (Debian 18.3-1.pgdg12+1)
+[   20.2s] measure  ops         53        2.6/s  errors      0  active 1/1
+[   40.2s] measure  ops        149        4.8/s  errors      0  active 1/1
+[   60.2s] measure  ops        231        4.1/s  errors      0  active 1/1
+[   80.1s] done     ops        286        2.8/s  errors      0  active 0/1
+
+Run:       postgres-trial3-mixed-1
+Database:  postgres [reports as PostgreSQL 18.3 (Debian 18.3-1.pgdg12+1)] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-30T08:35:49.018Z .. 2026-10-30T08:36:49.107Z (60.1 s)
+Nodes:     1 node(s), 1 thread(s) total
+  local                host runnervm48cm3        1 threads   4 cpus  window +0.0s .. +60.1s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s1_region                        35        0         175        0.6    187.23    186.37    189.43    189.43    189.43    189.43
+s2_category                      18        0         360        0.3   1882.02   1884.16   1916.93   1949.70   1949.70   1950.09
+s3_top_products                  36        0         360        0.6     92.15     91.14     93.18     93.18     93.18     93.42
+s4_segment_discount              42        0         672        0.7    182.33    182.27    190.46    194.56    198.21    198.21
+s5_high_value_customers          14        0          56        0.2    199.31    198.66    206.85    206.85    206.85    207.23
+s6_store_category_mix            87        0        1740        1.4     49.26     48.64     50.69     51.71     53.66     53.66
+TOTAL                           232        0        3363        3.9    252.07     93.18    198.66   1884.16   1884.16   1950.09
+
+Report: /home/runner/work/dbMeter/dbMeter/reports/live/sales-subset/postgres-trial3-mixed-1/local.json

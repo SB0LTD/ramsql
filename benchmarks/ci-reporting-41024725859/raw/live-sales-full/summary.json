@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "suite": "sales-full",
+  "profile": "qualification",
+  "qualified": false,
+  "source_revision": "ec93758a931e5fb0a6261388e255ff9307a362c6",
+  "binary_sha256": "c043e26a64d60fa3dd75acac45bdbce9505fc841e55631f801ff940a83221155",
+  "input_revision": "2b04159dcc5f1c54bbec13fb5d357f4bbebf97ec",
+  "ci": {
+    "provider": "github-actions",
+    "checkout_revision": "2b04159dcc5f1c54bbec13fb5d357f4bbebf97ec",
+    "repository": "benor1470/dbMeter",
+    "run_id": "41024725859",
+    "run_attempt": "1",
+    "job": "benchmark",
+    "workflow": "Live RAMSQL comparison",
+    "event_sha": "50fcc88ceee883e887774a292463484eb3e06bc0",
+    "runner_name": "GitHub Actions 1000000119",
+    "runner_os": "Linux",
+    "image_os": "ubuntu24",
+    "image_version": "20261026.354.1",
+    "run_url": "https://github.com/benor1470/dbMeter/actions/runs/41024725859/attempts/1"
+  },
+  "issues": [
+    "('postgres', 'mixed/1', 1): No successful execution of declared scenario q5_high_value_customers",
+    "mixed/1: missing valid postgres trials"
+  ],
+  "rows": [
+    {
+      "case": "mixed/1",
+      "engines": {
+        "ramsql": {
+          "median_qps": 0.9292340227822549,
+          "min_qps": 0.8200987272698599,
+          "max_qps": 1.0164125635257852,
+          "median_p99_us": 3571711
+        },
+        "irdb": {
+          "median_qps": 34.95734470807785,
+          "min_qps": 34.11854862892746,
+          "max_qps": 34.99825008749563,
+          "median_p99_us": 80895
+        }
+      },
+      "advantage": false
+    },
+    {
+      "case": "mixed/8",
+      "engines": {
+        "ramsql": {
+          "median_qps": 1.9559202366186432,
+          "min_qps": 1.8575474283626177,
+          "max_qps": 2.157930767628062,
+          "median_p99_us": 13148202
+        },
+        "postgres": {
+          "median_qps": 0.7236851821766678,
+          "min_qps": 0.6102191364721198,
+          "max_qps": 0.7244127082686536,
+          "median_p99_us": 49807359
+        },
+        "irdb": {
+          "median_qps": 44.913519002513695,
+          "min_qps": 43.36670942805258,
+          "max_qps": 45.5643481882549,
+          "median_p99_us": 532479
+        }
+      },
+      "advantage": false,
+      "ratio_to_fastest": 0.0435485858168712
+    }
+  ]
+}

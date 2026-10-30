@@ -1,0 +1,28 @@
+run irdb-trial2-mixed-8, node local, scenarios: q1_region_month(w2), q2_category_rank(w1), q3_top_products(w2), q4_segment_discount_rollup(w2), q5_high_value_customers(w1), q6_store_category_mix(w4)
+opening 8 connection(s)...
+connected to InMemory.Net IRDB server 127.0.0.1:50349, database live_sales_full
+[   10.1s] warmup   ops        412       41.1/s  errors      0  active 8/8
+[   20.2s] measure  ops        821       40.8/s  errors      0  active 8/8
+[   30.2s] measure  ops       1280       45.8/s  errors      0  active 8/8
+[   40.2s] measure  ops       1710       42.9/s  errors      0  active 8/8
+[   50.2s] measure  ops       2124       41.3/s  errors      0  active 8/8
+[   60.3s] measure  ops       2556       43.1/s  errors      0  active 8/8
+[   70.3s] measure  ops       2984       42.6/s  errors      0  active 8/8
+[   80.0s] done     ops       3422       45.1/s  errors      0  active 0/8
+
+Run:       irdb-trial2-mixed-8
+Database:  irdb [reports as InMemory.Net IRDB server 127.0.0.1:50349, database live_sales_full] (driver dbmeter IRDB adapter (jirdb) 0.1)
+Window:    2026-10-30T08:28:32.885Z .. 2026-10-30T08:29:32.908Z (60.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host runnervm48cm3        8 threads   4 cpus  window +0.0s .. +60.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+q1_region_month                 432        0       51840        7.2    140.94    141.31    182.27    194.56    235.52    260.08
+q2_category_rank                221        0        4420        3.7    219.74    223.23    282.62    290.82    323.58    374.61
+q3_top_products                 424        0        4240        7.1    125.48    123.90    174.08    190.46    219.14    249.69
+q4_segment_discount_r...        436        0        9156        7.3    442.09    438.27    520.19    548.86    598.02    688.98
+q5_high_value_customers         238        0         952        4.0    214.88    210.94    274.43    290.82    323.58    376.10
+q6_store_category_mix           852        0       17040       14.2     85.27     84.99    128.00    141.31    165.89    201.00
+TOTAL                          2603        0       87648       43.4    184.09    137.22    430.08    471.04    548.86    688.98
+
+Report: /home/runner/work/dbMeter/dbMeter/reports/live/sales-full/irdb-trial2-mixed-8/local.json
