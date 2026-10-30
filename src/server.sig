@@ -98,6 +98,7 @@ const config: sql.Config = .{
     .block_presence_filters = true,
     .typed_grouped_aggregates = true,
     .dimension_group_ids = true,
+    .dimension_distinct_groups = true,
 };
 const Raw = sql.Database(config);
 const Store = stores.Store(Raw);
