@@ -1,16 +1,17 @@
 # RAMSQL gap-closing plan
 
-Reporting follow-up, 30 October 2026: the unchanged dbMeter full 5M suite still
-passes only 3/7 checks in CI run 40994795421. Q03 temporal `to_char` is now a
-candidate in [ZPM PR 78](https://github.com/SB0LTD/zpm/pull/78), with 252 captured
-PostgreSQL fixtures and native SQL contracts. This integration adds PG16/PG18
-memory/durable+SCRAM differential cases, including the region/month three-way
-join shape. Native/platform checks and the original full-data query must pass
-before recording q1 closed. Q06 `RANK() OVER`, `SUM() OVER` and `ROLLUP` now have
-candidates in ZPM PRs 79/80 for q2/q3/q4, with final combined qualification still
-open. See the [reporting implementation and closing checklist](REPORTING_SQL_PROGRESS.md).
-These are feature gaps, not benchmark exclusions; preserve the original SQL and
-expected CSVs. The broad Q03/Q06 closure criteria below remain.
+Reporting follow-up, 30 October 2026: the unchanged original dbMeter full 5M
+and subset suites now pass 7/7 correctness checks for RAMSQL, PostgreSQL and
+IRDB in [run 41024725859](https://github.com/benor1470/dbMeter/actions/runs/41024725859).
+Temporal `to_char`, ranking/aggregate windows and flat ROLLUP/GROUPING merged in
+ZPM PR 80 and RAMSQL PR 35 after all 32 active hosted/native/release and PG16/18
+memory/durable+SCRAM checks passed (runs 41024653323/41024653363). The four concrete
+reviewer query failures are addressed; the broad Q03/Q06 families stay partial.
+The new follow-up adds bounded ROWS/GROUPS, integral RANGE, exclusions and FILTER;
+its final server qualification remains pending. See the
+[reporting implementation and closing checklist](REPORTING_SQL_PROGRESS.md).
+Preserve original SQL, expected CSVs, negative timings and invalid trials.
+The all-engine performance gate has not passed.
 
 Current review: 25 October 2026, development candidate `0.3.0-alpha.4` (unpublished).
 Latest published prerelease: `0.3.0-alpha.3`.
@@ -392,7 +393,7 @@ only one commonly used type.
 
 ### Q06 — Aggregates, grouping, HAVING and window functions
 
-**Status:** Partial (flag F6). Aggregates, GROUP BY and HAVING implemented, `aggregate` and `group_by` probes `match: true (PG18+PG16, memory and durable+SCRAM)`. The 30 October candidate adds ranking/aggregate windows and flat ROLLUP/GROUPING; final combined qualification is pending. Named/moving/filter/distinct window forms, general grouping sets and AVG(interval) remain gaps. See the [reporting record](REPORTING_SQL_PROGRESS.md) and [earlier evidence](#gap-closing-run-evidence-24-october-2026). **Owner:** ZPM planner/executor.
+**Status:** Partial (flag F6). Aggregates, GROUP BY and HAVING implemented, `aggregate` and `group_by` probes `match: true (PG18+PG16, memory and durable+SCRAM)`. Ranking/aggregate windows and flat ROLLUP/GROUPING passed final combined server and original dbMeter correctness qualification. The follow-up candidate adds bounded ROWS/GROUPS, integral RANGE, exclusions and FILTER, with final server qualification pending. Named windows, remaining built-in window functions, numeric/float/temporal RANGE offsets, volatile moving inputs, general grouping sets and AVG(interval) remain gaps. DISTINCT window aggregates are unsupported in PostgreSQL too. See the [reporting record](REPORTING_SQL_PROGRESS.md) and [earlier evidence](#gap-closing-run-evidence-24-october-2026). **Owner:** ZPM planner/executor.
 
 Reports and application counts require COUNT/SUM and grouping. Window functions
 compute values over related rows without collapsing the result into groups.

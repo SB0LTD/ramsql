@@ -126,7 +126,9 @@ Implemented SQL includes typed CRUD/RETURNING, primary keys, defaults/generated
 columns, sequences, joins, aggregates, CTEs/set operations, savepoints and
 transactional DDL. Development adds PostgreSQL ROUND over numeric and float8
 values, including aggregate expressions. The reporting candidate adds temporal
-`to_char`, ranking/aggregate windows and flat `ROLLUP`/`GROUPING`; see the
+`to_char`, ranking/aggregate windows and flat `ROLLUP`/`GROUPING`. The follow-up
+candidate adds bounded ROWS/GROUPS, integral-key RANGE, exclusions and aggregate
+FILTER; named windows and the remaining built-in window functions stay open. See the
 [reporting qualification record](compatibility/REPORTING_SQL_PROGRESS.md) for
 supported forms, remaining gaps and pending original dbMeter validation.
 Isolation is READ COMMITTED only. Secondary/foreign-key

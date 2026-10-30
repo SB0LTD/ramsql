@@ -6,6 +6,19 @@ later binary.
 
 ## Unreleased
 
+- Extend ZPM window execution with bounded ROWS/GROUPS, integral-key RANGE
+  offsets, frame exclusions and aggregate FILTER. Use caller-owned exact prefix
+  states and MIN/MAX ordinal trees, with charged scalar fallback. Add eight
+  independent PostgreSQL semantic cases for frames, errors, binary parameters,
+  deferred expressions and volatile evaluation. Final server qualification of
+  this follow-up remains pending.
+
+- Qualify the prior reporting pin: all seven original full-5M and subset dbMeter
+  correctness checks pass for RAMSQL, PostgreSQL and IRDB in run 41024725859.
+  PG16/PG18 memory/durable+SCRAM and all 32 active hosted/native/release checks
+  passed in runs 41024653323/41024653363. The full-data timings retain a substantial
+  IRDB lead; this is correctness progress, not an all-engine performance claim.
+
 - Add ranking and aggregate windows after grouping/HAVING, including partition
   and peer ordering, total shares before LIMIT, and unbounded prefix/full ROWS
   frames. Add flat ROLLUP/GROUPING with exact independent subtotal state and

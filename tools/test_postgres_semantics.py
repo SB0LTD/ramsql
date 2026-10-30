@@ -552,6 +552,77 @@ KINDS = ("CREATE TABLE compat (id INTEGER PRIMARY KEY, s SMALLINT, i INTEGER, b 
 GROUPS = ("CREATE TABLE compat (id INTEGER PRIMARY KEY, g INTEGER, v INTEGER)",) + tuple(
     f"INSERT INTO compat VALUES ({index}, 7, {index})" for index in range(512))
 SUITES["q06"] = (
+    Case("q06_window_bounded_rows", "q06", 3.4, feature="moving ROWS, empty frames and exact integer/Boolean transitions", setup=(
+        "CREATE TABLE compat(id INTEGER PRIMARY KEY,k INTEGER,v INTEGER)",
+        "INSERT INTO compat VALUES(1,1,10),(2,1,10),(3,1,30),(4,2,5),(5,2,NULL),(6,NULL,7),(7,3,NULL),(8,3,NULL)"), statements=(
+        "SELECT id,COUNT(*) OVER (ORDER BY id ROWS BETWEEN 2 PRECEDING AND 1 FOLLOWING),SUM(v) OVER (ORDER BY id ROWS BETWEEN 2 PRECEDING AND 1 FOLLOWING),AVG(v) OVER (ORDER BY id ROWS BETWEEN 2 PRECEDING AND 1 FOLLOWING) FROM compat ORDER BY id",
+        "SELECT id,MIN(v) OVER (PARTITION BY k ORDER BY id ROWS 1 PRECEDING),MAX(v) OVER (PARTITION BY k ORDER BY id ROWS 1 PRECEDING) FROM compat ORDER BY id",
+        "SELECT id,SUM(v) OVER (ORDER BY id ROWS BETWEEN 3 FOLLOWING AND 1 FOLLOWING),COUNT(*) OVER (ORDER BY id ROWS BETWEEN 1 PRECEDING AND 3 PRECEDING) FROM compat ORDER BY id",
+        "SELECT id,BOOL_AND(flag) OVER (ORDER BY id ROWS 2 PRECEDING),BOOL_OR(flag) OVER (ORDER BY id ROWS 2 PRECEDING) FROM (SELECT id,v>7 AS flag FROM compat) s ORDER BY id")),
+    Case("q06_window_groups_exclusions", "q06", 3.4, feature="GROUPS and exclusions retain peers and real NULLs", setup=(
+        "CREATE TABLE compat(id INTEGER PRIMARY KEY,k INTEGER,v INTEGER)",
+        "INSERT INTO compat VALUES(1,1,10),(2,1,10),(3,1,30),(4,2,5),(5,2,NULL),(6,NULL,7),(7,3,NULL),(8,3,NULL)"), statements=(
+        "SELECT id,SUM(v) OVER (ORDER BY v GROUPS BETWEEN 1 PRECEDING AND 1 FOLLOWING EXCLUDE CURRENT ROW),MIN(v) OVER (ORDER BY v GROUPS 1 PRECEDING EXCLUDE GROUP),MAX(v) OVER (ORDER BY v GROUPS 1 PRECEDING EXCLUDE TIES) FROM compat ORDER BY id",
+        "SELECT id,COUNT(*) OVER (PARTITION BY k ORDER BY v DESC NULLS FIRST GROUPS BETWEEN CURRENT ROW AND 1 FOLLOWING EXCLUDE TIES),SUM(v) OVER (RANGE CURRENT ROW EXCLUDE GROUP) FROM compat ORDER BY id",
+        "SELECT id,SUM(v) OVER (ORDER BY id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING EXCLUDE CURRENT ROW),MIN(v) OVER (ORDER BY id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING EXCLUDE GROUP) FROM compat ORDER BY id")),
+    Case("q06_window_range_offsets", "q06", 3.4, feature="integral RANGE offsets, direction, NULL placement and widened bounds", setup=(
+        "CREATE TABLE compat(id INTEGER PRIMARY KEY,v BIGINT)",
+        "INSERT INTO compat VALUES(1,-9223372036854775808),(2,9223372036854775807),(3,10),(4,10),(5,NULL),(6,7)"), statements=(
+        "SELECT id,COUNT(*) OVER (ORDER BY v RANGE BETWEEN 5 PRECEDING AND 5 FOLLOWING),MIN(v) OVER (ORDER BY v DESC NULLS FIRST RANGE BETWEEN 5 PRECEDING AND 10 FOLLOWING) FROM compat ORDER BY id",
+        "SELECT id,COUNT(*) OVER (ORDER BY v RANGE BETWEEN 9223372036854775807 PRECEDING AND 9223372036854775807 FOLLOWING),SUM(v) OVER (ORDER BY v RANGE BETWEEN CURRENT ROW AND CURRENT ROW EXCLUDE TIES) FROM compat ORDER BY id",
+        "SELECT id,COUNT(*) OVER (ORDER BY v RANGE BETWEEN 10 FOLLOWING AND 5 FOLLOWING) FROM compat ORDER BY id")),
+    Case("q06_window_filter_and_deferred_inputs", "q06", 3.4, feature="FILTER precedes arguments and unselected frame rows cannot raise errors", setup=(
+        "CREATE TABLE compat(id INTEGER PRIMARY KEY,k INTEGER,v INTEGER)",
+        "INSERT INTO compat VALUES(1,1,10),(2,1,10),(3,1,30),(4,2,5),(5,2,NULL),(6,NULL,7)"), statements=(
+        "SELECT id,SUM(v) FILTER (WHERE v>7) OVER (ORDER BY id ROWS 1 PRECEDING),MIN(v) FILTER (WHERE id<>3) OVER (ORDER BY id GROUPS 1 PRECEDING),COUNT(*) FILTER (WHERE NULL) OVER () FROM compat ORDER BY id",
+        "SELECT id,SUM(10/(id-3)) FILTER (WHERE id<>3) OVER () FROM compat ORDER BY id",
+        "SELECT id,SUM(10/(id-1)) OVER (ORDER BY id ROWS BETWEEN 1 FOLLOWING AND 1 FOLLOWING),COUNT(*) FILTER (WHERE 10/(id-id)>0) OVER (ORDER BY id ROWS BETWEEN 3 FOLLOWING AND 1 FOLLOWING) FROM compat ORDER BY id",
+        "WITH g AS (SELECT k,SUM(v) AS amount,COUNT(*) AS sales FROM compat GROUP BY k) SELECT k,amount,SUM(amount) FILTER (WHERE sales>1) OVER (ORDER BY k NULLS LAST ROWS 1 PRECEDING) FROM g ORDER BY k NULLS LAST",
+        "SELECT SUM(1/0) FILTER (WHERE FALSE) OVER () FROM compat")),
+    Case("q06_window_frame_errors", "q06", 3.4, feature="frame syntax, scope and runtime SQLSTATEs including empty input and LIMIT 0", setup=(
+        "CREATE TABLE compat(id INTEGER PRIMARY KEY,v INTEGER)",
+        "INSERT INTO compat VALUES(1,10),(2,NULL)"), statements=(
+        "SELECT SUM(v) OVER (ROWS -1 PRECEDING) FROM compat",
+        "SELECT SUM(v) OVER (ROWS NULL PRECEDING) FROM compat",
+        "SELECT SUM(v) OVER (ROWS -1 PRECEDING) FROM compat WHERE FALSE",
+        "SELECT SUM(v) OVER (ROWS -1 PRECEDING) FROM compat LIMIT 0",
+        "SELECT RANK() OVER (ORDER BY id ROWS -1 PRECEDING) FROM compat ORDER BY id",
+        "SELECT SUM(v) OVER (ROWS v PRECEDING) FROM compat",
+        "SELECT SUM(v) OVER (ROWS TRUE PRECEDING) FROM compat",
+        "SELECT SUM(v) OVER (ROWS COUNT(*) PRECEDING) FROM compat",
+        "SELECT SUM(v) OVER (ROWS UNBOUNDED FOLLOWING) FROM compat",
+        "SELECT SUM(v) OVER (GROUPS 1 PRECEDING) FROM compat",
+        "SELECT SUM(v) OVER (ORDER BY id,v RANGE 1 PRECEDING) FROM compat",
+        "SELECT SUM(v) FILTER (WHERE COUNT(*)>1) OVER () FROM compat",
+        "SELECT SUM(v) FILTER (WHERE ROW_NUMBER() OVER ()>1) OVER () FROM compat",
+        "SELECT COUNT(DISTINCT v) OVER () FROM compat",
+        "SELECT 1/0,SUM(v) OVER () FROM compat LIMIT 0")),
+    Case("q06_window_parameters_binary", "q06", 3.4, feature="frame offset parameters, binary result values and aggregate metadata", setup=(
+        "CREATE TABLE compat(id INTEGER PRIMARY KEY,v INTEGER)",
+        "INSERT INTO compat VALUES(1,10),(2,20),(3,NULL),(4,40)"), statements=(
+        ("SELECT id,SUM(v) OVER (ORDER BY id ROWS BETWEEN %s PRECEDING AND %s FOLLOWING),AVG(v) OVER (ORDER BY id ROWS %s PRECEDING) FROM compat ORDER BY id", (1, 2, 1), {"binary": True}),
+        ("SELECT id,MIN(v) OVER (ORDER BY id GROUPS %s PRECEDING),COUNT(*) FILTER (WHERE v>%s) OVER (ORDER BY id RANGE %s PRECEDING) FROM compat ORDER BY id", (1, 15, 1), {"binary": True}),
+        ("SELECT SUM(v) OVER (ROWS %s PRECEDING) FROM compat", (None,)),
+        ("SELECT SUM(v) OVER (ROWS %s PRECEDING) FROM compat", (-1,)))),
+    Case("q06_window_final_projection", "q06", 3.4, feature="window results precede LIMIT; direct sort trims unused output expressions", setup=(
+        "CREATE TABLE compat(id INTEGER PRIMARY KEY,v INTEGER)",
+        "INSERT INTO compat VALUES(1,10),(2,20),(3,30)"), statements=(
+        "SELECT id,10/(id-1),SUM(v) OVER () FROM compat ORDER BY id DESC LIMIT 1",
+        "SELECT id,10/(id-1),SUM(v) OVER () FROM compat ORDER BY (id+0) DESC LIMIT 1",
+        "SELECT id,SUM(v) OVER ()+id AS marker FROM compat ORDER BY marker DESC LIMIT 2",
+        "SELECT id,SUM(v) OVER (ORDER BY id ROWS 1 PRECEDING) FROM compat ORDER BY id DESC LIMIT 1 OFFSET 1")),
+    Case("q06_window_sequence_evaluation", "q06", 3.4, feature="offset once, ignored ranking offset and filtered/late-projected volatile inputs", sequences=("frame_seq",), setup=(
+        "CREATE TABLE compat(id INTEGER PRIMARY KEY,v INTEGER)",
+        "INSERT INTO compat VALUES(1,10),(2,20),(3,30)",
+        "CREATE SEQUENCE frame_seq START 1"), statements=(
+        "SELECT id,SUM(v) OVER (ORDER BY id ROWS nextval('frame_seq') PRECEDING) FROM compat ORDER BY id",
+        "SELECT currval('frame_seq')",
+        "SELECT id,RANK() OVER (ORDER BY id ROWS nextval('frame_seq') PRECEDING) FROM compat ORDER BY id",
+        "SELECT currval('frame_seq')",
+        "SELECT id,COUNT(*) FILTER (WHERE nextval('frame_seq')>0) OVER () FROM compat ORDER BY id",
+        "SELECT currval('frame_seq')",
+        "SELECT id,nextval('frame_seq'),SUM(v) OVER () FROM compat ORDER BY id DESC LIMIT 2",
+        "SELECT currval('frame_seq')")),
     Case("q06_window_rank_peers", "q06", 3.4, feature="ranking peers, partitions, NULL ordering and window SQLSTATE", setup=(
         "CREATE TABLE compat(id INTEGER PRIMARY KEY,k INTEGER,v INTEGER)",
         "INSERT INTO compat VALUES(1,1,10),(2,1,10),(3,1,30),(4,2,5),(5,2,NULL),(6,NULL,7)"), statements=(

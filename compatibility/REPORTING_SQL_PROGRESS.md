@@ -1,55 +1,81 @@
 # Reporting SQL gap-closing record — 30 October 2026
 
-Follow [Q03/Q06 in the gap-closing plan](GAP_CLOSING_PLAN.md), with reusable
-parser/binder/value/execution in ZPM and server qualification here. The original
-dbMeter full 5M suite passes 3/7 in run 40994795421. Candidate implementation is
-not a closed gate; preserve original SQL, data, expected CSVs and all failures.
+Follow [Q03/Q06 in the gap-closing plan](GAP_CLOSING_PLAN.md). Reusable parsing,
+binding, values and execution belong in ZPM; independent server qualification
+belongs here. Preserve the reviewer's original SQL, data and expected CSVs.
 
-| Original failing query | Missing feature / plan | Implementation | Closing evidence still required |
-| --- | --- | --- | --- |
-| q1 region/month | Temporal to_char / Q03 | ZPM PR 78 | Exact original full-data query on final pin |
-| q2 category rank | RANK over grouped totals / Q06 | ZPM PR 79 | Final PG16/18 server and original full-data query |
-| q3 product shares | SUM window over grouped CTE / Q06 | ZPM PR 79 | Final PG16/18 server and original full-data query |
-| q4 segment/discount | ROLLUP subtotal levels / Q06 | ZPM PR 80 | Final PG16/18 server and original full-data query |
+## Qualified reporting milestone
 
-## Evidence so far
+ZPM PR 80 and RAMSQL PR 35 merged after qualification of ZPM source
+`2f060c23f1cc6c11b6cc57dc989941b44b5c6442` and RAMSQL source
+`ec93758a931e5fb0a6261388e255ff9307a362c6`.
 
-- Temporal formatting: 252 actual PostgreSQL 16.15 fixtures; 551 SQL assertions
-  plus 9 primitive output-ownership assertions on Windows/Linux ReleaseSafe and
-  legacy Linux Debug. A later lowercase unsupported-ISO rejection is also tested.
-- Windows: 66 actual PostgreSQL fixtures; 8,844 assertions on those three modes,
-  including every-checkpoint work-limit/cancellation sweeps. Hosted database
-  matrices pass Windows/Linux/macOS for the standalone window candidate.
-  The combined server run matched 148/149 semantic cases: its only mismatch was
-  nested-window SQLSTATE (ordinary aggregates require 42803). The fix adds
-  aggregate/FILTER/window-clause context tests, passing 8,882 Windows assertions;
-  the final combined server/platform rerun is pending.
-- ROLLUP: 31 actual PostgreSQL fixtures; 19,443 assertions on those three modes,
-  including genuine NULL groups, empty totals, HAVING, exact AVG, independent
-  membership, volatile-input evaluation once, snapshots/private writes, poisoned
-  scratch, constrained capacity and every-checkpoint cancellation/work limits.
-- Combined Windows regressions preserve query 63,417, type 4,491, existing
-  group-synopsis 6,409 and streaming-group 1,702 assertions, including 100k actual
-  SQL-loaded rows. No local throughput was measured.
-- Temporal-only RAMSQL integration passes all 32 active hosted/native/release
-  and PG16/PG18 memory/durable+SCRAM checks. The combined pin needs fresh checks.
+| Original failing query | Implementation | Closing evidence |
+| --- | --- | --- |
+| q1 region/month | Temporal to_char / Q03 | PG16/18 and original full-data check pass |
+| q2 category rank | RANK over grouped totals / Q06 | PG16/18 and original full-data check pass |
+| q3 product shares | SUM window over grouped CTE / Q06 | PG16/18 and original full-data check pass |
+| q4 segment/discount | ROLLUP subtotal levels / Q06 | PG16/18 and original full-data check pass |
 
-ZPM's broad legacy graph retains its four known SABR/TLS/TTS failures. Those are
-not counted as passing; dedicated hosted SQL and source contracts are separate
-evidence. The full original dbMeter checks and final combined server run remain
-necessary, even when every focused library fixture passes.
+- [ZPM database matrix 41024574517](https://github.com/SB0LTD/zpm/actions/runs/41024574517):
+  Linux, macOS and Windows succeed. Broad legacy run 41024574545 has 296
+  successes, four known unrelated SABR/TLS/TTS failures and 22 skips; those four
+  failures are not counted as passing.
+- [RAMSQL release matrix 41024653323](https://github.com/SB0LTD/ramsql/actions/runs/41024653323)
+  and [CI 41024653363](https://github.com/SB0LTD/ramsql/actions/runs/41024653363):
+  all 32 active checks succeed, with two explicit policy skips. Includes six
+  hosted exact artifacts, native SB0X/SB0K build/QEMU and independent PostgreSQL
+  16/18 memory/durable+SCRAM qualification of the exact Linux release artifact.
+- [Original dbMeter run 41024725859](https://github.com/benor1470/dbMeter/actions/runs/41024725859):
+  full 5M and subset correctness each pass **7/7 for RAMSQL, PostgreSQL and IRDB**.
+  The prior 3/7 result in run 40994795421 is superseded for these concrete SQL
+  failures. No original query/expected CSV was rewritten to achieve this.
+
+The final source also fixes a server-discovered SQLSTATE mismatch: an ordinary
+aggregate containing a window reports 42803; misplaced/nested windows report
+42P20. The earlier 148/149 result is retained as a failed intermediate run.
+
+## Performance remains an open gate
+
+The corrected dbMeter run deliberately pins candidate and baseline to the same
+RAMSQL source. It measures correctness and unchanged-build variability, not a
+causally attributed optimization. Full-data mixed 1-client throughput was 0.93
+QPS for RAMSQL and 34.96 for IRDB; PostgreSQL is unscored because an original q5
+trial did not complete. Full-data mixed 8-client throughput was RAMSQL 1.96,
+PostgreSQL 0.72 and IRDB 44.91 QPS. Retain raw reports and the invalid trial; do
+not hide them or use this result for a benchmark-lead claim.
+
+Other workflow scenarios may still be running; inspect the linked run for its
+final status. These completed suite results do not imply a passing all-workload
+advantage gate. dbMeter PR 1 remains draft/unmerged.
+
+## Follow-up candidate: bounded frames and FILTER
+
+ZPM now implements bounded ROWS/GROUPS, integral-key RANGE offsets, all frame
+exclusions and ordinary aggregate FILTER. Caller-owned exact prefix state
+accelerates integral SUM/AVG, COUNT and Boolean aggregates; ordinal segment trees
+serve MIN/MAX. Complex/deferred inputs preserve frame/filter evaluation order;
+optional-state capacity uses a charged scalar fallback. No heap or storage/WAL
+format change is introduced. Materialization and expression/schema budgets still
+apply, and numeric/complex moving expressions may scan each frame.
+
+The new library contract matches 397 captured PostgreSQL 16.15 queries and has
+106,870 assertions, including every-checkpoint work/cancellation sweeps, private
+writes/snapshots, poisoned scratch, constrained grants, integer extrema, sequence
+effects and operation-count checks. The existing window, grouping, query, types,
+formatter and 100k-row streaming contracts are regression gates. No local
+throughput was measured. Eight new PG16/18 semantic cases exercise frames,
+exclusions, FILTER, SQLSTATEs, parameters/binary results, projection and sequence
+evaluation. Final independent server/platform qualification is pending.
 
 ## Remaining scope
 
-See [SQL_REFERENCE.md](../SQL_REFERENCE.md) for the concrete supported forms.
-Numeric/interval/localized/ISO-week/timezone formatting; FILTER/DISTINCT window
-aggregates; bounded/moving/explicit RANGE/GROUPS frames; named windows; correlated
-subqueries in the same window target projection; composite/multiple ROLLUP,
-CUBE/general GROUPING SETS and nonintegral/computed DISTINCT remain gaps.
-Caller-owned memory still has finite budgets; exhaustion must be a documented
-SQL error, never hidden allocation or silent wrong rows.
+See [SQL_REFERENCE.md](../SQL_REFERENCE.md) for supported forms. Numeric/interval/
+localized/ISO-week/timezone formatting; named windows and remaining built-in
+window functions; numeric/float/temporal RANGE offsets; volatile moving inputs;
+correlated subqueries in the same window target; composite/multiple ROLLUP;
+CUBE/general GROUPING SETS and nonintegral/computed DISTINCT membership remain
+gaps. DISTINCT window aggregates are unsupported in PostgreSQL too.
 
-The broad Q03/Q06 families stay partial. This work does not qualify compact
-100M-row storage, full PostgreSQL compatibility, production readiness or the
-all-engine performance gate. dbMeter PR 1 remains unmerged until its unchanged
-full qualification passes; no README benchmark-lead claim follows here.
+Q03/Q06 stay partial. This work does not qualify compact 100M-row storage, full
+PostgreSQL compatibility, production readiness or the all-engine performance gate.

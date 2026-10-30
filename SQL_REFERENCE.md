@@ -102,13 +102,21 @@ Roman-month and localized templates are not implemented.
 `RANK`, `DENSE_RANK`, `ROW_NUMBER` and ordinary aggregate windows accept
 `OVER (PARTITION BY ... ORDER BY ... [NULLS FIRST/LAST])`. Default ordered
 aggregate frames include current peers; unordered defaults cover the full
-partition. Unbounded prefix/full ROWS frames are implemented. Grouping/HAVING
-run before windows; final DISTINCT/order/OFFSET/LIMIT follow them. Window
-FILTER/DISTINCT, bounded/moving/explicit RANGE/GROUPS frames, named windows
+partition. The follow-up candidate adds bounded ROWS/GROUPS, integral-key RANGE
+offsets, EXCLUDE NO OTHERS/CURRENT ROW/GROUP/TIES and aggregate FILTER.
+GROUPS requires ordering; offset RANGE requires one integral sort key. NULL and
+negative offsets report `22004` and `22013`. Grouping/HAVING run before windows;
+final DISTINCT/order/OFFSET/LIMIT follow them. Named windows, remaining built-in
+window functions, numeric/float/temporal RANGE offsets, volatile moving inputs
 and correlated subqueries in the same window target projection remain gaps.
+DISTINCT window aggregates remain unsupported, matching PostgreSQL.
 Each window-bearing query block consumes an extra plan; dependencies/windows
 use the configured column/expression/query budgets and can return capacity
-errors. Invalid placement/nesting reports `42P20`.
+errors. Prefix states accelerate integral COUNT/SUM/AVG and Boolean moving
+aggregates; MIN/MAX use ordinal segment trees. Complex/numeric moving inputs may
+scan each frame. Optional-state capacity falls back to budgeted scalar execution;
+mandatory materialization can still exhaust workspace. Invalid placement/nesting
+reports `42P20`; ordinary aggregates containing windows report `42803`.
 
 Flat `GROUP BY ROLLUP(a,b,...)`, `GROUP BY ()` and `GROUPING(...)` are available
 in the reporting candidate. Real NULL groups and subtotals remain separate;
