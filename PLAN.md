@@ -1,5 +1,17 @@
 # RAMSQL hardening and professionalization plan
 
+**Consolidation update, 30 October 2026:** ZPM PRs 77, 81 and 82–85 and RAMSQL
+PRs 30, 34 and 36 are merged. The current runtime pin `0f5af8d` includes NET-01,
+STO-01, STO-03 and the SRV-01 file primitive; RAMSQL includes explicit
+`--create-data`, typed DISTINCT and the window/FILTER extension. The combined
+source passes the three-OS database matrix and all 32 active RAMSQL checks.
+See [exact consolidation/evidence identities](compatibility/PR_CONSOLIDATION_20261030.md).
+The baseline measurements/findings below describe the original audit revisions;
+they are not all current code claims. NET-02, STO-02/04/05, the SQLF divergences
+and the remaining production gaps are still open. The refreshed original SQL
+TDD inventory has 8 smoke passes, 93 failures and 17 unexecuted cases; see
+[the current checkpoint](https://github.com/SB0LTD/zpm/blob/main/docs/SQL_CONFORMANCE_TDD_STATUS.md).
+
 | | |
 | --- | --- |
 | Status date | 2026-10-30 |

@@ -1,5 +1,20 @@
 # PostgreSQL feature gaps and divergences (ZPM SQL front end)
 
+**Current update, 30 October 2026:** main now pins ZPM `0f5af8d` after the
+[PR consolidation](../../compatibility/PR_CONSOLIDATION_20261030.md). The table
+and line references below originated from the `2f060c2` audit; updated rows are
+marked explicitly. Bounded ROWS/GROUPS, integral RANGE, exclusions and aggregate
+FILTER are implemented, while named/remaining built-in windows and other RANGE
+types remain open. NET-01, STO-01, STO-03 and SRV-01 have merged fixes; they do
+not close the SQLF findings below. The temporal/value/numeric/JSON implementation
+files behind those findings were unchanged by this consolidation.
+
+The [original SQL TDD map](https://github.com/SB0LTD/zpm/blob/main/tests/sql_conformance/README.md)
+is refreshed: **8 passes, 93 failures, 17 unexecuted scopes/comparators**.
+Compound probes can still fail after one component is implemented: the window
+probe needs LAG/LEAD, the named-window probe needs WINDOW, and the formatting
+probe needs to_date/to_number. These counts are not a compatibility percentage.
+
 This page lists the PostgreSQL features that real applications, drivers and
 ORMs are likely to need but that RAMSQL's SQL engine (ZPM `2f060c2`, pinned
 by RAMSQL `6d677ee`) does not provide. It also lists every known case where
@@ -21,12 +36,12 @@ L6 client and ORM probes (psql/libpq, psycopg 3, asyncpg, JDBC, pgx,
 node-postgres, SQLAlchemy, Django). Lane B7 owns the divergences. Finding
 ids refer to the module pages under `docs/modules/zpm-sql/`. ZPM's own
 inventory (`zpm/tests/sql_conformance/README.md`, 118 smoke programs and the
-755-record PostgreSQL 18 feature list) is a second source. Its status table
-predates the window and ROLLUP work.
+755-record PostgreSQL 18 feature list) is a second source. Its refreshed status
+table distinguishes the completed window/ROLLUP slices from remaining work.
 
 ## 1. Application-blocking gaps (SQLF-14)
 
-| Gap | PostgreSQL behavior | RAMSQL at ZPM 2f060c2 | Evidence | Priority | Lane |
+| Gap | PostgreSQL behavior | Implementation (2f060c2 audit; updates marked) | Evidence | Priority | Lane |
 | --- | --- | --- | --- | --- | --- |
 | `VARCHAR(n)`, `CHAR(n)`, `CHARACTER VARYING` | String types with a length check | Error 42601 in CREATE TABLE and casts. Only TEXT and NAME exist. | `parser.sig:555-559` | P0 | B11 |
 | `SERIAL`, `BIGSERIAL` | Integer column with an owned sequence default | Error 42601. `GENERATED ... AS IDENTITY` works instead. | `parser.sig:555-559` | P0 | B11 |
@@ -41,11 +56,11 @@ predates the window and ROLLUP work.
 | Aggregates: `string_agg`, `array_agg`, `json(b)_agg`, `stddev`, `variance`, `AVG(interval)` | Built-ins | Error 42883. Aggregates are COUNT, SUM, AVG, MIN, MAX, BOOL_AND/EVERY and BOOL_OR. | `binder.sig:608-620`, `681` | P1 | B11 |
 | `UUID`, `BYTEA` | Types | Error 42601 | `parser.sig:555-559` | P1 | B11 |
 | Arrays: `int[]`, `ARRAY[...]`, `= ANY($1)` with an array | Types and operators | 42601, or 0A000 for array ANY | `parser.sig:555-559`, `1334-1335` | P1 | B11 |
-| `LIMIT`/`OFFSET` with an expression or a text-typed parameter | Any bigint expression | 42601. Only an integer literal is accepted. Integer parameters work only because the wire layer splices them as bare text (NET-01). | `parser.sig:1192-1204` | P1 | B11 (B1 for parameters) |
+| `LIMIT`/`OFFSET` with a general expression or text-typed parameter | Any bigint expression | General expressions remain unsupported. Update at 0f5af8d: one parenthesized signed integer is accepted; NET-01 integer parameters are self-delimited and negative counts retain 2201W/2201X. Typed binding/comment scanning remains NET-02 work. | `parser.sig:countValue`; ZPM PR 82 | P1 | B11 (B1 for parameters) |
 | `UPDATE ... FROM`, `DELETE ... USING` | Joined DML | Error 42601 | `parser.sig:1205-1233` | P1 | B11 |
 | `E'...'` strings, dollar quoting, `U&'...'`, `B'...'`/`X'...'` | Literal forms used by `pg_dump` and migration tools | Error 42601 | `lexer.sig:375-468` | P1 | B11 |
 | JSONB operators and functions: `\|\|`, `-`, `#-`, `?\|`, `?&`, `jsonb_set`, `jsonb_build_object`, `jsonb_each`, `to_jsonb`, jsonpath, operators on JSON | Built-ins | 42883 or 42601. `jsonb \|\| 'literal'` is silently wrong (section 2). | `jsonb.sig`, `binder.sig:581-606` | P1 | B11 |
-| Window functions `lag`, `lead`, `first_value`, `last_value`, `ntile`, `percent_rank`; RANGE, GROUPS and bounded ROWS frames; named windows; FILTER or DISTINCT in window aggregates | Window functions | 42883 or 0A000. Supported: RANK, DENSE_RANK, ROW_NUMBER, and aggregates with default or UNBOUNDED ROWS frames. | `binder.sig:697-724`, `parser.sig:1631-1641` | P2 | B11 |
+| Remaining built-in/named windows, nonintegral or temporal RANGE offsets, volatile moving arguments/FILTERs and correlated window targets | Window functions | Update at 0f5af8d: RANK/DENSE_RANK/ROW_NUMBER and ordinary aggregate windows support FILTER, bounded ROWS/GROUPS, integral RANGE and all exclusions. LAG/LEAD/value/distribution functions and named windows remain missing. DISTINCT windows are unsupported in PostgreSQL too. | [Exact frame scope](https://github.com/SB0LTD/zpm/blob/0f5af8da5f4ca6f25576c1615ff2ef28bf96ca41/docs/SQL_WINDOW_FRAMES.md); ZPM PR 81 | P2 | B11 |
 | Regular expressions (`~`, `~*`, `!~`, `SIMILAR TO`, `regexp_*`) | Operators and functions | Error 42601 (the lexer rejects `~`) | `lexer.sig:375-468` | P2 | B11 |
 | `NATURAL JOIN`, `LATERAL`, parenthesized join trees, set-returning functions in FROM (`generate_series`) | Join forms | 42601 or 0A000 | `parser.sig:1127-1190` | P2 | B11 |
 | `TIME`, `TIMETZ`; non-ISO date input (`'Jan 1 2026'`); ISO 8601 durations (`'P1D'`); zone abbreviations (`EST`) | Types and input styles | 42601 for types; 22007 or 22023 for input | `parser.sig:555-559`, `temporal.sig:249-319`, `664-740` | P2 | B11 |

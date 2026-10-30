@@ -4,7 +4,13 @@ The workspace sync found 13 open ZPM PRs, three RAMSQL PRs and one dbMeter PR.
 The integrator preserves existing worktrees, uncommitted files, original feature
 commits/authors and experimental branches. No history is reset or force-pushed.
 
-## Integration selected for main
+## Integrated into main
+
+All 17 original PRs are resolved: nine merged and eight closed without merging.
+The two consolidation merges are ZPM `2c0ac40` (PR 81) and RAMSQL `ed3f21e`
+(PR 36); the other included PR heads are ancestors of those main branches.
+All three repositories have zero open PRs at this checkpoint. Experiment and
+workflow branches remain available.
 
 RAMSQL PR 36 is the consolidation vehicle. It includes the original heads of
 PR 34 (typed dimension DISTINCT integration) and PR 30 (complete positive and
@@ -53,9 +59,17 @@ matrix 41041634923 passed Linux/macOS/Windows; broad legacy CI 41041635020 retai
 four known unrelated SABR/TLS/TTS failures, with 298 successful and 22 skipped
 steps. Those failures are not described as green.
 
-Those prior results do not automatically qualify this larger integration. Fresh
-combined source and RAMSQL platform/server/native checks are required before the
-consolidation vehicle merges. After main adopts it, refresh the original 118-case
-SQL TDD map and cross-reference the hardening feature/divergence audit. Passing a
+The larger integration has now passed fresh qualification: ZPM database matrix
+41114412805 succeeds on Linux/macOS/Windows; RAMSQL CI 41114733707 and release
+matrix 41114733789 pass all 32 active checks, including every PG16/PG18 cell,
+hosted exact artifact and native format. Broad legacy source run 41114412832
+retains four unrelated SABR/TLS/TTS failures, with 300 successful and 22 skipped
+steps. No such failure is counted as passing.
+
+The original 118-case SQL TDD map is refreshed against consolidated ZPM main:
+8 smoke passes, 93 failures and 17 unexecuted scopes/comparators. The former
+6/95/17 output is preserved. See
+[the current SQL checkpoint](https://github.com/SB0LTD/zpm/blob/main/docs/SQL_CONFORMANCE_TDD_STATUS.md)
+and its per-ID inventory; cross-reference the hardening feature/divergence audit. Passing a
 finite smoke test never closes a whole SQL family, operational gate or 100M-row
 capacity target.

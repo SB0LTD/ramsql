@@ -45,11 +45,13 @@ trial did not complete. Full-data mixed 8-client throughput was RAMSQL 1.96,
 PostgreSQL 0.72 and IRDB 44.91 QPS. Retain raw reports and the invalid trial; do
 not hide them or use this result for a benchmark-lead claim.
 
-Other workflow scenarios may still be running; inspect the linked run for its
-final status. These completed suite results do not imply a passing all-workload
-advantage gate. dbMeter PR 1 remains draft/unmerged.
+The complete workflow finished: benchmark execution jobs succeeded and the
+significant-advantage gate failed. Stock text/column/table probes also fail.
+The retained [648-file bundle](../benchmarks/ci-reporting-41024725859/REPORT.md)
+exactly regenerates all three live summaries and the final failed decision.
+dbMeter PR 1 is closed without merging, with its branch and evidence preserved.
 
-## Follow-up candidate: bounded frames and FILTER
+## Qualified follow-up: bounded frames and FILTER
 
 ZPM now implements bounded ROWS/GROUPS, integral-key RANGE offsets, all frame
 exclusions and ordinary aggregate FILTER. Caller-owned exact prefix state
@@ -68,7 +70,11 @@ throughput was measured. Eight new PG16/18 semantic cases exercise frames,
 exclusions, FILTER, SQLSTATEs, parameters/binary results, projection and sequence
 evaluation. Native SB0X/SB0K QEMU also exercises prefix/tree/FILTER/GROUPS/RANGE,
 exclusions and maximum offsets. Final independent server/platform qualification
-of the revised source is pending.
+of the combined source passed in ZPM matrix 41114412805 and RAMSQL runs
+41114733707/41114733789: all three source OS jobs and all 32 active server,
+hosted-artifact and native checks. ZPM PR 81 and RAMSQL PR 36 are merged.
+The broader SQL TDD audit remains incomplete at 8/93/17; those independent
+feature probes must not be confused with the seven original dbMeter checks.
 
 ### Initial CI findings retained
 

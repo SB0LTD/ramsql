@@ -7,8 +7,11 @@ Temporal `to_char`, ranking/aggregate windows and flat ROLLUP/GROUPING merged in
 ZPM PR 80 and RAMSQL PR 35 after all 32 active hosted/native/release and PG16/18
 memory/durable+SCRAM checks passed (runs 41024653323/41024653363). The four concrete
 reviewer query failures are addressed; the broad Q03/Q06 families stay partial.
-The new follow-up adds bounded ROWS/GROUPS, integral RANGE, exclusions and FILTER;
-its final server qualification remains pending. See the
+The consolidated follow-up adds bounded ROWS/GROUPS, integral RANGE, exclusions
+and FILTER. It is now merged and passes all 32 active checks in runs
+41114733707/41114733789, with the three-OS ZPM matrix passing in 41114412805.
+The original SQL TDD map is refreshed to 8 passes, 93 failures and 17 unexecuted
+scopes/comparators; its broader feature families remain incomplete. See the
 [reporting implementation and closing checklist](REPORTING_SQL_PROGRESS.md).
 Preserve original SQL, expected CSVs, negative timings and invalid trials.
 The all-engine performance gate has not passed.
@@ -381,7 +384,8 @@ Unicode, invalid documents, operators and recovery match reference behavior.
 
 UUID, BYTEA, VARCHAR/CHAR, arrays, enums, domains, composite and range types,
 network/geometric types and other advertised built-ins need an explicit inventory.
-They are not represented by the current four data types.
+The existing numeric, floating, temporal and JSON families do not provide these
+additional type families.
 
 - [ ] Record required types, casts, operators, functions, OIDs and binary formats.
 - [ ] Implement shared storage/expression behavior before exposing a type through a codec.
@@ -393,7 +397,7 @@ only one commonly used type.
 
 ### Q06 — Aggregates, grouping, HAVING and window functions
 
-**Status:** Partial (flag F6). Aggregates, GROUP BY and HAVING implemented, `aggregate` and `group_by` probes `match: true (PG18+PG16, memory and durable+SCRAM)`. Ranking/aggregate windows and flat ROLLUP/GROUPING passed final combined server and original dbMeter correctness qualification. The follow-up candidate adds bounded ROWS/GROUPS, integral RANGE, exclusions and FILTER, with final server qualification pending. Named windows, remaining built-in window functions, numeric/float/temporal RANGE offsets, volatile moving inputs, general grouping sets and AVG(interval) remain gaps. DISTINCT window aggregates are unsupported in PostgreSQL too. See the [reporting record](REPORTING_SQL_PROGRESS.md) and [earlier evidence](#gap-closing-run-evidence-24-october-2026). **Owner:** ZPM planner/executor.
+**Status:** Partial (flag F6). Aggregates, GROUP BY and HAVING implemented, `aggregate` and `group_by` probes `match: true (PG18+PG16, memory and durable+SCRAM)`. Ranking/aggregate windows and flat ROLLUP/GROUPING passed final combined server and original dbMeter correctness qualification. Bounded ROWS/GROUPS, integral RANGE, exclusions and FILTER are now merged and pass final server/platform/native qualification on the consolidated source. Named windows, remaining built-in window functions, numeric/float/temporal RANGE offsets, volatile moving inputs, general grouping sets and AVG(interval) remain gaps. DISTINCT window aggregates are unsupported in PostgreSQL too. See the [reporting record](REPORTING_SQL_PROGRESS.md) and [earlier evidence](#gap-closing-run-evidence-24-october-2026). **Owner:** ZPM planner/executor.
 
 Reports and application counts require COUNT/SUM and grouping. Window functions
 compute values over related rows without collapsing the result into groups.
@@ -424,8 +428,9 @@ recursive termination and transactional behavior match the reference at realisti
 
 **Status:** Candidate addressed (flag F8). DISTINCT [ON], multi-key ORDER BY with NULLS FIRST/LAST, OFFSET/FETCH, `distinct` probe `match: true (PG18+PG16, memory and durable+SCRAM)`, suite q08 matches; sorts larger than the statement workspace fail with 54000 (S02/S03). [Evidence](#gap-closing-run-evidence-24-october-2026). **Owner:** ZPM SQL/planner/executor.
 
-Only one ORDER BY column and LIMIT are implemented. Applications also depend on
-duplicate elimination, several sort keys, OFFSET and expressions in ordering.
+Multi-key ordering, duplicate elimination, OFFSET and expression ordering are
+implemented. Preserve their typed/NULL/tie behavior while closing remaining
+pagination forms and scalable sorting/result ownership.
 
 - [ ] Implement DISTINCT/DISTINCT ON with correct NULL and ordering rules.
 - [ ] Add multiple ordering keys, ordinal/expression ordering, OFFSET and applicable FETCH forms.

@@ -10,8 +10,9 @@ later binary.
   offsets, frame exclusions and aggregate FILTER. Use caller-owned exact prefix
   states and MIN/MAX ordinal trees, with charged scalar fallback. Add eight
   independent PostgreSQL semantic cases for frames, errors, binary parameters,
-  deferred expressions and volatile evaluation. Final server qualification of
-  this follow-up remains pending.
+  deferred expressions and volatile evaluation. The combined source passes the
+  three-OS SQL matrix and all 32 active server/release/native checks; broader
+  window functions and language coverage remain incomplete.
 
 - Qualify the prior reporting pin: all seven original full-5M and subset dbMeter
   correctness checks pass for RAMSQL, PostgreSQL and IRDB in run 41024725859.
