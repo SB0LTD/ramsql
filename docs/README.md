@@ -5,7 +5,8 @@ this index. User-facing documents (README, SQL reference, capacity, operations)
 stay at the repository root until lane A5 moves them under `docs/`.
 
 For the current merged-source status, read the
-[consolidation record](../compatibility/PR_CONSOLIDATION_20261030.md) and
+[consolidation record](../compatibility/PR_CONSOLIDATION_20261030.md),
+[temporal correctness follow-up](../compatibility/TEMPORAL_CORRECTNESS_20261030.md) and
 [original SQL TDD inventory](https://github.com/SB0LTD/zpm/blob/main/docs/SQL_CONFORMANCE_TDD_STATUS.md).
 Module/audit baseline tables retain their stated historical revision.
 

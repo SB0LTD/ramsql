@@ -1,7 +1,12 @@
 # RAMSQL hardening and professionalization plan
 
-**Consolidation update, 30 October 2026:** ZPM PRs 77, 81 and 82–85 and RAMSQL
-PRs 30, 34 and 36 are merged. The current runtime pin `0f5af8d` includes NET-01,
+**Temporal follow-up, 30 October 2026:** the runtime pin is now ZPM `3301526`.
+The six reported SQLF-01 overflow paths and SQLF-05 infinite DATE subtraction
+are fixed and independently reviewed; FV-12's formal theorem and the remaining
+SQL feature gaps stay open. See [qualification and exact scope](compatibility/TEMPORAL_CORRECTNESS_20261030.md).
+
+**Earlier consolidation update, 30 October 2026:** ZPM PRs 77, 81 and 82–85 and RAMSQL
+PRs 30, 34 and 36 are merged. The then-current runtime pin `0f5af8d` includes NET-01,
 STO-01, STO-03 and the SRV-01 file primitive; RAMSQL includes explicit
 `--create-data`, typed DISTINCT and the window/FILTER extension. The combined
 source passes the three-OS database matrix and all 32 active RAMSQL checks.

@@ -1,0 +1,349 @@
+{
+  "schema": 1,
+  "scope": "Temporal correctness follow-up; finite cases, no performance or full PostgreSQL parity claim",
+  "zpm_source": "33015265a367264d7afe8ea72534512b2fa15d80",
+  "zpm_archive_sha256": "37d5b99740af49c8bf8be7d640c5f4ce75c723da2af68fbfc653622d30abd9de",
+  "ramsql_source": "fe774887b5ea17831f603c140dd27017af15e085",
+  "runs": [
+    {
+      "repo": "SB0LTD/zpm",
+      "id": 41122510202,
+      "head_sha": "33015265a367264d7afe8ea72534512b2fa15d80",
+      "conclusion": "success",
+      "url": "https://github.com/SB0LTD/zpm/actions/runs/41122510202",
+      "jobs": [
+        {
+          "name": "Database contracts (windows-latest)",
+          "conclusion": "success",
+          "databaseId": 124292134197
+        },
+        {
+          "name": "Database contracts (ubuntu-latest)",
+          "conclusion": "success",
+          "databaseId": 124292134808
+        },
+        {
+          "name": "Database contracts (macos-latest)",
+          "conclusion": "success",
+          "databaseId": 124292134971
+        }
+      ]
+    },
+    {
+      "repo": "SB0LTD/ramsql",
+      "id": 41122569233,
+      "head_sha": "fe774887b5ea17831f603c140dd27017af15e085",
+      "conclusion": "success",
+      "url": "https://github.com/SB0LTD/ramsql/actions/runs/41122569233",
+      "jobs": [
+        {
+          "name": "Native Sig (macos-latest)",
+          "conclusion": "success",
+          "databaseId": 124292368635
+        },
+        {
+          "name": "Native Sig (windows-latest)",
+          "conclusion": "success",
+          "databaseId": 124292368933
+        },
+        {
+          "name": "postgres / PG18 durable-scram",
+          "conclusion": "success",
+          "databaseId": 124292368985
+        },
+        {
+          "name": "postgres / PG16 durable-scram",
+          "conclusion": "success",
+          "databaseId": 124292369024
+        },
+        {
+          "name": "postgres / PG16 memory",
+          "conclusion": "success",
+          "databaseId": 124292369033
+        },
+        {
+          "name": "Native Sig (ubuntu-latest)",
+          "conclusion": "success",
+          "databaseId": 124292369097
+        },
+        {
+          "name": "postgres / PG18 memory",
+          "conclusion": "success",
+          "databaseId": 124292369128
+        },
+        {
+          "name": "Native Sig (ubuntu-24.04-arm)",
+          "conclusion": "success",
+          "databaseId": 124292369138
+        }
+      ]
+    },
+    {
+      "repo": "SB0LTD/ramsql",
+      "id": 41122569270,
+      "head_sha": "fe774887b5ea17831f603c140dd27017af15e085",
+      "conclusion": "success",
+      "url": "https://github.com/SB0LTD/ramsql/actions/runs/41122569270",
+      "jobs": [
+        {
+          "name": "Validate version, matrix and release policy",
+          "conclusion": "success",
+          "databaseId": 124292369076
+        },
+        {
+          "name": "Bootstrap pinned Sig and validate native SB0X and SB0K",
+          "conclusion": "success",
+          "databaseId": 124292441159
+        },
+        {
+          "name": "Build hosted aarch64-windows",
+          "conclusion": "success",
+          "databaseId": 124292441280
+        },
+        {
+          "name": "Native operating system validation / Native Sig (ubuntu-latest)",
+          "conclusion": "success",
+          "databaseId": 124292441334
+        },
+        {
+          "name": "Native operating system validation / Native Sig (ubuntu-24.04-arm)",
+          "conclusion": "success",
+          "databaseId": 124292441341
+        },
+        {
+          "name": "Build hosted x86_64-macos",
+          "conclusion": "success",
+          "databaseId": 124292441366
+        },
+        {
+          "name": "Build hosted x86_64-windows",
+          "conclusion": "success",
+          "databaseId": 124292441381
+        },
+        {
+          "name": "Build hosted aarch64-macos",
+          "conclusion": "success",
+          "databaseId": 124292441382
+        },
+        {
+          "name": "Native operating system validation / Native Sig (windows-latest)",
+          "conclusion": "success",
+          "databaseId": 124292441516
+        },
+        {
+          "name": "Build hosted x86_64-linux",
+          "conclusion": "success",
+          "databaseId": 124292441547
+        },
+        {
+          "name": "Native operating system validation / Native Sig (macos-latest)",
+          "conclusion": "success",
+          "databaseId": 124292441557
+        },
+        {
+          "name": "Build hosted aarch64-linux",
+          "conclusion": "success",
+          "databaseId": 124292441591
+        },
+        {
+          "name": "Native operating system validation / postgres",
+          "conclusion": "skipped",
+          "databaseId": 124292739764
+        },
+        {
+          "name": "Benchmark exact Linux artifact against durable native PostgreSQL",
+          "conclusion": "success",
+          "databaseId": 124294508076
+        },
+        {
+          "name": "Execute release artifact (aarch64-windows)",
+          "conclusion": "success",
+          "databaseId": 124294508090
+        },
+        {
+          "name": "Execute release artifact (x86_64-windows)",
+          "conclusion": "success",
+          "databaseId": 124294508103
+        },
+        {
+          "name": "Execute release artifact (aarch64-linux)",
+          "conclusion": "success",
+          "databaseId": 124294508105
+        },
+        {
+          "name": "Execute release artifact (x86_64-macos)",
+          "conclusion": "success",
+          "databaseId": 124294508151
+        },
+        {
+          "name": "Execute release artifact (aarch64-macos)",
+          "conclusion": "success",
+          "databaseId": 124294508199
+        },
+        {
+          "name": "Qualify exact Linux release against PostgreSQL / PG18 durable-scram",
+          "conclusion": "success",
+          "databaseId": 124294508275
+        },
+        {
+          "name": "Qualify exact Linux release against PostgreSQL / PG18 memory",
+          "conclusion": "success",
+          "databaseId": 124294508280
+        },
+        {
+          "name": "Execute release artifact (x86_64-linux)",
+          "conclusion": "success",
+          "databaseId": 124294508296
+        },
+        {
+          "name": "Qualify exact Linux release against PostgreSQL / PG16 durable-scram",
+          "conclusion": "success",
+          "databaseId": 124294508447
+        },
+        {
+          "name": "Qualify exact Linux release against PostgreSQL / PG16 memory",
+          "conclusion": "success",
+          "databaseId": 124294508574
+        },
+        {
+          "name": "Verify full matrix and attest release bundle",
+          "conclusion": "success",
+          "databaseId": 124301747383
+        },
+        {
+          "name": "Publish explicitly requested release",
+          "conclusion": "skipped",
+          "databaseId": 124302117359
+        }
+      ]
+    }
+  ],
+  "boundary_cases": [
+    {
+      "artifact": "postgres-qualification-16-durable-scram-ci",
+      "file": "semantics.json",
+      "sha256": "1b6a51b7a43986566b0e9be7ee2958839471d5a7b47a57029a6b978298c8147b",
+      "reference_version": "PostgreSQL 16.15 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+      "mode": "durable WAL",
+      "authentication": "SCRAM-SHA-256",
+      "cases": {
+        "q03_temporal_boundaries": 16,
+        "q03_interval_boundaries": 12
+      },
+      "all_match": true
+    },
+    {
+      "artifact": "postgres-qualification-16-memory-ci",
+      "file": "semantics.json",
+      "sha256": "d6577da9a7565b77cc54fc72e0a98f3f2ed15232c1411bb1c0c8ff9747a43ba8",
+      "reference_version": "PostgreSQL 16.15 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+      "mode": "memory",
+      "authentication": "insecure-local",
+      "cases": {
+        "q03_temporal_boundaries": 16,
+        "q03_interval_boundaries": 12
+      },
+      "all_match": true
+    },
+    {
+      "artifact": "postgres-qualification-18-durable-scram-ci",
+      "file": "semantics.json",
+      "sha256": "ae601eb4113602dba0e240cbbcc7debe3c62e41734669b6b9352d035a8eae9a3",
+      "reference_version": "PostgreSQL 18.3 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+      "mode": "durable WAL",
+      "authentication": "SCRAM-SHA-256",
+      "cases": {
+        "q03_temporal_boundaries": 16,
+        "q03_interval_boundaries": 12
+      },
+      "all_match": true
+    },
+    {
+      "artifact": "postgres-qualification-18-memory-ci",
+      "file": "semantics.json",
+      "sha256": "9e7a47b601f324ec934442440128af3925f0874db100fe7f65a30da707aa8c67",
+      "reference_version": "PostgreSQL 18.3 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+      "mode": "memory",
+      "authentication": "insecure-local",
+      "cases": {
+        "q03_temporal_boundaries": 16,
+        "q03_interval_boundaries": 12
+      },
+      "all_match": true
+    }
+  ],
+  "native_proofs": [
+    {
+      "format": "sb0x",
+      "assertions": 874,
+      "image_sha256": "f8e153ba8828c6ed1dba64b289174a6d19510976aed9c874b2422204d17a4165",
+      "passed": true,
+      "transport": "channel",
+      "durable_storage": false,
+      "tcp": false,
+      "scram": false,
+      "temporal_error_and_session_survival_probe": true
+    },
+    {
+      "format": "sb0k",
+      "assertions": 860,
+      "image_sha256": "bf6f107325887d3cd8a5a8f4b01258347905396e64e8d0d18a679d59de4d3b0c",
+      "passed": true,
+      "transport": "uart",
+      "durable_storage": false,
+      "tcp": false,
+      "scram": false,
+      "temporal_error_and_session_survival_probe": true
+    }
+  ],
+  "legacy_baseline": {
+    "run": 41122508371,
+    "conclusion": "failure",
+    "successes": 300,
+    "failures": [
+      "test-sabr-loop",
+      "test-manifest-sabr",
+      "test-tls-client",
+      "test-tts-gpu"
+    ],
+    "skipped": 22,
+    "log_sha256": "322177959cfd857c8a2cde946e9dce7ac3bfeb3962ce5b55b601a82507304d7d"
+  },
+  "independent_review": {
+    "decision": "APPROVE",
+    "release_safe_assertions": 901501,
+    "postgres16_utc_fixture_replays": 28,
+    "exit_codes": [
+      0,
+      0
+    ],
+    "scope": "Exact source plus documentation reconciliation; no blocking findings"
+  },
+  "local_contracts": {
+    "ReleaseSafe": {
+      "assertions": 901501,
+      "exit": 0
+    },
+    "ReleaseFast": {
+      "assertions": 901500,
+      "exit": 0
+    },
+    "Debug": {
+      "assertions": 901500,
+      "exit": 0
+    },
+    "note": "The final extra direct zone-overflow assertion was added after the Debug/ReleaseFast runs; final ReleaseSafe and independent review include it."
+  },
+  "merged_source": {
+    "zpm": {
+      "main": "881c648734c0e977c96fcad0d630e4e0ed106ade",
+      "qualified_tree": "424762a372e73a92cbeeb60024da7b88c5d5f2c8",
+      "matches": true
+    },
+    "ramsql": {
+      "main": "0dce07dda641d2e8386899889a8528d70151bf09",
+      "qualified_tree": "db78c3d8b039848674372dca2d80b5a4ce5fde4f",
+      "matches": true
+    }
+  }
+}
