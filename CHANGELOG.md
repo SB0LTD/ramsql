@@ -6,6 +6,11 @@ later binary.
 
 ## Unreleased
 
+- Add temporal `to_char` through ZPM for timestamp/date report expressions,
+  including session-zone formatting and bounded caller-owned output. Add Q03
+  PostgreSQL differential cases and a three-way region/month report. Numeric,
+  interval, localized and ISO-week formatting remain documented gaps.
+
 - Precontract eligible unique-key dimensions into compact group IDs before
   folding mixed dimension/fact grouping keys over committed columns. Dictionary
   and aggregate state borrow the existing query arena, with canonical SQL

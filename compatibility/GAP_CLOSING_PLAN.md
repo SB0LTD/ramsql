@@ -1,5 +1,15 @@
 # RAMSQL gap-closing plan
 
+Reporting follow-up, 30 October 2026: the unchanged dbMeter full 5M suite still
+passes only 3/7 checks in CI run 40994795421. Q03 temporal `to_char` is now a
+candidate in [ZPM PR 78](https://github.com/SB0LTD/zpm/pull/78), with 252 captured
+PostgreSQL fixtures and native SQL contracts. This integration adds PG16/PG18
+memory/durable+SCRAM differential cases, including the region/month three-way
+join shape. Native/platform checks and the original full-data query must pass
+before recording q1 closed. Q06 `RANK() OVER`, `SUM() OVER` and `ROLLUP` remain
+open for q2/q3/q4. These are feature gaps, not benchmark exclusions; preserve the
+original SQL and expected CSVs. The broad Q03/Q06 closure criteria below remain.
+
 Current review: 25 October 2026, development candidate `0.3.0-alpha.4` (unpublished).
 Latest published prerelease: `0.3.0-alpha.3`.
 Original review baseline: 22 October 2026, `0.3.0-alpha.2`.

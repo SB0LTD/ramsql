@@ -303,6 +303,27 @@ EVENTS = ("CREATE TABLE compat (id INTEGER PRIMARY KEY, happened TIMESTAMPTZ, lo
           "INSERT INTO compat VALUES (2, '2026-03-08 06:59:59Z', '2026-03-08 02:30', '2026-03-08', '-1 mons')")
 ZONE_CHECK = ("SELECT id, happened, happened::text FROM compat ORDER BY id", "SHOW TimeZone")
 SUITES["q03"] = (
+    Case("q03_to_char_templates", "q03", 3.2, feature="temporal to_char calendar/time fields, modifiers and text metadata", statements=(
+        "SELECT to_char(DATE '2024-02-29','YYYY-MM-DD'), to_char(TIMESTAMP '1999-12-31 23:59:58.123456','YYYY-MM-DD HH24:MI:SS.MS US')",
+        "SELECT to_char(TIMESTAMP '0001-01-01 BC','YYYY BC B.C. CC'), to_char(DATE '2024-02-03','FMMonth FMDDth FMYYYY')",
+        "SELECT to_char(DATE '2024-01-01','DDD WW W Q J D'), to_char(TIMESTAMP '2000-02-29 12:34:56.012345','FF1 FF2 FF3 FF4 FF5 FF6')",
+        "SELECT to_char(NULL::timestamp,'YYYY'), to_char(DATE '2024-01-01',NULL), to_char(TIMESTAMP 'infinity','YYYY'), to_char(TIMESTAMP '-infinity','YYYY')",
+        "SELECT to_char(TIMESTAMP '2000-01-01',''), to_char(TIMESTAMP '2000-01-01','FM'), to_char(TIMESTAMP '2000-01-01','\"literal YYYY\" YYYY')",
+        "SELECT to_char('2024-01-01','YYYY')")),
+    Case("q03_to_char_zones", "q03", 3.2, feature="timestamptz formatting uses session zone; timestamp does not", statements=(
+        "SET TIME ZONE 'UTC'",
+        "SELECT to_char(TIMESTAMPTZ '2024-01-01 23:30:00+00','YYYY-MM-DD HH24:MI'), to_char(TIMESTAMP '2024-01-01 23:30','YYYY-MM-DD HH24:MI')",
+        "SET TIME ZONE '+02:00'",
+        "SELECT to_char(TIMESTAMPTZ '2024-01-01 23:30:00+00','YYYY-MM-DD HH24:MI'), to_char(TIMESTAMP '2024-01-01 23:30','YYYY-MM-DD HH24:MI')")),
+    Case("q03_to_char_three_way_group", "q03", 3.2, feature="dbMeter region/month shape over three-way unique joins", tables=("compat", "aux", "report_regions"), setup=(
+        "CREATE TABLE report_regions(id INTEGER PRIMARY KEY,label TEXT)",
+        "CREATE TABLE aux(id INTEGER PRIMARY KEY,region_id INTEGER)",
+        "CREATE TABLE compat(id INTEGER PRIMARY KEY,store_id INTEGER,sale_date DATE,quantity INTEGER,cents BIGINT)",
+        "INSERT INTO report_regions VALUES(1,'north'),(2,'south'),(3,NULL)",
+        "INSERT INTO aux VALUES(1,1),(2,1),(3,2),(4,3)",
+        "INSERT INTO compat VALUES(1,1,'2024-01-01',2,10),(2,2,'2024-01-31',3,20),(3,1,'2024-02-29',4,30),(4,3,NULL,5,40),(5,4,'2024-01-01',6,50),(6,9,'2024-01-01',7,60)"), statements=(
+        "SELECT r.label AS region,to_char(s.sale_date,'YYYY-MM') AS sale_month,COUNT(*) AS sales,SUM(s.quantity) AS units,SUM(s.cents) AS revenue_cents FROM compat s JOIN aux st ON st.id=s.store_id JOIN report_regions r ON r.id=st.region_id GROUP BY r.label,to_char(s.sale_date,'YYYY-MM') ORDER BY region,sale_month",
+        "SELECT to_char(sale_date,'YYYY-MM') AS month,COUNT(*) FROM compat GROUP BY to_char(sale_date,'YYYY-MM') HAVING COUNT(*)>1 ORDER BY month")),
     Case("q03_probe", "q03", 3.2, feature="timestamp probe", setup=("CREATE TABLE compat (id INTEGER PRIMARY KEY, happened TIMESTAMPTZ)",),
          statements=("INSERT INTO compat VALUES (1, '2026-10-22T12:00:00Z')", "SELECT happened FROM compat", "SELECT happened::text FROM compat")),
     Case("q03_iso_input", "q03", 3.2, feature="ISO 8601 input variants", statements=(
