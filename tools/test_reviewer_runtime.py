@@ -101,7 +101,7 @@ def main():
     bank_args=('--table-rows','6000,16,64,1,1,1,1,1','--work-rows','128','--result-rows','4096')
     with tempfile.TemporaryDirectory(prefix='ramsql-reviewer-bank-') as directory:
         wal=Path(directory)/'bank.wal'
-        with running_ramsql(binary,extra_arguments=bank_args,data_path=wal) as conn:
+        with running_ramsql(binary,extra_arguments=bank_args,data_path=wal,create_data=True) as conn:
             with psycopg.connect(**conn,prepare_threshold=None) as db:
                 seed(db)
                 try:

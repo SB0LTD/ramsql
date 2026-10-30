@@ -322,7 +322,7 @@ def main():
                             for name in ("fsync", "synchronous_commit", "full_page_writes")}
             require(all(value == "on" for value in settings.values()), "native durability settings are not all on: " + str(settings))
             report["durability"]["postgres"] = settings
-            with running_ramsql(binary, data_path=data_path) as candidate:
+            with running_ramsql(binary, data_path=data_path, create_data=True) as candidate:
                 initialize(psycopg, native, args.rows)
                 initialize(psycopg, candidate, args.rows)
                 arguments = {"postgres": native, "ramsql": candidate}

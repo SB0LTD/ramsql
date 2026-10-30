@@ -21,7 +21,7 @@ def main():
     folder=ROOT/'.sig-cache'/('runtime-capacity-'+uuid.uuid4().hex);folder.mkdir()
     wal=folder/'large.wal';backup=folder/'backup.wal'
     extra=('--rows','4096')
-    with running_ramsql(binary,extra_arguments=extra,data_path=wal) as conn:
+    with running_ramsql(binary,extra_arguments=extra,data_path=wal,create_data=True) as conn:
         with psycopg.connect(**conn) as db:
             db.execute('CREATE TABLE large (id INT PRIMARY KEY, value INT)')
             for start in range(0,2048,32):

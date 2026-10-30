@@ -36,7 +36,7 @@ def main():
     help_result = run(["--help"])
     assert help_result.returncode == 0 and not help_result.stderr, help_result
     assert b"ramsql" in help_result.stdout and b"--stdin" in help_result.stdout
-    assert b"--version" in help_result.stdout
+    assert b"--version" in help_result.stdout and b"--create-data" in help_result.stdout
     described = run(["--capabilities", "--rows", "1024", "--versions", "3072"])
     assert described.returncode == 0 and not described.stderr, described
     caps = json.loads(described.stdout)
@@ -51,6 +51,17 @@ def main():
         inspected = subprocess.run([str(binary), '--capabilities', '--data', str(wal)],
                                   capture_output=True, timeout=15)
         assert inspected.returncode == 0 and not wal.exists(), inspected
+        inspected = subprocess.run([str(binary), '--capabilities', '--create-data', '--data', str(wal)],
+                                  capture_output=True, timeout=15)
+        assert inspected.returncode == 0 and not wal.exists(), inspected
+        # --create-data never combines with --memory or offline backup.
+        for arguments in (['--memory', '--create-data'], ['--create-data', '--memory'],
+                          ['--data', str(wal), '--create-data', '--backup-to', str(wal) + '.backup']):
+            rejected = subprocess.run([str(binary), *arguments, '--insecure-local', '--port', '0'],
+                                      capture_output=True, timeout=15)
+            assert rejected.returncode == 2 and b'RAMSQL' not in rejected.stdout, (arguments, rejected)
+            assert b'InvalidServerOptions' in rejected.stderr, (arguments, rejected.stderr)
+            assert not wal.exists() and not Path(str(wal) + '.backup').exists(), arguments
     for arguments in (["--unknown"], ["--version", "extra"], ["--stdin", "--unknown"]):
         unknown = run(arguments, "")
         assert unknown.returncode == 2, (arguments, unknown.returncode, unknown.stderr)

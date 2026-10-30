@@ -35,20 +35,23 @@ def check(condition, message="persistence contract failed"):
 
 
 class DurableServer:
-    def __init__(self, binary, wal):
+    def __init__(self, binary, wal, create=False, cwd=None):
         self.binary = binary
         self.wal = wal
+        self.create = create
+        self.cwd = cwd
         self.process = None
         self.errors = deque(maxlen=40)
         self.port = None
 
     def command(self):
         return [str(self.binary), "--serve", "--insecure-local", "--data", str(self.wal),
+                *(["--create-data"] if self.create else []),
                 "--port", "0", "--idle-ms", "30000", "--max-clients", "8"]
 
     def __enter__(self):
-        self.process = subprocess.Popen(self.command(), stdout=subprocess.PIPE,
-                                        stderr=subprocess.PIPE, text=True, bufsize=1)
+        self.process = subprocess.Popen(self.command(), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                        text=True, bufsize=1, cwd=self.cwd)
         output = queue.Queue()
         self.output_reader = threading.Thread(
             target=lambda: output.put(self.process.stdout.readline()), daemon=True)
@@ -131,6 +134,108 @@ def assert_database(server, expected):
         pg.close()
 
 
+def same_path(reported, expected):
+    check(os.path.isabs(reported), f"data file path is not absolute: {reported!r}")
+    check(os.path.normcase(os.path.realpath(reported)) == os.path.normcase(os.path.realpath(expected)),
+          f"data file path {reported!r} is not {str(expected)!r}")
+
+
+def data_notice(server, kind):
+    """Return the absolute path from the startup notice ('opened' or 'created')."""
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        for line in list(server.errors):
+            match = re.fullmatch(r"ramsql: data file (.+) \((opened|created)\)", line)
+            if match:
+                check(match.group(2) == kind, f"expected a {kind} data file: {line!r}")
+                return match.group(1)
+        time.sleep(0.01)
+    check(False, f"no data file notice: {list(server.errors)!r}")
+
+
+def refuse_missing(command, missing, cwd=None):
+    """Without --create-data a missing data file fails before any listener."""
+    global cases
+    completed = subprocess.run(command, capture_output=True, text=True, timeout=15, cwd=cwd)
+    check(completed.returncode != 0, f"missing data file started a database: {completed.stdout!r}")
+    check("RAMSQL postgres" not in completed.stdout, "listener bound for a missing data file")
+    check("DataFileMissing" in completed.stderr and "--create-data" in completed.stderr,
+          f"unclear missing data file refusal: {completed.stderr!r}")
+    match = re.search(r"ramsql: data file (.+) does not exist", completed.stderr)
+    check(match is not None, f"refusal does not name the data file: {completed.stderr!r}")
+    same_path(match.group(1), missing)
+    check(not Path(missing).exists(), "refused startup created the data file")
+    cases += 1
+
+
+def data_file_creation(binary, artifacts):
+    """SRV-01: only --create-data creates a durable data file."""
+    global cases
+    # A typo in the file or directory name never becomes a new database.
+    typo = artifacts / "typo-database.wal"
+    refuse_missing(DurableServer(binary, typo).command(), typo)
+    absent_directory = artifacts / "no-such-directory" / "database.wal"
+    refuse_missing(DurableServer(binary, absent_directory).command(), absent_directory)
+    check(not absent_directory.parent.exists(), "refused startup created a directory")
+    # The default relative ramsql.wal in a wrong working directory is refused,
+    # reported as the absolute path it resolved to, and not created.
+    elsewhere = artifacts / "wrong-cwd"
+    elsewhere.mkdir()
+    default_data = [str(binary), "--serve", "--insecure-local", "--port", "0", "--max-clients", "8"]
+    refuse_missing(default_data, elsewhere / "ramsql.wal", cwd=elsewhere)
+    check(not any(elsewhere.iterdir()), "default data path created a file")
+    # An existing path that cannot be opened as a WAL (a directory, or a FIFO
+    # on POSIX) fails promptly, is never called missing and is left untouched.
+    unusable = [artifacts / "directory.wal"]
+    unusable[0].mkdir()
+    if hasattr(os, "mkfifo"):
+        unusable.append(artifacts / "fifo.wal")
+        os.mkfifo(unusable[1])
+    for path in unusable:
+        for create in (False, True):
+            completed = subprocess.run(DurableServer(binary, path, create=create).command(),
+                                       capture_output=True, text=True, timeout=15)
+            check(completed.returncode != 0 and "RAMSQL postgres" not in completed.stdout,
+                  f"unusable data path started a database: {path}")
+            check("does not exist" not in completed.stderr and "DataFileMissing" not in completed.stderr
+                  and "(created)" not in completed.stderr, f"unusable data path called missing: {completed.stderr!r}")
+        cases += 1
+    check(not any(unusable[0].iterdir()), "directory data path was modified")
+    # --create-data creates the missing file, which accepts a durable write.
+    created = artifacts / "created.wal"
+    with DurableServer(binary, created, create=True) as server:
+        same_path(data_notice(server, "created"), created)
+        pg = server.connect()
+        try:
+            pg.ok("CREATE TABLE durable (id INTEGER PRIMARY KEY, value TEXT)")
+            pg.ok("INSERT INTO durable VALUES (1, 'created')")
+        finally:
+            pg.close()
+    check(created.is_file() and created.stat().st_size > 0, "created data file holds no commit")
+    cases += 1
+    # A restart without the flag reopens that file with its data intact.
+    with DurableServer(binary, created) as server:
+        same_path(data_notice(server, "opened"), created)
+        assert_database(server, [["1", "created"]])
+    cases += 1
+    # --create-data on an existing file opens it and never recreates it.
+    with DurableServer(binary, created, create=True) as server:
+        same_path(data_notice(server, "opened"), created)
+        assert_database(server, [["1", "created"]])
+    cases += 1
+    # A relative --data resolves against the server's working directory.
+    workdir = artifacts / "relative-cwd"
+    (workdir / "nested").mkdir(parents=True)
+    relative = os.path.join("nested", "relative.wal")
+    refuse_missing(DurableServer(binary, relative).command(), workdir / relative, cwd=workdir)
+    with DurableServer(binary, relative, create=True, cwd=workdir) as server:
+        same_path(data_notice(server, "created"), workdir / relative)
+    check((workdir / relative).is_file(), "relative data file was not created in the server directory")
+    with DurableServer(binary, relative, cwd=workdir) as server:
+        same_path(data_notice(server, "opened"), workdir / relative)
+    cases += 1
+
+
 def record(sequence, sql, kind=2):
     statement = sql.encode("utf-8")
     payload = struct.pack("<I", len(statement)) + statement
@@ -184,9 +289,10 @@ def main():
     binary = options.binary.resolve()
     artifacts = options.artifacts or root / "sig-out" / f"persistence-crash-{time.time_ns()}"
     artifacts.mkdir(parents=True, exist_ok=False)
+    data_file_creation(binary, artifacts)
     wal = artifacts / "database.wal"
     expected = [["1", "autocommit"], ["2", "transaction"], ["3", "literal; newline\nkept"]]
-    with DurableServer(binary, wal) as server:
+    with DurableServer(binary, wal, create=True) as server:
         pg = server.connect()
         try:
             pg.ok("CREATE TABLE durable (id INTEGER PRIMARY KEY, value TEXT)")
@@ -241,7 +347,7 @@ def main():
     cases += 1
     absent_source = artifacts / "missing-source.wal"
     absent_target = artifacts / "missing-source-backup.wal"
-    offline_backup(binary, absent_source, absent_target, ("FileOpenFailed",))
+    offline_backup(binary, absent_source, absent_target, ("FileNotFound",))
     check(not absent_source.exists() and not absent_target.exists(), "missing backup source became an empty database")
     occupied_target = artifacts / "occupied-temp-backup.wal"
     occupied_temporary = Path(str(occupied_target) + ".tmp")

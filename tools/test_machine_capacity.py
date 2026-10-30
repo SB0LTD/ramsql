@@ -30,7 +30,7 @@ def main():
         wal=Path(directory)/'must-not-exist.wal'
         report('--data',str(wal),'--rows','100000000')
         assert not wal.exists()
-        failed=subprocess.run([str(binary),'--serve','--insecure-local','--data',str(wal),
+        failed=subprocess.run([str(binary),'--serve','--insecure-local','--data',str(wal),'--create-data',
                                '--memory-budget','1','--port','0'],capture_output=True,timeout=15)
         assert failed.returncode==1 and not wal.exists() and b'BudgetExceeded' in failed.stderr,failed
     for bad in (['--memory-budget','0'],['--memory-budget','-1'],['--memory-budget','18446744073709551616']):
