@@ -6,6 +6,12 @@ later binary.
 
 ## Unreleased
 
+- Fold exact grouped customer membership over contracted unique dimension
+  chains using caller-owned bitmaps and typed COUNT/SUM/AVG state. Repeated
+  values across different keys sharing one label count once; unsupported
+  expressions, visibility and domains retain canonical SQL. Performance and
+  release qualification remain explicit CI gates.
+
 - Precontract eligible unique-key dimensions into compact group IDs before
   folding mixed dimension/fact grouping keys over committed columns. Dictionary
   and aggregate state borrow the existing query arena, with canonical SQL
