@@ -10,6 +10,8 @@
 | Status | beta |
 | Formatting (`sig fmt --check`) | `locks.sig` dirty (measured at `2f060c2`, 2026-10-30; REPO-21) |
 
+> **Wave 0 update (2026-10-30).** STO-03 is fixed on ZPM branch `b8/sto03-lock-list`. `grantRow` now upgrades an existing share holder to update in place, and records an `upgrade` entry so that commit, abort, `ROLLBACK TO` and statement failure restore the exact earlier state. `list_capacity` is now `tables·3 + row_locks·2`, a proven bound. One slot is a holder at most once per row (INV-LOCK-3 now holds). The dead `count == 0` branch is removed. The fix is reviewed, but it is not merged yet; see `PLAN.md` §18. Until it merges, the rest of this page describes the `2f060c2` baseline.
+
 ## 1. Purpose and scope
 
 `Locks(config)` holds the engine's explicit locks.

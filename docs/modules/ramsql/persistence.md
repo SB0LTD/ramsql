@@ -10,6 +10,8 @@
 | Status | beta |
 | Formatting (`sig fmt --check`) | dirty (REPO-21; not re-run here) |
 
+> **Wave 0 update (2026-10-30).** SRV-01: the server now calls `initExisting` by default and `init` only after `FileNotFound` with `--create-data` (RAMSQL branch `b5/srv01-create-data` plus ZPM `b5/srv01-not-found`). The persistence contract went from 112 to 119 assertions. The fix is reviewed, but it is not merged yet; see `PLAN.md` §18. Until it merges, the rest of this page describes the `2f060c2` baseline.
+
 ## 1. Purpose and scope
 
 This module owns the server's single WAL for the process lifetime. It recovers

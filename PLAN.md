@@ -254,7 +254,7 @@ lanes update only the status column of their own findings.
 
 | Id | Sev | Finding | Lane | Status |
 | --- | --- | --- | --- | --- |
-| NET-01 | **C** | Integer bind parameters spliced as bare text: int4/int8 in PostgreSQL (`postgres.sig:1666-1672`; int2 is quoted and unaffected; inferred OID-0 parameters take the column's type, so they are exposed too), SMALLINT/INT/BIGINT in TDS `expand`. `-$1` with a negative value forms a `--` comment and truncates the statement | B1, B2 | open |
+| NET-01 | **C** | Integer bind parameters spliced as bare text: int4/int8 in PostgreSQL (`postgres.sig:1666-1672`; int2 is quoted and unaffected; inferred OID-0 parameters take the column's type, so they are exposed too), SMALLINT/INT/BIGINT in TDS `expand`. `-$1` with a negative value forms a `--` comment and truncates the statement | B1, B2 | **fixed** in wave 0 (ZPM `b1/net01-param-splice`; reviewed; unmerged) |
 | NET-02 | M | The placeholder scanner ignores nested `/* */` comments that the lexer honors, so substitution can target the wrong text | B1 | open |
 | NET-03 | M | A named suspended portal survives COMMIT or ROLLBACK and re-executes from row 0, repeating `DML ... RETURNING` side effects | B1 | open |
 | NET-04 | M | Slowloris: any byte refreshes the idle timer, there is no authentication deadline, parked clients are exempt from the idle timeout | B6 | open |
@@ -278,7 +278,7 @@ lanes update only the status column of their own findings.
 
 | Id | Sev | Finding | Lane | Status |
 | --- | --- | --- | --- | --- |
-| SRV-01 | **H** | The default `--data ramsql.wal` is relative and `File.open` creates it, so a wrong directory or a typo starts an empty, authoritative database | B5 | open |
+| SRV-01 | **H** | The default `--data ramsql.wal` is relative and `File.open` creates it, so a wrong directory or a typo starts an empty, authoritative database | B5 | **fixed** in wave 0 (RAMSQL `b5/srv01-create-data` + ZPM `b5/srv01-not-found`; reviewed; unmerged) |
 | SRV-02 | **H** | No unit or property tests for `server.sig`, `main.sig`, `timezones.sig` or `capacity.sig`; 28 module-level globals | A6 | open |
 | SRV-03 | M | Two diverging reactors. The parallel one wakes parked clients only when `tryLock` succeeds, so timeouts and cancel can be delayed without bound under write contention | A6 | open |
 | SRV-04 | M | `--backup-to` recovery can truncate a torn tail of the **source** WAL, which contradicts the documentation | B5 | open |
@@ -327,9 +327,9 @@ lanes update only the status column of their own findings.
 
 | Id | Sev | Finding | Lane | Status |
 | --- | --- | --- | --- | --- |
-| STO-01 | **C** | Concurrent DDL committed out of OID order makes the WAL unrecoverable. OIDs are assigned when the statement runs; replay rejects any create whose OID is below the previous one (`change_log.sig:713`). Example: A `BEGIN; CREATE TABLE a`, B `BEGIN; CREATE TABLE b; COMMIT`, A `COMMIT`, restart → startup aborts. | B9 | open |
+| STO-01 | **C** | Concurrent DDL committed out of OID order makes the WAL unrecoverable. OIDs are assigned when the statement runs; replay rejects any create whose OID is below the previous one (`change_log.sig:713`). Example: A `BEGIN; CREATE TABLE a`, B `BEGIN; CREATE TABLE b; COMMIT`, A `COMMIT`, restart → startup aborts. | B9 | **fixed** in wave 0 (ZPM `b9/sto01-replay-order`; reviewed; unmerged) |
 | STO-02 | **H** | Reclamation can free versions that a resumed statement or COPY still sees. `horizon()` counts only pins (`sql.sig:1315`), and a resume clears the pin before the body runs. Result: a silent lost update on resumed UPDATE, and duplicate or missing rows on resumed INSERT ... SELECT. | B8 | open |
-| STO-03 | **H** | Transaction lock list overflow. `FOR SHARE` then `FOR UPDATE` adds a second holder entry, and `pushLock` has no bounds check (`mvcc.sig:94`). From 140 rows at RAMSQL's build defaults (134 at ZPM defaults) it panics in safe builds and corrupts memory in ReleaseFast. | B8 | open |
+| STO-03 | **H** | Transaction lock list overflow. `FOR SHARE` then `FOR UPDATE` adds a second holder entry, and `pushLock` has no bounds check (`mvcc.sig:94`). From 140 rows at RAMSQL's build defaults (134 at ZPM defaults) it panics in safe builds and corrupts memory in ReleaseFast. | B8 | **fixed** in wave 0 (ZPM `b8/sto03-lock-list`; reviewed; unmerged) |
 | STO-04 | **H** | Sequence values can be issued twice across a crash. Commits from the cached log-ahead range do not persist the watermark. | B9 | open |
 | STO-05 | **H** | A full-length torn final record (multi-write append, power loss) is treated as corruption, so the server refuses to start | B9 | open |
 | STO-06 | **H** | Recovery cost grows with records × rows: `liveRows` is recomputed with a full scan for every table on every record, and there is no checkpoint | B9, C8 | open |
@@ -346,6 +346,8 @@ lanes update only the status column of their own findings.
 | STO-17 | L | `std_assert` → `unreachable` in `exec.sig` is undefined behavior in ReleaseFast | B10 | open |
 | STO-18 | L | fsyncgate on Linux (replaying page-cache-only bytes after an fsync failure in the same boot); Windows parent-directory sync is a no-op | B9 | open |
 | STO-19 | L | `sql.sig` (2.6k lines) is a catch-all; `exec.sig` has about 10 bespoke aggregation engines in dense one-line style | B10, C9 | open |
+| STO-21 | L | `catalog_counters` validate rejects any counter below the running maximum (`change_log.sig` ~816). The live counter can decrease through abort rewinds, so a future checkpoint or commit path that writes this op from the live counter would make replay refuse to start. No production caller today. | C8 | open |
+| STO-22 | L | The live engine can create a keyless table at OID `0xfffffffe` (`sql.sig` ~1799 guard), but replay validation rejects any table OID `>= 0xfffffffe`. | B9 | open |
 | STO-20 | M | Thin tests: 122 executed MVCC assertions, no reference comparison for the 8 unswitchable fast paths, no metamorphic oracle for window functions and ROLLUP (`windowCore`, `groupingRollup`), no capacity failpoints | B8, B10 | open |
 
 These were verified at `2f060c2`: STO-01 (`change_log.sig:713`), STO-02
@@ -1585,6 +1587,8 @@ Tasks:
       the directory, then truncate WAL segments), and the on-disk format
       version.
 - [ ] C8.2 Extend the C3 model with checkpointing **before** implementing it.
+      Resolve STO-21 first: the checkpoint must not write `catalog_counters` from a
+      live counter that abort rewinds can lower.
       The prefix property must hold across checkpoints.
 - [ ] C8.3 Implementation: bounded recovery time (target under 5 s per GB of
       live data on a recorded host), WAL segment rotation, online backup that
@@ -1816,6 +1820,59 @@ linked in `release-gates.json` proves them.
 | D8 | Cleanup | approval to prune merged branches, stale worktrees, `.agents/`, scratch in `.sig-cache/` | A0.6, A1 |
 | D9 | Formal tooling | Lean location (`formal/` in RAMSQL, recommended) and whether Mathlib is allowed | C1 |
 | D10 | Process | the integration-branch model in GIT_WORKFLOW versus trunk-based development with merge queues | all |
+
+---
+
+## 18. Status log
+
+### Wave 0 (2026-10-30): code fixes reviewed and integrated, not yet merged
+
+Lanes ran in parallel, each in its own worktree with an implementer and an
+independent reviewer/verifier. Changes are uncommitted on these branches:
+
+| Lane | Branch (base) | Diff | Tests before → after | Review |
+| --- | --- | --- | --- | --- |
+| NET-01 (B1.0 + B2.0) | ZPM `b1/net01-param-splice` (`f0668cf`) | 5 files, +393/-6: `postgres.sig`, `tds.sig`, `parser.sig` (`countValue`, `FETCH FIRST` guard), tests | postgres 15,807 → 17,225; tds 2,661 → 2,733 | approved; LIMIT/OFFSET/FETCH SQLSTATE and the `e±` exponent edge fixed after review |
+| STO-01 (B9.0) | ZPM `b9/sto01-replay-order` (`f0668cf`) | 2 files, +311/-9: `change_log.sig`, tests | sql-change-log 876 → 940 | approved; index-collision test added after a mutation showed the gap. STO-21 and STO-22 recorded; FV-05b counter rule restated |
+| STO-03 (B8.0) | ZPM `b8/sto03-lock-list` (`f0668cf`) | 4 files, +247/-19: `locks.sig`, `mvcc.sig`, `sql.sig` (3 call sites), tests | sql-mvcc 122 → 325 | approved; holder-level tests added after a mutation showed the gap |
+| SRV-01 (B5.0) | RAMSQL `b5/srv01-create-data` (`6d677ee`) + ZPM `b5/srv01-not-found` (`f0668cf`) | RAMSQL 18 files, +245/-25; ZPM `db_file.sig` + tests, +46/-4 | persistence contract 112 → 119; `test_persistence.py` 66 → 67 cases | approved with follow-ups; probe replaced by ZPM `FileNotFound` (fixes the libc misreport and the FIFO hang) |
+
+**Every failing-before test was observed failing on the old code**, including:
+- `v-$1` spliced as `v--5` and reporting `UPDATE 3`;
+- the lock-list out-of-bounds panic;
+- `ChangeRecordConflict` on replay;
+- a silently created `typo-database.wal`.
+
+**Integration.** The four ZPM diffs were combined on `int/ramsql-hardening` (`f0668cf`), archived, and pinned in a scratch copy of RAMSQL by `file://` URL and SHA-256. Nothing was pushed. All of the following passed:
+- RAMSQL contracts: 71/71 steps; 34 reporting suites, 418,707 executed assertions.
+- ZPM `test-sql` and `test-db`: 43 suites, 472,167 executed assertions.
+- 11 Python integration suites (CLI, server, persistence crash cycles, auth, independent clients, workers, capacity, machine capacity, reviewer runtime, beta onboarding, streamed joins).
+- The SRV-01 adversarial test (directory, file-as-directory, unreadable WAL).
+- 11 end-to-end psycopg checks.
+
+**End-to-end, unmodified `main` against the integrated build (psycopg 3.3.6):**
+
+| Check | `main` 6d677ee | Integrated |
+| --- | --- | --- |
+| Missing `--data` file | created silently | refused, absolute path printed |
+| `UPDATE ... bal-$1 WHERE id=$2`, int4 `-5` | `rowcount=3` (every row) | `rowcount=1` |
+| Same, int8 binary | `rowcount=3` | `rowcount=1` |
+| `SELECT $1::text`, int4 `-5` | 42883 | `'-5'` |
+| `FOR SHARE` then `FOR UPDATE`, 200 rows | server process died | 200/200, server alive |
+| Out-of-order `CREATE TABLE`, restart | not reached | both tables and data intact |
+
+**Not done in wave 0 (needs maintainer action or later waves):**
+- A0 merges of open PRs.
+- A4.1 rulesets (admin rights needed).
+- A4.2 one-time formatting commit.
+- The D1 disclosure decision for NET-01.
+- Committing the lane branches, opening ZPM and RAMSQL PRs, and the pin bump. SRV-01's RAMSQL change must land in the same pin bump as `b5/srv01-not-found`.
+
+Follow-ups recorded:
+- NET-02 (still exploitable when a template has `$n` or an apostrophe inside `/* */`);
+- moving `absolutePath` into ZPM;
+- STO-21 and STO-22;
+- a captured beta.2 kind-3 WAL fixture.
 
 ---
 

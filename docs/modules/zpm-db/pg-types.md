@@ -10,6 +10,8 @@
 | Status | beta |
 | Formatting (`sig fmt --check`) | `pg_types.sig` clean (measured at `2f060c2`, 2026-10-30; REPO-21) |
 
+> **Wave 0 update (2026-10-30).** int2 parameters were already quoted (`'-5'::int2`) and serve as the control case in the NET-01 tests. This module is unchanged by the fix. The fix is reviewed, but it is not merged yet; see `PLAN.md` §18. Until it merges, the rest of this page describes the `2f060c2` baseline.
+
 ## 1. Purpose and scope
 
 `pg_types.sig` converts between engine cells and PostgreSQL wire values. It is

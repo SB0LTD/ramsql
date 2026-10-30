@@ -10,6 +10,8 @@
 | Status | beta |
 | Formatting (`sig fmt --check`) | dirty (REPO-21; not re-run here). Lines 137-162 and 266-314 put several statements on one line |
 
+> **Wave 0 update (2026-10-30).** SRV-01 is fixed on RAMSQL branch `b5/srv01-create-data`, which needs the ZPM `db_file` change in the same pin bump. Durable startup calls `persistence.initExisting`. A missing file without `--create-data` exits with `DataFileMissing` and a message naming the absolute path, before any listener opens. `--create-data` creates the file. The opened path is printed as `(opened)` or `(created)`. Follow-up: `absolutePath` calls `ntdll` and `getcwd` directly from product code; this should move to ZPM. The fix is reviewed, but it is not merged yet; see `PLAN.md` §18. Until it merges, the rest of this page describes the `2f060c2` baseline.
+
 ## 1. Purpose and scope
 
 This is the hosted server policy layer. It binds loopback listeners, admits

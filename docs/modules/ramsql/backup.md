@@ -10,6 +10,8 @@
 | Status | beta |
 | Formatting (`sig fmt --check`) | dirty (REPO-21; not re-run here) |
 
+> **Wave 0 update (2026-10-30).** Since the SRV-01 ZPM change, a missing backup source reports `FileNotFound` instead of `FileOpenFailed`; `tests/backup.sig` is updated to match. SRV-04 (backup recovery can truncate the source's torn tail) is still open. The fix is reviewed, but it is not merged yet; see `PLAN.md` §18. Until it merges, the rest of this page describes the `2f060c2` baseline.
+
 ## 1. Purpose and scope
 
 `backup.create` makes an offline, byte-for-byte copy of a WAL that the caller

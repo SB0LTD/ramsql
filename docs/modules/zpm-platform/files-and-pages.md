@@ -10,6 +10,8 @@
 | Status | beta |
 | Formatting (`sig fmt --check`) | `db_file.sig` clean; `page_region.sig` dirty (measured at `2f060c2`, 2026-10-30; REPO-21) |
 
+> **Wave 0 update (2026-10-30).** `db_file.Error` gains `FileNotFound` (ZPM branch `b5/srv01-not-found`). `openExisting` returns it only for a missing file or directory component (ENOENT/ENOTDIR; Windows errors 2/3). Every other failure stays `FileOpenFailed`. RAMSQL uses this to refuse a missing data file without a separate probe. The fix is reviewed, but it is not merged yet; see `PLAN.md` §18. Until it merges, the rest of this page describes the `2f060c2` baseline.
+
 ## 1. Purpose and scope
 
 **`db_file.sig`** is the native file backend for the WAL and for offline

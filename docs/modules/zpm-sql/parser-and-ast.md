@@ -10,6 +10,8 @@
 | Status | beta |
 | Formatting (`sig fmt --check`) | `parser.sig` dirty; `ast.sig` dirty (measured at `2f060c2`, 2026-10-30; REPO-21) |
 
+> **Wave 0 update (2026-10-30).** Since the NET-01 fix (ZPM branch `b1/net01-param-splice`), `countValue` and the `FETCH FIRST` guard accept one parenthesized signed integer. Negative bound parameters arrive as `(-n)`, and `LIMIT`, `OFFSET` and `FETCH` must keep returning 2201W and 2201X. `LIMIT (5)` is now accepted, as PostgreSQL does. The fix is reviewed, but it is not merged yet; see `PLAN.md` §18. Until it merges, the rest of this page describes the `2f060c2` baseline.
+
 ## 1. Purpose and scope
 
 `parser.sig` is a recursive-descent parser. It turns exactly one SQL statement

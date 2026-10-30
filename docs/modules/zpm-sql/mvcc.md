@@ -10,6 +10,8 @@
 | Status | beta |
 | Formatting (`sig fmt --check`) | `mvcc.sig` dirty (measured at `2f060c2`, 2026-10-30; REPO-21) |
 
+> **Wave 0 update (2026-10-30).** STO-03 is fixed on ZPM branch `b8/sto03-lock-list`. `Tx.pushLock` is checked and returns `LockCapacity`. `Mvcc.recordLock` releases the grant if recording fails. INV-MVCC-6 `lock_len ≤ list_capacity` is now enforced. The MVCC suite went from 122 to 325 executed assertions, including holder-level checks that catch a second appended holder. The fix is reviewed, but it is not merged yet; see `PLAN.md` §18. Until it merges, the rest of this page describes the `2f060c2` baseline.
+
 ## 1. Purpose and scope
 
 `Mvcc(config)` defines the fixed transaction table entry `Tx` and the three

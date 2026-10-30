@@ -10,6 +10,8 @@
 | Status | beta |
 | Formatting (`sig fmt --check`) | `change_log.sig` dirty (measured at `2f060c2`, 2026-10-30; REPO-21) |
 
+> **Wave 0 update (2026-10-30).** STO-01 is fixed on ZPM branch `b9/sto01-replay-order`. Validate and apply accept any unused OID ≥ `first_oid` (checked over `[oid, oid+width)`, with width 2 for keyed tables) and keep the counter at the maximum seen. INV-CLOG-4 holds for out-of-order DDL. The counter itself may replay lower than the live value after a non-top abort (see FV-05b). STO-21 (`catalog_counters`) and STO-22 (top-OID edge) were found in review and are still open. The fix is reviewed, but it is not merged yet; see `PLAN.md` §18. Until it merges, the rest of this page describes the `2f060c2` baseline.
+
 ## 1. Purpose and scope
 
 This module defines the logical redo record that each committing transaction
