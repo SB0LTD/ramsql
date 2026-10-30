@@ -1,0 +1,30 @@
+run ramsql-trial2-s1000000_filter-1, node local, scenarios: s1000000_filter(w1)
+opening 1 connection(s)...
+connected to PostgreSQL 16.0
+[    5.1s] warmup   ops       5503     1100.1/s  errors      0  active 1/1
+[   10.1s] warmup   ops      11151     1128.7/s  errors      0  active 1/1
+[   15.1s] warmup   ops      16864     1141.8/s  errors      0  active 1/1
+[   20.1s] measure  ops      22713     1169.2/s  errors      0  active 1/1
+[   25.1s] measure  ops      28439     1144.4/s  errors      0  active 1/1
+[   30.1s] measure  ops      34159     1143.4/s  errors      0  active 1/1
+[   35.1s] measure  ops      39903     1148.2/s  errors      0  active 1/1
+[   40.1s] measure  ops      45721     1162.7/s  errors      0  active 1/1
+[   45.1s] measure  ops      51478     1150.8/s  errors      0  active 1/1
+[   50.1s] measure  ops      57065     1116.7/s  errors      0  active 1/1
+[   55.1s] measure  ops      62793     1144.8/s  errors      0  active 1/1
+[   60.1s] measure  ops      68476     1136.0/s  errors      0  active 1/1
+[   65.1s] measure  ops      74234     1150.8/s  errors      0  active 1/1
+[   70.1s] measure  ops      79948     1142.1/s  errors      0  active 1/1
+[   75.1s] measure  ops      85566     1122.9/s  errors      0  active 1/1
+[   80.0s] done     ops      91111     1142.9/s  errors      0  active 0/1
+
+Run:       ramsql-trial2-s1000000_filter-1
+Database:  ramsql [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-30T09:44:30.109Z .. 2026-10-30T09:45:30.109Z (60.0 s)
+Nodes:     1 node(s), 1 thread(s) total
+  local                host runnervm48cm3        1 threads   4 cpus  window +0.0s .. +60.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s1000000_filter               68525        0    68533268     1142.1      0.87      0.86      0.90      0.94      1.39      3.93
+
+Report: /home/runner/work/dbMeter/dbMeter/reports/live/size-scaling/ramsql-trial2-s1000000_filter-1/local.json

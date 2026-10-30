@@ -1,10 +1,10 @@
 # Original reporting correctness: 7/7, performance gate still fails
 
 Source: [dbMeter CI run 41024725859, attempt 1](https://github.com/benor1470/dbMeter/actions/runs/41024725859/attempts/1).
-This bundle retains every file from the completed full and subset live artifacts:
-180 raw files, plus nine exact historical validator/configuration files. The
-size-scaling/diagnostic/paired artifacts and final all-suite gate are outside this
-bundle's completeness scope; inspect the run for their status.
+This bundle retains all three live suite artifacts and the final all-suite
+decision: 639 raw files and nine exact historical validator/configuration files.
+All benchmark execution jobs succeeded; the final significant-advantage gate
+failed. Diagnostic and paired artifacts remain separate from this bundle.
 
 Both original full-5M and subset suites pass **7/7 correctness checks for all
 three engines**, including the previously failing temporal formatting, category
@@ -19,7 +19,7 @@ generation were unchanged. Each campaign records original input hashes.
 PostgreSQL trial 1 at one client did not successfully execute the declared q5
 scenario. Its raw JSON, timeline and logs are retained; missing evidence is not
 counted as a win. RAMSQL remains far behind IRDB on this full mixed workload.
-All positive/negative trials, histograms, correctness XMLs, environment,
+All positive/negative live trials, histograms, correctness XMLs, environment,
 commands, original input hashes, machine-capacity and provenance are retained.
 
 The dbMeter input commit is `2b04159dcc5f1c54bbec13fb5d357f4bbebf97ec`.
@@ -29,10 +29,28 @@ This is correctness plus unchanged-build variability, **not an optimization A/B*
 The reporting engine pins ZPM `2f060c23f1cc6c11b6cc57dc989941b44b5c6442`.
 Later bounded-frame candidates cannot inherit these measurements automatically.
 
-`manifest.json` hashes all 189 raw/validator files byte-for-byte; Git attributes
+Size-scaling keeps the genuine read gains and remaining gaps. At one million
+rows, top-N throughput is 2.35x / 5.12x the fastest reference at 1 / 8 clients;
+PK throughput is 1.08x / 1.14x. At 100k rows, filter throughput is 3.37x / 4.79x
+and top-N is 5.94x / 7.14x. These rate ratios do not independently establish the
+separate p99/range policy or the all-suite gate. Every original size correctness
+check passes, but the stock RAMSQL capability probes fail explicitly:
+
+| Original capability probe | Failure |
+| --- | --- |
+| 200-byte text | TextCapacity / 54000 |
+| 9 columns | ColumnCapacity / 54000 |
+| 20 additional tables | TableCapacity / 54000 |
+
+These limits remain open work. Configurable hosted profiles tested elsewhere do
+not make the stock benchmark profile elastic; do not raise only the benchmark
+profile, remove probes, or call the capability gate closed.
+
+`manifest.json` hashes all 648 raw/validator files byte-for-byte; Git attributes
 disable text conversion for them. `verify.py` checks those hashes and replays the
-exact historical validator against both campaigns. The regenerated summaries
-must equal the retained originals and remain `qualified: false`.
+exact historical validator against all three campaigns. The regenerated
+summaries and final all-suite decision must equal the retained originals and
+remain `qualified: false`, `merge_allowed: false`.
 
 ```sh
 python benchmarks/ci-reporting-41024725859/verify.py

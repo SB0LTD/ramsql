@@ -13,9 +13,14 @@ for name, digest in manifest['files'].items():
 sys.path.insert(0, str(ROOT / 'validator/ci'))
 import evidence
 
-for name in ('live-sales-full', 'live-sales-subset'):
+summaries = []
+for name in ('live-' + suite for suite in evidence.SUITES):
     folder = ROOT / 'raw' / name
     actual = evidence.summarize(folder)
     if actual != json.loads((folder / 'summary.json').read_text()) or actual['qualified']:
         raise ValueError('Historical summary/gate mismatch: ' + name)
-print(f"PASS {len(manifest['files'])} hashes; both historical summaries agree; advantage gate false")
+    summaries.append(actual)
+decision = json.loads((ROOT / 'raw/advantage-decision/advantage.json').read_text())
+if decision['suites'] != summaries or decision['qualified'] or decision['merge_allowed']:
+    raise ValueError('Final three-suite decision mismatch')
+print(f"PASS {len(manifest['files'])} hashes; all three summaries and final decision agree; advantage gate false")

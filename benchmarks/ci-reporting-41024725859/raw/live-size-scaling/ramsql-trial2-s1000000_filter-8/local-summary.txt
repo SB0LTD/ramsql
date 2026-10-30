@@ -1,0 +1,8 @@
+Run:       ramsql-trial2-s1000000_filter-8
+Database:  ramsql [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-30T09:45:50.242Z .. 2026-10-30T09:46:50.245Z (60.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host runnervm48cm3        8 threads   4 cpus  window +0.0s .. +60.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s1000000_filter              161739        0   161756006     2695.5      2.97      2.98      3.94      4.42      5.44     14.51

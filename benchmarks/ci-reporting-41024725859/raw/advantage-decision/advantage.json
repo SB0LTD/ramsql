@@ -1,0 +1,493 @@
+{
+  "schema": 1,
+  "qualified": false,
+  "merge_allowed": false,
+  "minimum_ratio": 2.0,
+  "max_p99_ratio": 1.1,
+  "workflow_run": "https://github.com/benor1470/dbMeter/actions/runs/41024725859",
+  "run_attempt": "1",
+  "errors": [],
+  "suites": [
+    {
+      "schema": 1,
+      "suite": "size-scaling",
+      "profile": "qualification",
+      "qualified": false,
+      "source_revision": "ec93758a931e5fb0a6261388e255ff9307a362c6",
+      "binary_sha256": "c043e26a64d60fa3dd75acac45bdbce9505fc841e55631f801ff940a83221155",
+      "input_revision": "2b04159dcc5f1c54bbec13fb5d357f4bbebf97ec",
+      "ci": {
+        "provider": "github-actions",
+        "checkout_revision": "2b04159dcc5f1c54bbec13fb5d357f4bbebf97ec",
+        "repository": "benor1470/dbMeter",
+        "run_id": "41024725859",
+        "run_attempt": "1",
+        "job": "benchmark",
+        "workflow": "Live RAMSQL comparison",
+        "event_sha": "50fcc88ceee883e887774a292463484eb3e06bc0",
+        "runner_name": "GitHub Actions 1000000115",
+        "runner_os": "Linux",
+        "image_os": "ubuntu24",
+        "image_version": "20261026.354.1",
+        "run_url": "https://github.com/benor1470/dbMeter/actions/runs/41024725859/attempts/1"
+      },
+      "issues": [
+        "Original RAMSQL capability checks did not pass",
+        "Original RAMSQL text/column/table capability probes failed; valid read timings do not close those gaps",
+        "RAMSQL capability evidence: Original correctness cases failed or were skipped"
+      ],
+      "rows": [
+        {
+          "case": "s1000000_filter/1",
+          "engines": {
+            "ramsql": {
+              "median_qps": 1142.0833333333333,
+              "min_qps": 921.4013099781671,
+              "max_qps": 1161.5,
+              "median_p99_us": 1519
+            },
+            "postgres": {
+              "median_qps": 51.47475420763206,
+              "min_qps": 44.51444094461944,
+              "max_qps": 52.93411976407078,
+              "median_p99_us": 24319
+            },
+            "irdb": {
+              "median_qps": 930.6701331600086,
+              "min_qps": 895.4666666666667,
+              "max_qps": 941.7343044282595,
+              "median_p99_us": 6335
+            }
+          },
+          "advantage": false,
+          "ratio_to_fastest": 1.2271623345808784
+        },
+        {
+          "case": "s1000000_filter/8",
+          "engines": {
+            "ramsql": {
+              "median_qps": 2246.5168988734085,
+              "min_qps": 2008.2159820014997,
+              "max_qps": 2695.515224238788,
+              "median_p99_us": 6719
+            },
+            "postgres": {
+              "median_qps": 71.15861678570833,
+              "min_qps": 67.89846025801081,
+              "max_qps": 73.67457344985435,
+              "median_p99_us": 182271
+            },
+            "irdb": {
+              "median_qps": 1387.8520246625562,
+              "min_qps": 1368.914887588954,
+              "max_qps": 1399.9200026665778,
+              "median_p99_us": 16639
+            }
+          },
+          "advantage": false,
+          "ratio_to_fastest": 1.618700595562145
+        },
+        {
+          "case": "s1000000_pk/1",
+          "engines": {
+            "ramsql": {
+              "median_qps": 31456.409059849004,
+              "min_qps": 30738.316666666666,
+              "max_qps": 31543.533333333333,
+              "median_p99_us": 43
+            },
+            "postgres": {
+              "median_qps": 29119.0,
+              "min_qps": 28079.483333333334,
+              "max_qps": 29260.9,
+              "median_p99_us": 47
+            },
+            "irdb": {
+              "median_qps": 1120.0086660889274,
+              "min_qps": 1115.9833333333333,
+              "max_qps": 1164.330594490092,
+              "median_p99_us": 6591
+            }
+          },
+          "advantage": false,
+          "ratio_to_fastest": 1.0802709248205298
+        },
+        {
+          "case": "s1000000_pk/8",
+          "engines": {
+            "ramsql": {
+              "median_qps": 152893.5,
+              "min_qps": 147481.32531124481,
+              "max_qps": 153086.08189863502,
+              "median_p99_us": 124
+            },
+            "postgres": {
+              "median_qps": 133904.9015849736,
+              "min_qps": 126590.5,
+              "max_qps": 136192.51666666666,
+              "median_p99_us": 90
+            },
+            "irdb": {
+              "median_qps": 1757.091430285657,
+              "min_qps": 1735.58774020433,
+              "max_qps": 1768.7090700038325,
+              "median_p99_us": 15231
+            }
+          },
+          "advantage": false,
+          "ratio_to_fastest": 1.141806596997322
+        },
+        {
+          "case": "s1000000_topn/1",
+          "engines": {
+            "ramsql": {
+              "median_qps": 62.24377562243776,
+              "min_qps": 61.16192665900268,
+              "max_qps": 63.5372925414917,
+              "median_p99_us": 22783
+            },
+            "postgres": {
+              "median_qps": 26.506947452600713,
+              "min_qps": 26.31666611146274,
+              "max_qps": 26.88834838236764,
+              "median_p99_us": 53759
+            },
+            "irdb": {
+              "median_qps": 15.983217621497428,
+              "min_qps": 15.953106526119464,
+              "max_qps": 16.373509227796657,
+              "median_p99_us": 78847
+            }
+          },
+          "advantage": true,
+          "ratio_to_fastest": 2.348206097052143
+        },
+        {
+          "case": "s1000000_topn/8",
+          "engines": {
+            "ramsql": {
+              "median_qps": 231.93789668326974,
+              "min_qps": 229.44566593377306,
+              "max_qps": 234.08189784426747,
+              "median_p99_us": 52735
+            },
+            "postgres": {
+              "median_qps": 35.451204709090604,
+              "min_qps": 34.49365509671196,
+              "max_qps": 36.03273888741017,
+              "median_p99_us": 413695
+            },
+            "irdb": {
+              "median_qps": 45.302543796895534,
+              "min_qps": 44.93185335574379,
+              "max_qps": 45.38952830816313,
+              "median_p99_us": 260095
+            }
+          },
+          "advantage": true,
+          "ratio_to_fastest": 5.119754372361841
+        },
+        {
+          "case": "s100000_filter/1",
+          "engines": {
+            "ramsql": {
+              "median_qps": 9207.983333333334,
+              "min_qps": 9207.283333333333,
+              "max_qps": 9209.083333333334,
+              "median_p99_us": 145
+            },
+            "postgres": {
+              "median_qps": 471.78427385753804,
+              "min_qps": 427.48333333333335,
+              "max_qps": 484.01666666666665,
+              "median_p99_us": 2783
+            },
+            "irdb": {
+              "median_qps": 2731.0333333333333,
+              "min_qps": 2641.6,
+              "max_qps": 2871.633333333333,
+              "median_p99_us": 3167
+            }
+          },
+          "advantage": true,
+          "ratio_to_fastest": 3.371611477950959
+        },
+        {
+          "case": "s100000_filter/8",
+          "engines": {
+            "ramsql": {
+              "median_qps": 25840.25,
+              "min_qps": 25119.49800836653,
+              "max_qps": 26061.53230779487,
+              "median_p99_us": 599
+            },
+            "postgres": {
+              "median_qps": 1014.3826142026232,
+              "min_qps": 992.8004799680022,
+              "max_qps": 1039.630030830764,
+              "median_p99_us": 11903
+            },
+            "irdb": {
+              "median_qps": 5390.360963903609,
+              "min_qps": 5078.932017799703,
+              "max_qps": 5593.856769053849,
+              "median_p99_us": 9087
+            }
+          },
+          "advantage": true,
+          "ratio_to_fastest": 4.793788425865811
+        },
+        {
+          "case": "s100000_pk/1",
+          "engines": {
+            "ramsql": {
+              "median_qps": 31195.916666666668,
+              "min_qps": 30732.933333333334,
+              "max_qps": 31478.416666666668,
+              "median_p99_us": 44
+            },
+            "postgres": {
+              "median_qps": 30284.616666666665,
+              "min_qps": 30183.016666666666,
+              "max_qps": 30369.65,
+              "median_p99_us": 45
+            },
+            "irdb": {
+              "median_qps": 2452.3305614344995,
+              "min_qps": 2243.933737750817,
+              "max_qps": 2598.2833333333333,
+              "median_p99_us": 5439
+            }
+          },
+          "advantage": false,
+          "ratio_to_fastest": 1.0300911849085097
+        },
+        {
+          "case": "s100000_pk/8",
+          "engines": {
+            "ramsql": {
+              "median_qps": 149341.45,
+              "min_qps": 148657.23333333334,
+              "max_qps": 152485.27524541257,
+              "median_p99_us": 137
+            },
+            "postgres": {
+              "median_qps": 141442.38333333333,
+              "min_qps": 140743.61666666667,
+              "max_qps": 143061.78333333333,
+              "median_p99_us": 84
+            },
+            "irdb": {
+              "median_qps": 4691.705138247696,
+              "min_qps": 4510.757795443561,
+              "max_qps": 4929.886838991384,
+              "median_p99_us": 9855
+            }
+          },
+          "advantage": false,
+          "ratio_to_fastest": 1.0558465325633772
+        },
+        {
+          "case": "s100000_topn/1",
+          "engines": {
+            "ramsql": {
+              "median_qps": 1146.847552540791,
+              "min_qps": 795.1166666666667,
+              "max_qps": 1178.2833333333333,
+              "median_p99_us": 1263
+            },
+            "postgres": {
+              "median_qps": 190.79046047697616,
+              "min_qps": 189.79367354421518,
+              "max_qps": 198.1534564362376,
+              "median_p99_us": 6335
+            },
+            "irdb": {
+              "median_qps": 193.15378974735017,
+              "min_qps": 183.91360143997602,
+              "max_qps": 195.35364309046065,
+              "median_p99_us": 11647
+            }
+          },
+          "advantage": true,
+          "ratio_to_fastest": 5.937484084784955
+        },
+        {
+          "case": "s100000_topn/8",
+          "engines": {
+            "ramsql": {
+              "median_qps": 3606.952985684049,
+              "min_qps": 3005.316400846624,
+              "max_qps": 3663.9112029599014,
+              "median_p99_us": 3359
+            },
+            "postgres": {
+              "median_qps": 422.71992534453165,
+              "min_qps": 412.27836288494865,
+              "max_qps": 433.00618199390135,
+              "median_p99_us": 25855
+            },
+            "irdb": {
+              "median_qps": 505.51611505516115,
+              "min_qps": 495.2179418821648,
+              "max_qps": 509.19059443064975,
+              "median_p99_us": 33279
+            }
+          },
+          "advantage": true,
+          "ratio_to_fastest": 7.135188925263963
+        }
+      ]
+    },
+    {
+      "schema": 1,
+      "suite": "sales-subset",
+      "profile": "qualification",
+      "qualified": false,
+      "source_revision": "ec93758a931e5fb0a6261388e255ff9307a362c6",
+      "binary_sha256": "c043e26a64d60fa3dd75acac45bdbce9505fc841e55631f801ff940a83221155",
+      "input_revision": "2b04159dcc5f1c54bbec13fb5d357f4bbebf97ec",
+      "ci": {
+        "provider": "github-actions",
+        "checkout_revision": "2b04159dcc5f1c54bbec13fb5d357f4bbebf97ec",
+        "repository": "benor1470/dbMeter",
+        "run_id": "41024725859",
+        "run_attempt": "1",
+        "job": "benchmark",
+        "workflow": "Live RAMSQL comparison",
+        "event_sha": "50fcc88ceee883e887774a292463484eb3e06bc0",
+        "runner_name": "GitHub Actions 1000000114",
+        "runner_os": "Linux",
+        "image_os": "ubuntu24",
+        "image_version": "20261026.354.1",
+        "run_url": "https://github.com/benor1470/dbMeter/actions/runs/41024725859/attempts/1"
+      },
+      "issues": [],
+      "rows": [
+        {
+          "case": "mixed/1",
+          "engines": {
+            "ramsql": {
+              "median_qps": 46.782553624106264,
+              "min_qps": 42.8,
+              "max_qps": 47.60398808235823,
+              "median_p99_us": 174079
+            },
+            "postgres": {
+              "median_qps": 3.5613112100364224,
+              "min_qps": 2.992667963489451,
+              "max_qps": 3.860939606250728,
+              "median_p99_us": 1916927
+            },
+            "irdb": {
+              "median_qps": 175.00624843789052,
+              "min_qps": 174.19924674199245,
+              "max_qps": 177.33711048158642,
+              "median_p99_us": 23295
+            }
+          },
+          "advantage": false,
+          "ratio_to_fastest": 0.26731933311917905
+        },
+        {
+          "case": "mixed/8",
+          "engines": {
+            "ramsql": {
+              "median_qps": 116.24158843565672,
+              "min_qps": 115.26308787334531,
+              "max_qps": 119.5655783984855,
+              "median_p99_us": 331775
+            },
+            "postgres": {
+              "median_qps": 5.924919421095873,
+              "min_qps": 5.423378635762017,
+              "max_qps": 6.01472404446084,
+              "median_p99_us": 11665407
+            },
+            "irdb": {
+              "median_qps": 242.9145075561924,
+              "min_qps": 242.1647199960011,
+              "max_qps": 244.64220244642203,
+              "median_p99_us": 87039
+            }
+          },
+          "advantage": false,
+          "ratio_to_fastest": 0.47852880260256603
+        }
+      ]
+    },
+    {
+      "schema": 1,
+      "suite": "sales-full",
+      "profile": "qualification",
+      "qualified": false,
+      "source_revision": "ec93758a931e5fb0a6261388e255ff9307a362c6",
+      "binary_sha256": "c043e26a64d60fa3dd75acac45bdbce9505fc841e55631f801ff940a83221155",
+      "input_revision": "2b04159dcc5f1c54bbec13fb5d357f4bbebf97ec",
+      "ci": {
+        "provider": "github-actions",
+        "checkout_revision": "2b04159dcc5f1c54bbec13fb5d357f4bbebf97ec",
+        "repository": "benor1470/dbMeter",
+        "run_id": "41024725859",
+        "run_attempt": "1",
+        "job": "benchmark",
+        "workflow": "Live RAMSQL comparison",
+        "event_sha": "50fcc88ceee883e887774a292463484eb3e06bc0",
+        "runner_name": "GitHub Actions 1000000119",
+        "runner_os": "Linux",
+        "image_os": "ubuntu24",
+        "image_version": "20261026.354.1",
+        "run_url": "https://github.com/benor1470/dbMeter/actions/runs/41024725859/attempts/1"
+      },
+      "issues": [
+        "('postgres', 'mixed/1', 1): No successful execution of declared scenario q5_high_value_customers",
+        "mixed/1: missing valid postgres trials"
+      ],
+      "rows": [
+        {
+          "case": "mixed/1",
+          "engines": {
+            "ramsql": {
+              "median_qps": 0.9292340227822549,
+              "min_qps": 0.8200987272698599,
+              "max_qps": 1.0164125635257852,
+              "median_p99_us": 3571711
+            },
+            "irdb": {
+              "median_qps": 34.95734470807785,
+              "min_qps": 34.11854862892746,
+              "max_qps": 34.99825008749563,
+              "median_p99_us": 80895
+            }
+          },
+          "advantage": false
+        },
+        {
+          "case": "mixed/8",
+          "engines": {
+            "ramsql": {
+              "median_qps": 1.9559202366186432,
+              "min_qps": 1.8575474283626177,
+              "max_qps": 2.157930767628062,
+              "median_p99_us": 13148202
+            },
+            "postgres": {
+              "median_qps": 0.7236851821766678,
+              "min_qps": 0.6102191364721198,
+              "max_qps": 0.7244127082686536,
+              "median_p99_us": 49807359
+            },
+            "irdb": {
+              "median_qps": 44.913519002513695,
+              "min_qps": 43.36670942805258,
+              "max_qps": 45.5643481882549,
+              "median_p99_us": 532479
+            }
+          },
+          "advantage": false,
+          "ratio_to_fastest": 0.0435485858168712
+        }
+      ]
+    }
+  ]
+}

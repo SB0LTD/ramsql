@@ -1,0 +1,30 @@
+run irdb-trial2-s1000000_pk-1, node local, scenarios: s1000000_pk(w1)
+opening 1 connection(s)...
+connected to InMemory.Net IRDB server 127.0.0.1:45653, database live_size_scaling
+[    5.1s] warmup   ops       5251     1049.5/s  errors      0  active 1/1
+[   10.1s] warmup   ops      10694     1086.4/s  errors      0  active 1/1
+[   15.1s] warmup   ops      16216     1103.1/s  errors      0  active 1/1
+[   20.1s] measure  ops      21766     1109.1/s  errors      0  active 1/1
+[   25.1s] measure  ops      27204     1086.6/s  errors      0  active 1/1
+[   30.1s] measure  ops      32761     1109.8/s  errors      0  active 1/1
+[   35.1s] measure  ops      38493     1144.8/s  errors      0  active 1/1
+[   40.1s] measure  ops      44108     1121.6/s  errors      0  active 1/1
+[   45.1s] measure  ops      49754     1127.8/s  errors      0  active 1/1
+[   50.1s] measure  ops      55246     1097.4/s  errors      0  active 1/1
+[   55.2s] measure  ops      60919     1132.9/s  errors      0  active 1/1
+[   60.2s] measure  ops      66460     1106.5/s  errors      0  active 1/1
+[   65.2s] measure  ops      72023     1111.8/s  errors      0  active 1/1
+[   70.2s] measure  ops      77709     1136.0/s  errors      0  active 1/1
+[   75.2s] measure  ops      83412     1139.1/s  errors      0  active 1/1
+[   80.0s] done     ops      88862     1128.6/s  errors      0  active 0/1
+
+Run:       irdb-trial2-s1000000_pk-1
+Database:  irdb [reports as InMemory.Net IRDB server 127.0.0.1:45653, database live_size_scaling] (driver dbmeter IRDB adapter (jirdb) 0.1)
+Window:    2026-10-30T09:25:43.680Z .. 2026-10-30T09:26:43.684Z (60.0 s)
+Nodes:     1 node(s), 1 thread(s) total
+  local                host runnervm48cm3        1 threads   4 cpus  window +0.0s .. +60.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s1000000_pk                   67205        0       67205     1120.0      0.89      0.65      1.14      1.71      6.59     19.29
+
+Report: /home/runner/work/dbMeter/dbMeter/reports/live/size-scaling/irdb-trial2-s1000000_pk-1/local.json

@@ -1,0 +1,30 @@
+run postgres-trial1-s1000000_filter-1, node local, scenarios: s1000000_filter(w1)
+opening 1 connection(s)...
+connected to PostgreSQL 18.3 (Debian 18.3-1.pgdg12+1)
+[    5.1s] warmup   ops        216       43.2/s  errors      0  active 1/1
+[   10.1s] warmup   ops        435       43.8/s  errors      0  active 1/1
+[   15.1s] warmup   ops        659       44.8/s  errors      0  active 1/1
+[   20.1s] measure  ops        882       44.6/s  errors      0  active 1/1
+[   25.1s] measure  ops       1106       44.8/s  errors      0  active 1/1
+[   30.1s] measure  ops       1330       44.8/s  errors      0  active 1/1
+[   35.2s] measure  ops       1558       45.6/s  errors      0  active 1/1
+[   40.2s] measure  ops       1781       44.6/s  errors      0  active 1/1
+[   45.2s] measure  ops       2003       44.4/s  errors      0  active 1/1
+[   50.2s] measure  ops       2223       44.0/s  errors      0  active 1/1
+[   55.2s] measure  ops       2445       44.3/s  errors      0  active 1/1
+[   60.2s] measure  ops       2669       44.8/s  errors      0  active 1/1
+[   65.2s] measure  ops       2889       44.0/s  errors      0  active 1/1
+[   70.2s] measure  ops       3107       43.6/s  errors      0  active 1/1
+[   75.2s] measure  ops       3331       44.8/s  errors      0  active 1/1
+[   80.0s] done     ops       3547       44.8/s  errors      0  active 0/1
+
+Run:       postgres-trial1-s1000000_filter-1
+Database:  postgres [reports as PostgreSQL 18.3 (Debian 18.3-1.pgdg12+1)] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-30T08:40:17.564Z .. 2026-10-30T08:41:17.567Z (60.0 s)
+Nodes:     1 node(s), 1 thread(s) total
+  local                host runnervm48cm3        1 threads   4 cpus  window +0.0s .. +60.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s1000000_filter                2671        0     2671082       44.5     22.44     22.27     22.78     23.30     32.00     44.10
+
+Report: /home/runner/work/dbMeter/dbMeter/reports/live/size-scaling/postgres-trial1-s1000000_filter-1/local.json

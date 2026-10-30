@@ -1,0 +1,30 @@
+run postgres-trial2-s100000_pk-1, node local, scenarios: s100000_pk(w1)
+opening 1 connection(s)...
+connected to PostgreSQL 18.3 (Debian 18.3-1.pgdg12+1)
+[    5.1s] warmup   ops     145670    29121.3/s  errors      0  active 1/1
+[   10.1s] warmup   ops     296223    30088.8/s  errors      0  active 1/1
+[   15.1s] warmup   ops     449518    30641.4/s  errors      0  active 1/1
+[   20.1s] measure  ops     600330    30144.6/s  errors      0  active 1/1
+[   25.1s] measure  ops     742212    28356.4/s  errors      0  active 1/1
+[   30.1s] measure  ops     883502    28240.1/s  errors      0  active 1/1
+[   35.1s] measure  ops    1032415    29763.3/s  errors      0  active 1/1
+[   40.1s] measure  ops    1184540    30406.6/s  errors      0  active 1/1
+[   45.1s] measure  ops    1337573    30587.9/s  errors      0  active 1/1
+[   50.1s] measure  ops    1491827    30828.9/s  errors      0  active 1/1
+[   55.2s] measure  ops    1644275    30471.6/s  errors      0  active 1/1
+[   60.2s] measure  ops    1797313    30591.4/s  errors      0  active 1/1
+[   65.2s] measure  ops    1950990    30716.5/s  errors      0  active 1/1
+[   70.2s] measure  ops    2106099    31003.4/s  errors      0  active 1/1
+[   75.2s] measure  ops    2258790    30522.0/s  errors      0  active 1/1
+[   80.0s] done     ops    2407619    30771.6/s  errors      0  active 0/1
+
+Run:       postgres-trial2-s100000_pk-1
+Database:  postgres [reports as PostgreSQL 18.3 (Debian 18.3-1.pgdg12+1)] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-30T09:01:40.717Z .. 2026-10-30T09:02:40.717Z (60.0 s)
+Nodes:     1 node(s), 1 thread(s) total
+  local                host runnervm48cm3        1 threads   4 cpus  window +0.0s .. +60.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s100000_pk                  1810981        0     1810981    30183.0      0.03      0.03      0.03      0.04      0.05      6.69
+
+Report: /home/runner/work/dbMeter/dbMeter/reports/live/size-scaling/postgres-trial2-s100000_pk-1/local.json

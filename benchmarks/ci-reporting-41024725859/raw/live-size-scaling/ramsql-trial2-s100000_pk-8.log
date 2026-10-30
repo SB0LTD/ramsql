@@ -1,0 +1,30 @@
+run ramsql-trial2-s100000_pk-8, node local, scenarios: s100000_pk(w1)
+opening 8 connection(s)...
+connected to PostgreSQL 16.0
+[    5.2s] warmup   ops     609897   121872.4/s  errors      0  active 8/8
+[   10.2s] warmup   ops    1363359   150472.7/s  errors      0  active 8/8
+[   15.2s] warmup   ops    2115745   150228.0/s  errors      0  active 8/8
+[   20.3s] measure  ops    2866523   149919.3/s  errors      0  active 8/8
+[   25.3s] measure  ops    3608716   148258.6/s  errors      0  active 8/8
+[   30.3s] measure  ops    4345899   147303.9/s  errors      0  active 8/8
+[   35.3s] measure  ops    5078321   146326.2/s  errors      0  active 8/8
+[   40.3s] measure  ops    5833171   150854.6/s  errors      0  active 8/8
+[   45.3s] measure  ops    6579362   149063.0/s  errors      0  active 8/8
+[   50.3s] measure  ops    7332255   150459.1/s  errors      0  active 8/8
+[   55.3s] measure  ops    8079226   149255.6/s  errors      0  active 8/8
+[   60.3s] measure  ops    8823673   148708.9/s  errors      0  active 8/8
+[   65.3s] measure  ops    9571778   149476.9/s  errors      0  active 8/8
+[   70.3s] measure  ops   10313528   148208.1/s  errors      0  active 8/8
+[   75.3s] measure  ops   11047170   146566.5/s  errors      0  active 8/8
+[   80.0s] done     ops   11748555   149590.3/s  errors      0  active 0/8
+
+Run:       ramsql-trial2-s100000_pk-8
+Database:  ramsql [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-30T09:35:09.100Z .. 2026-10-30T09:36:09.100Z (60.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host runnervm48cm3        8 threads   4 cpus  window +0.0s .. +60.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s100000_pk                  8919434        0     8919434   148657.2      0.05      0.05      0.08      0.10      0.14      6.05
+
+Report: /home/runner/work/dbMeter/dbMeter/reports/live/size-scaling/ramsql-trial2-s100000_pk-8/local.json
