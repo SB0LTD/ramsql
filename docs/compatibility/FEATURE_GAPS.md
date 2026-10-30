@@ -90,7 +90,7 @@ table distinguishes the completed window/ROLLUP slices from remaining work.
 | `'NaN'::float8 / 0` | NaN (from PostgreSQL source; unverified live) | Error 22012 | `float_text.sig:238` | SQLF-11 | P3 | B7 |
 | `'1._5'::numeric` | Error 22P02 (from PostgreSQL source; unverified live) | Accepted as 1.5 | `numeric.sig:174-183` | SQLF-11 | P3 | B7 |
 | Casting multi-byte text to NAME at 63 bytes | Clips on a character boundary | May split a UTF-8 character | `value.sig:290`, `424`, `428` | SQLF-11 | P3 | B7 |
-| TIMESTAMP(p) rounding at the upper limit | Error 22008 | Returns an out-of-range value | `temporal.sig:377-384` | SQLF-11 | P3 | B7 |
+| TIMESTAMP(p) rounding at the upper limit | Native PostgreSQL permits rounding across the documented finite bound (16.15 measured; 18.3 source verified) | Native behavior preserved and covered by a boundary regression | `temporal.sig:377-384` | SQLF-11 | P3 | B7 |
 | Fractional interval units, for example `'0.5 microseconds'` | `rint` (half to even) (unverified) | Half up | `temporal.sig:606-633` | SQLF-11 | P3 | B7 |
 | Zone names such as `CET`, `EET`, `MET`, `WET` in timestamptz input | Abbreviation table, fixed offset (unverified) | Passed to the tzdata resolver, which may apply DST (unverified) | `temporal.sig:360-365` | SQLF-11 | P3 | B7 |
 | `pg_get_expr` and `column_default` text for quoted or mixed-case identifiers and typmod casts | Quoted where needed; typmod shown | Raw spelling; typmod dropped | `deparse.sig:205-207`, `252` | SQLF-11 | P3 | B7 |

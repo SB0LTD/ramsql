@@ -52,14 +52,15 @@ type, no non-ISO input styles, no zone abbreviations, no ISO 8601 durations
 
 - **INV-TEMPORAL-1**: A DATE is in `[min_date, end_date)` or is a ±infinity
   sentinel. A TIMESTAMP[TZ] is in `[min_timestamp, end_timestamp)` or is a
-  sentinel.
+  sentinel. Native precision rounding may produce the next boundary value;
+  the follow-up preserves that PostgreSQL behavior explicitly.
 - **INV-TEMPORAL-2**: `civilOf(dateOf(y, m, d)) == (y, m, d)` for every
   valid civil date in range. Leap years are Gregorian (`tzif.sig:253-255`).
 - **INV-TEMPORAL-3**: Adding months clamps the day to the target month's
   length (`temporal.sig:778`), as PostgreSQL does.
 - **INV-TEMPORAL-4**: Interval order and hash use `(months*30 + days) *
   86400e6 + us` computed in i128.
-- **INV-TEMPORAL-5 (violated today, SQLF-01)**: No intermediate i64
+- **INV-TEMPORAL-5 (reported paths fixed; FV-12 proof open)**: No intermediate i64
   operation overflows for any input that passes the guards.
 - **INV-TZIF-1**: After `validate(bytes)` succeeds, `view`, `infoAt` and
   `nextBoundary` read only inside `bytes`. Callers must validate first;
@@ -112,10 +113,11 @@ preserves that behavior. Other SQLF-11 subitems and SQLF-02 syntax remain open.
 
 ## 7. Security considerations
 
-- Every input function takes attacker text. SQLF-01 means one unprivileged
-  `SELECT` with a literal can crash a safe build of the server. A
-  ReleaseFast build hits undefined behavior instead. The likely result is a
-  wrapped value that `validTimestamp` rejects, but that is not guaranteed.
+- Every input function takes attacker text. The historical SQLF-01 paths
+  allowed one unprivileged literal to panic a safe build or overflow in
+  ReleaseFast. The temporal follow-up checks those six reported paths and
+  returns SQL errors; independent review and regression coverage do not
+  replace FV-12's still-open formal proof.
 - TZif bytes are host files, trusted after `validate`. RAMSQL validates
   them on load (`ramsql/src/timezones.sig:158`). The validation sweep
   covers truncation and corruption. There is no fuzzing.
@@ -149,7 +151,7 @@ preserves that behavior. Other SQLF-11 subitems and SQLF-02 syntax remain open.
 | Id | Kind (Lean / TLA+ / property / fuzz / differential) | Statement | Status |
 | --- | --- | --- | --- |
 | FV-12 | Lean + vectors | `daysFromCivil`/`dateOf` and `civilOf`/`yearOf` are inverse bijections on [4714-11-24 BC, 5874897-12-31]. Month arithmetic clamps to the month end. The leap-year rule is Gregorian. | todo |
-| FV-12 (no-overflow extension; to be added to the catalog entry) | Lean | For every input accepted by the guards of `parseTimestamp`, `addCalendar`, `dateToTimestamp`, `datePlusDays`, `timestamptzPlus` and `Accumulator.add`, every intermediate i64 value is in `[-2^63, 2^63)` and the result is valid or 22008. For `parseTimestamp`: -4713 <= y <= 294277, (y, m, d) valid, 0 <= t <= 86400·10^6 implies abs(dateOf(y, m, d) · 86400·10^6 + t) < 2^63. **False today**: y = 294277, m = 1, d = 10 is a counterexample. | todo (blocked on SQLF-01 fix) |
+| FV-12 (no-overflow extension; to be added to the catalog entry) | Lean | For every input accepted by the guards of `parseTimestamp`, `addCalendar`, `dateToTimestamp`, `datePlusDays`, `timestamptzPlus` and `Accumulator.add`, every intermediate i64 value is in `[-2^63, 2^63)` and the result is valid or 22008. For `parseTimestamp`: -4713 <= y <= 294277, (y, m, d) valid, 0 <= t <= 86400·10^6 implies abs(dateOf(y, m, d) · 86400·10^6 + t) < 2^63. **Historical counterexample**: y = 294277, m = 1, d = 10 overflowed unchecked i64. Checked operations now reject it; restate the theorem in terms of checked success/error. | implementation unblocked; formal theorem open |
 | none | property | INV-TZIF-1: `validate(b)` succeeding implies that all `view`, `infoAt` and `nextBoundary` reads on any instant stay in bounds. | todo |
 | none | differential | INV-TZIF-2 matches PostgreSQL for all transitions in the zone sample. | todo |
 
@@ -161,9 +163,9 @@ Formatting `timestamptz` output also appears in S3 result encoding.
 
 ## 11. Open questions
 
-- Which optimize mode do production builds use? The answer decides whether
-  SQLF-01 is a crash (ReleaseSafe) or undefined behavior (ReleaseFast).
-  Either is unacceptable; this only sets the urgency.
+- Preserve temporal boundary and error-class coverage in every supported
+  optimize mode. The reported SQLF-01 paths are fixed; extend FV-12 to a
+  formal proof rather than treating the generated range tests as one.
 - Zone abbreviations: implement PostgreSQL's `Default` abbreviation set, or
   reject names that are not tzdata zones?
 - Should TIME/TIMETZ and `extract` be in scope for the next release (B11)?
