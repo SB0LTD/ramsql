@@ -552,6 +552,47 @@ KINDS = ("CREATE TABLE compat (id INTEGER PRIMARY KEY, s SMALLINT, i INTEGER, b 
 GROUPS = ("CREATE TABLE compat (id INTEGER PRIMARY KEY, g INTEGER, v INTEGER)",) + tuple(
     f"INSERT INTO compat VALUES ({index}, 7, {index})" for index in range(512))
 SUITES["q06"] = (
+    Case("q06_window_rank_peers", "q06", 3.4, feature="ranking peers, partitions, NULL ordering and window SQLSTATE", setup=(
+        "CREATE TABLE compat(id INTEGER PRIMARY KEY,k INTEGER,v INTEGER)",
+        "INSERT INTO compat VALUES(1,1,10),(2,1,10),(3,1,30),(4,2,5),(5,2,NULL),(6,NULL,7)"), statements=(
+        "SELECT id,RANK() OVER (ORDER BY v DESC NULLS LAST),DENSE_RANK() OVER (PARTITION BY k ORDER BY v),ROW_NUMBER() OVER (PARTITION BY k ORDER BY v,id) FROM compat ORDER BY id",
+        "SELECT id FROM compat ORDER BY RANK() OVER (ORDER BY v DESC NULLS LAST),id LIMIT 4",
+        "SELECT id FROM compat WHERE RANK() OVER ()>1",
+        "SELECT SUM(RANK() OVER ()) FROM compat")),
+    Case("q06_window_frames_and_totals", "q06", 3.4, feature="full/default-peer/prefix-ROWS aggregate windows run before LIMIT", setup=(
+        "CREATE TABLE compat(id INTEGER PRIMARY KEY,k INTEGER,v INTEGER)",
+        "INSERT INTO compat VALUES(1,1,10),(2,1,10),(3,1,30),(4,2,5),(5,2,NULL),(6,NULL,7)"), statements=(
+        "SELECT id,SUM(v) OVER (PARTITION BY k ORDER BY v),SUM(v) OVER (PARTITION BY k ORDER BY v,id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW),AVG(v) OVER () FROM compat ORDER BY id",
+        "SELECT id,SUM(v) OVER (),COUNT(*) OVER (),COUNT(v) OVER () FROM compat WHERE id>2 ORDER BY id LIMIT 2 OFFSET 1",
+        "SELECT k,SUM(v),SUM(SUM(v)) OVER (),RANK() OVER (ORDER BY SUM(v) DESC) FROM compat GROUP BY k HAVING SUM(v)>5 ORDER BY k NULLS LAST",
+        "WITH product_revenue AS (SELECT k,SUM(v) AS revenue_cents FROM compat GROUP BY k) SELECT k,revenue_cents,ROUND(100.0*revenue_cents/SUM(revenue_cents) OVER (),4) AS pct FROM product_revenue ORDER BY revenue_cents DESC,k NULLS LAST LIMIT 2",
+        "SELECT COUNT(*) OVER (),SUM(v) OVER () FROM compat WHERE id<0",
+        ("SELECT id,RANK() OVER (ORDER BY v),SUM(v) OVER () FROM compat ORDER BY id", None, {"binary": True}))),
+    Case("q06_window_three_way_category", "q06", 3.4, feature="dbMeter category DISTINCT and rank over grouped revenue", tables=("compat", "aux", "report_categories"), setup=(
+        "CREATE TABLE report_categories(id INTEGER PRIMARY KEY,label TEXT)",
+        "CREATE TABLE aux(id INTEGER PRIMARY KEY,category_id INTEGER)",
+        "CREATE TABLE compat(id INTEGER PRIMARY KEY,product_id INTEGER,customer_id INTEGER,cents BIGINT)",
+        "INSERT INTO report_categories VALUES(1,'a'),(2,'b'),(3,'a')",
+        "INSERT INTO aux VALUES(1,1),(2,3),(3,2)",
+        "INSERT INTO compat VALUES(1,1,11,10),(2,2,11,20),(3,3,12,30),(4,1,13,5),(5,3,NULL,5)"), statements=(
+        "SELECT c.label AS category,COUNT(*) AS sales,COUNT(DISTINCT s.customer_id) AS customers,SUM(s.cents) AS revenue_cents,RANK() OVER (ORDER BY SUM(s.cents) DESC) AS revenue_rank FROM compat s JOIN aux p ON p.id=s.product_id JOIN report_categories c ON c.id=p.category_id GROUP BY c.label ORDER BY c.label",
+        "SELECT c.label,SUM(s.cents),DENSE_RANK() OVER (ORDER BY SUM(s.cents) DESC) FROM compat s JOIN aux p ON p.id=s.product_id JOIN report_categories c ON c.id=p.category_id GROUP BY c.label HAVING COUNT(*)>1 ORDER BY c.label")),
+    Case("q06_rollup_levels", "q06", 3.4, feature="ROLLUP separates genuine NULL groups, subtotal levels and exact AVG", setup=(
+        "CREATE TABLE compat(id INTEGER PRIMARY KEY,k INTEGER,v INTEGER)",
+        "INSERT INTO compat VALUES(1,1,10),(2,1,10),(3,1,30),(4,2,5),(5,2,NULL),(6,NULL,7)"), statements=(
+        "SELECT k,v,GROUPING(k,v),COUNT(*),SUM(v),ROUND(AVG(v),4) FROM compat GROUP BY ROLLUP(k,v) ORDER BY k NULLS LAST,v NULLS LAST,GROUPING(k,v)",
+        "SELECT k,GROUPING(k),COUNT(DISTINCT v),SUM(v) FROM compat GROUP BY ROLLUP(k) HAVING COUNT(*)>1 ORDER BY GROUPING(k),k NULLS LAST",
+        "SELECT k,v,GROUPING(k,v),COUNT(*),SUM(v) FROM compat WHERE id<0 GROUP BY ROLLUP(k,v)",
+        "SELECT COUNT(*),SUM(v) FROM compat WHERE id<0 GROUP BY ()",
+        "SELECT k,GROUPING(k),SUM(v),RANK() OVER (ORDER BY SUM(v) DESC) FROM compat GROUP BY ROLLUP(k) ORDER BY GROUPING(k),k NULLS LAST",
+        "SELECT GROUPING(v),COUNT(*) FROM compat GROUP BY ROLLUP(k)")),
+    Case("q06_rollup_segment_discount", "q06", 3.4, feature="dbMeter segment/discount subtotal query with NULLs and exact average", setup=(
+        "CREATE TABLE aux(id INTEGER PRIMARY KEY,segment TEXT)",
+        "CREATE TABLE compat(id INTEGER PRIMARY KEY,customer_id INTEGER,discount_pct INTEGER,cents BIGINT)",
+        "INSERT INTO aux VALUES(1,'a'),(2,'a'),(3,NULL)",
+        "INSERT INTO compat VALUES(1,1,0,10),(2,2,0,20),(3,1,5,40),(4,3,NULL,50),(5,2,NULL,NULL)"), statements=(
+        "SELECT cu.segment,s.discount_pct,COUNT(*) AS sales,SUM(s.cents) AS revenue_cents,ROUND(AVG(s.cents),2) AS avg_sale_cents,GROUPING(cu.segment,s.discount_pct) AS level FROM compat s JOIN aux cu ON cu.id=s.customer_id GROUP BY ROLLUP(cu.segment,s.discount_pct) ORDER BY cu.segment NULLS LAST,s.discount_pct NULLS LAST,GROUPING(cu.segment,s.discount_pct)",
+        "SELECT cu.segment,GROUPING(cu.segment),SUM(s.cents) FILTER (WHERE s.discount_pct=0) FROM compat s JOIN aux cu ON cu.id=s.customer_id GROUP BY ROLLUP(cu.segment) ORDER BY GROUPING(cu.segment),cu.segment NULLS LAST")),
     Case("q06_probes", "q06", 3.4, feature="aggregate and group_by probes", statements=(
         "SELECT COUNT(*), SUM(id) FROM compat",
         "SELECT flag, COUNT(*) FROM compat GROUP BY flag ORDER BY flag")),

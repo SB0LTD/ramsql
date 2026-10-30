@@ -6,9 +6,11 @@ candidate in [ZPM PR 78](https://github.com/SB0LTD/zpm/pull/78), with 252 captur
 PostgreSQL fixtures and native SQL contracts. This integration adds PG16/PG18
 memory/durable+SCRAM differential cases, including the region/month three-way
 join shape. Native/platform checks and the original full-data query must pass
-before recording q1 closed. Q06 `RANK() OVER`, `SUM() OVER` and `ROLLUP` remain
-open for q2/q3/q4. These are feature gaps, not benchmark exclusions; preserve the
-original SQL and expected CSVs. The broad Q03/Q06 closure criteria below remain.
+before recording q1 closed. Q06 `RANK() OVER`, `SUM() OVER` and `ROLLUP` now have
+candidates in ZPM PRs 79/80 for q2/q3/q4, with final combined qualification still
+open. See the [reporting implementation and closing checklist](REPORTING_SQL_PROGRESS.md).
+These are feature gaps, not benchmark exclusions; preserve the original SQL and
+expected CSVs. The broad Q03/Q06 closure criteria below remain.
 
 Current review: 25 October 2026, development candidate `0.3.0-alpha.4` (unpublished).
 Latest published prerelease: `0.3.0-alpha.3`.
@@ -390,7 +392,7 @@ only one commonly used type.
 
 ### Q06 — Aggregates, grouping, HAVING and window functions
 
-**Status:** Partial (flag F6). Aggregates, GROUP BY and HAVING implemented, `aggregate` and `group_by` probes `match: true (PG18+PG16, memory and durable+SCRAM)`, suite q06 matches; no window functions or AVG(interval). [Evidence](#gap-closing-run-evidence-24-october-2026). **Owner:** ZPM planner/executor.
+**Status:** Partial (flag F6). Aggregates, GROUP BY and HAVING implemented, `aggregate` and `group_by` probes `match: true (PG18+PG16, memory and durable+SCRAM)`. The 30 October candidate adds ranking/aggregate windows and flat ROLLUP/GROUPING; final combined qualification is pending. Named/moving/filter/distinct window forms, general grouping sets and AVG(interval) remain gaps. See the [reporting record](REPORTING_SQL_PROGRESS.md) and [earlier evidence](#gap-closing-run-evidence-24-october-2026). **Owner:** ZPM planner/executor.
 
 Reports and application counts require COUNT/SUM and grouping. Window functions
 compute values over related rows without collapsing the result into groups.

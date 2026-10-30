@@ -6,6 +6,12 @@ later binary.
 
 ## Unreleased
 
+- Add ranking and aggregate windows after grouping/HAVING, including partition
+  and peer ordering, total shares before LIMIT, and unbounded prefix/full ROWS
+  frames. Add flat ROLLUP/GROUPING with exact independent subtotal state and
+  NULL-level separation. Both use caller-owned ZPM query storage; remaining
+  forms and qualification requirements are documented explicitly.
+
 - Add temporal `to_char` through ZPM for timestamp/date report expressions,
   including session-zone formatting and bounded caller-owned output. Add Q03
   PostgreSQL differential cases and a three-way region/month report. Numeric,

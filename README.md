@@ -125,8 +125,12 @@ There is no Oracle, SQLite, DB2 or other dialect endpoint in this beta.
 Implemented SQL includes typed CRUD/RETURNING, primary keys, defaults/generated
 columns, sequences, joins, aggregates, CTEs/set operations, savepoints and
 transactional DDL. Development adds PostgreSQL ROUND over numeric and float8
-values, including aggregate expressions. Isolation is READ COMMITTED only. Secondary/foreign-key
-indexes, window functions, complete catalogs, stored procedures/extensions and
+values, including aggregate expressions. The reporting candidate adds temporal
+`to_char`, ranking/aggregate windows and flat `ROLLUP`/`GROUPING`; see the
+[reporting qualification record](compatibility/REPORTING_SQL_PROGRESS.md) for
+supported forms, remaining gaps and pending original dbMeter validation.
+Isolation is READ COMMITTED only. Secondary/foreign-key
+indexes, complete window coverage, complete catalogs, stored procedures/extensions and
 full dialect semantics are missing. Some MySQL/TDS types are rendered as text.
 Read the [SQL reference](SQL_REFERENCE.md) and [usability audit](compatibility/BETA_USABILITY.md)
 before importing a schema; wire compatibility does not establish dialect parity.
