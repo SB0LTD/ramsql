@@ -1,2 +1,3 @@
 dbmeter-*/** -text whitespace=cr-at-eol
 dbmeter-*/**/*.log -text -whitespace
+ci-*/** -text whitespace=cr-at-eol

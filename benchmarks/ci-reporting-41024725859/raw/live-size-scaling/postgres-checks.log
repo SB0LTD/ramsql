@@ -1,0 +1,31 @@
+check.setup: 16 statement(s) in 1150.64 ms
+PASS  cap_a_text_200_bytes                           8.30 ms
+PASS  cap_b_9_columns                                1.98 ms
+PASS  cap_c_20_more_tables                          11.86 ms
+PASS  s1000000_a_pk                                  0.36 ms
+PASS  s1000000_b_filter                             24.85 ms
+PASS  s1000000_c_topn                               38.21 ms
+PASS  s1000000_d_last                                0.50 ms
+PASS  s100000_a_pk                                   0.49 ms
+PASS  s100000_b_filter                               2.96 ms
+PASS  s100000_c_topn                                 6.02 ms
+PASS  s100000_d_last                                 0.67 ms
+PASS  s10000_a_pk                                    0.37 ms
+PASS  s10000_b_filter                                0.54 ms
+PASS  s10000_c_topn                                  0.82 ms
+PASS  s10000_d_last                                  0.92 ms
+PASS  s1000_a_pk                                     0.35 ms
+PASS  s1000_b_filter                                 0.93 ms
+PASS  s1000_c_topn                                   2.51 ms
+PASS  s1000_d_last                                   0.53 ms
+PASS  s100_a_pk                                      0.34 ms
+PASS  s100_b_filter                                  0.28 ms
+PASS  s100_c_topn                                    0.25 ms
+PASS  s100_d_last                                    0.25 ms
+PASS  s512_a_pk                                      0.30 ms
+PASS  s512_b_filter                                  0.29 ms
+PASS  s512_c_topn                                    0.37 ms
+PASS  s512_d_last                                    0.28 ms
+
+27 check(s): 27 passed, 0 failed
+JUnit report: /home/runner/work/dbMeter/dbMeter/reports/live/size-scaling/postgres-checks.xml

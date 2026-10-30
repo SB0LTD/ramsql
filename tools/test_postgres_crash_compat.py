@@ -138,6 +138,8 @@ class CrashableRamsql:
         auth = self.arguments["auth"]
         command = [str(self.binary), "--serve", "--port", "0", "--data", str(self.arguments["data_path"]),
                    "--auth-user", auth[0], "--auth-verifier-file", str(auth[1])]
+        if self.process is None:
+            command.append("--create-data")  # first start only; crash restarts reopen the WAL
         command += list(self.arguments.get("extra_arguments", ()))
         self.process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
         lines, errors = queue.Queue(), []

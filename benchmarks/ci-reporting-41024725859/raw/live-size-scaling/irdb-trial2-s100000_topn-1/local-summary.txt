@@ -1,0 +1,8 @@
+Run:       irdb-trial2-s100000_topn-1
+Database:  irdb [reports as InMemory.Net IRDB server 127.0.0.1:45653, database live_size_scaling] (driver dbmeter IRDB adapter (jirdb) 0.1)
+Window:    2026-10-30T09:23:03.431Z .. 2026-10-30T09:24:03.435Z (60.0 s)
+Nodes:     1 node(s), 1 thread(s) total
+  local                host runnervm48cm3        1 threads   4 cpus  window +0.0s .. +60.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s100000_topn                  11722        0      117220      195.4      5.12      4.67      6.98      7.74     11.14     73.68

@@ -1,0 +1,1108 @@
+{
+  "schema": 1,
+  "run": "https://github.com/SB0LTD/ramsql/actions/runs/41039729179",
+  "pull_request_head": "c6e0410e10c7ca303a074212f7e8e3b05ff59e2a",
+  "ci_merge_revision": "80316fdd863954e72dfd9c76ca6351cb5dfce9df",
+  "zpm_source": "409447ad0ae050b1a872fa19aa65620de701b293",
+  "scope": "exact extracted case and metadata from all four raw server semantic reports; initial candidate, not final qualification",
+  "entries": [
+    {
+      "artifact_report": "postgres-qualification-16-durable-scram-ci/pg16-durable-scram/semantics.json",
+      "report_sha256": "eeacf382502ce6d0a9aef3caacbeaf82f85a42eee78b378e629d9cebc84b09be",
+      "reference": {
+        "image_requested": "postgres@sha256:f4610795587492cd4fb887c2dc3de301b813278bb6f616992061141b5f15ac36",
+        "image_id": "sha256:6a2e324ebe59af6031c4c1cd96c1d5072c2ebc36563d2196365e43b8297c062d",
+        "image_digests": [
+          "postgres@sha256:f4610795587492cd4fb887c2dc3de301b813278bb6f616992061141b5f15ac36"
+        ],
+        "container_id": "fd5025bf528ad9976ad7ede67567ce4d20a2c1daef70e33ef85b0952d9d77628",
+        "platform": "linux/amd64",
+        "server_version": "PostgreSQL 16.15 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+        "server_version_num": "160015"
+      },
+      "mode": {
+        "durable": true,
+        "scram": true,
+        "storage": "durable WAL",
+        "authentication": "SCRAM-SHA-256",
+        "timezone_dir": "/home/runner/work/ramsql/ramsql/.sig-cache/tzdata/6a2e324ebe59af6031c4c1cd96c1d5072c2ebc36563d2196365e43b8297c062d"
+      },
+      "ramsql_sha256": "8e798349154e867bfffc53614b8ba1791b49f262910165f9340a73e4fec70a39",
+      "summary": {
+        "executed": 167,
+        "matching": 167,
+        "mismatching": 0,
+        "skipped": 0,
+        "passed": true
+      },
+      "case": {
+        "name": "q06_window_final_projection",
+        "suite": "q06",
+        "step": 3.4,
+        "feature": "window results precede LIMIT; direct sort trims unused output expressions",
+        "match": true,
+        "differences": [],
+        "postgres": {
+          "stage": "statements",
+          "events": [
+            {
+              "sql": "SELECT id,10/(id-1),SUM(v) OVER () FROM compat ORDER BY id DESC LIMIT 1",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "00000",
+                "columns": [
+                  {
+                    "name": "id",
+                    "oid": 23
+                  },
+                  {
+                    "name": "?column?",
+                    "oid": 23
+                  },
+                  {
+                    "name": "sum",
+                    "oid": 20
+                  }
+                ],
+                "rows": [
+                  [
+                    3,
+                    5,
+                    60
+                  ]
+                ],
+                "rowcount": 1,
+                "status": "SELECT 1"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            },
+            {
+              "sql": "SELECT id,10/(id-1),SUM(v) OVER () FROM compat ORDER BY (id+0) DESC LIMIT 1",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "22012",
+                "error_class": "DivisionByZero",
+                "message": "division by zero"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            },
+            {
+              "sql": "SELECT id,SUM(v) OVER ()+id AS marker FROM compat ORDER BY marker DESC LIMIT 2",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "00000",
+                "columns": [
+                  {
+                    "name": "id",
+                    "oid": 23
+                  },
+                  {
+                    "name": "marker",
+                    "oid": 20
+                  }
+                ],
+                "rows": [
+                  [
+                    3,
+                    63
+                  ],
+                  [
+                    2,
+                    62
+                  ]
+                ],
+                "rowcount": 2,
+                "status": "SELECT 2"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            },
+            {
+              "sql": "SELECT id,SUM(v) OVER (ORDER BY id ROWS 1 PRECEDING) FROM compat ORDER BY id DESC LIMIT 1 OFFSET 1",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "00000",
+                "columns": [
+                  {
+                    "name": "id",
+                    "oid": 23
+                  },
+                  {
+                    "name": "sum",
+                    "oid": 20
+                  }
+                ],
+                "rows": [
+                  [
+                    2,
+                    30
+                  ]
+                ],
+                "rowcount": 1,
+                "status": "SELECT 1"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            }
+          ]
+        },
+        "ramsql": {
+          "stage": "statements",
+          "events": [
+            {
+              "sql": "SELECT id,10/(id-1),SUM(v) OVER () FROM compat ORDER BY id DESC LIMIT 1",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "00000",
+                "columns": [
+                  {
+                    "name": "id",
+                    "oid": 23
+                  },
+                  {
+                    "name": "?column?",
+                    "oid": 23
+                  },
+                  {
+                    "name": "sum",
+                    "oid": 20
+                  }
+                ],
+                "rows": [
+                  [
+                    3,
+                    5,
+                    60
+                  ]
+                ],
+                "rowcount": 1,
+                "status": "SELECT 1"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            },
+            {
+              "sql": "SELECT id,10/(id-1),SUM(v) OVER () FROM compat ORDER BY (id+0) DESC LIMIT 1",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "22012",
+                "error_class": "DivisionByZero",
+                "message": "DivisionByZero"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            },
+            {
+              "sql": "SELECT id,SUM(v) OVER ()+id AS marker FROM compat ORDER BY marker DESC LIMIT 2",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "00000",
+                "columns": [
+                  {
+                    "name": "id",
+                    "oid": 23
+                  },
+                  {
+                    "name": "marker",
+                    "oid": 20
+                  }
+                ],
+                "rows": [
+                  [
+                    3,
+                    63
+                  ],
+                  [
+                    2,
+                    62
+                  ]
+                ],
+                "rowcount": 2,
+                "status": "SELECT 2"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            },
+            {
+              "sql": "SELECT id,SUM(v) OVER (ORDER BY id ROWS 1 PRECEDING) FROM compat ORDER BY id DESC LIMIT 1 OFFSET 1",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "00000",
+                "columns": [
+                  {
+                    "name": "id",
+                    "oid": 23
+                  },
+                  {
+                    "name": "sum",
+                    "oid": 20
+                  }
+                ],
+                "rows": [
+                  [
+                    2,
+                    30
+                  ]
+                ],
+                "rowcount": 1,
+                "status": "SELECT 1"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "artifact_report": "postgres-qualification-16-memory-ci/pg16-memory/semantics.json",
+      "report_sha256": "0e0cdd62efc6b284d558ac4c989a54ba66019e74c3a5d91d84921196c5f1c648",
+      "reference": {
+        "image_requested": "postgres@sha256:f4610795587492cd4fb887c2dc3de301b813278bb6f616992061141b5f15ac36",
+        "image_id": "sha256:6a2e324ebe59af6031c4c1cd96c1d5072c2ebc36563d2196365e43b8297c062d",
+        "image_digests": [
+          "postgres@sha256:f4610795587492cd4fb887c2dc3de301b813278bb6f616992061141b5f15ac36"
+        ],
+        "container_id": "a55687815ea29c7138765a6ac10d05a034706663e3f275a6fe602eede328fd1c",
+        "platform": "linux/amd64",
+        "server_version": "PostgreSQL 16.15 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+        "server_version_num": "160015"
+      },
+      "mode": {
+        "durable": false,
+        "scram": false,
+        "storage": "memory",
+        "authentication": "insecure-local",
+        "timezone_dir": "/home/runner/work/ramsql/ramsql/.sig-cache/tzdata/6a2e324ebe59af6031c4c1cd96c1d5072c2ebc36563d2196365e43b8297c062d"
+      },
+      "ramsql_sha256": "a347f182b5b52c9293541b2117a2d49bc295fe2631d0ba6696557e6c0fc212ba",
+      "summary": {
+        "executed": 157,
+        "matching": 157,
+        "mismatching": 0,
+        "skipped": 10,
+        "passed": true
+      },
+      "case": {
+        "name": "q06_window_final_projection",
+        "suite": "q06",
+        "step": 3.4,
+        "feature": "window results precede LIMIT; direct sort trims unused output expressions",
+        "match": true,
+        "differences": [],
+        "postgres": {
+          "stage": "statements",
+          "events": [
+            {
+              "sql": "SELECT id,10/(id-1),SUM(v) OVER () FROM compat ORDER BY id DESC LIMIT 1",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "00000",
+                "columns": [
+                  {
+                    "name": "id",
+                    "oid": 23
+                  },
+                  {
+                    "name": "?column?",
+                    "oid": 23
+                  },
+                  {
+                    "name": "sum",
+                    "oid": 20
+                  }
+                ],
+                "rows": [
+                  [
+                    3,
+                    5,
+                    60
+                  ]
+                ],
+                "rowcount": 1,
+                "status": "SELECT 1"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            },
+            {
+              "sql": "SELECT id,10/(id-1),SUM(v) OVER () FROM compat ORDER BY (id+0) DESC LIMIT 1",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "22012",
+                "error_class": "DivisionByZero",
+                "message": "division by zero"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            },
+            {
+              "sql": "SELECT id,SUM(v) OVER ()+id AS marker FROM compat ORDER BY marker DESC LIMIT 2",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "00000",
+                "columns": [
+                  {
+                    "name": "id",
+                    "oid": 23
+                  },
+                  {
+                    "name": "marker",
+                    "oid": 20
+                  }
+                ],
+                "rows": [
+                  [
+                    3,
+                    63
+                  ],
+                  [
+                    2,
+                    62
+                  ]
+                ],
+                "rowcount": 2,
+                "status": "SELECT 2"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            },
+            {
+              "sql": "SELECT id,SUM(v) OVER (ORDER BY id ROWS 1 PRECEDING) FROM compat ORDER BY id DESC LIMIT 1 OFFSET 1",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "00000",
+                "columns": [
+                  {
+                    "name": "id",
+                    "oid": 23
+                  },
+                  {
+                    "name": "sum",
+                    "oid": 20
+                  }
+                ],
+                "rows": [
+                  [
+                    2,
+                    30
+                  ]
+                ],
+                "rowcount": 1,
+                "status": "SELECT 1"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            }
+          ]
+        },
+        "ramsql": {
+          "stage": "statements",
+          "events": [
+            {
+              "sql": "SELECT id,10/(id-1),SUM(v) OVER () FROM compat ORDER BY id DESC LIMIT 1",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "00000",
+                "columns": [
+                  {
+                    "name": "id",
+                    "oid": 23
+                  },
+                  {
+                    "name": "?column?",
+                    "oid": 23
+                  },
+                  {
+                    "name": "sum",
+                    "oid": 20
+                  }
+                ],
+                "rows": [
+                  [
+                    3,
+                    5,
+                    60
+                  ]
+                ],
+                "rowcount": 1,
+                "status": "SELECT 1"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            },
+            {
+              "sql": "SELECT id,10/(id-1),SUM(v) OVER () FROM compat ORDER BY (id+0) DESC LIMIT 1",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "22012",
+                "error_class": "DivisionByZero",
+                "message": "DivisionByZero"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            },
+            {
+              "sql": "SELECT id,SUM(v) OVER ()+id AS marker FROM compat ORDER BY marker DESC LIMIT 2",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "00000",
+                "columns": [
+                  {
+                    "name": "id",
+                    "oid": 23
+                  },
+                  {
+                    "name": "marker",
+                    "oid": 20
+                  }
+                ],
+                "rows": [
+                  [
+                    3,
+                    63
+                  ],
+                  [
+                    2,
+                    62
+                  ]
+                ],
+                "rowcount": 2,
+                "status": "SELECT 2"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            },
+            {
+              "sql": "SELECT id,SUM(v) OVER (ORDER BY id ROWS 1 PRECEDING) FROM compat ORDER BY id DESC LIMIT 1 OFFSET 1",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "00000",
+                "columns": [
+                  {
+                    "name": "id",
+                    "oid": 23
+                  },
+                  {
+                    "name": "sum",
+                    "oid": 20
+                  }
+                ],
+                "rows": [
+                  [
+                    2,
+                    30
+                  ]
+                ],
+                "rowcount": 1,
+                "status": "SELECT 1"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "artifact_report": "postgres-qualification-18-durable-scram-ci/pg18-durable-scram/semantics.json",
+      "report_sha256": "4b3835bdf5cf203217002e86819551e69ba55eda9c6595441a629d0db0eb5680",
+      "reference": {
+        "image_requested": "postgres@sha256:4da1a4828be12604092fa55311276f08f9224a74a62dcb4708bd7439e2a03911",
+        "image_id": "sha256:ff4a089dadda5e50a5f09604b2e2bc16f97d5befb6b05c328fc21159da96c602",
+        "image_digests": [
+          "postgres@sha256:4da1a4828be12604092fa55311276f08f9224a74a62dcb4708bd7439e2a03911"
+        ],
+        "container_id": "f30dd6d926d72b0e101aa5d4a03d0dea3e77943fd93c28e780e8ac29a8d16f1a",
+        "platform": "linux/amd64",
+        "server_version": "PostgreSQL 18.3 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+        "server_version_num": "180003"
+      },
+      "mode": {
+        "durable": true,
+        "scram": true,
+        "storage": "durable WAL",
+        "authentication": "SCRAM-SHA-256",
+        "timezone_dir": "/home/runner/work/ramsql/ramsql/.sig-cache/tzdata/ff4a089dadda5e50a5f09604b2e2bc16f97d5befb6b05c328fc21159da96c602"
+      },
+      "ramsql_sha256": "44f15028ca6751f7f1955b819bbc895404e6377d43b9aa32d44e11ecdc716305",
+      "summary": {
+        "executed": 167,
+        "matching": 166,
+        "mismatching": 1,
+        "skipped": 0,
+        "passed": false
+      },
+      "case": {
+        "name": "q06_window_final_projection",
+        "suite": "q06",
+        "step": 3.4,
+        "feature": "window results precede LIMIT; direct sort trims unused output expressions",
+        "match": false,
+        "differences": [
+          {
+            "path": "/events/0/outcome/sqlstate",
+            "postgres": "22012",
+            "ramsql": "00000"
+          }
+        ],
+        "postgres": {
+          "stage": "statements",
+          "events": [
+            {
+              "sql": "SELECT id,10/(id-1),SUM(v) OVER () FROM compat ORDER BY id DESC LIMIT 1",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "22012",
+                "error_class": "DivisionByZero",
+                "message": "division by zero"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            },
+            {
+              "sql": "SELECT id,10/(id-1),SUM(v) OVER () FROM compat ORDER BY (id+0) DESC LIMIT 1",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "22012",
+                "error_class": "DivisionByZero",
+                "message": "division by zero"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            },
+            {
+              "sql": "SELECT id,SUM(v) OVER ()+id AS marker FROM compat ORDER BY marker DESC LIMIT 2",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "00000",
+                "columns": [
+                  {
+                    "name": "id",
+                    "oid": 23
+                  },
+                  {
+                    "name": "marker",
+                    "oid": 20
+                  }
+                ],
+                "rows": [
+                  [
+                    3,
+                    63
+                  ],
+                  [
+                    2,
+                    62
+                  ]
+                ],
+                "rowcount": 2,
+                "status": "SELECT 2"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            },
+            {
+              "sql": "SELECT id,SUM(v) OVER (ORDER BY id ROWS 1 PRECEDING) FROM compat ORDER BY id DESC LIMIT 1 OFFSET 1",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "00000",
+                "columns": [
+                  {
+                    "name": "id",
+                    "oid": 23
+                  },
+                  {
+                    "name": "sum",
+                    "oid": 20
+                  }
+                ],
+                "rows": [
+                  [
+                    2,
+                    30
+                  ]
+                ],
+                "rowcount": 1,
+                "status": "SELECT 1"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            }
+          ]
+        },
+        "ramsql": {
+          "stage": "statements",
+          "events": [
+            {
+              "sql": "SELECT id,10/(id-1),SUM(v) OVER () FROM compat ORDER BY id DESC LIMIT 1",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "00000",
+                "columns": [
+                  {
+                    "name": "id",
+                    "oid": 23
+                  },
+                  {
+                    "name": "?column?",
+                    "oid": 23
+                  },
+                  {
+                    "name": "sum",
+                    "oid": 20
+                  }
+                ],
+                "rows": [
+                  [
+                    3,
+                    5,
+                    60
+                  ]
+                ],
+                "rowcount": 1,
+                "status": "SELECT 1"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            },
+            {
+              "sql": "SELECT id,10/(id-1),SUM(v) OVER () FROM compat ORDER BY (id+0) DESC LIMIT 1",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "22012",
+                "error_class": "DivisionByZero",
+                "message": "DivisionByZero"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            },
+            {
+              "sql": "SELECT id,SUM(v) OVER ()+id AS marker FROM compat ORDER BY marker DESC LIMIT 2",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "00000",
+                "columns": [
+                  {
+                    "name": "id",
+                    "oid": 23
+                  },
+                  {
+                    "name": "marker",
+                    "oid": 20
+                  }
+                ],
+                "rows": [
+                  [
+                    3,
+                    63
+                  ],
+                  [
+                    2,
+                    62
+                  ]
+                ],
+                "rowcount": 2,
+                "status": "SELECT 2"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            },
+            {
+              "sql": "SELECT id,SUM(v) OVER (ORDER BY id ROWS 1 PRECEDING) FROM compat ORDER BY id DESC LIMIT 1 OFFSET 1",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "00000",
+                "columns": [
+                  {
+                    "name": "id",
+                    "oid": 23
+                  },
+                  {
+                    "name": "sum",
+                    "oid": 20
+                  }
+                ],
+                "rows": [
+                  [
+                    2,
+                    30
+                  ]
+                ],
+                "rowcount": 1,
+                "status": "SELECT 1"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "artifact_report": "postgres-qualification-18-memory-ci/pg18-memory/semantics.json",
+      "report_sha256": "a0779c2171faa193763da68fe65b85c5069b8c154d1a25377bc428e3ba096b6e",
+      "reference": {
+        "image_requested": "postgres@sha256:4da1a4828be12604092fa55311276f08f9224a74a62dcb4708bd7439e2a03911",
+        "image_id": "sha256:ff4a089dadda5e50a5f09604b2e2bc16f97d5befb6b05c328fc21159da96c602",
+        "image_digests": [
+          "postgres@sha256:4da1a4828be12604092fa55311276f08f9224a74a62dcb4708bd7439e2a03911"
+        ],
+        "container_id": "ee490474c114bad886ff83b45a94e39be806c42991901429c420006827cfa4fa",
+        "platform": "linux/amd64",
+        "server_version": "PostgreSQL 18.3 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+        "server_version_num": "180003"
+      },
+      "mode": {
+        "durable": false,
+        "scram": false,
+        "storage": "memory",
+        "authentication": "insecure-local",
+        "timezone_dir": "/home/runner/work/ramsql/ramsql/.sig-cache/tzdata/ff4a089dadda5e50a5f09604b2e2bc16f97d5befb6b05c328fc21159da96c602"
+      },
+      "ramsql_sha256": "8e798349154e867bfffc53614b8ba1791b49f262910165f9340a73e4fec70a39",
+      "summary": {
+        "executed": 157,
+        "matching": 156,
+        "mismatching": 1,
+        "skipped": 10,
+        "passed": false
+      },
+      "case": {
+        "name": "q06_window_final_projection",
+        "suite": "q06",
+        "step": 3.4,
+        "feature": "window results precede LIMIT; direct sort trims unused output expressions",
+        "match": false,
+        "differences": [
+          {
+            "path": "/events/0/outcome/sqlstate",
+            "postgres": "22012",
+            "ramsql": "00000"
+          }
+        ],
+        "postgres": {
+          "stage": "statements",
+          "events": [
+            {
+              "sql": "SELECT id,10/(id-1),SUM(v) OVER () FROM compat ORDER BY id DESC LIMIT 1",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "22012",
+                "error_class": "DivisionByZero",
+                "message": "division by zero"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            },
+            {
+              "sql": "SELECT id,10/(id-1),SUM(v) OVER () FROM compat ORDER BY (id+0) DESC LIMIT 1",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "22012",
+                "error_class": "DivisionByZero",
+                "message": "division by zero"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            },
+            {
+              "sql": "SELECT id,SUM(v) OVER ()+id AS marker FROM compat ORDER BY marker DESC LIMIT 2",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "00000",
+                "columns": [
+                  {
+                    "name": "id",
+                    "oid": 23
+                  },
+                  {
+                    "name": "marker",
+                    "oid": 20
+                  }
+                ],
+                "rows": [
+                  [
+                    3,
+                    63
+                  ],
+                  [
+                    2,
+                    62
+                  ]
+                ],
+                "rowcount": 2,
+                "status": "SELECT 2"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            },
+            {
+              "sql": "SELECT id,SUM(v) OVER (ORDER BY id ROWS 1 PRECEDING) FROM compat ORDER BY id DESC LIMIT 1 OFFSET 1",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "00000",
+                "columns": [
+                  {
+                    "name": "id",
+                    "oid": 23
+                  },
+                  {
+                    "name": "sum",
+                    "oid": 20
+                  }
+                ],
+                "rows": [
+                  [
+                    2,
+                    30
+                  ]
+                ],
+                "rowcount": 1,
+                "status": "SELECT 1"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            }
+          ]
+        },
+        "ramsql": {
+          "stage": "statements",
+          "events": [
+            {
+              "sql": "SELECT id,10/(id-1),SUM(v) OVER () FROM compat ORDER BY id DESC LIMIT 1",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "00000",
+                "columns": [
+                  {
+                    "name": "id",
+                    "oid": 23
+                  },
+                  {
+                    "name": "?column?",
+                    "oid": 23
+                  },
+                  {
+                    "name": "sum",
+                    "oid": 20
+                  }
+                ],
+                "rows": [
+                  [
+                    3,
+                    5,
+                    60
+                  ]
+                ],
+                "rowcount": 1,
+                "status": "SELECT 1"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            },
+            {
+              "sql": "SELECT id,10/(id-1),SUM(v) OVER () FROM compat ORDER BY (id+0) DESC LIMIT 1",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "22012",
+                "error_class": "DivisionByZero",
+                "message": "DivisionByZero"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            },
+            {
+              "sql": "SELECT id,SUM(v) OVER ()+id AS marker FROM compat ORDER BY marker DESC LIMIT 2",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "00000",
+                "columns": [
+                  {
+                    "name": "id",
+                    "oid": 23
+                  },
+                  {
+                    "name": "marker",
+                    "oid": 20
+                  }
+                ],
+                "rows": [
+                  [
+                    3,
+                    63
+                  ],
+                  [
+                    2,
+                    62
+                  ]
+                ],
+                "rowcount": 2,
+                "status": "SELECT 2"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            },
+            {
+              "sql": "SELECT id,SUM(v) OVER (ORDER BY id ROWS 1 PRECEDING) FROM compat ORDER BY id DESC LIMIT 1 OFFSET 1",
+              "parameters": null,
+              "binary": false,
+              "outcome": {
+                "sqlstate": "00000",
+                "columns": [
+                  {
+                    "name": "id",
+                    "oid": 23
+                  },
+                  {
+                    "name": "sum",
+                    "oid": 20
+                  }
+                ],
+                "rows": [
+                  [
+                    2,
+                    30
+                  ]
+                ],
+                "rowcount": 1,
+                "status": "SELECT 1"
+              },
+              "parameter_status": {
+                "TimeZone": "UTC",
+                "DateStyle": "ISO, MDY",
+                "IntervalStyle": "postgres"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -46,6 +46,9 @@ pub const Options = struct {
     workers: usize = 1,
     memory: bool = false,
     data: []const u8 = "ramsql.wal",
+    /// Durable startup creates a missing `data` file only when set; otherwise
+    /// a missing file is DataFileMissing before any listener opens.
+    create_data: bool = false,
     insecure_local: bool = false,
     auth_user: []const u8 = "postgres",
     auth_verifier_file: ?[]const u8 = null,
@@ -95,6 +98,7 @@ const config: sql.Config = .{
     .block_presence_filters = true,
     .typed_grouped_aggregates = true,
     .dimension_group_ids = true,
+    .dimension_distinct_groups = true,
 };
 const Raw = sql.Database(config);
 const Store = stores.Store(Raw);
@@ -859,6 +863,57 @@ pub fn describeMachine(options:Options) !void {
     }
     try machine_capacity.describe(options.memory_budget,options.os_headroom,total,options.workers);
 }
+/// Absolute spelling of a data path for operator messages; the file need not
+/// exist. Falls back to `path` itself when it cannot be resolved into `out`.
+fn absolutePath(path: []const u8, out: *[4096]u8) []const u8 {
+    const target = @import("builtin");
+    if (target.os.tag == .windows) {
+        var wide: [4096]u16 = undefined;
+        var full: [4096]u16 = undefined;
+        if (path.len >= wide.len) return path;
+        const len = std.unicode.utf8ToUtf16Le(&wide, path) catch return path;
+        wide[len] = 0;
+        const bytes = std.os.windows.ntdll.RtlGetFullPathName_U(wide[0..len :0].ptr, full.len * 2, &full, null);
+        if (bytes == 0 or bytes >= full.len * 2) return path;
+        return out[0 .. sig.os.wideToUtf8(full[0 .. bytes / 2], out) orelse return path];
+    }
+    if (path.len != 0 and path[0] == '/') return path;
+    var cwd: [4096]u8 = undefined;
+    const cwd_len = if (target.os.tag == .linux and !target.link_libc) blk: {
+        if (std.os.linux.errno(std.os.linux.getcwd(&cwd, cwd.len)) != .SUCCESS) return path;
+        break :blk std.mem.indexOfScalar(u8, &cwd, 0) orelse return path;
+    } else (sig.process.getCwd(&cwd) catch return path).len;
+    return sig.fs.joinPath(out, &.{ cwd[0..cwd_len], path }) catch path;
+}
+
+fn dataNotice(path: []const u8, state: []const u8) void {
+    const stderr = sig.io.File.stderr();
+    stderr.writeStreamingAll(.{}, "ramsql: data file ") catch {};
+    stderr.writeStreamingAll(.{}, path) catch {};
+    stderr.writeStreamingAll(.{}, state) catch {};
+}
+
+/// Recovers the durable data file before any listener exists and reports its
+/// absolute path. A wrong working directory or a mistyped path never becomes a
+/// new, empty authoritative database: the existing-file open runs first, and
+/// only its FileNotFound plus `create_data` creates. Without `create_data` that
+/// is DataFileMissing and nothing is created; other open failures propagate.
+fn openData(options: Options) !void {
+    var path_buffer: [4096]u8 = undefined;
+    const data_path = absolutePath(options.data, &path_buffer);
+    if (persistence.initExisting(options.data, &store, &recovery_buffer)) |_| {
+        dataNotice(data_path, " (opened)\n");
+    } else |err| {
+        if (err != error.FileNotFound) return err;
+        if (!options.create_data) {
+            dataNotice(data_path, " does not exist; pass --create-data to create a new database\n");
+            return error.DataFileMissing;
+        }
+        _ = try persistence.init(options.data, &store, &recovery_buffer);
+        dataNotice(data_path, " (created)\n");
+    }
+}
+
 fn openStorage(options: Options,backing:*owned_pages.Region) !void {
     const plan = try storagePlan(options);
     try backing.reserve(&memory_ledger,plan.bytes);
@@ -921,9 +976,7 @@ pub fn run(options: Options) !void {
         verifier = try scram.Verifier.parse(options.auth_user, source[0..used]);
         std.crypto.secureZero(u8, &source);
     } else if (options.auth_verifier_file != null) return error.InvalidServerOptions;
-    if (!options.memory) {
-        _ = try persistence.init(options.data, &store, &recovery_buffer);
-    }
+    if (!options.memory) try openData(options);
     defer persistence.close();
     try tcp.init();
     defer tcp.deinit();

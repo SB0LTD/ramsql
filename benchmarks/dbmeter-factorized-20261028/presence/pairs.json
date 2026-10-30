@@ -1,0 +1,118 @@
+{
+  "schema": 1,
+  "method": "Quiet host campaign: no local builds, profiling, repository edits/checkouts or source work during measurements; ordinary desktop background activity uncontrolled. Both binaries factorized_aggregates=true; only block_presence_filters differs. Three paired original-duration full5M campaigns, AB/BA/AB order. Same immutable SQL source; only block_presence_filters toggles. Fresh server/data load and JVM per case; default text128, eight workers/clients. No builds, profilers or reference database services concurrently.",
+  "runs": [
+    {
+      "pair": 1,
+      "mode": "on",
+      "directory": "on-pair-1",
+      "binary_sha256": "d8d731ae4464d029dc9974125f61bd8652fbeb31f5948cec583d6b29e4e9e142",
+      "qps": {
+        "q5_high_value_customers": 753.3664422371842,
+        "q6_store_category_mix": 1677.8107396420119
+      },
+      "wall_seconds": 172.35899999999674
+    },
+    {
+      "pair": 1,
+      "mode": "off",
+      "directory": "off-pair-1",
+      "binary_sha256": "f58f357c4ca991eea90ad37ea83c8082b695b7640b0f0ba95759101598a2263f",
+      "qps": {
+        "q5_high_value_customers": 727.2606072726061,
+        "q6_store_category_mix": 380.5850797987539
+      },
+      "wall_seconds": 174.40600000001723
+    },
+    {
+      "pair": 2,
+      "mode": "off",
+      "directory": "off-pair-2",
+      "binary_sha256": "f58f357c4ca991eea90ad37ea83c8082b695b7640b0f0ba95759101598a2263f",
+      "qps": {
+        "q5_high_value_customers": 108.2723035952064,
+        "q6_store_category_mix": 902.6731551229918
+      },
+      "wall_seconds": 225.40700000000652
+    },
+    {
+      "pair": 2,
+      "mode": "on",
+      "directory": "on-pair-2",
+      "binary_sha256": "d8d731ae4464d029dc9974125f61bd8652fbeb31f5948cec583d6b29e4e9e142",
+      "qps": {
+        "q5_high_value_customers": 747.8085524780855,
+        "q6_store_category_mix": 1673.944201859938
+      },
+      "wall_seconds": 174.375
+    },
+    {
+      "pair": 3,
+      "mode": "on",
+      "directory": "on-pair-3",
+      "binary_sha256": "d8d731ae4464d029dc9974125f61bd8652fbeb31f5948cec583d6b29e4e9e142",
+      "qps": {
+        "q5_high_value_customers": 737.3271121479753,
+        "q6_store_category_mix": 1639.1620279324022
+      },
+      "wall_seconds": 173.26500000001397
+    },
+    {
+      "pair": 3,
+      "mode": "off",
+      "directory": "off-pair-3",
+      "binary_sha256": "f58f357c4ca991eea90ad37ea83c8082b695b7640b0f0ba95759101598a2263f",
+      "qps": {
+        "q5_high_value_customers": 715.2165580682254,
+        "q6_store_category_mix": 341.25172833130654
+      },
+      "wall_seconds": 174.48499999998603
+    }
+  ],
+  "summary": {
+    "on": {
+      "q5_high_value_customers": {
+        "trials": [
+          753.3664422371842,
+          747.8085524780855,
+          737.3271121479753
+        ],
+        "median": 747.8085524780855,
+        "minimum": 737.3271121479753,
+        "maximum": 753.3664422371842
+      },
+      "q6_store_category_mix": {
+        "trials": [
+          1677.8107396420119,
+          1673.944201859938,
+          1639.1620279324022
+        ],
+        "median": 1673.944201859938,
+        "minimum": 1639.1620279324022,
+        "maximum": 1677.8107396420119
+      }
+    },
+    "off": {
+      "q5_high_value_customers": {
+        "trials": [
+          727.2606072726061,
+          108.2723035952064,
+          715.2165580682254
+        ],
+        "median": 715.2165580682254,
+        "minimum": 108.2723035952064,
+        "maximum": 727.2606072726061
+      },
+      "q6_store_category_mix": {
+        "trials": [
+          380.5850797987539,
+          902.6731551229918,
+          341.25172833130654
+        ],
+        "median": 380.5850797987539,
+        "minimum": 341.25172833130654,
+        "maximum": 902.6731551229918
+      }
+    }
+  }
+}

@@ -47,7 +47,7 @@ def main():
                                autocommit=True,sslmode='disable',connect_timeout=3)
     started=time.time()
     try:
-        manager=DurableServer(binary,wal) if durable else Server(binary)
+        manager=DurableServer(binary,wal,create=True) if durable else Server(binary)
         with manager as server,connect(server) as db:
             db.execute('CREATE TABLE bench (id INT PRIMARY KEY, value INT)')
             values=','.join(f'({i},{64-i})' for i in range(64))

@@ -1,0 +1,8 @@
+Run:       candidate-pair2-s4_segment_discount-8
+Database:  ramsql [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-30T01:09:52.767Z .. 2026-10-30T01:10:52.801Z (60.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host runnervm48cm3        8 threads   4 cpus  window +0.0s .. +60.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s4_segment_discount           12917        0      206672      215.2     37.15     37.38     38.40     54.78     55.81     77.97

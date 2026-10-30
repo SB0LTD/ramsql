@@ -1,0 +1,30 @@
+run ramsql-trial2-s100000_filter-1, node local, scenarios: s100000_filter(w1)
+opening 1 connection(s)...
+connected to PostgreSQL 16.0
+[    5.1s] warmup   ops      44002     8796.5/s  errors      0  active 1/1
+[   10.1s] warmup   ops      89768     9145.0/s  errors      0  active 1/1
+[   15.1s] warmup   ops     135061     9053.1/s  errors      0  active 1/1
+[   20.1s] measure  ops     181272     9235.8/s  errors      0  active 1/1
+[   25.1s] measure  ops     227420     9224.0/s  errors      0  active 1/1
+[   30.1s] measure  ops     273527     9215.8/s  errors      0  active 1/1
+[   35.1s] measure  ops     320080     9305.1/s  errors      0  active 1/1
+[   40.1s] measure  ops     365886     9155.8/s  errors      0  active 1/1
+[   45.1s] measure  ops     411976     9211.5/s  errors      0  active 1/1
+[   50.1s] measure  ops     458529     9304.9/s  errors      0  active 1/1
+[   55.1s] measure  ops     505118     9312.2/s  errors      0  active 1/1
+[   60.1s] measure  ops     550218     9013.9/s  errors      0  active 1/1
+[   65.2s] measure  ops     594853     8921.7/s  errors      0  active 1/1
+[   70.2s] measure  ops     640463     9116.2/s  errors      0  active 1/1
+[   75.2s] measure  ops     686947     9290.2/s  errors      0  active 1/1
+[   80.0s] done     ops     732613     9430.0/s  errors      0  active 0/1
+
+Run:       ramsql-trial2-s100000_filter-1
+Database:  ramsql [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-30T09:36:29.231Z .. 2026-10-30T09:37:29.231Z (60.0 s)
+Nodes:     1 node(s), 1 thread(s) total
+  local                host runnervm48cm3        1 threads   4 cpus  window +0.0s .. +60.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s100000_filter               552437        0    55189266     9207.3      0.11      0.10      0.11      0.12      0.15      2.24
+
+Report: /home/runner/work/dbMeter/dbMeter/reports/live/size-scaling/ramsql-trial2-s100000_filter-1/local.json

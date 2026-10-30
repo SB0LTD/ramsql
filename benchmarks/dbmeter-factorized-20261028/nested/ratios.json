@@ -1,0 +1,21 @@
+{
+  "paired_on_over_off": {
+    "q5_high_value_customers": [
+      4.243621152981976,
+      3.1161485448293886,
+      0.8493337177909875
+    ],
+    "q6_store_category_mix": [
+      0.9242445213802538,
+      0.24619208226358152,
+      0.1702269748271635
+    ]
+  },
+  "paired_median": {
+    "q5_high_value_customers": 3.1161485448293886,
+    "q6_store_category_mix": 0.24619208226358152
+  },
+  "universal_advantage_proven": false,
+  "complete_original_suite_passed": false,
+  "merge_dbmeter_allowed": false
+}

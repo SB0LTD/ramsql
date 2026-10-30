@@ -87,7 +87,7 @@ pub fn main(init: std.process.Init) !void {
     // A missing offline source fails without creating an empty database.
     var missing: Persistence = .{};
     var missing_store: Store = .{};
-    if (missing.initExisting(temporary_path, &missing_store, &recovery)) |_| return error.MissingSourceCreated else |err| try check(err == error.FileOpenFailed);
+    if (missing.initExisting(temporary_path, &missing_store, &recovery)) |_| return error.MissingSourceCreated else |err| try check(err == error.FileNotFound);
     temporary = try disk.File.createExclusive(temporary_path);
     try check(try temporary.length() == 0);
     temporary.close();

@@ -6,6 +6,25 @@ later binary.
 
 ## Unreleased
 
+- Extend ZPM window execution with bounded ROWS/GROUPS, integral-key RANGE
+  offsets, frame exclusions and aggregate FILTER. Use caller-owned exact prefix
+  states and MIN/MAX ordinal trees, with charged scalar fallback. Add eight
+  independent PostgreSQL semantic cases for frames, errors, binary parameters,
+  deferred expressions and volatile evaluation. Final server qualification of
+  this follow-up remains pending.
+
+- Qualify the prior reporting pin: all seven original full-5M and subset dbMeter
+  correctness checks pass for RAMSQL, PostgreSQL and IRDB in run 41024725859.
+  PG16/PG18 memory/durable+SCRAM and all 32 active hosted/native/release checks
+  passed in runs 41024653323/41024653363. The full-data timings retain a substantial
+  IRDB lead; this is correctness progress, not an all-engine performance claim.
+
+- **Behavior change:** durable startup no longer creates a missing data file.
+  Pass `--create-data` on the first start; otherwise a missing `--data` path
+  (default `ramsql.wal`, relative to the working directory) fails with
+  `DataFileMissing` and its absolute path before any listener opens. Startup
+  prints the absolute data file path to stderr (SRV-01).
+
 - Add ranking and aggregate windows after grouping/HAVING, including partition
   and peer ordering, total shares before LIMIT, and unbounded prefix/full ROWS
   frames. Add flat ROLLUP/GROUPING with exact independent subtotal state and
@@ -16,6 +35,12 @@ later binary.
   including session-zone formatting and bounded caller-owned output. Add Q03
   PostgreSQL differential cases and a three-way region/month report. Numeric,
   interval, localized and ISO-week formatting remain documented gaps.
+
+- Fold exact grouped customer membership over contracted unique dimension
+  chains using caller-owned bitmaps and typed COUNT/SUM/AVG state. Repeated
+  values across different keys sharing one label count once; unsupported
+  expressions, visibility and domains retain canonical SQL. Performance and
+  release qualification remain explicit CI gates.
 
 - Precontract eligible unique-key dimensions into compact group IDs before
   folding mixed dimension/fact grouping keys over committed columns. Dictionary

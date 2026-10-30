@@ -1,0 +1,200 @@
+{
+  "schema": 1,
+  "method": "Fixed three-pair repeat after the preceding campaign recorded competing process images. Earlier data is retained, not replaced. Quiet host campaign: no local builds, profiling, repository edits/checkouts or source work during measurements; ordinary desktop background activity uncontrolled. Both binaries factorized_aggregates=true and block_presence_filters=true; only sparse_factor_predicates differs. Three paired original-duration full5M campaigns, AB/BA/AB order. Same immutable SQL source; only sparse_factor_predicates toggles. Fresh server/data load and JVM per case; default text128, eight workers/clients. No builds, profilers or reference database services concurrently.",
+  "runs": [
+    {
+      "pair": 1,
+      "mode": "on",
+      "directory": "on-pair-1",
+      "binary_sha256": "75c21aa22c51044f4ca7dd9aeae7f3501c7341c5d5d59d0a00d0bc6e174b9251",
+      "qps": {
+        "q5_high_value_customers": 690.5642769056427,
+        "q6_store_category_mix": 1521.0443881631566
+      },
+      "wall_seconds": 175.5470000000205
+    },
+    {
+      "pair": 1,
+      "mode": "off",
+      "directory": "off-pair-1",
+      "binary_sha256": "4fb38ff16e5e3faa3efb134724b23fb548d18db9f606d1ce559a06cbb56b2a0d",
+      "qps": {
+        "q5_high_value_customers": 122.75354353003881,
+        "q6_store_category_mix": 284.2768133808683
+      },
+      "wall_seconds": 208.53099999995902
+    },
+    {
+      "pair": 2,
+      "mode": "off",
+      "directory": "off-pair-2",
+      "binary_sha256": "4fb38ff16e5e3faa3efb134724b23fb548d18db9f606d1ce559a06cbb56b2a0d",
+      "qps": {
+        "q5_high_value_customers": 133.74088016790486,
+        "q6_store_category_mix": 265.8702389283215
+      },
+      "wall_seconds": 213.65700000000652
+    },
+    {
+      "pair": 2,
+      "mode": "on",
+      "directory": "on-pair-2",
+      "binary_sha256": "75c21aa22c51044f4ca7dd9aeae7f3501c7341c5d5d59d0a00d0bc6e174b9251",
+      "qps": {
+        "q5_high_value_customers": 146.28213458622815,
+        "q6_store_category_mix": 330.16777461221903
+      },
+      "wall_seconds": 215.5
+    },
+    {
+      "pair": 3,
+      "mode": "on",
+      "directory": "on-pair-3",
+      "binary_sha256": "75c21aa22c51044f4ca7dd9aeae7f3501c7341c5d5d59d0a00d0bc6e174b9251",
+      "qps": {
+        "q5_high_value_customers": 174.90880623615436,
+        "q6_store_category_mix": 402.4794627830637
+      },
+      "wall_seconds": 205.21799999999348
+    },
+    {
+      "pair": 3,
+      "mode": "off",
+      "directory": "off-pair-3",
+      "binary_sha256": "4fb38ff16e5e3faa3efb134724b23fb548d18db9f606d1ce559a06cbb56b2a0d",
+      "qps": {
+        "q5_high_value_customers": 169.51607264736728,
+        "q6_store_category_mix": 325.140800479888
+      },
+      "wall_seconds": 193.15700000000652
+    }
+  ],
+  "process_watch": [
+    {
+      "run": "on-pair-1",
+      "interval_seconds": 2,
+      "checks": 88,
+      "observed": [
+        {
+          "at_epoch_ms": 1793267968709,
+          "pid": 18712,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793267968709,
+          "pid": 40072,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793267970731,
+          "pid": 18712,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793267970731,
+          "pid": 40072,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793267972749,
+          "pid": 40072,
+          "image": "sig.exe"
+        },
+        {
+          "at_epoch_ms": 1793267974772,
+          "pid": 40072,
+          "image": "sig.exe"
+        }
+      ],
+      "errors": [],
+      "limitations": "Periodic image-name inventory can miss short processes, treats any Sig process conservatively, and does not observe every background workload. No process is stopped or reprioritized; no command lines are captured."
+    },
+    {
+      "run": "off-pair-1",
+      "interval_seconds": 2,
+      "checks": 101,
+      "observed": [],
+      "errors": [],
+      "limitations": "Periodic image-name inventory can miss short processes, treats any Sig process conservatively, and does not observe every background workload. No process is stopped or reprioritized; no command lines are captured."
+    },
+    {
+      "run": "off-pair-2",
+      "interval_seconds": 2,
+      "checks": 103,
+      "observed": [],
+      "errors": [],
+      "limitations": "Periodic image-name inventory can miss short processes, treats any Sig process conservatively, and does not observe every background workload. No process is stopped or reprioritized; no command lines are captured."
+    },
+    {
+      "run": "on-pair-2",
+      "interval_seconds": 2,
+      "checks": 105,
+      "observed": [],
+      "errors": [],
+      "limitations": "Periodic image-name inventory can miss short processes, treats any Sig process conservatively, and does not observe every background workload. No process is stopped or reprioritized; no command lines are captured."
+    },
+    {
+      "run": "on-pair-3",
+      "interval_seconds": 2,
+      "checks": 100,
+      "observed": [],
+      "errors": [],
+      "limitations": "Periodic image-name inventory can miss short processes, treats any Sig process conservatively, and does not observe every background workload. No process is stopped or reprioritized; no command lines are captured."
+    },
+    {
+      "run": "off-pair-3",
+      "interval_seconds": 2,
+      "checks": 94,
+      "observed": [],
+      "errors": [],
+      "limitations": "Periodic image-name inventory can miss short processes, treats any Sig process conservatively, and does not observe every background workload. No process is stopped or reprioritized; no command lines are captured."
+    }
+  ],
+  "timing_watch_clear": false,
+  "summary": {
+    "on": {
+      "q5_high_value_customers": {
+        "trials": [
+          690.5642769056427,
+          146.28213458622815,
+          174.90880623615436
+        ],
+        "median": 174.90880623615436,
+        "minimum": 146.28213458622815,
+        "maximum": 690.5642769056427
+      },
+      "q6_store_category_mix": {
+        "trials": [
+          1521.0443881631566,
+          330.16777461221903,
+          402.4794627830637
+        ],
+        "median": 402.4794627830637,
+        "minimum": 330.16777461221903,
+        "maximum": 1521.0443881631566
+      }
+    },
+    "off": {
+      "q5_high_value_customers": {
+        "trials": [
+          122.75354353003881,
+          133.74088016790486,
+          169.51607264736728
+        ],
+        "median": 133.74088016790486,
+        "minimum": 122.75354353003881,
+        "maximum": 169.51607264736728
+      },
+      "q6_store_category_mix": {
+        "trials": [
+          284.2768133808683,
+          265.8702389283215,
+          325.140800479888
+        ],
+        "median": 284.2768133808683,
+        "minimum": 265.8702389283215,
+        "maximum": 325.140800479888
+      }
+    }
+  }
+}

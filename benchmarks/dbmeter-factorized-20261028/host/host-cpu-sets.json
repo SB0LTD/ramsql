@@ -1,0 +1,328 @@
+{
+  "schema": 1,
+  "method": "Read-only Windows CPU-set topology; no process/thread affinity or power setting changed. This does not identify which cores previous database threads used.",
+  "process_affinity": "0xffffffff",
+  "system_affinity": "0xffffffff",
+  "cpu_sets": [
+    {
+      "id": 256,
+      "group": 0,
+      "logical": 0,
+      "core": 0,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 1,
+      "flags": 0
+    },
+    {
+      "id": 257,
+      "group": 0,
+      "logical": 1,
+      "core": 0,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 1,
+      "flags": 1
+    },
+    {
+      "id": 258,
+      "group": 0,
+      "logical": 2,
+      "core": 2,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 1,
+      "flags": 0
+    },
+    {
+      "id": 259,
+      "group": 0,
+      "logical": 3,
+      "core": 2,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 1,
+      "flags": 1
+    },
+    {
+      "id": 260,
+      "group": 0,
+      "logical": 4,
+      "core": 4,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 1,
+      "flags": 1
+    },
+    {
+      "id": 261,
+      "group": 0,
+      "logical": 5,
+      "core": 4,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 1,
+      "flags": 0
+    },
+    {
+      "id": 262,
+      "group": 0,
+      "logical": 6,
+      "core": 6,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 1,
+      "flags": 0
+    },
+    {
+      "id": 263,
+      "group": 0,
+      "logical": 7,
+      "core": 6,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 1,
+      "flags": 1
+    },
+    {
+      "id": 264,
+      "group": 0,
+      "logical": 8,
+      "core": 8,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 1,
+      "flags": 1
+    },
+    {
+      "id": 265,
+      "group": 0,
+      "logical": 9,
+      "core": 8,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 1,
+      "flags": 0
+    },
+    {
+      "id": 266,
+      "group": 0,
+      "logical": 10,
+      "core": 10,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 1,
+      "flags": 0
+    },
+    {
+      "id": 267,
+      "group": 0,
+      "logical": 11,
+      "core": 10,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 1,
+      "flags": 1
+    },
+    {
+      "id": 268,
+      "group": 0,
+      "logical": 12,
+      "core": 12,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 1,
+      "flags": 0
+    },
+    {
+      "id": 269,
+      "group": 0,
+      "logical": 13,
+      "core": 12,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 1,
+      "flags": 1
+    },
+    {
+      "id": 270,
+      "group": 0,
+      "logical": 14,
+      "core": 14,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 1,
+      "flags": 0
+    },
+    {
+      "id": 271,
+      "group": 0,
+      "logical": 15,
+      "core": 14,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 1,
+      "flags": 1
+    },
+    {
+      "id": 272,
+      "group": 0,
+      "logical": 16,
+      "core": 16,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 0,
+      "flags": 1
+    },
+    {
+      "id": 273,
+      "group": 0,
+      "logical": 17,
+      "core": 17,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 0,
+      "flags": 0
+    },
+    {
+      "id": 274,
+      "group": 0,
+      "logical": 18,
+      "core": 18,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 0,
+      "flags": 0
+    },
+    {
+      "id": 275,
+      "group": 0,
+      "logical": 19,
+      "core": 19,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 0,
+      "flags": 0
+    },
+    {
+      "id": 276,
+      "group": 0,
+      "logical": 20,
+      "core": 20,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 0,
+      "flags": 0
+    },
+    {
+      "id": 277,
+      "group": 0,
+      "logical": 21,
+      "core": 21,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 0,
+      "flags": 0
+    },
+    {
+      "id": 278,
+      "group": 0,
+      "logical": 22,
+      "core": 22,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 0,
+      "flags": 0
+    },
+    {
+      "id": 279,
+      "group": 0,
+      "logical": 23,
+      "core": 23,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 0,
+      "flags": 1
+    },
+    {
+      "id": 280,
+      "group": 0,
+      "logical": 24,
+      "core": 24,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 0,
+      "flags": 0
+    },
+    {
+      "id": 281,
+      "group": 0,
+      "logical": 25,
+      "core": 25,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 0,
+      "flags": 0
+    },
+    {
+      "id": 282,
+      "group": 0,
+      "logical": 26,
+      "core": 26,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 0,
+      "flags": 1
+    },
+    {
+      "id": 283,
+      "group": 0,
+      "logical": 27,
+      "core": 27,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 0,
+      "flags": 1
+    },
+    {
+      "id": 284,
+      "group": 0,
+      "logical": 28,
+      "core": 28,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 0,
+      "flags": 0
+    },
+    {
+      "id": 285,
+      "group": 0,
+      "logical": 29,
+      "core": 29,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 0,
+      "flags": 1
+    },
+    {
+      "id": 286,
+      "group": 0,
+      "logical": 30,
+      "core": 30,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 0,
+      "flags": 1
+    },
+    {
+      "id": 287,
+      "group": 0,
+      "logical": 31,
+      "core": 31,
+      "cache": 0,
+      "numa": 0,
+      "efficiency_class": 0,
+      "flags": 1
+    }
+  ]
+}

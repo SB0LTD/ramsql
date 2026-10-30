@@ -85,16 +85,22 @@ verifier with filesystem permissions/Windows ACLs.
 
 ```sh
 python create_verifier.py --output postgres.verifier
-./ramsql --data ramsql.wal --rows 4096 --versions 8192 \
+./ramsql --data ramsql.wal --create-data --rows 4096 --versions 8192 \
   --auth-user postgres --auth-verifier-file postgres.verifier
 ```
+
+`--create-data` is for the first start only. Later starts omit it, so a typo in
+`--data` or a wrong working directory fails with `DataFileMissing` and the
+absolute path instead of creating a new, empty database. Startup prints the
+absolute data file path to stderr.
 
 ```sh
 psql "host=127.0.0.1 port=5432 user=postgres dbname=ramsql sslmode=disable" -W
 ```
 
 From source, use `tools/create_verifier.py` and `sig-out/bin/ramsql` (add `.exe`
-on Windows). Default startup requires SCRAM and persists to `ramsql.wal`.
+on Windows). Default startup requires SCRAM and persists to an existing
+`ramsql.wal`.
 Recovery validates the WAL before listening. Commits flush synchronously before
 publication/acknowledgement; complete corruption fails closed. A failed write
 or flush disables writes until recovery.
@@ -126,7 +132,9 @@ Implemented SQL includes typed CRUD/RETURNING, primary keys, defaults/generated
 columns, sequences, joins, aggregates, CTEs/set operations, savepoints and
 transactional DDL. Development adds PostgreSQL ROUND over numeric and float8
 values, including aggregate expressions. The reporting candidate adds temporal
-`to_char`, ranking/aggregate windows and flat `ROLLUP`/`GROUPING`; see the
+`to_char`, ranking/aggregate windows and flat `ROLLUP`/`GROUPING`. The follow-up
+candidate adds bounded ROWS/GROUPS, integral-key RANGE, exclusions and aggregate
+FILTER; named windows and the remaining built-in window functions stay open. See the
 [reporting qualification record](compatibility/REPORTING_SQL_PROGRESS.md) for
 supported forms, remaining gaps and pending original dbMeter validation.
 Isolation is READ COMMITTED only. Secondary/foreign-key

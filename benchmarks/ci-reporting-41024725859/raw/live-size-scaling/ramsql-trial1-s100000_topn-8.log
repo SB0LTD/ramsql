@@ -1,0 +1,30 @@
+run ramsql-trial1-s100000_topn-8, node local, scenarios: s100000_topn(w1)
+opening 8 connection(s)...
+connected to PostgreSQL 16.0
+[    5.2s] warmup   ops      12187     2435.9/s  errors      0  active 8/8
+[   10.2s] warmup   ops      27515     3060.1/s  errors      0  active 8/8
+[   15.2s] warmup   ops      42548     3004.1/s  errors      0  active 8/8
+[   20.2s] measure  ops      58511     3188.3/s  errors      0  active 8/8
+[   25.2s] measure  ops      74155     3123.7/s  errors      0  active 8/8
+[   30.2s] measure  ops      89913     3147.2/s  errors      0  active 8/8
+[   35.3s] measure  ops     105129     3038.8/s  errors      0  active 8/8
+[   40.3s] measure  ops     119360     2843.2/s  errors      0  active 8/8
+[   45.3s] measure  ops     133778     2878.9/s  errors      0  active 8/8
+[   50.3s] measure  ops     148238     2888.3/s  errors      0  active 8/8
+[   55.3s] measure  ops     163661     3080.7/s  errors      0  active 8/8
+[   60.3s] measure  ops     179360     3136.6/s  errors      0  active 8/8
+[   65.3s] measure  ops     194908     3107.6/s  errors      0  active 8/8
+[   70.3s] measure  ops     209924     2998.7/s  errors      0  active 8/8
+[   75.3s] measure  ops     224481     2907.8/s  errors      0  active 8/8
+[   80.0s] done     ops     238118     2900.6/s  errors      0  active 0/8
+
+Run:       ramsql-trial1-s100000_topn-8
+Database:  ramsql [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-30T08:20:14.770Z .. 2026-10-30T08:21:14.773Z (60.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host runnervm48cm3        8 threads   4 cpus  window +0.0s .. +60.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s100000_topn                 180328        0     1803280     3005.3      2.66      2.59      3.10      3.42      4.29      9.27
+
+Report: /home/runner/work/dbMeter/dbMeter/reports/live/size-scaling/ramsql-trial1-s100000_topn-8/local.json

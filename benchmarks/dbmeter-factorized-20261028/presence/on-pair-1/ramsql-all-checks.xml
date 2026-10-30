@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dbmeter" tests="7" failures="4" errors="0" time="0.030">
+  <testcase classname="dbmeter.check" name="a_totals" time="0.010"/>
+  <testcase classname="dbmeter.check" name="q1_region_month" time="0.002">
+    <failure message="error: ERROR: UndefinedFunction [SQLState 42883]">error: ERROR: UndefinedFunction [SQLState 42883]</failure>
+  </testcase>
+  <testcase classname="dbmeter.check" name="q2_category_rank" time="0.001">
+    <failure message="error: ERROR: Syntax [SQLState 42601]">error: ERROR: Syntax [SQLState 42601]</failure>
+  </testcase>
+  <testcase classname="dbmeter.check" name="q3_top_products" time="0.000">
+    <failure message="error: ERROR: Syntax [SQLState 42601]">error: ERROR: Syntax [SQLState 42601]</failure>
+  </testcase>
+  <testcase classname="dbmeter.check" name="q4_segment_discount_rollup" time="0.000">
+    <failure message="error: ERROR: UndefinedFunction [SQLState 42883]">error: ERROR: UndefinedFunction [SQLState 42883]</failure>
+  </testcase>
+  <testcase classname="dbmeter.check" name="q5_high_value_customers" time="0.012"/>
+  <testcase classname="dbmeter.check" name="q6_store_category_mix" time="0.005"/>
+</testsuite>

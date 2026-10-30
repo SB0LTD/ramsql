@@ -1,0 +1,30 @@
+run ramsql-trial2-s100000_topn-1, node local, scenarios: s100000_topn(w1)
+opening 1 connection(s)...
+connected to PostgreSQL 16.0
+[    5.1s] warmup   ops       5642     1128.0/s  errors      0  active 1/1
+[   10.1s] warmup   ops      11474     1165.7/s  errors      0  active 1/1
+[   15.1s] warmup   ops      17306     1165.7/s  errors      0  active 1/1
+[   20.1s] measure  ops      23086     1155.4/s  errors      0  active 1/1
+[   25.1s] measure  ops      28867     1155.6/s  errors      0  active 1/1
+[   30.1s] measure  ops      34755     1177.0/s  errors      0  active 1/1
+[   35.1s] measure  ops      40531     1154.6/s  errors      0  active 1/1
+[   40.1s] measure  ops      46344     1162.1/s  errors      0  active 1/1
+[   45.1s] measure  ops      52163     1163.2/s  errors      0  active 1/1
+[   50.1s] measure  ops      57993     1165.4/s  errors      0  active 1/1
+[   55.1s] measure  ops      63865     1173.8/s  errors      0  active 1/1
+[   60.1s] measure  ops      69861     1198.6/s  errors      0  active 1/1
+[   65.1s] measure  ops      75711     1169.4/s  errors      0  active 1/1
+[   70.1s] measure  ops      81794     1216.0/s  errors      0  active 1/1
+[   75.1s] measure  ops      87795     1199.7/s  errors      0  active 1/1
+[   80.0s] done     ops      93653     1205.0/s  errors      0  active 0/1
+
+Run:       ramsql-trial2-s100000_topn-1
+Database:  ramsql [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-30T09:39:09.511Z .. 2026-10-30T09:40:09.511Z (60.0 s)
+Nodes:     1 node(s), 1 thread(s) total
+  local                host runnervm48cm3        1 threads   4 cpus  window +0.0s .. +60.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s100000_topn                  70697        0      706970     1178.3      0.85      0.84      0.86      0.87      1.17      2.72
+
+Report: /home/runner/work/dbMeter/dbMeter/reports/live/size-scaling/ramsql-trial2-s100000_topn-1/local.json

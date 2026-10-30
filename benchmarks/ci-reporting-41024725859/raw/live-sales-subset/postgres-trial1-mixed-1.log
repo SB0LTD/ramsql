@@ -1,0 +1,25 @@
+run postgres-trial1-mixed-1, node local, scenarios: s1_region(w2), s2_category(w1), s3_top_products(w2), s4_segment_discount(w2), s5_high_value_customers(w1), s6_store_category_mix(w4)
+opening 1 connection(s)...
+connected to PostgreSQL 18.3 (Debian 18.3-1.pgdg12+1)
+[   20.2s] measure  ops         81        4.0/s  errors      0  active 1/1
+[   40.2s] measure  ops        133        2.6/s  errors      0  active 1/1
+[   60.2s] measure  ops        218        4.2/s  errors      0  active 1/1
+[   80.2s] done     ops        301        4.1/s  errors      0  active 1/1
+[   81.8s] done     ops        302        0.6/s  errors      0  active 0/1
+
+Run:       postgres-trial1-mixed-1
+Database:  postgres [reports as PostgreSQL 18.3 (Debian 18.3-1.pgdg12+1)] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-30T08:16:44.333Z .. 2026-10-30T08:17:46.108Z (61.8 s)
+Nodes:     1 node(s), 1 thread(s) total
+  local                host runnervm48cm3        1 threads   4 cpus  window +0.0s .. +61.8s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s1_region                        28        0         140        0.5    187.44    186.37    190.46    190.46    190.46    191.81
+s2_category                      20        0         400        0.3   1894.34   1884.16   1916.93   1916.93   1916.93   1925.04
+s3_top_products                  34        0         340        0.6     92.40     93.18     93.18     94.60     94.60     94.60
+s4_segment_discount              42        0         672        0.7    187.27    186.37    194.56    194.56    205.12    205.12
+s5_high_value_customers          12        0          48        0.2    204.86    202.75    210.94    217.41    217.41    217.41
+s6_store_category_mix            84        0        1680        1.4     49.61     49.66     50.69     50.69     54.58     54.58
+TOTAL                           220        0        3280        3.6    276.21     93.18    210.94   1884.16   1916.93   1925.04
+
+Report: /home/runner/work/dbMeter/dbMeter/reports/live/sales-subset/postgres-trial1-mixed-1/local.json

@@ -1,0 +1,30 @@
+run ramsql-trial2-s1000000_topn-1, node local, scenarios: s1000000_topn(w1)
+opening 1 connection(s)...
+connected to PostgreSQL 16.0
+[    5.1s] warmup   ops        313       62.6/s  errors      0  active 1/1
+[   10.1s] warmup   ops        631       63.6/s  errors      0  active 1/1
+[   15.1s] warmup   ops        952       64.2/s  errors      0  active 1/1
+[   20.1s] measure  ops       1276       64.8/s  errors      0  active 1/1
+[   25.1s] measure  ops       1595       63.8/s  errors      0  active 1/1
+[   30.1s] measure  ops       1915       64.0/s  errors      0  active 1/1
+[   35.1s] measure  ops       2232       63.4/s  errors      0  active 1/1
+[   40.1s] measure  ops       2548       63.2/s  errors      0  active 1/1
+[   45.1s] measure  ops       2868       64.0/s  errors      0  active 1/1
+[   50.1s] measure  ops       3185       63.4/s  errors      0  active 1/1
+[   55.1s] measure  ops       3504       63.8/s  errors      0  active 1/1
+[   60.1s] measure  ops       3816       62.4/s  errors      0  active 1/1
+[   65.1s] measure  ops       4134       63.6/s  errors      0  active 1/1
+[   70.1s] measure  ops       4455       64.2/s  errors      0  active 1/1
+[   75.1s] measure  ops       4770       63.0/s  errors      0  active 1/1
+[   80.0s] done     ops       5082       64.1/s  errors      0  active 0/1
+
+Run:       ramsql-trial2-s1000000_topn-1
+Database:  ramsql [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-30T09:47:10.390Z .. 2026-10-30T09:48:10.402Z (60.0 s)
+Nodes:     1 node(s), 1 thread(s) total
+  local                host runnervm48cm3        1 threads   4 cpus  window +0.0s .. +60.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s1000000_topn                  3813        0       38130       63.5     15.73     15.49     16.00     16.64     20.22     33.86
+
+Report: /home/runner/work/dbMeter/dbMeter/reports/live/size-scaling/ramsql-trial2-s1000000_topn-1/local.json

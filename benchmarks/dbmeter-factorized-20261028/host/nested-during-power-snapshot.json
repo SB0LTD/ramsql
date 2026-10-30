@@ -1,0 +1,13 @@
+{
+  "at": "2026-10-28T20:32:13.952611+00:00",
+  "ok": true,
+  "power": {
+    "ACLineStatus": 1,
+    "BatteryFlag": 1,
+    "BatteryLifePercent": 100,
+    "SystemStatusFlag": 0,
+    "BatteryLifeTime": 4294967295,
+    "BatteryFullLifeTime": 4294967295
+  },
+  "note": "One read-only power snapshot; no clock/affinity/power settings changed. WMI nominal clock does not prove running frequency or cause."
+}

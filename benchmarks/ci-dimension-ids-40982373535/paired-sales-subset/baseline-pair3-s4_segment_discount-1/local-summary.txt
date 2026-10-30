@@ -1,0 +1,8 @@
+Run:       baseline-pair3-s4_segment_discount-1
+Database:  ramsql [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-30T01:19:25.981Z .. 2026-10-30T01:20:26.120Z (60.1 s)
+Nodes:     1 node(s), 1 thread(s) total
+  local                host runnervm48cm3        1 threads   4 cpus  window +0.0s .. +60.1s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s4_segment_discount             407        0        6512        6.8    147.47    145.41    149.50    149.50    149.50    153.80

@@ -1,0 +1,27 @@
+PASS  s1000000_a_pk                                  9.22 ms
+PASS  s1000000_b_filter                             68.78 ms
+PASS  s1000000_c_topn                               18.70 ms
+PASS  s1000000_d_last                                0.39 ms
+PASS  s100000_a_pk                                   0.41 ms
+PASS  s100000_b_filter                               7.38 ms
+PASS  s100000_c_topn                                 3.72 ms
+PASS  s100000_d_last                                 0.42 ms
+PASS  s10000_a_pk                                    0.43 ms
+PASS  s10000_b_filter                                0.84 ms
+PASS  s10000_c_topn                                  0.55 ms
+PASS  s10000_d_last                                  0.23 ms
+PASS  s1000_a_pk                                     0.23 ms
+PASS  s1000_b_filter                                 0.23 ms
+PASS  s1000_c_topn                                   0.17 ms
+PASS  s1000_d_last                                   0.23 ms
+PASS  s100_a_pk                                      0.19 ms
+PASS  s100_b_filter                                  0.19 ms
+PASS  s100_c_topn                                    0.20 ms
+PASS  s100_d_last                                    0.21 ms
+PASS  s512_a_pk                                      0.23 ms
+PASS  s512_b_filter                                  0.24 ms
+PASS  s512_c_topn                                    0.27 ms
+PASS  s512_d_last                                    0.17 ms
+
+24 check(s): 24 passed, 0 failed
+JUnit report: /home/runner/work/dbMeter/dbMeter/reports/live/size-scaling/ramsql-checks.xml

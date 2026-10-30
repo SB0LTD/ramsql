@@ -14,9 +14,14 @@ needs no scripting runtime. From source the helper is under `tools/`.
 ```sh
 python create_verifier.py --output postgres.verifier
 ./ramsql --capabilities --rows 4096 --versions 8192
-./ramsql --data ramsql.wal --rows 4096 --versions 8192 \
+./ramsql --data ramsql.wal --create-data --rows 4096 --versions 8192 \
   --auth-user postgres --auth-verifier-file postgres.verifier --port 5432
 ```
+
+Pass `--create-data` only on the first start. Without it a missing data file
+(`--data`, default `ramsql.wal` relative to the working directory) fails with
+`DataFileMissing` before any listener opens and nothing is created. Startup
+prints `ramsql: data file <absolute path> (opened)` or `(created)` to stderr.
 
 The helper uses a random salt, PBKDF2-HMAC-SHA256 and exclusive file creation;
 it never overwrites credentials. POSIX creation requests mode 0600. Windows
@@ -70,6 +75,8 @@ future workload fits. Reopen/restore must cover historical capacity peaks.
 ## Failure diagnosis
 
 - Startup without credentials fails rather than silently enabling trust mode.
+- `DataFileMissing` names the absolute data path it looked for. Check the
+  working directory and `--data` before using `--create-data`.
 - A second writer is rejected. Do not use network filesystems without validating
   their locking and flush behavior.
 - A physically incomplete final WAL record may be repaired on recovery. Complete

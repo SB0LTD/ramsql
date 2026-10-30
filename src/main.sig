@@ -171,8 +171,12 @@ fn run(init: std.process.Init.Minimal) !u8 {
             explicit_mode = true;
             mode = if (same(arg, "--serve")) .serve else if (same(arg, "--demo")) .demo else if (same(arg, "--stdin")) .input else if (same(arg, "--help")) .help else if (same(arg, "--capabilities")) .capabilities else if(same(arg,"--machine-capacity")) .machine_capacity else .version;
         } else if (same(arg, "--memory")) {
-            if (data_set) return error.InvalidServerOptions;
+            if (data_set or options.create_data) return error.InvalidServerOptions;
             options.memory = true;
+            has_server_options = true;
+        } else if (same(arg, "--create-data")) {
+            if (options.memory) return error.InvalidServerOptions;
+            options.create_data = true;
             has_server_options = true;
         } else if (same(arg, "--insecure-local")) {
             options.insecure_local = true;
@@ -230,13 +234,13 @@ fn run(init: std.process.Init.Minimal) !u8 {
     }
     if (has_server_options and mode != .serve and mode != .capabilities and mode != .machine_capacity) return error.UnknownArgument;
     if (backup_target) |target| {
-        if (mode != .serve or options.memory) return error.InvalidServerOptions;
+        if (mode != .serve or options.memory or options.create_data) return error.InvalidServerOptions;
         try server.backup(options, target);
         try write("RAMSQL backup complete\n");
         return 0;
     }
     switch (mode) {
-        .help => try write("ramsql beta (controlled testing; not production)\nUsage: ramsql [--serve|--demo|--stdin|--version|--capabilities|--machine-capacity|--help]\nServer: --protocol postgres|mysql|mssql --port N --mysql-port N --mssql-port N\n        --max-clients N --workers N (experimental I/O reactors; SQL serialized) --idle-ms N --max-query-work N (0: unlimited); default loopback PostgreSQL:5432\nMachine: --machine-capacity (JSON native resources and byte plan; opens no database/listeners)\n         --memory-budget BYTES --os-headroom BYTES (also apply to server region admission)\nInspect: --capabilities (JSON; accepts runtime capacity options; opens no files/listeners)\nCapacity: --rows N --versions N --work-rows N --result-rows N (independent runtime budgets)\n          --table-rows n,n,... --table-versions n,n,... (one budget per table slot)\nStorage: --data WAL_PATH (default ramsql.wal) | --memory\nBackup: --data EXISTING_WAL --backup-to NEW_PATH (offline)\nAuth: --auth-user USER --auth-verifier-file PATH (PostgreSQL SCRAM verifier)\nTime zones: --timezone-dir ZONEINFO_DIR (default /usr/share/zoneinfo on Linux/macOS)\n      --insecure-local explicitly enables unauthenticated loopback testing\n--stdin: one SQL statement per line. --demo: run the example and exit.\n"),
+        .help => try write("ramsql beta (controlled testing; not production)\nUsage: ramsql [--serve|--demo|--stdin|--version|--capabilities|--machine-capacity|--help]\nServer: --protocol postgres|mysql|mssql --port N --mysql-port N --mssql-port N\n        --max-clients N --workers N (experimental I/O reactors; SQL serialized) --idle-ms N --max-query-work N (0: unlimited); default loopback PostgreSQL:5432\nMachine: --machine-capacity (JSON native resources and byte plan; opens no database/listeners)\n         --memory-budget BYTES --os-headroom BYTES (also apply to server region admission)\nInspect: --capabilities (JSON; accepts runtime capacity options; opens no files/listeners)\nCapacity: --rows N --versions N --work-rows N --result-rows N (independent runtime budgets)\n          --table-rows n,n,... --table-versions n,n,... (one budget per table slot)\nStorage: --data WAL_PATH (default ramsql.wal; must exist) | --memory\n         --create-data (first start: create a missing WAL; without it a missing WAL fails startup)\nBackup: --data EXISTING_WAL --backup-to NEW_PATH (offline)\nAuth: --auth-user USER --auth-verifier-file PATH (PostgreSQL SCRAM verifier)\nTime zones: --timezone-dir ZONEINFO_DIR (default /usr/share/zoneinfo on Linux/macOS)\n      --insecure-local explicitly enables unauthenticated loopback testing\n--stdin: one SQL statement per line. --demo: run the example and exit.\n"),
         .version => try write("ramsql " ++ ram.version ++ "\n"),
         .capabilities => try server.describe(options),
         .machine_capacity => try server.describeMachine(options),

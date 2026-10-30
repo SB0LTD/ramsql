@@ -1,0 +1,20 @@
+{
+  "ramsql_source": "0cf7784e4965cd8daba7f7ae7b15553d72ab5c36",
+  "zpm_source": "00b4bb2737a870e960477faaa13a0c8d8b3e168e",
+  "zpm_archive_sha256": "509e19c29f6884bbe1c3d336d01ca367aaf122785f77af4cbf8cf8cbc3611346",
+  "server_config_patch": "    .factorized_aggregates = true,\n    .block_presence_filters = true,\n    .sparse_factor_predicates = true,",
+  "command": [
+    "C:\\Users\\Shado\\AppData\\Local\\Programs\\Sig\\0.6.4\\bin\\sig.exe",
+    "build",
+    "-Doptimize=ReleaseFast",
+    "-j2",
+    "--cache-dir",
+    "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\dbmeter-sparse-stats-on-cache",
+    "--prefix",
+    "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\dbmeter-sparse-stats-on-fast"
+  ],
+  "binary_sha256": "3bdcf2bacd7873165add7640d0ebef71c828a1e315697062f4012c3d879fb837",
+  "diagnostic_only": true,
+  "server_source_sha256": "9061b38642e3ddd22f553b51a809ba418d2a6d15a05032a7931e8ef53c3a4b47",
+  "instrumentation": "After detached PostgreSQL execute, emit existing stream counters to stderr. See make_sparse_stats_builder.py for complete patch. No SQL text is emitted."
+}

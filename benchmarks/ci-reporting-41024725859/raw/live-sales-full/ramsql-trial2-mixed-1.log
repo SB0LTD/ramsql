@@ -1,0 +1,25 @@
+run ramsql-trial2-mixed-1, node local, scenarios: q1_region_month(w2), q2_category_rank(w1), q3_top_products(w2), q4_segment_discount_rollup(w2), q5_high_value_customers(w1), q6_store_category_mix(w4)
+opening 1 connection(s)...
+connected to PostgreSQL 16.0
+[   20.2s] measure  ops         20        1.0/s  errors      0  active 1/1
+[   40.2s] measure  ops         33        0.6/s  errors      0  active 1/1
+[   60.2s] measure  ops         53        1.0/s  errors      0  active 1/1
+[   80.2s] done     ops         78        1.2/s  errors      0  active 1/1
+[   82.4s] done     ops         79        0.5/s  errors      0  active 0/1
+
+Run:       ramsql-trial2-mixed-1
+Database:  ramsql [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-30T08:30:26.038Z .. 2026-10-30T08:31:28.455Z (62.4 s)
+Nodes:     1 node(s), 1 thread(s) total
+  local                host runnervm48cm3        1 threads   4 cpus  window +0.0s .. +62.4s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+q1_region_month                  12        0        1440        0.2   3528.06   3506.18   3571.71   3571.71   3571.71   3592.18
+q2_category_rank                  4        0          80        0.1    866.83    860.16    873.14    873.14    873.14    873.14
+q3_top_products                   8        0          80        0.1     39.25     39.42     39.42     39.42     39.42     39.70
+q4_segment_discount_r...          7        0         147        0.1   2190.14   2195.46   2326.53   2326.53   2326.53   2356.86
+q5_high_value_customers           3        0          12        0.0     17.28     17.15     17.98     17.98     17.98     17.98
+q6_store_category_mix            24        0         480        0.4      9.60      9.34      9.86     10.37     10.62     10.70
+TOTAL                            58        0        2239        0.9   1064.33     39.42   3506.18   3571.71   3571.71   3592.18
+
+Report: /home/runner/work/dbMeter/dbMeter/reports/live/sales-full/ramsql-trial2-mixed-1/local.json

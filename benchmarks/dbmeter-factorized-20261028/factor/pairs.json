@@ -1,0 +1,118 @@
+{
+  "schema": 1,
+  "method": "Three paired original-duration full5M campaigns, AB/BA/AB order. Same immutable SQL source; only factorized_aggregates toggles. Fresh server/data load and JVM per case; default text128, eight workers/clients. No builds, profilers or reference database services concurrently.",
+  "runs": [
+    {
+      "pair": 1,
+      "mode": "on",
+      "directory": "on-pair-1",
+      "binary_sha256": "78749d1399d0b2058f7efbda9b29f40363b9f54b3533e8bd917fbc6a3f1dd5c0",
+      "qps": {
+        "q5_high_value_customers": 182.6767718830682,
+        "q6_store_category_mix": 1592.5901234979417
+      },
+      "wall_seconds": 171.9529999999795
+    },
+    {
+      "pair": 1,
+      "mode": "off",
+      "directory": "off-pair-1",
+      "binary_sha256": "61bd502da19b823328f8140605db34c6f88e2f9ff6d022e736f88b35abe03e66",
+      "qps": {
+        "q5_high_value_customers": 175.12449411255267,
+        "q6_store_category_mix": 1412.7597873368777
+      },
+      "wall_seconds": 173.06300000002375
+    },
+    {
+      "pair": 2,
+      "mode": "off",
+      "directory": "off-pair-2",
+      "binary_sha256": "61bd502da19b823328f8140605db34c6f88e2f9ff6d022e736f88b35abe03e66",
+      "qps": {
+        "q5_high_value_customers": 165.48392470431452,
+        "q6_store_category_mix": 1139.948006932409
+      },
+      "wall_seconds": 173.375
+    },
+    {
+      "pair": 2,
+      "mode": "on",
+      "directory": "on-pair-2",
+      "binary_sha256": "78749d1399d0b2058f7efbda9b29f40363b9f54b3533e8bd917fbc6a3f1dd5c0",
+      "qps": {
+        "q5_high_value_customers": 126.95292981111963,
+        "q6_store_category_mix": 1236.3715147575954
+      },
+      "wall_seconds": 174.875
+    },
+    {
+      "pair": 3,
+      "mode": "on",
+      "directory": "on-pair-3",
+      "binary_sha256": "78749d1399d0b2058f7efbda9b29f40363b9f54b3533e8bd917fbc6a3f1dd5c0",
+      "qps": {
+        "q5_high_value_customers": 127.51610808650916,
+        "q6_store_category_mix": 1285.1357432128393
+      },
+      "wall_seconds": 177.5470000000205
+    },
+    {
+      "pair": 3,
+      "mode": "off",
+      "directory": "off-pair-3",
+      "binary_sha256": "61bd502da19b823328f8140605db34c6f88e2f9ff6d022e736f88b35abe03e66",
+      "qps": {
+        "q5_high_value_customers": 134.06834987675705,
+        "q6_store_category_mix": 1168.9969503557918
+      },
+      "wall_seconds": 173.68699999997625
+    }
+  ],
+  "summary": {
+    "on": {
+      "q5_high_value_customers": {
+        "trials": [
+          182.6767718830682,
+          126.95292981111963,
+          127.51610808650916
+        ],
+        "median": 127.51610808650916,
+        "minimum": 126.95292981111963,
+        "maximum": 182.6767718830682
+      },
+      "q6_store_category_mix": {
+        "trials": [
+          1592.5901234979417,
+          1236.3715147575954,
+          1285.1357432128393
+        ],
+        "median": 1285.1357432128393,
+        "minimum": 1236.3715147575954,
+        "maximum": 1592.5901234979417
+      }
+    },
+    "off": {
+      "q5_high_value_customers": {
+        "trials": [
+          175.12449411255267,
+          165.48392470431452,
+          134.06834987675705
+        ],
+        "median": 165.48392470431452,
+        "minimum": 134.06834987675705,
+        "maximum": 175.12449411255267
+      },
+      "q6_store_category_mix": {
+        "trials": [
+          1412.7597873368777,
+          1139.948006932409,
+          1168.9969503557918
+        ],
+        "median": 1168.9969503557918,
+        "minimum": 1139.948006932409,
+        "maximum": 1412.7597873368777
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+FAIL  cap_a_text_200_bytes                           6.07 ms
+        error: ERROR: TextCapacity [SQLState 54000]
+FAIL  cap_b_9_columns                                0.32 ms
+        error: ERROR: ColumnCapacity [SQLState 54000]
+FAIL  cap_c_20_more_tables                           0.53 ms
+        error: ERROR: TableCapacity [SQLState 54000]
+
+3 check(s): 0 passed, 3 failed
+JUnit report: /home/runner/work/dbMeter/dbMeter/reports/live/size-scaling/ramsql-capabilities.xml
