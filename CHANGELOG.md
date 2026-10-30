@@ -6,6 +6,16 @@ later binary.
 
 ## Unreleased
 
+- Keep multiple direct COUNT/SUM/AVG channels in typed caller-owned group state
+  for eligible committed column scans. This covers two-sum grouped CTEs while
+  preserving existing specialized paths and ordinary SQL for unsupported
+  expressions, snapshots and budgets. No local throughput measurement or
+  all-workload speedup is claimed; qualify the candidate in CI.
+
+- Validate single-character LIKE escapes through the scalar UTF-8 decoder.
+  Preserve malformed-input rejection while supporting native SB0 toolchains
+  without the whole-buffer validator's vector reduction.
+
 - Enable ZPM's guarded factorized aggregate operators: aggregate fact measures
   before unique-key dimension joins, and carry typed COUNT/SUM producer state
   through eligible grouped CTE/derived consumers. Both borrow initialized query
