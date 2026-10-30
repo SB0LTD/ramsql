@@ -6,6 +6,13 @@ later binary.
 
 ## Unreleased
 
+- Prevent timestamp literal, DATE conversion, calendar arithmetic and interval
+  accumulation/`ago` overflow from terminating the server. Reject unsupported
+  date offsets typed BIGINT; reject subtraction of infinite dates. Preserve
+  native PostgreSQL precision rounding and signed interval boundaries. Add
+  full-year-range core properties, PG16/PG18 server boundary cases and native
+  SB0X/SB0K SQLSTATE/session-survival probes.
+
 - Extend ZPM window execution with bounded ROWS/GROUPS, integral-key RANGE
   offsets, frame exclusions and aggregate FILTER. Use caller-owned exact prefix
   states and MIN/MAX ordinal trees, with charged scalar fallback. Add eight
