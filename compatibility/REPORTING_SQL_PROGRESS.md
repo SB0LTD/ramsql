@@ -20,6 +20,10 @@ not a closed gate; preserve original SQL, data, expected CSVs and all failures.
 - Windows: 66 actual PostgreSQL fixtures; 8,844 assertions on those three modes,
   including every-checkpoint work-limit/cancellation sweeps. Hosted database
   matrices pass Windows/Linux/macOS for the standalone window candidate.
+  The combined server run matched 148/149 semantic cases: its only mismatch was
+  nested-window SQLSTATE (ordinary aggregates require 42803). The fix adds
+  aggregate/FILTER/window-clause context tests, passing 8,882 Windows assertions;
+  the final combined server/platform rerun is pending.
 - ROLLUP: 31 actual PostgreSQL fixtures; 19,443 assertions on those three modes,
   including genuine NULL groups, empty totals, HAVING, exact AVG, independent
   membership, volatile-input evaluation once, snapshots/private writes, poisoned
