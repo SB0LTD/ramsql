@@ -319,11 +319,11 @@ lanes update only the status column of their own findings.
 
 | Id | Sev | Finding | Lane | Status |
 | --- | --- | --- | --- | --- |
-| SQLF-01 | **H** | Unchecked i64 overflow in date and time arithmetic (`temporal.sig:355` and others): a panic in ReleaseSafe, undefined behavior in ReleaseFast. `date ± int8` is accepted where PostgreSQL rejects it. | B7 | open |
+| SQLF-01 | **H** | Unchecked i64 overflow in date and time arithmetic (`temporal.sig:355` and others): a panic in ReleaseSafe, undefined behavior in ReleaseFast. `date ± int8` is accepted where PostgreSQL rejects it. | B7 | implementation fixed in temporal follow-up; FV-12 proof open |
 | SQLF-02 | **H** | Silent wrong results for SQL-standard interval forms (`'1-2'`, `'3 4:05:06'`); `INTERVAL '1' DAY` becomes 1 second aliased "day" | B7 | open |
 | SQLF-03 | M | Comparisons between REAL and int or numeric happened in float4 (PostgreSQL uses float8) | B7 | **closed upstream** at `2f060c2` (`value.comparisonType`); keep the differential test |
 | SQLF-04 | M | `jsonb \|\| '{...}'` resolves the unknown literal as text and concatenates strings | B7 | open |
-| SQLF-05 | M | `date - date` ignores infinity and can return an out-of-range int4 | B7 | open |
+| SQLF-05 | M | `date - date` ignores infinity and can return an out-of-range int4 | B7 | fixed; 22008 regression and server/native probes |
 | SQLF-06 | M | Possible stack exhaustion at large `text_bytes` (by-value cells in recursive evaluation, 43 KB of JSONB stack per nesting level) | B7 | open |
 | SQLF-07 | M | JSONB key insertion sort (O(k²), `jsonb.sig:443`) ignores cancel and statement timeout (LIKE now checkpoints at `2f060c2`) | B7 | open |
 | SQLF-08 | M | Specialized scan strategies duplicate the general engine; arithmetic dispatch relies on binder invariants | B10 | open |
@@ -1171,7 +1171,8 @@ Tasks:
     - SQLancer-style TLP and NoREC oracles over generated schemas;
     - a grammar fuzzer with two oracles: crash in ReleaseSafe, and
       "accepted here implies PostgreSQL accepts it with the same result".
-- [ ] B7.3 Fix SQLF-01:
+- [ ] B7.3 Fix SQLF-01 (implementation and range properties complete in the
+  temporal boundary follow-up; formal FV-12 theorem remains open):
   - checked arithmetic (`@mulWithOverflow`, `@addWithOverflow`) on every
     temporal path;
   - range checks before multiplying;
@@ -1183,7 +1184,8 @@ Tasks:
       as an alias.
 - [ ] B7.5 Keep a differential regression test for SQLF-03, which is already fixed
       upstream. Fix SQLF-04 (jsonb operator resolution), SQLF-05 (22008 for infinite operands) and SQLF-09 (cap the
-      stored JSONB render size, or render into a streaming buffer).
+      stored JSONB render size, or render into a streaming buffer). SQLF-05 is fixed
+      in the temporal boundary follow-up; the other items remain open.
 - [ ] B7.6 Add a cancellation checkpoint to the JSONB key sort, or replace it
       with an O(k log k) sort. Bound worst-case work with a test that a cancel
       arrives within 100 ms for both LIKE and JSONB (SQLF-07).

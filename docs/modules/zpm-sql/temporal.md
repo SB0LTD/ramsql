@@ -84,6 +84,21 @@ datetime_format.sig is new. Evidence:
 - `test_sql_to_char.sig`: 252 PostgreSQL 16.15 fixtures from
   `tests/evidence/to-char-pg16.tsv`, plus error atomicity.
 
+## Current follow-up (30 October 2026)
+
+The tables below retain the historical audit locations. The temporal boundary
+follow-up fixes SQLF-01's six reported overflow paths and SQLF-05's infinite-date
+subtraction. The core contract checks every candidate timestamp year against
+wide arithmetic, plus 28 PostgreSQL 16.15 fixtures captured with UTC explicitly
+set. RAMSQL adds two PG16/PG18 server cases and native SB0 SQLSTATE/session
+survival probes. See ZPM `docs/SQL_TEMPORAL_BOUNDARIES.md` for exact scope.
+FV-12's formal theorem remains open; these are executable regressions, not a
+proof of every temporal operation.
+
+SQLF-11(a)'s suggested range rejection is withdrawn: native PostgreSQL 16.15 and
+18.3 source permit rounding across the documented finite boundary. A test now
+preserves that behavior. Other SQLF-11 subitems and SQLF-02 syntax remain open.
+
 ## 6. Findings
 
 | Id | Sev | Category | Evidence (`file:line`) | Remedy | Lane |

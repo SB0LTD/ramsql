@@ -291,6 +291,24 @@ def exercise(guest, kind, proof):
     guest.query("SELECT id,COUNT(*) OVER (ORDER BY id ROWS BETWEEN 9223372036854775807 PRECEDING AND 9223372036854775807 FOLLOWING),COUNT(*) OVER (ORDER BY id RANGE BETWEEN 9223372036854775807 PRECEDING AND 9223372036854775807 FOLLOWING) FROM range_probe ORDER BY id LIMIT 3",
                 [["0", "64", "64"], ["1", "64", "64"], ["2", "64", "64"]])
     proof.tests.append("bounded_window_prefix_tree_FILTER_GROUPS_RANGE_exclusion_extreme_offsets")
+
+    for sql, state in (
+        ("SELECT '294277-06-01'::timestamp", "22008"),
+        ("SELECT '300000-01-01'::date::timestamp", "22008"),
+        ("SELECT timestamp '294276-12-31' + interval '1 month'", "22008"),
+        ("SELECT date 'infinity' - date 'infinity'", "22008"),
+        ("SELECT date '2000-01-01' + 1::bigint", "42883"),
+        ("SELECT '9223372036854.9999999 seconds'::interval", "22015"),
+        ("SELECT '-9223372036854775807.9 microseconds ago'::interval", "22015"),
+    ):
+        frames = guest.query(sql, error=True)
+        errors = [body for tag, body in frames if tag == b"E"]
+        proof.check(len(errors) == 1 and b"C" + state.encode() + b"\0" in errors[0],
+                    f"wrong native temporal SQLSTATE for {sql}: {errors!r}")
+    guest.query("SELECT '-9223372036854775807.9 microseconds'::interval::text", [["-2562047788:00:54.775808"]])
+    guest.query("SELECT COUNT(*) FROM range_probe", [["64"]])
+    proof.tests.append("temporal_overflow_SQLSTATE_and_session_survival")
+
     guest.query("DROP TABLE range_probe")
     proof.tests.append("dense_ordered_PK_ranges_and_i64_endpoints")
     guest.query("BEGIN", status=b"T")

@@ -76,11 +76,11 @@ table distinguishes the completed window/ROLLUP slices from remaining work.
 
 | Divergence | PostgreSQL | RAMSQL at ZPM 2f060c2 | Evidence | Finding | Priority | Lane |
 | --- | --- | --- | --- | --- | --- | --- |
-| Timestamps near the upper range limit, DATE to TIMESTAMP after year 294276, `date ± bigint`, extreme interval units | 22008, or 42883 for `date + bigint` | **Crash** (Debug/ReleaseSafe) or **undefined behavior** (ReleaseFast) from i64 overflow | `temporal.sig:355`, `606-610`, `733-737`, `779`, `826`, `834`; `value.sig:529`; `binder.sig:510-517` | SQLF-01 | P0 | B7 |
+| Timestamps near the upper range limit, DATE to TIMESTAMP after year 294276, `date ± bigint`, extreme interval units | 22008, or 42883 for `date + bigint` | Fixed in temporal boundary follow-up: checked arithmetic, strict date offset types, checked interval accumulation/ago; FV-12 formal proof remains open | `temporal.sig:355`, `606-610`, `733-737`, `779`, `826`, `834`; `value.sig:529`; `binder.sig:510-517` | SQLF-01 | P0 | B7 |
 | `'1-2'::interval`, `'3 4:05:06'::interval` | `1 year 2 mons`, `3 days 04:05:06` | **Silently wrong**: `-00:00:01`, `04:05:09` | `temporal.sig:716-729` | SQLF-02 | P1 | B7 |
 | `SELECT INTERVAL '1' DAY` | `1 day` | **Silently wrong**: 1 second in a column named `day` | `parser.sig:1747-1758`, `1090` | SQLF-02 | P1 | B7 |
 | `jsonb \|\| '{"b":2}'` | jsonb merge | **Silently wrong**: text concatenation | `binder.sig:1509-1514` | SQLF-04 | P1 | B7 |
-| `date - date` with an infinite operand | Error 22008 | **Silently wrong**: 2147483647, or a value outside the int4 range in an int4 column | `value.sig:530` | SQLF-05 | P2 | B7 |
+| `date - date` with an infinite operand | Error 22008 | Fixed in temporal boundary follow-up: either infinite operand returns 22008 | `value.sig:530` | SQLF-05 | P2 | B7 |
 | JSONB value whose rendered text exceeds the output buffer (for example many `1e-120` numbers) | Stores and reads back | Insert succeeds; text output then fails with 54000 | `jsonb.sig:508-512`, `value.sig:183` | SQLF-09 | P2 | B7 |
 | `SELECT t.x FROM t, t` | Error 42712 | **Accepted**; binds to the first `t` | `binder.sig:2786` | SQLF-10 | P3 | B7 |
 | `ORDER BY` a name that two output columns share | Error 42702 | **Accepted**; uses the first match | `binder.sig:2418`, `2392` | SQLF-10 | P3 | B7 |
