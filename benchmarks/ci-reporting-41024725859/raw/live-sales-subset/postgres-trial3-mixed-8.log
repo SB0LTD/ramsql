@@ -1,0 +1,25 @@
+run postgres-trial3-mixed-8, node local, scenarios: s1_region(w2), s2_category(w1), s3_top_products(w2), s4_segment_discount(w2), s5_high_value_customers(w1), s6_store_category_mix(w4)
+opening 8 connection(s)...
+connected to PostgreSQL 18.3 (Debian 18.3-1.pgdg12+1)
+[   20.2s] measure  ops        123        6.1/s  errors      0  active 8/8
+[   40.2s] measure  ops        246        6.1/s  errors      0  active 8/8
+[   60.2s] measure  ops        387        7.0/s  errors      0  active 8/8
+[   80.3s] done     ops        499        5.6/s  errors      0  active 6/8
+[   83.3s] done     ops        505        2.0/s  errors      0  active 0/8
+
+Run:       postgres-trial3-mixed-8
+Database:  postgres [reports as PostgreSQL 18.3 (Debian 18.3-1.pgdg12+1)] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-30T08:37:09.318Z .. 2026-10-30T08:38:12.610Z (63.3 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host runnervm48cm3        8 threads   4 cpus  window +0.0s .. +63.3s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s1_region                        60        0         300        0.9    793.64    729.09    827.39   1097.73   1982.46   1997.76
+s2_category                      27        0         540        0.4  10123.23  10616.83  11665.41  12451.84  12713.98  12803.65
+s3_top_products                  65        0         650        1.0    361.02    356.35    421.89    454.66    529.84    529.84
+s4_segment_discount              60        0         960        0.9    838.50    811.01    974.85   1163.26   2260.99   2279.81
+s5_high_value_customers          33        0         132        0.5   1011.06   1007.62   1228.80   1294.34   1327.10   1337.51
+s6_store_category_mix           130        0        2600        2.1    199.01    194.56    235.52    251.90    331.78    390.39
+TOTAL                           375        0        5182        5.9   1210.56    421.89   1196.03  10092.54  11403.26  12803.65
+
+Report: /home/runner/work/dbMeter/dbMeter/reports/live/sales-subset/postgres-trial3-mixed-8/local.json

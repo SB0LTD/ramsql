@@ -1,0 +1,8 @@
+Run:       postgres-trial1-s1000000_pk-1
+Database:  postgres [reports as PostgreSQL 18.3 (Debian 18.3-1.pgdg12+1)] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-30T08:37:37.203Z .. 2026-10-30T08:38:37.203Z (60.0 s)
+Nodes:     1 node(s), 1 thread(s) total
+  local                host runnervm48cm3        1 threads   4 cpus  window +0.0s .. +60.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s1000000_pk                 1684769        0     1684769    28079.5      0.03      0.03      0.04      0.04      0.05      2.58

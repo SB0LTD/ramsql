@@ -1,0 +1,9 @@
+PASS  a_totals                                      15.57 ms
+PASS  s1_region                                      9.26 ms
+PASS  s2_category                                  177.00 ms
+PASS  s3_top_products                               14.67 ms
+PASS  s4_segment_discount                           18.99 ms
+PASS  s5_high_value_customers                        9.89 ms
+PASS  s6_store_category_mix                          4.14 ms
+
+7 check(s): 7 passed, 0 failed

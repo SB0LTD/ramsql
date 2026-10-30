@@ -1,0 +1,17 @@
+{
+  "ramsql_source": "0cf7784e4965cd8daba7f7ae7b15553d72ab5c36",
+  "zpm_source": "796719704a952f11a35a10d98cfbba2273f64560",
+  "zpm_archive_sha256": "64e02d979cf104316e6ea9f76759f2b71b860f3a8b57e741e4b25a540d7b32f6",
+  "server_config_patch": "    .factorized_aggregates = false,",
+  "command": [
+    "C:\\Users\\Shado\\AppData\\Local\\Programs\\Sig\\0.6.4\\bin\\sig.exe",
+    "build",
+    "-Doptimize=ReleaseFast",
+    "-j2",
+    "--cache-dir",
+    "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\dbmeter-factor-off-cache",
+    "--prefix",
+    "C:\\Just-Things\\Projects\\sb0\\ramsql\\.sig-cache\\dbmeter-factor-off-fast"
+  ],
+  "binary_sha256": "61bd502da19b823328f8140605db34c6f88e2f9ff6d022e736f88b35abe03e66"
+}

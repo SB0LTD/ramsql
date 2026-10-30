@@ -1,0 +1,27 @@
+PASS  s1000000_a_pk                               1029.65 ms
+PASS  s1000000_b_filter                             36.83 ms
+PASS  s1000000_c_topn                              164.12 ms
+PASS  s1000000_d_last                               18.38 ms
+PASS  s100000_a_pk                                   2.18 ms
+PASS  s100000_b_filter                               1.95 ms
+PASS  s100000_c_topn                                 9.09 ms
+PASS  s100000_d_last                                 4.09 ms
+PASS  s10000_a_pk                                   74.48 ms
+PASS  s10000_b_filter                               21.74 ms
+PASS  s10000_c_topn                                  2.55 ms
+PASS  s10000_d_last                                  1.00 ms
+PASS  s1000_a_pk                                     1.28 ms
+PASS  s1000_b_filter                                 0.72 ms
+PASS  s1000_c_topn                                   0.65 ms
+PASS  s1000_d_last                                   0.48 ms
+PASS  s100_a_pk                                     20.78 ms
+PASS  s100_b_filter                                 19.52 ms
+PASS  s100_c_topn                                    0.76 ms
+PASS  s100_d_last                                    0.41 ms
+PASS  s512_a_pk                                      1.00 ms
+PASS  s512_b_filter                                  0.70 ms
+PASS  s512_c_topn                                    0.52 ms
+PASS  s512_d_last                                    0.43 ms
+
+24 check(s): 24 passed, 0 failed
+JUnit report: /home/runner/work/dbMeter/dbMeter/reports/live/size-scaling/irdb-checks.xml

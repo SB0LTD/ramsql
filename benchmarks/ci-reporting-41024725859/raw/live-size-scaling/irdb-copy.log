@@ -1,0 +1,41 @@
+Reading Table t_100
+Writing Table t_100
+copied t_100                in 0.3 s
+Reading Table t_512
+Writing Table t_512
+copied t_512                in 0.1 s
+Reading Table t_1000
+Writing Table t_1000
+copied t_1000               in 0.1 s
+Reading Table t_10000
+Writing Table t_10000
+copied t_10000              in 0.0 s
+Reading Table t_100000
+.Writing Table t_100000
+Reading Table t_100000
+Writing Table t_100000
+copied t_100000             in 0.5 s
+Reading Table t_1000000
+.Writing Table t_1000000
+Reading Table t_1000000
+.Writing Table t_1000000
+Reading Table t_1000000
+.Writing Table t_1000000
+Reading Table t_1000000
+.Writing Table t_1000000
+Reading Table t_1000000
+.Writing Table t_1000000
+Reading Table t_1000000
+.Writing Table t_1000000
+Reading Table t_1000000
+.Writing Table t_1000000
+Reading Table t_1000000
+.Writing Table t_1000000
+Reading Table t_1000000
+.Writing Table t_1000000
+Reading Table t_1000000
+.Writing Table t_1000000
+Reading Table t_1000000
+Writing Table t_1000000
+copied t_1000000            in 1.9 s
+IRDB database 'live_size_scaling' ready with [t_100, t_512, t_1000, t_10000, t_100000, t_1000000] (3.3 s total)

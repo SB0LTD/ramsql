@@ -1,0 +1,178 @@
+{
+  "dbmeterReport": 1,
+  "runId": "postgres-trial2-mixed-1",
+  "measuredStart": 1793348660527,
+  "measuredEnd": 1793348724297,
+  "nodes": [
+    {
+      "node": "local",
+      "host": "runnervm48cm3",
+      "threads": 1,
+      "cpus": 4,
+      "os": "Linux 7.0.0-1017-azure",
+      "java": "21.0.13",
+      "startAt": "2026-10-30T08:24:00.527Z",
+      "measuredStart": 1793348660527,
+      "measuredEnd": 1793348724297,
+      "settings": {
+        "threads": 1,
+        "duration": "PT1M",
+        "warmup": "PT15S",
+        "rampUp": "PT5S"
+      }
+    }
+  ],
+  "database": {
+    "product": "PostgreSQL",
+    "productVersion": "18.3 (Debian 18.3-1.pgdg12+1)",
+    "driver": "PostgreSQL JDBC Driver",
+    "driverVersion": "42.7.4",
+    "jdbcVersion": "4.2",
+    "url": "jdbc:postgresql://127.0.0.1:52121/postgres",
+    "user": "postgres",
+    "label": "postgres"
+  },
+  "scenarios": {
+    "q1_region_month": {
+      "count": 6,
+      "errors": 0,
+      "rows": 720,
+      "latencyMicros": {
+        "subBits": 5,
+        "count": 6,
+        "sum": 10453062,
+        "min": 1728064,
+        "max": 1754849,
+        "buckets": {
+          "532": 1,
+          "533": 5
+        }
+      },
+      "errorMessages": {},
+      "timeline": {
+        "1793348695": [1, 0, 1744358, 1744358],
+        "1793348699": [1, 0, 1754849, 1754849],
+        "1793348705": [1, 0, 1745144, 1745144],
+        "1793348708": [1, 0, 1741375, 1741375],
+        "1793348710": [1, 0, 1728064, 1728064],
+        "1793348714": [1, 0, 1739272, 1739272]
+      }
+    },
+    "q2_category_rank": {
+      "count": 3,
+      "errors": 0,
+      "rows": 60,
+      "latencyMicros": {
+        "subBits": 5,
+        "count": 3,
+        "sum": 28848918,
+        "min": 9541633,
+        "max": 9686015,
+        "buckets": {
+          "612": 3
+        }
+      },
+      "errorMessages": {},
+      "timeline": {
+        "1793348681": [1, 0, 9686015, 9686015],
+        "1793348693": [1, 0, 9541633, 9541633],
+        "1793348724": [1, 0, 9621270, 9621270]
+      }
+    },
+    "q3_top_products": {
+      "count": 5,
+      "errors": 0,
+      "rows": 50,
+      "latencyMicros": {
+        "subBits": 5,
+        "count": 5,
+        "sum": 1998996,
+        "min": 398842,
+        "max": 401062,
+        "buckets": {
+          "464": 5
+        }
+      },
+      "errorMessages": {},
+      "timeline": {
+        "1793348670": [1, 0, 401062, 401062],
+        "1793348671": [1, 0, 399739, 399739],
+        "1793348700": [1, 0, 399383, 399383],
+        "1793348706": [1, 0, 399970, 399970],
+        "1793348708": [1, 0, 398842, 398842]
+      }
+    },
+    "q4_segment_discount_rollup": {
+      "count": 4,
+      "errors": 0,
+      "rows": 84,
+      "latencyMicros": {
+        "subBits": 5,
+        "count": 4,
+        "sum": 9920315,
+        "min": 2358214,
+        "max": 2568351,
+        "buckets": {
+          "547": 1,
+          "549": 1,
+          "550": 1,
+          "551": 1
+        }
+      },
+      "errorMessages": {},
+      "timeline": {
+        "1793348683": [1, 0, 2568351, 2568351],
+        "1793348698": [1, 0, 2358214, 2358214],
+        "1793348703": [1, 0, 2460138, 2460138],
+        "1793348712": [1, 0, 2533612, 2533612]
+      }
+    },
+    "q5_high_value_customers": {
+      "count": 3,
+      "errors": 0,
+      "rows": 12,
+      "latencyMicros": {
+        "subBits": 5,
+        "count": 3,
+        "sum": 1775371,
+        "min": 581172,
+        "max": 602634,
+        "buckets": {
+          "483": 1,
+          "484": 2
+        }
+      },
+      "errorMessages": {},
+      "timeline": {
+        "1793348670": [1, 0, 591565, 591565],
+        "1793348700": [1, 0, 581172, 581172],
+        "1793348706": [1, 0, 602634, 602634]
+      }
+    },
+    "q6_store_category_mix": {
+      "count": 9,
+      "errors": 0,
+      "rows": 180,
+      "latencyMicros": {
+        "subBits": 5,
+        "count": 9,
+        "sum": 1670260,
+        "min": 183302,
+        "max": 188205,
+        "buckets": {
+          "428": 3,
+          "429": 6
+        }
+      },
+      "errorMessages": {},
+      "timeline": {
+        "1793348669": [1, 0, 185053, 185053],
+        "1793348670": [1, 0, 184236, 184236],
+        "1793348693": [2, 0, 369584, 186282],
+        "1793348695": [2, 0, 372119, 187867],
+        "1793348700": [1, 0, 188205, 188205],
+        "1793348701": [2, 0, 371063, 185709]
+      }
+    }
+  }
+}

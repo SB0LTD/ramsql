@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dbmeter" tests="3" failures="3" errors="0" time="0.007">
+  <testcase classname="dbmeter.check" name="cap_a_text_200_bytes" time="0.006">
+    <failure message="error: ERROR: TextCapacity [SQLState 54000]">error: ERROR: TextCapacity [SQLState 54000]</failure>
+  </testcase>
+  <testcase classname="dbmeter.check" name="cap_b_9_columns" time="0.000">
+    <failure message="error: ERROR: ColumnCapacity [SQLState 54000]">error: ERROR: ColumnCapacity [SQLState 54000]</failure>
+  </testcase>
+  <testcase classname="dbmeter.check" name="cap_c_20_more_tables" time="0.001">
+    <failure message="error: ERROR: TableCapacity [SQLState 54000]">error: ERROR: TableCapacity [SQLState 54000]</failure>
+  </testcase>
+</testsuite>

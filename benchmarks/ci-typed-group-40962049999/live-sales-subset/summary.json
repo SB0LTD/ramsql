@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "suite": "sales-subset",
+  "profile": "qualification",
+  "qualified": false,
+  "source_revision": "f3ffb4bc0d701631a0309a9c02e7f1b579ad08d5",
+  "binary_sha256": "0e36bf8e5de9986a782d1e7139b87157838bfebc00f1e4445e23f61196c326c4",
+  "input_revision": "6064636e13f274af1aad0763d288971ea6855b31",
+  "ci": {
+    "provider": "github-actions",
+    "checkout_revision": "6064636e13f274af1aad0763d288971ea6855b31",
+    "repository": "benor1470/dbMeter",
+    "run_id": "40962049999",
+    "run_attempt": "1",
+    "job": "benchmark",
+    "workflow": "Live RAMSQL comparison",
+    "event_sha": "9490674388c0f6d17dd37d181da0918c68b748cb",
+    "runner_name": "GitHub Actions 1000000073",
+    "runner_os": "Linux",
+    "image_os": "ubuntu24",
+    "image_version": "20261026.354.1",
+    "run_url": "https://github.com/benor1470/dbMeter/actions/runs/40962049999/attempts/1"
+  },
+  "issues": [],
+  "rows": [
+    {
+      "case": "mixed/1",
+      "engines": {
+        "ramsql": {
+          "median_qps": 15.856360032645446,
+          "min_qps": 15.252939021547274,
+          "max_qps": 15.990938468201353,
+          "median_p99_us": 299007
+        },
+        "postgres": {
+          "median_qps": 3.8398692810457513,
+          "min_qps": 3.589769157899985,
+          "max_qps": 3.9072891726523014,
+          "median_p99_us": 1884159
+        },
+        "irdb": {
+          "median_qps": 176.43334388589898,
+          "min_qps": 176.16968808317782,
+          "max_qps": 176.59411352954902,
+          "median_p99_us": 22783
+        }
+      },
+      "advantage": false,
+      "ratio_to_fastest": 0.08987167438655981
+    },
+    {
+      "case": "mixed/8",
+      "engines": {
+        "ramsql": {
+          "median_qps": 53.70176401150515,
+          "min_qps": 49.983465608465615,
+          "max_qps": 54.076525267306316,
+          "median_p99_us": 598015
+        },
+        "postgres": {
+          "median_qps": 6.011512764498589,
+          "min_qps": 4.9302606676527185,
+          "max_qps": 6.160196872271175,
+          "median_p99_us": 12189695
+        },
+        "irdb": {
+          "median_qps": 249.49607689616684,
+          "min_qps": 243.1887487293996,
+          "max_qps": 251.5996800639872,
+          "median_p99_us": 84991
+        }
+      },
+      "advantage": false,
+      "ratio_to_fastest": 0.21524091552691746
+    }
+  ]
+}

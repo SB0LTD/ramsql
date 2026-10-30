@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dbmeter" tests="27" failures="0" errors="0" time="0.106">
+  <testcase classname="dbmeter.check" name="cap_a_text_200_bytes" time="0.008"/>
+  <testcase classname="dbmeter.check" name="cap_b_9_columns" time="0.002"/>
+  <testcase classname="dbmeter.check" name="cap_c_20_more_tables" time="0.012"/>
+  <testcase classname="dbmeter.check" name="s1000000_a_pk" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s1000000_b_filter" time="0.025"/>
+  <testcase classname="dbmeter.check" name="s1000000_c_topn" time="0.038"/>
+  <testcase classname="dbmeter.check" name="s1000000_d_last" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s100000_a_pk" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s100000_b_filter" time="0.003"/>
+  <testcase classname="dbmeter.check" name="s100000_c_topn" time="0.006"/>
+  <testcase classname="dbmeter.check" name="s100000_d_last" time="0.001"/>
+  <testcase classname="dbmeter.check" name="s10000_a_pk" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s10000_b_filter" time="0.001"/>
+  <testcase classname="dbmeter.check" name="s10000_c_topn" time="0.001"/>
+  <testcase classname="dbmeter.check" name="s10000_d_last" time="0.001"/>
+  <testcase classname="dbmeter.check" name="s1000_a_pk" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s1000_b_filter" time="0.001"/>
+  <testcase classname="dbmeter.check" name="s1000_c_topn" time="0.003"/>
+  <testcase classname="dbmeter.check" name="s1000_d_last" time="0.001"/>
+  <testcase classname="dbmeter.check" name="s100_a_pk" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s100_b_filter" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s100_c_topn" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s100_d_last" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s512_a_pk" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s512_b_filter" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s512_c_topn" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s512_d_last" time="0.000"/>
+</testsuite>

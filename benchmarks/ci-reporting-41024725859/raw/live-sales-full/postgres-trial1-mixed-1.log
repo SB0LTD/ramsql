@@ -1,0 +1,29 @@
+run postgres-trial1-mixed-1, node local, scenarios: q1_region_month(w2), q2_category_rank(w1), q3_top_products(w2), q4_segment_discount_rollup(w2), q5_high_value_customers(w1), q6_store_category_mix(w4)
+opening 1 connection(s)...
+connected to PostgreSQL 18.3 (Debian 18.3-1.pgdg12+1)
+[   10.2s] warmup   ops          9        0.9/s  errors      0  active 1/1
+[   20.2s] measure  ops         13        0.4/s  errors      0  active 1/1
+[   30.2s] measure  ops         22        0.9/s  errors      0  active 1/1
+[   40.2s] measure  ops         29        0.7/s  errors      0  active 1/1
+[   50.2s] measure  ops         32        0.3/s  errors      0  active 1/1
+[   60.2s] measure  ops         34        0.2/s  errors      0  active 1/1
+[   70.2s] measure  ops         36        0.2/s  errors      0  active 1/1
+[   80.2s] done     ops         46        1.0/s  errors      0  active 1/1
+[   82.2s] done     ops         47        0.5/s  errors      0  active 0/1
+
+Run:       postgres-trial1-mixed-1
+Database:  postgres [reports as PostgreSQL 18.3 (Debian 18.3-1.pgdg12+1)] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-30T08:18:39.405Z .. 2026-10-30T08:19:41.624Z (62.2 s)
+Nodes:     1 node(s), 1 thread(s) total
+  local                host runnervm48cm3        1 threads   4 cpus  window +0.0s .. +62.2s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+q1_region_month                   7        0         840        0.1   1779.83   1785.86   1785.86   1785.86   1785.86   1797.48
+q2_category_rank                  3        0          60        0.0   9594.42   9568.26   9568.26   9568.26   9568.26   9620.56
+q3_top_products                   8        0          80        0.1    399.49    397.31    401.56    401.56    401.56    401.56
+q4_segment_discount_r...          6        0         126        0.1   2483.78   2513.21   2513.21   2513.21   2513.21   2513.21
+q5_high_value_customers           0        0           0        0.0      0.00      0.00      0.00      0.00      0.00      0.00
+q6_store_category_mix             9        0         180        0.1    185.08    186.37    186.37    186.37    186.37    187.09
+TOTAL                            33        0        1286        0.5   1848.68    405.50   2523.14   9568.26   9568.26   9620.56
+
+Report: /home/runner/work/dbMeter/dbMeter/reports/live/sales-full/postgres-trial1-mixed-1/local.json

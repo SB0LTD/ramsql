@@ -1,0 +1,9 @@
+PASS  a_totals                                      15.71 ms
+PASS  q1_region_month                             3532.79 ms
+PASS  q2_category_rank                             878.24 ms
+PASS  q3_top_products                               44.71 ms
+PASS  q4_segment_discount_rollup                  2360.72 ms
+PASS  q5_high_value_customers                       18.06 ms
+PASS  q6_store_category_mix                         11.25 ms
+
+7 check(s): 7 passed, 0 failed

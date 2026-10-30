@@ -1,0 +1,10 @@
+PASS  a_totals                                      14.22 ms
+PASS  s1_region                                      9.12 ms
+PASS  s2_category                                  177.84 ms
+PASS  s3_top_products                                9.86 ms
+PASS  s4_segment_discount                           19.55 ms
+PASS  s5_high_value_customers                        7.94 ms
+PASS  s6_store_category_mix                          3.82 ms
+
+7 check(s): 7 passed, 0 failed
+JUnit report: /home/runner/work/dbMeter/dbMeter/reports/live/sales-subset/ramsql-checks.xml

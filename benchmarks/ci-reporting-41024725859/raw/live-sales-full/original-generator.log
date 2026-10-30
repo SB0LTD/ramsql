@@ -1,0 +1,7 @@
+wrote expected/totals.csv (1 rows)
+wrote expected/q1_region_month.csv (120 rows)
+wrote expected/q2_category_rank.csv (20 rows)
+wrote expected/q3_top_products.csv (10 rows)
+wrote expected/q4_segment_discount_rollup.csv (21 rows)
+wrote expected/q5_high_value_customers.csv (4 rows)
+wrote expected/q6_store_category_mix.csv (20 rows)

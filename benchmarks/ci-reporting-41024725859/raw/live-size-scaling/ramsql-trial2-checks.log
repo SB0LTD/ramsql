@@ -1,0 +1,26 @@
+PASS  s1000000_a_pk                                  8.84 ms
+PASS  s1000000_b_filter                             66.75 ms
+PASS  s1000000_c_topn                               18.39 ms
+PASS  s1000000_d_last                                0.45 ms
+PASS  s100000_a_pk                                   0.38 ms
+PASS  s100000_b_filter                               7.84 ms
+PASS  s100000_c_topn                                 2.20 ms
+PASS  s100000_d_last                                 0.26 ms
+PASS  s10000_a_pk                                    0.25 ms
+PASS  s10000_b_filter                                0.99 ms
+PASS  s10000_c_topn                                  1.03 ms
+PASS  s10000_d_last                                  0.20 ms
+PASS  s1000_a_pk                                     0.25 ms
+PASS  s1000_b_filter                                 0.32 ms
+PASS  s1000_c_topn                                   0.25 ms
+PASS  s1000_d_last                                   0.16 ms
+PASS  s100_a_pk                                      0.20 ms
+PASS  s100_b_filter                                  0.22 ms
+PASS  s100_c_topn                                    0.27 ms
+PASS  s100_d_last                                    0.18 ms
+PASS  s512_a_pk                                      0.22 ms
+PASS  s512_b_filter                                  0.24 ms
+PASS  s512_c_topn                                    0.21 ms
+PASS  s512_d_last                                    0.18 ms
+
+24 check(s): 24 passed, 0 failed

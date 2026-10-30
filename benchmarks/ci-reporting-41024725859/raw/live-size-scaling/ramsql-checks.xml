@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dbmeter" tests="24" failures="0" errors="0" time="0.114">
+  <testcase classname="dbmeter.check" name="s1000000_a_pk" time="0.009"/>
+  <testcase classname="dbmeter.check" name="s1000000_b_filter" time="0.069"/>
+  <testcase classname="dbmeter.check" name="s1000000_c_topn" time="0.019"/>
+  <testcase classname="dbmeter.check" name="s1000000_d_last" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s100000_a_pk" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s100000_b_filter" time="0.007"/>
+  <testcase classname="dbmeter.check" name="s100000_c_topn" time="0.004"/>
+  <testcase classname="dbmeter.check" name="s100000_d_last" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s10000_a_pk" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s10000_b_filter" time="0.001"/>
+  <testcase classname="dbmeter.check" name="s10000_c_topn" time="0.001"/>
+  <testcase classname="dbmeter.check" name="s10000_d_last" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s1000_a_pk" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s1000_b_filter" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s1000_c_topn" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s1000_d_last" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s100_a_pk" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s100_b_filter" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s100_c_topn" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s100_d_last" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s512_a_pk" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s512_b_filter" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s512_c_topn" time="0.000"/>
+  <testcase classname="dbmeter.check" name="s512_d_last" time="0.000"/>
+</testsuite>

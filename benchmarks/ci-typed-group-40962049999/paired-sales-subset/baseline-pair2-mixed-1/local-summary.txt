@@ -1,0 +1,14 @@
+Run:       baseline-pair2-mixed-1
+Database:  ramsql [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-29T22:16:52.585Z .. 2026-10-29T22:17:52.697Z (60.1 s)
+Nodes:     1 node(s), 1 thread(s) total
+  local                host runnervm48cm3        1 threads   4 cpus  window +0.0s .. +60.1s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s1_region                       141        0         705        2.3      8.62      8.58      8.58      8.83     12.58     12.58
+s2_category                      55        0        1100        0.9    170.67    169.98    169.98    169.98    186.37    186.80
+s3_top_products                 149        0        1490        2.5    158.04    157.70    157.70    161.79    186.37    187.84
+s4_segment_discount             117        0        1872        1.9    211.34    202.75    251.90    266.24    282.62    299.02
+s5_high_value_customers          83        0         332        1.4      7.73      8.00      8.32      8.32     10.11     10.23
+s6_store_category_mix           262        0        5240        4.4      1.99      2.08      2.27      2.34      2.66      3.19
+TOTAL                           807        0       10739       13.4     74.40      8.58    190.46    219.14    260.10    299.02

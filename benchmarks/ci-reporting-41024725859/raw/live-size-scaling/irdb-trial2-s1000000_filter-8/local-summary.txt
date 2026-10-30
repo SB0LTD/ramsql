@@ -1,0 +1,8 @@
+Run:       irdb-trial2-s1000000_filter-8
+Database:  irdb [reports as InMemory.Net IRDB server 127.0.0.1:45653, database live_size_scaling] (driver dbmeter IRDB adapter (jirdb) 0.1)
+Window:    2026-10-30T09:29:44.085Z .. 2026-10-30T09:30:44.087Z (60.0 s)
+Nodes:     1 node(s), 8 thread(s) total
+  local                host runnervm48cm3        8 threads   4 cpus  window +0.0s .. +60.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+s1000000_filter               83998        0    84007023     1399.9      5.71      4.93     10.11     12.42     16.64     36.71

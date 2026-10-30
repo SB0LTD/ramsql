@@ -1,0 +1,24 @@
+run ramsql-trial3-mixed-1, node local, scenarios: q1_region_month(w2), q2_category_rank(w1), q3_top_products(w2), q4_segment_discount_rollup(w2), q5_high_value_customers(w1), q6_store_category_mix(w4)
+opening 1 connection(s)...
+connected to PostgreSQL 16.0
+[   20.2s] measure  ops         14        0.7/s  errors      0  active 1/1
+[   40.2s] measure  ops         38        1.2/s  errors      0  active 1/1
+[   60.2s] measure  ops         53        0.7/s  errors      0  active 1/1
+[   80.0s] done     ops         76        1.2/s  errors      0  active 0/1
+
+Run:       ramsql-trial3-mixed-1
+Database:  ramsql [reports as PostgreSQL 16.0] (driver PostgreSQL JDBC Driver 42.7.4)
+Window:    2026-10-30T08:36:30.734Z .. 2026-10-30T08:37:30.749Z (60.0 s)
+Nodes:     1 node(s), 1 thread(s) total
+  local                host runnervm48cm3        1 threads   4 cpus  window +0.0s .. +60.0s
+
+scenario                      count   errors        rows        tps    avg ms    p50 ms    p90 ms    p95 ms    p99 ms    max ms
+q1_region_month                  10        0        1200        0.2   3534.14   3506.18   3571.71   3571.71   3571.71   3579.15
+q2_category_rank                  7        0         140        0.1    864.35    860.25    868.92    868.92    868.92    868.92
+q3_top_products                  14        0         140        0.2     38.90     38.49     39.41     39.41     39.41     39.41
+q4_segment_discount_r...          7        0         147        0.1   2338.45   2260.99   2392.06   2392.06   2392.06   2423.72
+q5_high_value_customers           5        0          20        0.1     17.37     17.66     18.14     18.14     18.14     18.14
+q6_store_category_mix            18        0         360        0.3     10.10     10.11     11.14     11.33     11.33     11.33
+TOTAL                            61        0        2007        1.0    960.24     38.40   3506.18   3506.18   3571.71   3579.15
+
+Report: /home/runner/work/dbMeter/dbMeter/reports/live/sales-full/ramsql-trial3-mixed-1/local.json
