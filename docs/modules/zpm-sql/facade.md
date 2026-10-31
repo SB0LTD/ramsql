@@ -10,7 +10,29 @@
 | Status | beta |
 | Formatting (`sig fmt --check`) | `sql.sig` dirty (measured at `2f060c2`, 2026-10-30; REPO-21) |
 
-> **Wave 0 update (2026-10-30).** The three lock-grant call sites in `sql.sig` (`lockTable`, `RowLocker.lock`, `conflictUpdate`) now go through `M.recordLock` (STO-03, branch `b8/sto03-lock-list`). STO-02 and the other facade findings are still open. The fix is reviewed, but it is not merged yet; see `PLAN.md` §18. Until it merges, the rest of this page describes the `2f060c2` baseline.
+> **Historical wave 0 update (2026-10-30; superseded by the safety follow-up below).** The three lock-grant call sites in `sql.sig` (`lockTable`, `RowLocker.lock`, `conflictUpdate`) now go through `M.recordLock` (STO-03, branch `b8/sto03-lock-list`). STO-02 and the other facade findings are still open. The fix is reviewed, but it is not merged yet; see `PLAN.md` §18. Until it merges, the rest of this page describes the `2f060c2` baseline.
+
+
+## Safety follow-up — 31 October 2026
+
+STO-02's reported reclamation paths are fixed: the horizon includes a running
+statement guard and open COPY snapshots, with parked/fresh-wait behavior
+preserved. A forced version-arena exhaustion regression previously returned
+success with two affected rows instead of three; it now returns 53200 and
+rolls back the statement. COPY retains versions across messages until finish
+or cancellation. Existing adequate-capacity EPQ schedules remain qualified.
+
+STO-04's sequence watermark is now globally pending while its log-ahead owner
+is live. Consumer commits persist it before publication; already-durable cache
+hits keep their no-record path. Creator dirty bits retain pending-CREATE
+ownership. Ascending/descending replay tests reproduced the old missing WAL
+record; RAMSQL adds separate SELECT-ACK/INSERT-ACK process kills and live-owner
+PostgreSQL crash differential cases. Implementation scope is documented in ZPM
+`docs/SQL_SNAPSHOT_SEQUENCE_SAFETY.md`.
+
+Historical audit locations below are preserved. These changes do not close
+STO-05, volatile DML replay or the FV-05/FV-08 formal proof obligations.
+
 
 ## 1. Purpose and scope
 
@@ -90,8 +112,9 @@ Out of scope:
   persists at `store.sig:390` before publishing at 396.
 - **INV-FACADE-4** (horizon): `horizon()` must be ≤ the csn of every snapshot
   that can still read, whether pinned, running, resumed or an open COPY.
-  **False today**: only pins count (1315-1321), and a resume clears the pin
-  before the body runs (1158) (STO-02).
+  **Fixed reported paths (STO-02):** running guards and open COPY snapshots
+  count alongside parked pins. See the safety follow-up; the formal proof
+  remains open.
 - **INV-FACADE-5** (WouldBlock keeps exactly its slice): a parked statement
   keeps its statement-subtransaction writes and locks. `abortStatement`
   removes exactly that slice (1042-1061).
@@ -128,8 +151,8 @@ Out of scope:
 | Id | Sev | Category | Evidence (`file:line`) | Remedy | Lane |
 | --- | --- | --- | --- | --- | --- |
 | STO-01 | critical | durability | OIDs are assigned at statement time (`sql.sig:1801-1805` tables; `1361-1366` sequences), but replay requires them ascending in commit order (`change_log.sig:713`). See `change-log.md`. | Accept any unused OID in replay, and keep the counter at the maximum; see `change-log.md`. | B9 |
-| STO-02 | high | correctness | `horizon()` counts only `tx.pin` (1315-1321). A resume clears the pin before the body (1158). `appendRow` and `updateOne` then call `ensureVersions(horizon())` (1939-1941, 2294), which can free versions the resumed snapshot still sees. A resumed UPDATE then skips the row (`visibleAt` returns null, 2263) instead of re-checking it: a lost update. A resumed INSERT ... SELECT re-runs the SELECT and skips by position (1844-1852). The open COPY snapshot `copy_snap` (2152, 2202) is also outside the horizon. | Add a per-transaction running snapshot, set for the statement body and the whole COPY, and include it in `horizon()`. Add a debug check that `vacuum` never frees a version visible to a live snapshot. | B8 |
-| STO-04 | high | durability | nextval marks a sequence dirty only when it logs (1513-1517). The record carries only own and carried sequences (2367-2374). `readOnly` ignores cached values (962-965). See `sequence-and-dml.md`. | Global durable watermark per sequence. | B9 |
+| STO-02 | high | correctness | Historical defect, fixed in the safety follow-up: `horizon()` counted only `tx.pin` (1315-1321). A resume clears the pin before the body (1158). `appendRow` and `updateOne` then call `ensureVersions(horizon())` (1939-1941, 2294), which can free versions the resumed snapshot still sees. A resumed UPDATE then skips the row (`visibleAt` returns null, 2263) instead of re-checking it: a lost update. A resumed INSERT ... SELECT re-runs the SELECT and skips by position (1844-1852). The open COPY snapshot `copy_snap` (2152, 2202) is also outside the horizon. | Add a per-transaction running snapshot, set for the statement body and the whole COPY, and include it in `horizon()`. Add a debug check that `vacuum` never frees a version visible to a live snapshot. | B8 |
+| STO-04 | high | durability | Historical defect, fixed in the safety follow-up: nextval marked a sequence dirty only when it logged (1513-1517). The record carries only own and carried sequences (2367-2374). `readOnly` ignores cached values (962-965). See `sequence-and-dml.md`. | Global durable watermark per sequence. | B9 |
 | STO-10 | medium | correctness | Resume re-executes: INSERT ... SELECT re-runs `queryRows` (1846), so `nextval`, `random()` and `clock_timestamp()` are evaluated again. Rows not yet handled by UPDATE/DELETE re-evaluate volatile WHERE clauses. | Materialize the source once per statement into statement-private storage, or reject volatile functions in parkable DML. | B8 |
 | STO-11 | medium | concurrency | `body` takes `row_exclusive` on the DML target only (1252-1262). Sources of INSERT ... SELECT and subqueries take no AccessShare lock, so a concurrent DROP can commit mid-transaction. | Lock every plan source with AccessShare, as the `.query` path does (1233-1235). | B8 |
 | STO-13 | medium | robustness | `applyChangeRecord` (2541-2547) does not check for active transactions or parked statements. Slot-choice mismatch: see `change-log.md`. | Refuse with an error when any transaction is active; move replay to a replay-only type. | B9 |
@@ -191,7 +214,7 @@ are byte-identical at `2f060c2`.
 | --- | --- | --- | --- |
 | FV-06 | TLA+ `WalCommit` | INV-FACADE-3 with `Store.commit`: nothing is published before persist | todo |
 | FV-07 | TLA+ `MvccReadCommitted` + simulation | INV-FACADE-2 and EvalPlanQual: no G0, G1a or G1b; no lost update | todo |
-| FV-08 | TLA+ `Reclamation` | INV-FACADE-4 including running, resumed and COPY snapshots; counterexample expected until STO-02 is fixed | todo |
+| FV-08 | TLA+ `Reclamation` | INV-FACADE-4 including running, resumed and COPY snapshots; reported counterexample fixed; running/COPY paths covered by executable regressions; formal model remains open | todo |
 | FV-05b | Lean + simulation | published state equals `replay(WAL)` for random schedules | todo |
 | FV-16 | TLA+ `RwGate` | no publish or reclaim while a ReadContext runs | todo |
 | (none) | property | INV-FACADE-1 under capacity failpoints | todo |

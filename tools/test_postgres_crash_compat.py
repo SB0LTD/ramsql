@@ -49,6 +49,8 @@ class CrashCase:
     after: tuple[str, ...]
     tables: tuple[str, ...] = ()
     sequences: tuple[str, ...] = ()
+    # Keep this explicit transaction live until the process is killed.
+    owner_before: tuple[str, ...] = ()
 
 
 CASES = (
@@ -65,6 +67,18 @@ CASES = (
               before=("SELECT nextval('crash_seq')",),
               after=("SELECT nextval('crash_seq')",),
               sequences=("crash_seq",)),
+    CrashCase("CR3", "committed identity consumer persists a live owner's ascending log-ahead",
+              setup=("CREATE SEQUENCE shared_crash_seq", "CREATE TABLE shared_crash_ids (id BIGINT PRIMARY KEY)"),
+              owner_before=("BEGIN", "SELECT nextval('shared_crash_seq')"),
+              before=("INSERT INTO shared_crash_ids VALUES (nextval('shared_crash_seq')) RETURNING id",),
+              after=("SELECT id FROM shared_crash_ids", "SELECT nextval('shared_crash_seq')"),
+              tables=("shared_crash_ids",), sequences=("shared_crash_seq",)),
+    CrashCase("CR4", "committed consumer persists a live owner's descending log-ahead",
+              setup=("CREATE SEQUENCE shared_crash_seq INCREMENT BY -1", "CREATE TABLE shared_crash_ids (id BIGINT PRIMARY KEY)"),
+              owner_before=("BEGIN", "SELECT nextval('shared_crash_seq')"),
+              before=("INSERT INTO shared_crash_ids VALUES (nextval('shared_crash_seq')) RETURNING id",),
+              after=("SELECT id FROM shared_crash_ids", "SELECT nextval('shared_crash_seq')"),
+              tables=("shared_crash_ids",), sequences=("shared_crash_seq",)),
 )
 
 
@@ -185,15 +199,28 @@ def cleanup(psycopg, connection, case):
             execute(session, "DROP SEQUENCE " + name)
 
 
+def require_success(stage, events):
+    for event in events:
+        if event["outcome"].get("sqlstate") != "00000":
+            raise RuntimeError(f"crash fixture {stage} failed: {event!r}")
+    return events
+
+
 def run_side(psycopg, side, case):
     cleanup(psycopg, side.connection, case)
-    result = {"setup": run_list(psycopg, side.connection, case.setup)}
-    if any(event["outcome"]["sqlstate"] != "00000" for event in result["setup"]):
-        result["stage"] = "setup"
-        return result
-    result["before"] = run_list(psycopg, side.connection, case.before)
-    side.crash()
-    result["after"] = run_list(psycopg, side.connection, case.after)
+    result = {"setup": require_success("setup", run_list(psycopg, side.connection, case.setup))}
+    owner = None
+    try:
+        if case.owner_before:
+            owner = psycopg.connect(**side.connection)
+            result["owner_before"] = require_success("live owner", [
+                {"sql": sql, "outcome": execute(owner, sql)} for sql in case.owner_before])
+        result["before"] = require_success("consumer before crash", run_list(psycopg, side.connection, case.before))
+        side.crash()  # owner is still live: no rollback/close before the kill.
+    finally:
+        if owner is not None:
+            owner.close()
+    result["after"] = require_success("after crash", run_list(psycopg, side.connection, case.after))
     cleanup(psycopg, side.connection, case)
     return result
 

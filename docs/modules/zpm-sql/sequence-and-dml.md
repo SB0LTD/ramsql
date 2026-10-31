@@ -10,6 +10,28 @@
 | Status | beta |
 | Formatting (`sig fmt --check`) | `sequence.sig` clean; `dml.sig` clean (measured at `2f060c2`, 2026-10-30; REPO-21) |
 
+
+## Safety follow-up — 31 October 2026
+
+STO-02's reported reclamation paths are fixed: the horizon includes a running
+statement guard and open COPY snapshots, with parked/fresh-wait behavior
+preserved. A forced version-arena exhaustion regression previously returned
+success with two affected rows instead of three; it now returns 53200 and
+rolls back the statement. COPY retains versions across messages until finish
+or cancellation. Existing adequate-capacity EPQ schedules remain qualified.
+
+STO-04's sequence watermark is now globally pending while its log-ahead owner
+is live. Consumer commits persist it before publication; already-durable cache
+hits keep their no-record path. Creator dirty bits retain pending-CREATE
+ownership. Ascending/descending replay tests reproduced the old missing WAL
+record; RAMSQL adds separate SELECT-ACK/INSERT-ACK process kills and live-owner
+PostgreSQL crash differential cases. Implementation scope is documented in ZPM
+`docs/SQL_SNAPSHOT_SEQUENCE_SAFETY.md`.
+
+Historical audit locations below are preserved. These changes do not close
+STO-05, volatile DML replay or the FV-05/FV-08 formal proof obligations.
+
+
 ## 1. Purpose and scope
 
 **`sequence.sig`** implements PostgreSQL sequence arithmetic with CACHE 1:
@@ -67,7 +89,8 @@ Neither file writes versions or records. The facade does (`sql.sig`
   repeat unless `CYCLE`.
 - **INV-SEQ-2** (durable watermark): at every acknowledgement, the last
   durable logged value of each sequence is ≥ every value already returned to
-  any session. **False today** (STO-04). FV-22.
+  any session under noncycling progression (explicit resets excluded).
+  The reported STO-04 path is fixed by global pending watermarks; FV-22 remains open.
 - **INV-SEQ-3** (setval): `set` always marks the transaction dirty
   (`sql.sig:1522`), so a `setval` is persisted by the next commit of that
   transaction.
@@ -105,14 +128,16 @@ Neither file writes versions or records. The facade does (`sql.sig`
 
 | Id | Sev | Category | Evidence (`file:line`) | Remedy | Lane |
 | --- | --- | --- | --- | --- | --- |
-| STO-04 | high | durability | Failing schedule: transaction A's `nextval` logs `v+32` (`sequence.sig:146-149`) and only A is marked dirty (`sql.sig:1515`). B's `nextval` returns `v+2` from the cached range with `logged = false`. B's commit then carries neither A's dirty set nor a carried value (`sql.sig:2367-2374`). If B only read, `readOnly` holds and nothing is persisted (`sql.sig:962-965`). A crash before A ends restores the sequence to the last durable value ≤ v, so `v+2` is returned again. With identity primary keys, this gives duplicate-key errors after restart; without a key, duplicate ids. | Keep a per-sequence `durable_value` in the database. Any commit, including one that called `nextval` without writing, must encode every sequence whose `logged_value` is ahead of `durable_value`, and then advance it. Alternatively, persist the log-ahead record immediately (PostgreSQL's approach). | B9 |
+| STO-04 | high | durability | Historical defect, fixed in the safety follow-up: transaction A's `nextval` logs `v+32` (`sequence.sig:146-149`) and only A is marked dirty (`sql.sig:1515`). B's `nextval` returns `v+2` from the cached range with `logged = false`. B's commit then carries neither A's dirty set nor a carried value (`sql.sig:2367-2374`). If B only read, `readOnly` holds and nothing is persisted (`sql.sig:962-965`). A crash before A ends restores the sequence to the last durable value ≤ v, so `v+2` is returned again. With identity primary keys, this gives duplicate-key errors after restart; without a key, duplicate ids. | Keep a per-sequence `durable_value` in the database. Any commit, including one that called `nextval` without writing, must encode every sequence whose `logged_value` is ahead of `durable_value`, and then advance it. Alternatively, persist the log-ahead record immediately (PostgreSQL's approach). | B9 |
 | STO-10 | medium | correctness | `nextval` inside INSERT ... SELECT is evaluated again when a parked statement resumes (`sql.sig:1846`), consuming extra values. Other volatile functions are re-evaluated too. | See `facade.md`. | B8 |
 
 ## 7. Security considerations
 
 - Sequence names and `regclass` text come from SQL. `regclassName` bounds
   them by `name_bytes` (`sql.sig:1421-1437`).
-- STO-04 is an integrity issue after a crash, not an attacker-controlled one.
+- The historical STO-04 issue could reissue acknowledged values after a crash.
+  Global pending watermark retention fixes that reported schedule; the broader
+  durability/formal program remains open.
   Applications that use identity columns as external identifiers could hand
   out the same id twice.
 - `keyCheck` probes the key index without bounds beyond the 50% load factor
@@ -124,7 +149,8 @@ Neither file writes versions or records. The facade does (`sql.sig`
 
 **Missing:**
 
-- [ ] B9: the STO-04 crash test. A takes `nextval` and stays open; B takes
+- [x] B9: the STO-04 crash regression is implemented (CI qualification recorded
+  with the integration): A takes `nextval` and stays open; B takes
   `nextval` and commits (read-only, and again with an insert); crash before
   A ends; recover; the next `nextval` must exceed every value returned
   before the crash.
@@ -142,7 +168,7 @@ Neither file writes versions or records. The facade does (`sql.sig`
 
 | Id | Kind (Lean / TLA+ / property / fuzz / differential) | Statement | Status |
 | --- | --- | --- | --- |
-| FV-22 | TLA+ `WalCommit` extension + crash replay | INV-SEQ-2: `nextval` values are never returned twice, including across crash and recovery; gaps allowed (fails today: STO-04) | todo |
+| FV-22 | TLA+ `WalCommit` extension + crash replay | INV-SEQ-2: `nextval` values are never returned twice, including across crash and recovery; gaps allowed (reported STO-04 schedule fixed; formal theorem remains open) | todo |
 | FV-21 | Lean model + simulation | INV-DML-1: unique-key decisions agree with the set of live and in-flight versions | todo |
 | FV-11, FV-12 | Lean + vectors | `store` coercions for NUMERIC and TIMESTAMP typmods | todo |
 | (none) | property | INV-SEQ-1 against a reference implementation of PostgreSQL `nextval_internal` | todo |

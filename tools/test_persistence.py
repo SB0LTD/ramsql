@@ -275,6 +275,37 @@ def last_sequence(data):
     return sequence
 
 
+def concurrent_sequence_crash(binary, artifacts):
+    """Kill with the log-ahead owner live, immediately after consumer ACK."""
+    global cases
+    for descending in (False, True):
+        for variant in ("select", "insert"):
+            wal = artifacts / (("sequence-desc-" if descending else "sequence-asc-") + variant + ".wal")
+            with DurableServer(binary, wal, create=True) as server:
+                owner, consumer = server.connect(), server.connect()
+                try:
+                    owner.ok("CREATE SEQUENCE shared_seq" + (" INCREMENT BY -1" if descending else ""))
+                    owner.ok("CREATE TABLE issued (id BIGINT PRIMARY KEY)")
+                    owner.ok("BEGIN", status=b"T")
+                    owner.ok("SELECT nextval('shared_seq')", [["-1" if descending else "1"]], status=b"T")
+                    # A bare SELECT commit must protect its result too.
+                    consumer.ok("SELECT nextval('shared_seq')", [["-2" if descending else "2"]])
+                    if variant == "insert":
+                        consumer.ok("INSERT INTO issued VALUES (nextval('shared_seq')) RETURNING id", [["-3" if descending else "3"]])
+                    server.crash()
+                finally:
+                    owner.close(terminate=False)
+                    consumer.close(terminate=False)
+            with DurableServer(binary, wal) as server:
+                pg = server.connect()
+                try:
+                    pg.ok("SELECT id FROM issued", [["-3" if descending else "3"]] if variant == "insert" else [])
+                    pg.ok("SELECT nextval('shared_seq')", [["-34" if descending else "34"]])
+                finally:
+                    pg.close()
+            cases += 1
+
+
 def main():
     global cases
     parser = argparse.ArgumentParser(description=__doc__)
@@ -290,6 +321,7 @@ def main():
     artifacts = options.artifacts or root / "sig-out" / f"persistence-crash-{time.time_ns()}"
     artifacts.mkdir(parents=True, exist_ok=False)
     data_file_creation(binary, artifacts)
+    concurrent_sequence_crash(binary, artifacts)
     wal = artifacts / "database.wal"
     expected = [["1", "autocommit"], ["2", "transaction"], ["3", "literal; newline\nkept"]]
     with DurableServer(binary, wal, create=True) as server:

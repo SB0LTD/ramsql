@@ -6,6 +6,14 @@ later binary.
 
 ## Unreleased
 
+- Retain running and COPY statement snapshots during reclamation, including
+  resume under version pressure. Exhaustion returns 53200 with statement
+  rollback instead of silently skipping rows (STO-02).
+- Persist globally pending sequence log-ahead watermarks when a consumer
+  commits while the owner remains live (STO-04). Preserve subsequent cache-hit
+  commits without an extra record. Add ascending/descending replay, process-kill
+  and PostgreSQL crash differential regressions.
+
 - Prevent timestamp literal, DATE conversion, calendar arithmetic and interval
   accumulation/`ago` overflow from terminating the server. Reject unsupported
   date offsets typed BIGINT; reject subtraction of infinite dates. Preserve
