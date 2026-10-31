@@ -1,6 +1,6 @@
 # Snapshot and sequence safety checkpoint — 31 October 2026
 
-Qualification is in progress; merge only after the final source matrices pass.
+All final scoped qualification matrices passed and both source PRs are merged.
 This checkpoint addresses STO-02 and STO-04, not full production readiness or
 SQL/performance parity. Reusable allocator-free changes live in ZPM.
 
@@ -8,7 +8,7 @@ SQL/performance parity. Reusable allocator-free changes live in ZPM.
 
 **STO-02 — live snapshot reclamation.** A three-row UPDATE parks after changing
 its first row. Its blocker fills the remaining version slots and commits. The
-old server resumes, vacuums a still-visible third row, then acknowledges
+old server resumes, reclaims the third row's still-needed snapshot version, then acknowledges
 `UPDATE 2`. In the new server, running and open COPY snapshots participate in
 the horizon. If the caller-provided arena cannot retain live versions and
 complete the statement, it returns 53200 and rolls back its partial writes.
@@ -50,10 +50,28 @@ two standard crash cycles and all four new independent sequence scenarios.
 - MVCC 351 and DML 229 assertions pass locally in Debug, ReleaseSafe and
   ReleaseFast. Independent review reruns ReleaseSafe and approves exact heads.
 - Python qualification contracts pass 9/9; SQL oracle/evidence tests 16/16.
+- The original 118-program SQL inventory was rerun on `6c9ad44` against the
+  unchanged frozen oracle. Results remain exactly 8 smoke passes, 93 failures,
+  17 unexecuted scopes; the driver intentionally exits 1 with
+  SqlConformanceIncomplete. Canonical result SHA-256 remains
+  `5aa8164166bd998a70b162f4631a37242a10124279931ef6e972889dc1fea19b`.
+  These counts are targeted smoke results, not a compatibility percentage.
 - Final qualification: [ZPM database matrix](https://github.com/SB0LTD/zpm/actions/runs/41150514054),
   [RAMSQL CI](https://github.com/SB0LTD/ramsql/actions/runs/41150556722),
   [release matrix](https://github.com/SB0LTD/ramsql/actions/runs/41150556696).
-  These must finish before this checkpoint is marked qualified.
+  ZPM passes all three OS jobs; RAMSQL CI/release passes all 32 active checks
+  with two documented policy skips. Merged trees match the reviewed sources;
+  [the evidence manifest](evidence/snapshot-sequence-safety-20261031.json)
+  records identities, jobs, hashes, controls and finite probe summaries.
+- Native SB0X passes 874 assertions and SB0K 860, with image hashes matching
+  package metadata. These are public ABI conformance fixtures using memory-only
+  channel/UART transport; hosted TCP/WAL/SCRAM and full SB0S distribution
+  integration are outside that native qualification.
+
+The [broad legacy ZPM run](https://github.com/SB0LTD/zpm/actions/runs/41150514114)
+retains four unrelated baseline failures: test-sabr-loop, test-manifest-sabr,
+test-tls-client, test-tts-gpu; 300 succeeded, 22 skipped. This run is not green.
+The dedicated three-OS database qualification above passes.
 
 ## TCP contract repair
 

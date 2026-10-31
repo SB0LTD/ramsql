@@ -1254,18 +1254,16 @@ Tasks:
   - reclamation while snapshots are open.
 - [ ] B8.5 Nightly: 10,000 seeds with 8 to 32 clients. On failure, minimize
       the history and keep it as a regression test.
-- [x] B8.6 Fix STO-02 reported running/COPY snapshot paths (formal proof remains open):
-  - keep a per-transaction `running_snap`, counted by `horizon()` for the
-    whole statement and COPY lifetime;
-  - write the simulator schedule that reproduces the lost update **before**
-    the fix.
-
-  Then fix:
-  - STO-10: capture volatile values once per statement, or forbid resume for
-    statements that contain them;
-  - STO-11: take ACCESS SHARE locks on every source table;
-  - STO-14: queue fairness;
-  - STO-15: widen counters, or check and roll over safely.
+- [ ] B8.6 MVCC safety follow-up (reported STO-02 paths fixed):
+  - [x] Keep running and open COPY snapshots in `horizon()`.
+  - [x] Add deterministic pressure/COPY regressions, including a lost-update
+    reproduction that fails before the fix.
+  - [ ] Complete the FV-08 formal model and broader simulator coverage.
+  - [ ] STO-10: capture volatile values once per statement, or forbid resume
+    for statements that contain them.
+  - [ ] STO-11: take ACCESS SHARE locks on every source table.
+  - [ ] STO-14: queue fairness.
+  - [ ] STO-15: widen counters, or check and roll over safely.
 - [ ] B8.7 Capacity failpoints. Fail the k-th call of `ensureVersions`,
       `ensureRowSlot`, `reserveWrites`, `grantRow`/`pushLock`,
       `catalog.addVersion` and `Writer.reserve`. Oracle:
