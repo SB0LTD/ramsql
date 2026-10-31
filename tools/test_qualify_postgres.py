@@ -54,7 +54,7 @@ class QualificationContracts(unittest.TestCase):
         from pathlib import Path
         from tempfile import TemporaryDirectory
         from test_postgres_semantics import write_report
-        report = {"rows": [["\ud800", "\x00", "é", None]], "sqlstate": "00000"}
+        report = {"rows": [["\ud800", "\x00", "\u00e9", None]], "sqlstate": "00000"}
         with TemporaryDirectory() as temporary:
             path = Path(temporary) / "semantics.json"
             write_report(path, report)
