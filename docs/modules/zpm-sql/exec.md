@@ -227,3 +227,20 @@ contracts are retained. RAMSQL adds live PG16/18 matrix, parameters, binary,
 sequences, NULL groups, demand and durable materialization/restart cases.
 Hosted qualification is pending. Other window and SQL inventory families remain
 open; no performance or complete compatibility claim is made.
+
+## Ranking/distribution inventory candidate —31 October2026
+
+The next candidate adds percent_rank, cume_dist and ntile. cume_dist scans peer
+runs once; ntile uses constant per-partition state and retries leading NULL
+counts before caching the first non-NULL positive count. The full partition
+size remains its denominator even after leading NULLs. Invalid initial counts
+raise22014 only when execution consumes them. Existing demand guards apply to
+sensitive NTILE arguments. No allocator/new per-row storage is introduced.
+Immutable frame errors fold during binding even for optimized ranking frames;
+zero-argument ranking fn(*) and missing OVER error behavior match PostgreSQL.
+
+ZPM docs/SQL_WINDOW_RANKING.md gives the exact scope. Core ranking3047assertions,
+62native PG16 fixtures and existing offset/window/frame suites were independently
+verified. RAMSQL adds live PG16/18 matrix, binary/parameter, lazy sequence and
+durable materialized-distribution checks. Hosted qualification remains pending.
+Named windows/value windows and broad SQL closure remain open.
