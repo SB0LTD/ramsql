@@ -1,0 +1,355 @@
+{
+  "schema": 1,
+  "scope": "STO-02/STO-04 safety checkpoint; not full production or SQL/performance parity",
+  "zpm_source": "6c9ad4451bb5f966f06611307f3b3ef7ba980653",
+  "zpm_archive_sha256": "355d864a77912891f5a7a27f28725816a8a778444e9f03759e04e5a419680c38",
+  "ramsql_source": "4dca1e418dca22179b0963a73f0a58f3a533b66c",
+  "runs": [
+    {
+      "repo": "SB0LTD/zpm",
+      "id": 41150514054,
+      "head_sha": "6c9ad4451bb5f966f06611307f3b3ef7ba980653",
+      "conclusion": "success",
+      "url": "https://github.com/SB0LTD/zpm/actions/runs/41150514054",
+      "jobs": [
+        {
+          "name": "Database contracts (macos-latest)",
+          "conclusion": "success",
+          "databaseId": 124388965875
+        },
+        {
+          "name": "Database contracts (windows-latest)",
+          "conclusion": "success",
+          "databaseId": 124388966271
+        },
+        {
+          "name": "Database contracts (ubuntu-latest)",
+          "conclusion": "success",
+          "databaseId": 124388966331
+        }
+      ]
+    },
+    {
+      "repo": "SB0LTD/ramsql",
+      "id": 41150556722,
+      "head_sha": "4dca1e418dca22179b0963a73f0a58f3a533b66c",
+      "conclusion": "success",
+      "url": "https://github.com/SB0LTD/ramsql/actions/runs/41150556722",
+      "jobs": [
+        {
+          "name": "Native Sig (ubuntu-24.04-arm)",
+          "conclusion": "success",
+          "databaseId": 124385803918
+        },
+        {
+          "name": "postgres / PG16 memory",
+          "conclusion": "success",
+          "databaseId": 124385803928
+        },
+        {
+          "name": "Native Sig (macos-latest)",
+          "conclusion": "success",
+          "databaseId": 124385803934
+        },
+        {
+          "name": "Native Sig (windows-latest)",
+          "conclusion": "success",
+          "databaseId": 124385803989
+        },
+        {
+          "name": "postgres / PG18 memory",
+          "conclusion": "success",
+          "databaseId": 124385804005
+        },
+        {
+          "name": "postgres / PG16 durable-scram",
+          "conclusion": "success",
+          "databaseId": 124385804039
+        },
+        {
+          "name": "Native Sig (ubuntu-latest)",
+          "conclusion": "success",
+          "databaseId": 124385804051
+        },
+        {
+          "name": "postgres / PG18 durable-scram",
+          "conclusion": "success",
+          "databaseId": 124385804100
+        }
+      ]
+    },
+    {
+      "repo": "SB0LTD/ramsql",
+      "id": 41150556696,
+      "head_sha": "4dca1e418dca22179b0963a73f0a58f3a533b66c",
+      "conclusion": "success",
+      "url": "https://github.com/SB0LTD/ramsql/actions/runs/41150556696",
+      "jobs": [
+        {
+          "name": "Validate version, matrix and release policy",
+          "conclusion": "success",
+          "databaseId": 124385803743
+        },
+        {
+          "name": "Bootstrap pinned Sig and validate native SB0X and SB0K",
+          "conclusion": "success",
+          "databaseId": 124385852669
+        },
+        {
+          "name": "Build hosted aarch64-windows",
+          "conclusion": "success",
+          "databaseId": 124385852702
+        },
+        {
+          "name": "Build hosted x86_64-macos",
+          "conclusion": "success",
+          "databaseId": 124385852745
+        },
+        {
+          "name": "Build hosted x86_64-windows",
+          "conclusion": "success",
+          "databaseId": 124385852750
+        },
+        {
+          "name": "Build hosted aarch64-linux",
+          "conclusion": "success",
+          "databaseId": 124385852773
+        },
+        {
+          "name": "Build hosted x86_64-linux",
+          "conclusion": "success",
+          "databaseId": 124385852775
+        },
+        {
+          "name": "Native operating system validation / Native Sig (ubuntu-24.04-arm)",
+          "conclusion": "success",
+          "databaseId": 124385852782
+        },
+        {
+          "name": "Native operating system validation / Native Sig (ubuntu-latest)",
+          "conclusion": "success",
+          "databaseId": 124385852786
+        },
+        {
+          "name": "Build hosted aarch64-macos",
+          "conclusion": "success",
+          "databaseId": 124385852817
+        },
+        {
+          "name": "Native operating system validation / Native Sig (windows-latest)",
+          "conclusion": "success",
+          "databaseId": 124385852819
+        },
+        {
+          "name": "Native operating system validation / Native Sig (macos-latest)",
+          "conclusion": "success",
+          "databaseId": 124385852869
+        },
+        {
+          "name": "Native operating system validation / postgres",
+          "conclusion": "skipped",
+          "databaseId": 124385854847
+        },
+        {
+          "name": "Execute release artifact (aarch64-linux)",
+          "conclusion": "success",
+          "databaseId": 124387109382
+        },
+        {
+          "name": "Execute release artifact (aarch64-windows)",
+          "conclusion": "success",
+          "databaseId": 124387109394
+        },
+        {
+          "name": "Execute release artifact (x86_64-macos)",
+          "conclusion": "success",
+          "databaseId": 124387109396
+        },
+        {
+          "name": "Execute release artifact (x86_64-windows)",
+          "conclusion": "success",
+          "databaseId": 124387109397
+        },
+        {
+          "name": "Qualify exact Linux release against PostgreSQL / PG18 memory",
+          "conclusion": "success",
+          "databaseId": 124387109417
+        },
+        {
+          "name": "Benchmark exact Linux artifact against durable native PostgreSQL",
+          "conclusion": "success",
+          "databaseId": 124387109419
+        },
+        {
+          "name": "Execute release artifact (x86_64-linux)",
+          "conclusion": "success",
+          "databaseId": 124387109432
+        },
+        {
+          "name": "Execute release artifact (aarch64-macos)",
+          "conclusion": "success",
+          "databaseId": 124387109439
+        },
+        {
+          "name": "Qualify exact Linux release against PostgreSQL / PG16 memory",
+          "conclusion": "success",
+          "databaseId": 124387109455
+        },
+        {
+          "name": "Qualify exact Linux release against PostgreSQL / PG18 durable-scram",
+          "conclusion": "success",
+          "databaseId": 124387109482
+        },
+        {
+          "name": "Qualify exact Linux release against PostgreSQL / PG16 durable-scram",
+          "conclusion": "success",
+          "databaseId": 124387109483
+        },
+        {
+          "name": "Verify full matrix and attest release bundle",
+          "conclusion": "success",
+          "databaseId": 124391156443
+        },
+        {
+          "name": "Publish explicitly requested release",
+          "conclusion": "skipped",
+          "databaseId": 124391278122
+        }
+      ]
+    }
+  ],
+  "crash_differentials": [
+    {
+      "artifact": "postgres-qualification-16-durable-scram-ci",
+      "file": "crash.json",
+      "sha256": "d7098e30f979008634d5bd479fe0d0d98ccfea5e48dfb9c9af0e65a9453a0ec9",
+      "reference": "PostgreSQL 16.15 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+      "cases": {
+        "CR3": true,
+        "CR4": true
+      },
+      "all_fixture_stages_succeeded": true
+    },
+    {
+      "artifact": "postgres-qualification-18-durable-scram-ci",
+      "file": "crash.json",
+      "sha256": "24e37fac4f80852478996ea848b6995acc6d1e6add6e3a5f93ae8730a74503d3",
+      "reference": "PostgreSQL 18.3 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+      "cases": {
+        "CR3": true,
+        "CR4": true
+      },
+      "all_fixture_stages_succeeded": true
+    }
+  ],
+  "native_proofs": [
+    {
+      "format": "sb0x",
+      "assertions": 874,
+      "image_sha256": "3756940c4ee4ab06b762a957b6c84a50bc84bf6dbdfb965f4a2d2e16641abb26",
+      "passed": true,
+      "transport": "channel",
+      "durable_storage": false,
+      "tcp": false,
+      "scram": false
+    },
+    {
+      "format": "sb0k",
+      "assertions": 860,
+      "image_sha256": "01483a4015774667fd5bda1f187b15053e608c7087f2dedcfd88b971968b4595",
+      "passed": true,
+      "transport": "uart",
+      "durable_storage": false,
+      "tcp": false,
+      "scram": false
+    }
+  ],
+  "legacy_baseline": {
+    "run": 41150514114,
+    "conclusion": "failure",
+    "succeeded": 300,
+    "failed_steps": [
+      "test-sabr-loop",
+      "test-manifest-sabr",
+      "test-tls-client",
+      "test-tts-gpu"
+    ],
+    "skipped": 22,
+    "log_sha256": "419762725077758d7dbc3f7b7ad69b840c836dc9a0443dbbb0c6ddfa6a6eb4ec"
+  },
+  "local_contracts": {
+    "modes": [
+      "Debug",
+      "ReleaseSafe",
+      "ReleaseFast"
+    ],
+    "mvcc_assertions": 351,
+    "dml_assertions": 229,
+    "exit": 0,
+    "qualification_python_tests": 9,
+    "sql_oracle_python_tests": 16,
+    "process_kill_cases": 68,
+    "process_kill_assertions": 1848,
+    "process_kill_standard_cycles": 2,
+    "tcp_repetitions": 20,
+    "tcp_assertions_each": 42
+  },
+  "prior_artifact_control": {
+    "run": 41122569270,
+    "revision": "70c0e2f662f83f723108757eac15305a55d3dfc3",
+    "archive_sha256": "a342cd2dabe2c5403e2f3cd8cc5984196eab4738b2094cd308654caabfb30441",
+    "image_sha256": "f418eac5581c2ac32afb9602a16d15a090b5b526348074e5b0ede9f7b523aa62",
+    "verified_with_original_manifest": true,
+    "sequence_crash_regression_exit": 1,
+    "recovered_sequence_value": 1,
+    "fixed_recovered_value": 34,
+    "pressure_old_command": "UPDATE 2",
+    "fixed_pressure_sqlstate": "53200",
+    "fixed_partial_writes_rolled_back": true,
+    "pressure_probe_sha256": "9313b1251aba4692f63b07395aee66f2e8899695e87b207ae15afad9d01ebc23",
+    "pressure_report_sha256": "1ca42e6fe1aa2630ca18d81ae192ee049284c19ede357a027b95b24595b2773c",
+    "sequence_log_sha256": "51aedff5ac901eb56162710d921e6ee353299c2c3bfd45220b297ca3a899afd2"
+  },
+  "tcp_test_repair": {
+    "initial_run": 41149707471,
+    "initial_job": 124383047326,
+    "observed_failure": "TcpContractFailed assertion49, backpressure accept fairness",
+    "permitted_wakeups_not_traced": "unrelated socket readiness or EINTR may wake poll before listener readiness",
+    "deadline_ms": 1000,
+    "assertions_retained": true,
+    "transport_implementation_changed": false,
+    "independent_review": "APPROVE"
+  },
+  "independent_review": {
+    "decision": "APPROVE",
+    "exact_source_heads_verified": true,
+    "release_safe_mvcc_assertions": 351,
+    "release_safe_dml_assertions": 229,
+    "no_engine_findings": true
+  },
+  "original_sql_inventory": {
+    "source": "6c9ad4451bb5f966f06611307f3b3ef7ba980653",
+    "counts": {
+      "pass": 8,
+      "unexecuted": 17,
+      "fail": 93
+    },
+    "same_118_results_as_consolidation": true,
+    "result_sha256_lf": "5aa8164166bd998a70b162f4631a37242a10124279931ef6e972889dc1fea19b",
+    "exit": 1,
+    "error": "SqlConformanceIncomplete",
+    "scope": "Original unchanged frozen positive oracle; finite smoke probes, not compatibility percentage"
+  },
+  "merged_source": {
+    "zpm": {
+      "main": "36d51e532a1495bc2320745145856aaeb88253b6",
+      "qualified_tree": "46f8f778ab8942a301ea907c7e7facdcdad1205d",
+      "matches": true
+    },
+    "ramsql": {
+      "main": "da4bfe2b49e514c1430a650ecc113dc888d25518",
+      "qualified_tree": "4b783d2c431abc1b745f67ae2c7a254274ff8ea4",
+      "matches": true
+    }
+  }
+}

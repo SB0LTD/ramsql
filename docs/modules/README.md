@@ -11,6 +11,12 @@ Every module RAMSQL ships has a page here. Pages follow
 Baseline: RAMSQL `origin/main` 6d677ee, ZPM `2f060c2`. Status reflects the
 2026-10-30 audit. Owner lanes refer to [`PLAN.md`](../../PLAN.md).
 
+Current follow-ups supersede those historical findings: NET-01, STO-01/03,
+SRV-01, SQLF-01/05 and the reported STO-02/04 paths have implementation fixes.
+See the current PLAN findings register and the
+[snapshot/sequence checkpoint](../../compatibility/SNAPSHOT_SEQUENCE_SAFETY_20261031.md).
+Other findings and formal obligations remain open; module status is still beta.
+
 ## RAMSQL product (`ramsql/src`, `ramsql/tools`, `ramsql/.github`)
 
 | Page | Code | Status | Owner lanes | Worst open findings |
