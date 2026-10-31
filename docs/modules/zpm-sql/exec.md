@@ -258,3 +258,24 @@ work/cancel/capacity failure and recovery. q06 adds all27 programs, binary/param
 CTE scope, sequence-sharing and durable materialization/replay cases. Memory
 qualification explicitly skips14 restart-only cases; durable qualification skips0.
 Full SQL/window closure and throughput superiority remain unproved.
+
+
+### Frame value-window candidate
+
+first_value/last_value/nth_value use the bounded frame resolver and fixed
+three-interval selection after exclusions. Value expressions stay lazy;
+nth_value's int4 position is evaluated per current row, with consumed invalid
+positions mapped to22016. Existing root/prefix-demand restrictions apply to
+sensitive shapes. No per-frame scan, runtime heap or new per-row state is added.
+The shared suite covers78 native fixtures,600 independent frame/exclusion cases,
+work/cancel/error/reuse and side effects. q06 adds those78 parity programs,
+binary/parameter/lazy-sequence and durable materialization/replay coverage.
+Memory qualification explicitly skips15 restart-only cases; durable skips0.
+
+Known native EXCLUDE TIES boundary differences remain open. ZPM's
+docs/SQL_WINDOW_VALUES.md and separate boundary-deviation fixture distinguish
+four PostgreSQL16 result differences (among12 extra programs) from mathematical
+selection over native array_agg frame membership, plus a separately reproduced
+XX000 executor-mark failure. These are not passing parity cases or a closed
+window feature. Wider SQL closure, PG18 version characterization and performance
+superiority remain unproved.
