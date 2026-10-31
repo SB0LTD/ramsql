@@ -1363,6 +1363,13 @@ def select_cases(suites, step, durable):
     return executed, skipped
 
 
+def write_report(path, report):
+    # Plain JSON may legally retain escaped lone surrogates. Client JSON
+    # decoders can expose them as Python surrogate code points, which UTF8
+    # cannot encode. ASCII escapes preserve every code point in valid JSON.
+    path.write_text(json.dumps(report, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--suite", required=True, help="comma-separated suite names: " + ",".join(SUITES))
@@ -1424,7 +1431,7 @@ def main():
         result = 2
     report["finished_utc"] = datetime.now(timezone.utc).isoformat()
     args.report.parent.mkdir(parents=True, exist_ok=True)
-    args.report.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_report(args.report, report)
     print(json.dumps(report["summary"], sort_keys=True))
     print("Report: " + str(args.report.resolve()))
     return result

@@ -49,6 +49,17 @@ class QualificationContracts(unittest.TestCase):
             with self.subTest(stage=stage), self.assertRaises(RuntimeError):
                 crash.require_success(stage, [{"sql": "SELECT broken", "outcome": {"sqlstate": "42883"}}])
 
+    def test_json_surrogates_remain_reportable_without_losing_evidence(self):
+        import json
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from test_postgres_semantics import write_report
+        report = {"rows": [["\ud800", "\x00", "é", None]], "sqlstate": "00000"}
+        with TemporaryDirectory() as temporary:
+            path = Path(temporary) / "semantics.json"
+            write_report(path, report)
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), report)
+
     def test_complete_matrix_and_explicit_restart_skips(self):
         self.validate(self.evidence)
         self.assertEqual(len(self.evidence["entries"]), 4)
