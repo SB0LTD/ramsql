@@ -137,3 +137,22 @@ present. There is no dedicated JSON suite yet.
   separately from `text_bytes`?
 - Which JSONB functions do client and ORM probes need first? `jsonb_set`
   and `||` are common in application code.
+
+## JSON inventory candidate — 31 October 2026
+
+The source/docs above describe the original audited pin. The candidate adds plain
+JSON extraction and JSONB concatenation, corrects scalar path descent and overload
+resolution, and replaces recursive insertion-sort canonicalization with iterative
+DFS/heapsort using one key pool. SQL input, casts and the new operators pass
+session execution control. SQLF-04 has a reproduced fix. SQLF-06's canonicalizer
+layout is addressed; general large-cell evaluator/formatting stack work stays open.
+SQLF-07's parser/key-sort paths are charged; containment/comparison/hash/render
+coverage stays open. SQLF-11 path indices now accept leading + and whitespace;
+collation parity stays open. SQLF-09 and the remainder of SQLF-14 stay open.
+
+ZPM `docs/SQL_JSON_OPERATORS.md` records exact test commands/counts and remaining
+limits. The large-profile test also passes the old implementation: it does not
+prove a baseline stack crash or a throughput improvement. No family is closed by
+the single PG.JSON.OPS smoke pass. RAMSQL adds q04 matrix/extraction/parameters/
+binary/restart differential cases and registers the shared operator contract.
+Cross-platform and live PostgreSQL16/18 qualification is pending.

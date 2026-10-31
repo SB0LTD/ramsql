@@ -510,6 +510,37 @@ SUITES["q04"] = (
         "SELECT id, payload::text, raw::text FROM compat ORDER BY id",
         "SELECT id FROM compat WHERE payload @> '{\"a\":2.5}' ORDER BY payload")),
 )
+# Inventory JSON follow-up: native PG16/PG18 and candidate share each query;
+# values, metadata, errors and durable restart results remain exact comparisons.
+_JSON_CONCAT_VALUES = ('{}', '[]', 'null', '1', 'true', '"s"',
+                       '{"a":1}', '[1,2]', '{"a":{"x":1}}')
+SUITES["q04"] += (
+    Case("q04_concat_matrix", "q04", 3.2, setup=(), feature="JSONB concat kinds, duplicate keys, unknown overload", statements=tuple(
+        "SELECT '%s'::jsonb || '%s'::jsonb" % (left, right)
+        for left in _JSON_CONCAT_VALUES for right in _JSON_CONCAT_VALUES) + (
+        "SELECT '{\"aa\":1,\"b\":2,\"a\":3}'::jsonb || '{\"a\":4,\"b\":null,\"z\":9}'::jsonb",
+        "SELECT '{\"a\":1}'::jsonb || '{\"b\":2}', '{\"a\":1}' || '{\"b\":2}'::jsonb",
+        "SELECT '1'::jsonb || 'x'::text, 'x'::text || '1'::jsonb",
+        "SELECT '{}'::jsonb || 'not json'",
+        "SELECT '{}'::jsonb || 1",
+        "SELECT '{}'::jsonb -> 1::bigint",
+        "SELECT '1'::jsonb -> 0, '1'::jsonb #> '{0}', '[1]'::jsonb #> '{0,0}'",
+        "SELECT '[10,20]'::jsonb #> '{+1}', '[10,20]'::jsonb #> '{ 1}'")),
+    Case("q04_plain_json_extract", "q04", 3.2, setup=(), feature="lexical JSON extraction, duplicates, unicode, NULL", statements=(
+        "SELECT ' { \"a\" : 1, \"a\" : 2.50 } '::json -> 'a', ' [ 1 , 2.50 ] '::json -> -1",
+        "SELECT '{\"a\":{ \"b\" : [1,2.50] }}'::json #> '{a,b}', '{\"a\":null}'::json ->> 'a'",
+        "SELECT '1'::json -> 0, '1'::json #> '{}', '[10,20]'::json #> '{+1}'",
+        "SELECT '\"\\ud800\"'::json, '\"\\u0000\"'::json",
+        "SELECT '{\"bad\":\"\\ud800\",\"a\":1}'::json -> 'a'",
+        "SELECT '{\"bad\":\"\\u0000\",\"a\":1}'::json -> 'a'",
+        "SELECT '{}'::json -> 1::bigint",
+        ("SELECT %s::json -> %s, %s::jsonb || %s::jsonb", ('{"x":2.50}', 'x', '{"a":1}', '{"b":2}')),
+        ("SELECT '{\"x\" : [1,2.50]}'::json -> 'x', '{\"a\":1}'::jsonb || '{\"b\":2}'", None, {"binary": True}))),
+    Case("q04_concat_restart", "q04", 3.2, feature="new concat values pass WAL replay", setup=DOCS,
+         statements=("UPDATE compat SET payload = payload || '{\"new\":[1,null,2.50]}'::jsonb",),
+         restart=("SELECT id, payload, raw -> 'a' FROM compat ORDER BY id",)),
+)
+
 # Q08 (design §5.7(d), step 3.3): sorting, DISTINCT, DISTINCT ON and
 # pagination. Ties are only ever projected through the tie column itself or
 # broken by id, because PostgreSQL's sort is not stable.
