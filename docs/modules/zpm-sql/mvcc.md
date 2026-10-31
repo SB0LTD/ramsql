@@ -12,6 +12,28 @@
 
 > **Wave 0 update (2026-10-30).** STO-03 is fixed on ZPM branch `b8/sto03-lock-list`. `Tx.pushLock` is checked and returns `LockCapacity`. `Mvcc.recordLock` releases the grant if recording fails. INV-MVCC-6 `lock_len ≤ list_capacity` is now enforced. The MVCC suite went from 122 to 325 executed assertions, including holder-level checks that catch a second appended holder. The fix is reviewed, but it is not merged yet; see `PLAN.md` §18. Until it merges, the rest of this page describes the `2f060c2` baseline.
 
+
+## Safety follow-up — 31 October 2026
+
+STO-02's reported reclamation paths are fixed: the horizon includes a running
+statement guard and open COPY snapshots, with parked/fresh-wait behavior
+preserved. A forced version-arena exhaustion regression previously returned
+success with two affected rows instead of three; it now returns 53200 and
+rolls back the statement. COPY retains versions across messages until finish
+or cancellation. Existing adequate-capacity EPQ schedules remain qualified.
+
+STO-04's sequence watermark is now globally pending while its log-ahead owner
+is live. Consumer commits persist it before publication; already-durable cache
+hits keep their no-record path. Creator dirty bits retain pending-CREATE
+ownership. Ascending/descending replay tests reproduced the old missing WAL
+record; RAMSQL adds separate SELECT-ACK/INSERT-ACK process kills and live-owner
+PostgreSQL crash differential cases. Implementation scope is documented in ZPM
+`docs/SQL_SNAPSHOT_SEQUENCE_SAFETY.md`.
+
+Historical audit locations below are preserved. These changes do not close
+STO-05, volatile DML replay or the FV-05/FV-08 formal proof obligations.
+
+
 ## 1. Purpose and scope
 
 `Mvcc(config)` defines the fixed transaction table entry `Tx` and the three
@@ -111,7 +133,7 @@ snapshots, horizons or commit order.
 | Id | Sev | Category | Evidence (`file:line`) | Remedy | Lane |
 | --- | --- | --- | --- | --- | --- |
 | STO-03 | high | robustness (memory safety) | `pushLock` writes `lock_list[lock_len]` with no bound (94-98). `list_capacity = tables·3 + row_locks` (`locks.sig:32`), but one transaction can hold a `share` and an `update` holder on the same row (`locks.sig:143-171`). So `FOR SHARE` then `FOR UPDATE` on N rows needs 2N + 1 entries. That overflows at N ≥ 134 with ZPM defaults (4 tables, capacity 268) and N ≥ 140 with RAMSQL build defaults (8 tables, 280). Call sites: `sql.sig:1767-1769`, `1902-1904`, `1718`. The result is a panic in safe builds and memory corruption in ReleaseFast. | Upgrade the existing holder in place (share → update) so each row appears once, or size the list at `tables·3 + 2·row_locks`. Make `pushLock` return `LockCapacity` on overflow and roll the statement back. | B8 |
-| STO-02 | high | correctness | `reclaim` (220-233) is correct given a correct horizon. The horizon is wrong for resumed and COPY snapshots (`facade.md`). | See `facade.md`. | B8 |
+| STO-02 | high | correctness | Historical defect, fixed in the safety follow-up: `reclaim` (220-233) requires a correct horizon. The old horizon was wrong for resumed and COPY snapshots (`facade.md`). | See `facade.md`. | B8 |
 | STO-15 | low | correctness | `Tx.cid` is u32 and the facade increments it with wraparound (`sql.sig:1163`). After 2^32 statements, `xmin_cid < cid` breaks own-write visibility. | Fail the transaction at wrap. | B8 |
 | STO-20 | medium | testing | 122 executed assertions. No property test of INV-MVCC-3 and no lock-list bound test. | B8.4 items below. | B8 |
 

@@ -1,6 +1,12 @@
 # RAMSQL hardening and professionalization plan
 
-**Temporal follow-up, 30 October 2026:** the runtime pin is now ZPM `3301526`.
+**Snapshot/sequence safety follow-up, 31 October 2026:** ZPM pin `6c9ad44`. Running statements and
+open COPY snapshots retain their versions (STO-02). Globally pending sequence
+watermarks survive live-owner/consumer commit ordering (STO-04). Core regressions
+reproduce both previous failures; integration adds process-kill and PostgreSQL
+crash cases. NET-02, STO-05 and the remaining SQL feature backlog are still open.
+
+**Earlier temporal follow-up, 30 October 2026:** the runtime pin is now ZPM `3301526`.
 The six reported SQLF-01 overflow paths and SQLF-05 infinite DATE subtraction
 are fixed and independently reviewed; FV-12's formal theorem and the remaining
 SQL feature gaps stay open. See [qualification and exact scope](compatibility/TEMPORAL_CORRECTNESS_20261030.md).
@@ -12,7 +18,7 @@ STO-01, STO-03 and the SRV-01 file primitive; RAMSQL includes explicit
 source passes the three-OS database matrix and all 32 active RAMSQL checks.
 See [exact consolidation/evidence identities](compatibility/PR_CONSOLIDATION_20261030.md).
 The baseline measurements/findings below describe the original audit revisions;
-they are not all current code claims. NET-02, STO-02/04/05, the SQLF divergences
+they are not all current code claims. NET-02, STO-05, the remaining SQLF divergences
 and the remaining production gaps are still open. The refreshed original SQL
 TDD inventory has 8 smoke passes, 93 failures and 17 unexecuted cases; see
 [the current checkpoint](https://github.com/SB0LTD/zpm/blob/main/docs/SQL_CONFORMANCE_TDD_STATUS.md).
@@ -345,9 +351,9 @@ lanes update only the status column of their own findings.
 | Id | Sev | Finding | Lane | Status |
 | --- | --- | --- | --- | --- |
 | STO-01 | **C** | Concurrent DDL committed out of OID order makes the WAL unrecoverable. OIDs are assigned when the statement runs; replay rejects any create whose OID is below the previous one (`change_log.sig:713`). Example: A `BEGIN; CREATE TABLE a`, B `BEGIN; CREATE TABLE b; COMMIT`, A `COMMIT`, restart → startup aborts. | B9 | **fixed** in wave 0 (ZPM `b9/sto01-replay-order`; reviewed; unmerged) |
-| STO-02 | **H** | Reclamation can free versions that a resumed statement or COPY still sees. `horizon()` counts only pins (`sql.sig:1315`), and a resume clears the pin before the body runs. Result: a silent lost update on resumed UPDATE, and duplicate or missing rows on resumed INSERT ... SELECT. | B8 | open |
+| STO-02 | **H** | Reclamation can free versions that a resumed statement or COPY still sees. `horizon()` counts only pins (`sql.sig:1315`), and a resume clears the pin before the body runs. Result: a silent lost update on resumed UPDATE, and duplicate or missing rows on resumed INSERT ... SELECT. | B8 | reported paths fixed; forced-pressure/COPY regressions; formal proof open |
 | STO-03 | **H** | Transaction lock list overflow. `FOR SHARE` then `FOR UPDATE` adds a second holder entry, and `pushLock` has no bounds check (`mvcc.sig:94`). From 140 rows at RAMSQL's build defaults (134 at ZPM defaults) it panics in safe builds and corrupts memory in ReleaseFast. | B8 | **fixed** in wave 0 (ZPM `b8/sto03-lock-list`; reviewed; unmerged) |
-| STO-04 | **H** | Sequence values can be issued twice across a crash. Commits from the cached log-ahead range do not persist the watermark. | B9 | open |
+| STO-04 | **H** | Sequence values can be issued twice across a crash. Commits from the cached log-ahead range do not persist the watermark. | B9 | fixed global pending watermark; replay/process-kill regressions |
 | STO-05 | **H** | A full-length torn final record (multi-write append, power loss) is treated as corruption, so the server refuses to start | B9 | open |
 | STO-06 | **H** | Recovery cost grows with records × rows: `liveRows` is recomputed with a full scan for every table on every record, and there is no checkpoint | B9, C8 | open |
 | STO-07 | M | Unbounded WAL; replay capacity must cover historical peaks | C8 | open |
@@ -1248,7 +1254,7 @@ Tasks:
   - reclamation while snapshots are open.
 - [ ] B8.5 Nightly: 10,000 seeds with 8 to 32 clients. On failure, minimize
       the history and keep it as a regression test.
-- [ ] B8.6 Fix STO-02 first:
+- [x] B8.6 Fix STO-02 reported running/COPY snapshot paths (formal proof remains open):
   - keep a per-transaction `running_snap`, counted by `horizon()` for the
     whole statement and COPY lifetime;
   - write the simulator schedule that reproduces the lost update **before**

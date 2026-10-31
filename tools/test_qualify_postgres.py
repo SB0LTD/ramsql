@@ -41,6 +41,14 @@ class QualificationContracts(unittest.TestCase):
     def validate(self, value):
         qualification.validate_bundle(value, self.revision, self.digest)
 
+    def test_crash_fixture_errors_cannot_pass_by_matching(self):
+        import test_postgres_crash_compat as crash
+        ok = [{"sql": "SELECT 1", "outcome": {"sqlstate": "00000"}}]
+        self.assertEqual(crash.require_success("setup", ok), ok)
+        for stage in ("setup", "live owner", "consumer before crash", "after crash"):
+            with self.subTest(stage=stage), self.assertRaises(RuntimeError):
+                crash.require_success(stage, [{"sql": "SELECT broken", "outcome": {"sqlstate": "42883"}}])
+
     def test_complete_matrix_and_explicit_restart_skips(self):
         self.validate(self.evidence)
         self.assertEqual(len(self.evidence["entries"]), 4)
