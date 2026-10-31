@@ -279,3 +279,23 @@ selection over native array_agg frame membership, plus a separately reproduced
 XX000 executor-mark failure. These are not passing parity cases or a closed
 window feature. Wider SQL closure, PG18 version characterization and performance
 superiority remain unproved.
+
+
+### Conditional DDL candidate - 1 November 2026
+
+CREATE TABLE/SEQUENCE IF NOT EXISTS and DROP TABLE/SEQUENCE IF EXISTS use an
+explicit no-op bound command. Skipped operations preserve command tags, rows,
+defaults, identity metadata, sequence values, OIDs and existing transaction
+writes. No-op callbacks/WAL encoding are bypassed only when no pending/carried
+sequence state needs persistence. Sequence DROP retries now refresh a catalog
+snapshot when their wait occurred before writes; conditional deletion can then
+skip a committed predecessor's deletion. Aborted predecessors remain actionable.
+
+The shared contract covers49 native-reference programs, skipped semantic-invalid
+definitions, unquoted IF names, capacity/work/cancel recovery, concurrent CREATE/
+DROP commit/abort transitions, callback failure and carried sequence WAL replay.
+Existing syntax/type/workspace bounds still apply; NoticeResponse, full SQL READ
+ONLY behavior, schemas and broader DDL variants remain open. Runtime is pure Sig
+in ZPM Layer0; no WAL opcode or version changes. Memory qualification explicitly
+skips16 restart-only cases; durable-SCRAM skips0. These finite tests do not close
+the complete schema/DDL family or establish throughput superiority.
