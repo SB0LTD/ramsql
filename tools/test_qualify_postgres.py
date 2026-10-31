@@ -49,10 +49,22 @@ class QualificationContracts(unittest.TestCase):
             with self.subTest(stage=stage), self.assertRaises(RuntimeError):
                 crash.require_success(stage, [{"sql": "SELECT broken", "outcome": {"sqlstate": "42883"}}])
 
+    def test_json_surrogates_remain_reportable_without_losing_evidence(self):
+        import json
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from test_postgres_semantics import write_report
+        report = {"rows": [["\ud800", "\x00", "\u00e9", None]], "sqlstate": "00000"}
+        with TemporaryDirectory() as temporary:
+            path = Path(temporary) / "semantics.json"
+            write_report(path, report)
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), report)
+
     def test_complete_matrix_and_explicit_restart_skips(self):
         self.validate(self.evidence)
         self.assertEqual(len(self.evidence["entries"]), 4)
-        self.assertEqual(len(self.evidence["entries"][0]["reports"]["semantics"]["skipped"]), 10)
+        self.assertEqual(len(self.evidence["entries"][0]["reports"]["semantics"]["skipped"]), 11)
+        self.assertIn("q04_concat_restart", {case["name"] for case in self.evidence["entries"][0]["reports"]["semantics"]["skipped"]})
 
     def test_missing_or_duplicated_matrix_entry(self):
         for operation in (lambda b: b["entries"].pop(), lambda b: b["entries"].append(b["entries"][0]),

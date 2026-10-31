@@ -170,3 +170,10 @@ PR CI; S2 and S3 median +5% nightly.
   folding, or defer them to execution?
 - Should SQLF-10 be fixed for PostgreSQL parity, or only documented? Each
   case accepts SQL that PostgreSQL rejects.
+
+### SQLF-04 inventory follow-up
+
+The JSON inventory candidate resolves JSONB concatenation with an unknown operand
+as JSONB; typed TEXT continues to select text concatenation. Shared core fixtures
+check both value and result type. SQLF-04 has a reproduced implementation fix;
+full JSON function/type family qualification remains incomplete.
