@@ -209,3 +209,21 @@ the single `g+0` comparison in `test_sql_dense_group.sig`.
   reference grouping applied once per prefix?
 - Which always-on routes (dense group, layout order, integer top-k, key
   speculation) should get `Config` switches like the newer ones?
+
+## Offset-window inventory candidate — 31 October 2026
+
+The candidate implements LAG/LEAD over deferred arguments and sorted partition
+handles. Selected-row values and current-row offset/default expressions retain
+PostgreSQL evaluation roles; defaults are lazy. Root single-window prefix demand
+can stop at OFFSET+LIMIT when final order/projection maps to window order.
+Non-total/nonrepeatable nested, multi-window or uncertain-demand combinations
+return0A000 until the executor can propagate demand; this is not full closure.
+Partition keys now sort ASC NULLS LAST, with sequence tests over NULL groups.
+Internal window rows retain the existing2*columns target budget.
+
+ZPM docs/SQL_WINDOW_OFFSETS.md records the supported scope,90 native PG16
+fixtures and regressions found by independent review. Existing window/frame
+contracts are retained. RAMSQL adds live PG16/18 matrix, parameters, binary,
+sequences, NULL groups, demand and durable materialization/restart cases.
+Hosted qualification is pending. Other window and SQL inventory families remain
+open; no performance or complete compatibility claim is made.
