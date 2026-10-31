@@ -63,10 +63,11 @@ class QualificationContracts(unittest.TestCase):
     def test_complete_matrix_and_explicit_restart_skips(self):
         self.validate(self.evidence)
         self.assertEqual(len(self.evidence["entries"]), 4)
-        self.assertEqual(len(self.evidence["entries"][0]["reports"]["semantics"]["skipped"]), 13)
+        self.assertEqual(len(self.evidence["entries"][0]["reports"]["semantics"]["skipped"]), 14)
         self.assertIn("q04_concat_restart", {case["name"] for case in self.evidence["entries"][0]["reports"]["semantics"]["skipped"]})
         self.assertIn("q06_window_offsets_restart", {case["name"] for case in self.evidence["entries"][0]["reports"]["semantics"]["skipped"]})
         self.assertIn("q06_window_distribution_restart", {case["name"] for case in self.evidence["entries"][0]["reports"]["semantics"]["skipped"]})
+        self.assertIn("q06_named_window_restart", {case["name"] for case in self.evidence["entries"][0]["reports"]["semantics"]["skipped"]})
 
     def test_missing_or_duplicated_matrix_entry(self):
         for operation in (lambda b: b["entries"].pop(), lambda b: b["entries"].append(b["entries"][0]),
