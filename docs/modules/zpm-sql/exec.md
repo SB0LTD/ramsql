@@ -244,3 +244,17 @@ ZPM docs/SQL_WINDOW_RANKING.md gives the exact scope. Core ranking3047assertions
 verified. RAMSQL adds live PG16/18 matrix, binary/parameter, lazy sequence and
 durable materialized-distribution checks. Hosted qualification remains pending.
 Named windows/value windows and broad SQL closure remain open.
+
+
+### Named-window inventory candidate
+
+WINDOW definitions support scoped names, ordered inheritance and PostgreSQL
+framed-copy restrictions. Shared keys retain one evaluation, including scalar
+subqueries and volatile expressions; mutable arguments follow sorted-row order.
+Root/demand restrictions remain explicit0A000 for unsafe combinations. Total
+COUNT/MIN/MAX/Boolean full unsorted windows retain per-row argument interleaving.
+The shared named contract covers27 native fixtures, aggregate/frame properties,
+work/cancel/capacity failure and recovery. q06 adds all27 programs, binary/parameter,
+CTE scope, sequence-sharing and durable materialization/replay cases. Memory
+qualification explicitly skips14 restart-only cases; durable qualification skips0.
+Full SQL/window closure and throughput superiority remain unproved.
