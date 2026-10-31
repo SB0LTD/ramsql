@@ -1,6 +1,6 @@
 # RAMSQL hardening and professionalization plan
 
-**Snapshot/sequence safety follow-up, 31 October 2026:** ZPM pin `f1d0817`. Running statements and
+**Snapshot/sequence safety follow-up, 31 October 2026:** ZPM pin `6c9ad44`. Running statements and
 open COPY snapshots retain their versions (STO-02). Globally pending sequence
 watermarks survive live-owner/consumer commit ordering (STO-04). Core regressions
 reproduce both previous failures; integration adds process-kill and PostgreSQL

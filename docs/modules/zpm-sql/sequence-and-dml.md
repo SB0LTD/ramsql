@@ -87,9 +87,9 @@ Neither file writes versions or records. The facade does (`sql.sig`
 - **INV-SEQ-1** (arithmetic): within one process, the values returned by
   `next` follow PostgreSQL's increment, bounds and cycle rules, and never
   repeat unless `CYCLE`.
-- **INV-SEQ-2** (durable watermark): at every acknowledgement, the last
-  durable logged value of each sequence is ≥ every value already returned to
-  any session under noncycling progression (explicit resets excluded).
+- **INV-SEQ-2** (durable watermark): at each successful consumer commit
+  acknowledgement, recovery advances past the values protected by that commit
+  in the sequence increment direction (CYCLE/setval resets excluded).
   The reported STO-04 path is fixed by global pending watermarks; FV-22 remains open.
 - **INV-SEQ-3** (setval): `set` always marks the transaction dirty
   (`sql.sig:1522`), so a `setval` is persisted by the next commit of that
@@ -121,8 +121,10 @@ Neither file writes versions or records. The facade does (`sql.sig`
     plain SELECT's.
 - `test_sql_index.sig` exercises `keyCheck` indirectly through PK updates and
   `randomModel`.
-- No test has a second transaction draw from a log-ahead range that the
-  first transaction logged but has not yet committed.
+- `concurrentSequenceWatermarks` now exercises a second transaction consuming
+  a live owner's log-ahead range in both increment directions, plus recovery,
+  later no-record cache hits and pending CREATE ownership. RAMSQL's separate
+  process-kill cases cover SELECT and INSERT commit acknowledgements.
 
 ## 6. Findings
 
