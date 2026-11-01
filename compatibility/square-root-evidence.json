@@ -5,16 +5,17 @@
   "inputs_lf_sha256": {
     "build.sig": "71ccc4713be0cb2d6e3e2eefc658dcfe1ac410cd4b12d51101d2b701919d9d49",
     "build.sig.zon": "fab0a5bed570d0a89aae985935748ce59132e6f4ccda6bc1b3043c0d778d7f42",
-    "tools/test_postgres_semantics.py": "3d8ddb5645063e12d295122eaee9f2a87e79970fa392496b4b8743cab970cbbe",
+    "tools/test_postgres_semantics.py": "f54c7f77b4c3c18e66f59405b860ce18b386d729eda11d3e2fc0ab2a34814ea0",
     "tools/test_qualify_postgres.py": "1e5104c8ce24a3d9264bec3d35fe5026975809a07bddea42da359ac801499186",
     "tools/fixtures/sql_square_root_programs.json": "4ecd7f636005f503caa9dc6c482be56c356d5add88a934ac912433bbf5e9e407"
   },
   "wire": {
-    "statements": 133,
+    "statements": 134,
     "native_checked_probes": 123,
-    "binary_parameters": 3,
+    "binary_parameters": 4,
     "exit": 0,
-    "report_lf_sha256": "e5c8b95241778d7b5bfed7e5f468d62ad9427e7d322aa6f86a1100b954c7496c"
+    "report_lf_sha256": "ba1a26447313246b537eb7df4e0edab8bf0d35b6d5fbe560fa46c3585511ca01",
+    "negative_zero_sign_checked": true
   },
   "durable_scram": {
     "statements": 7,
@@ -34,5 +35,27 @@
     "release_policy": 13
   },
   "hosted_qualification": "pending",
-  "scope": "SQRT typed scalar subset; configured capacities and explicit global planner gaps remain open"
+  "scope": "SQRT typed scalar subset; configured capacities and explicit global planner gaps remain open",
+  "tested_binary": {
+    "path": "sig-out/bin/ramsql.exe",
+    "sha256": "d18f7768cac27ed138b483102003fb037c021ef90d0b01dc58dd68ac2e485fdd",
+    "optimize": "ReleaseSafe",
+    "build_argv": [
+      "C:/Users/Shado/AppData/Local/Programs/Sig/0.6.4/bin/sig.exe",
+      "build",
+      "-Doptimize=ReleaseSafe"
+    ],
+    "build_env": {
+      "SIG_LIB_DIR": "C:/Just-Things/Projects/sb0/ramsql-pr-consolidation-20261030/.sig-cache/consolidation-sdk/lib"
+    },
+    "independent_rebuild_exit": 0
+  },
+  "before_change": {
+    "zpm_revision": "29bd16cd17c960822b4ab57157d19ed93f6f559e",
+    "binary_sha256": "12bac71abd5e98de49f665d03c534798971a9e82b510e7780e64c92c24198ed4",
+    "sql": "SELECT sqrt(1::numeric)",
+    "sqlstate": "42883",
+    "error_class": "UndefinedFunction",
+    "independently_observed": true
+  }
 }

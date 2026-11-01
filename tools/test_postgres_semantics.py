@@ -1527,6 +1527,8 @@ SUITES["q01"] += (Case("q01_sqrt_parameter_binary", "q01", 3.9, setup=(),
          (Decimal("2.25"),4.0,9.0), {"binary":True}),
         ("SELECT sqrt(%s::numeric),sqrt(%s::float8)",(None,float("nan")), {"binary":True}),
         ("SELECT sqrt(%s::numeric)",(Decimal("-1"),), {"binary":True}),
+        ("SELECT sqrt(%s::float8) AS binary_value,sqrt(%s::float8)::text AS text_value",
+         (-0.0,-0.0), {"binary":True}),
     ), feature="SQRT typed/binary parameters and2201F domain errors"),)
 
 

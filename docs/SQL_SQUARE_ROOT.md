@@ -7,7 +7,7 @@ existing Sig integer-root primitive. RAMSQL pins the verified immutable archive
 No implicit sibling dependency or new runtime library is introduced.
 
 The native differential runner adds13 frozen programs (130 SQL statements),
-one typed-parameter/binary program (3 statements) and one durable restart case
+one typed-parameter/binary program (4 statements) and one durable restart case
 (7 statements). All remain required in the dynamic PostgreSQL16/18 catalog.
 Memory mode explicitly skips the restart case, bringing its total restart-only
 skips to18. Error statements continue under autocommit so later queries verify
@@ -16,8 +16,10 @@ that failed mutations did not change stored values.
 Observed locally:
 
 - Matched ReleaseSafe build succeeds through the explicit pinned archive.
-- 133 real-wire statements pass, including123 native-checked probes and three
-  binary-parameter statements (positive values, NULL/NaN and2201F).
+- 134 real-wire statements pass, including123 native-checked probes and four
+  binary-parameter statements (positive values, NULL/NaN,2201F and signed zero).
+  Negative-zero sign is checked explicitly in the local binary result; a text
+  projection also makes the sign visible in hosted native comparisons.
 - Seven durable/SCRAM statements pass, including four after reopening the WAL.
   Recovered defaults/generation expressions still work; a negative-input update
   raises2201F and leaves both rows unchanged.
@@ -37,3 +39,10 @@ Independent integration review and hosted PG16/18 memory/durable+SCRAM,
 native OS and exact-artifact release qualification remain required before merge.
 Local source/output hashes are in
 [square-root-evidence.json](../compatibility/square-root-evidence.json).
+
+Independent review reproduced the build,134 wire statements, seven durable
+statements, native fixtures/recovery program and unit suites. The manifest
+identifies the tested executable and exact local build command. The previous
+numeric-only executable independently returns42883 for sqrt(1::numeric), so
+the feature is confirmed to fail before the dependency change. Hosted gates
+remain pending.
