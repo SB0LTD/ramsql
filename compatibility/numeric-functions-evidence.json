@@ -7,7 +7,8 @@
     "build.sig": "6e5f2f9a72f3cf84e215598d9de24b92cdac0a7c703cb1f81fab0d91f4ce35f7",
     "tools/test_postgres_semantics.py": "ad4f930ea9183f31fcc2acd9e4efcd855d040c709bdfa9edd8098ced32dc36c1",
     "tools/fixtures/sql_numeric_programs.json": "959b9c4974a7ee131564d6e1fe2b8d7aaecf1cd11825637aa7263b9770406ba4",
-    "tools/test_qualify_postgres.py": "1b3b45f320c8ad7fc66b4074a1a9818a8769df75da21d4a1b82db498d56355f2"
+    "tools/test_qualify_postgres.py": "1b3b45f320c8ad7fc66b4074a1a9818a8769df75da21d4a1b82db498d56355f2",
+    ".github/workflows/ci.yml": "a40a56aff827623fd2e9d1e55d93a0ac4a6fd254f9ffd247df660c9b958f20a9"
   },
   "wire": {
     "statements": 328,
@@ -30,5 +31,28 @@
   },
   "harness_unittests": 12,
   "hosted_qualification": "pending",
-  "scope": "Basic numeric functions; wider math and unused derived-output pruning remain open"
+  "scope": "Basic numeric functions; wider math and unused derived-output pruning remain open",
+  "local_full_contracts": {
+    "exit": 0,
+    "succeeded": 85,
+    "failed": 0,
+    "skipped": 10,
+    "log_lf_sha256": "8bbc369fbaa28010f5e997e9ccbf6369221481f7982ff1be8075314d2afa6af6"
+  },
+  "local_product_checks": {
+    "demo": 0,
+    "cli": 0,
+    "server": 0,
+    "independent_clients": 0,
+    "auth": 0,
+    "persistence": 0
+  },
+  "first_hosted_head": {
+    "commit": "f2237f225bfe5157a50dc056488329a8daec904c",
+    "ci": 41262795270,
+    "ci_conclusion": "success",
+    "release": 41262795309,
+    "release_conclusion": "cancelled",
+    "reason": "Windows native job exceeded20-minute budget during configured-capacity libpq check; budget increased30, all checks retained"
+  }
 }

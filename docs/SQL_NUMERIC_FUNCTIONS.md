@@ -39,3 +39,10 @@ Hosted PostgreSQL 16/18 memory/durable+SCRAM, OS/release and shared contract
 qualification remain required before merge. See the input/output hash manifest
 in [numeric-functions-evidence.json](../compatibility/numeric-functions-evidence.json).
 No release is published by opening this qualification PR.
+
+The initial hosted CI passed all eight jobs and the release run passed all
+SQL/reference, build and artifact-execution checks. Its Windows native job hit
+the 20-minute workflow budget during the configured-capacity libpq step. The
+native job budget is now 30 minutes; all checks remain required. The cancelled
+release run41262795309 remains preserved, and qualification of the updated
+workflow is pending.
