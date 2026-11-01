@@ -17,7 +17,7 @@ on:
         required: false
         type: string
       publish:
-        description: 'Publish after every build and test passes (development versions are prereleases)'
+        description: 'Request the normal versioned release; otherwise publish a unique CI prerelease'
         required: true
         default: false
         type: boolean
@@ -40,7 +40,10 @@ jobs:
       native_sig_revision: ${{ steps.meta.outputs.native_sig_revision }}
       version: ${{ steps.meta.outputs.version }}
       tag: ${{ steps.meta.outputs.tag }}
-      prerelease: ${{ steps.meta.outputs.prerelease }}
+      prerelease: ${{ steps.publication.outputs.prerelease }}
+      publication_tag: ${{ steps.publication.outputs.tag }}
+      publish_allowed: ${{ steps.publication.outputs.publish_allowed }}
+      candidate: ${{ steps.publication.outputs.candidate }}
       revision: ${{ steps.source.outputs.revision }}
       epoch: ${{ steps.source.outputs.epoch }}
       sig_tag: ${{ steps.meta.outputs.sig_tag }}
@@ -52,7 +55,9 @@ jobs:
         with:
           python-version: '3.12'
       - name: Validate release packaging contracts
-        run: python tools/test_release.py
+        run: |
+          python tools/test_release.py
+          python tools/test_release_publication.py
       - name: Resolve immutable source
         id: source
         shell: bash
@@ -73,8 +78,16 @@ jobs:
           args=()
           if [[ -n "$REQUESTED_TAG" ]]; then args+=(--tag "$REQUESTED_TAG"); fi
           python tools/release_matrix.py "${args[@]}" --github-output "$GITHUB_OUTPUT"
+      - name: Resolve normal release or qualified CI prerelease
+        id: publication
+        env:
+          REQUESTED_PUBLISH: ${{ inputs.publish == true }}
+        run: python tools/release_publication.py
+      - name: Explain read-only fork publication boundary
+        if: steps.publication.outputs.publish_allowed != 'true'
+        run: echo 'Fork PR artifacts remain available; a maintainer can dispatch this revision in the base repository to publish a CI prerelease.'
       - name: Require production evidence for stable versions
-        if: steps.meta.outputs.prerelease != 'true'
+        if: steps.publication.outputs.prerelease != 'true'
         run: python tools/release_gate.py
 
   # Reuse the same native contract, independent client, authentication and crash
@@ -501,17 +514,18 @@ jobs:
           retention-days: 30
 
   publish:
-    name: Publish explicitly requested release
-    if: (github.event_name == 'push' && github.ref_type == 'tag') || (github.event_name == 'workflow_dispatch' && inputs.publish)
+    name: Publish qualified release or CI prerelease
     needs: [metadata, assemble]
+    if: needs.metadata.outputs.publish_allowed == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
-      RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
+      RELEASE_TAG: ${{ needs.metadata.outputs.publication_tag }}
       SOURCE_REVISION: ${{ needs.metadata.outputs.revision }}
       IS_PRERELEASE: ${{ needs.metadata.outputs.prerelease }}
+      IS_CANDIDATE: ${{ needs.metadata.outputs.candidate }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -545,7 +559,14 @@ jobs:
             exit 1
           fi
           args=()
+          notes=compatibility/RELEASE.md
           if [[ "$IS_PRERELEASE" == "true" ]]; then args+=(--prerelease --latest=false); fi
+          if [[ "$IS_CANDIDATE" == "true" ]]; then
+            notes="$RUNNER_TEMP/candidate-notes.md"
+            printf 'Qualified CI candidate. Source: `%s`.\n\nMatrix and evidence: https://github.com/%s/actions/runs/%s\n\nArtifact versions retain the source version; the unique release tag identifies this run. This prerelease does not replace the normal release or claim production readiness.\n\n' \
+              "$SOURCE_REVISION" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > "$notes"
+            cat compatibility/RELEASE.md >> "$notes"
+          fi
           gh release create "$RELEASE_TAG" dist/* --repo "$GITHUB_REPOSITORY" \
             --target "$SOURCE_REVISION" --verify-tag --title "RAMSQL $RELEASE_TAG" \
-            --notes-file compatibility/RELEASE.md "${args[@]}"
+            --notes-file "$notes" "${args[@]}"
