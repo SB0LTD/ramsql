@@ -1,0 +1,201 @@
+{
+  "scope": "Scoped SQRT subset; native reference remains live in the differential runner",
+  "contract_lf_sha256": "834a7a65a032fdfc02efb879bc9dda3f734c6280e870cc1b92e4aa75e2686f2e",
+  "programs": [
+    {
+      "name": "q01_sqrt_matrix_00",
+      "sql": [
+        "SELECT sqrt(1::numeric)",
+        "SELECT sqrt(0.01::numeric)",
+        "SELECT sqrt(0.000001::numeric)",
+        "SELECT sqrt(0.000000000000000001::numeric)",
+        "SELECT sqrt(0.0000000000000000000000000000000000000001::numeric)",
+        "SELECT sqrt(2::numeric)",
+        "SELECT sqrt(0.02::numeric)",
+        "SELECT sqrt(0.000002::numeric)"
+      ]
+    },
+    {
+      "name": "q01_sqrt_matrix_01",
+      "sql": [
+        "SELECT sqrt(0.000000000000000002::numeric)",
+        "SELECT sqrt(0.0000000000000000000000000000000000000002::numeric)",
+        "SELECT sqrt(3::numeric)",
+        "SELECT sqrt(0.03::numeric)",
+        "SELECT sqrt(0.000003::numeric)",
+        "SELECT sqrt(0.000000000000000003::numeric)",
+        "SELECT sqrt(0.0000000000000000000000000000000000000003::numeric)",
+        "SELECT sqrt(4::numeric)"
+      ]
+    },
+    {
+      "name": "q01_sqrt_matrix_02",
+      "sql": [
+        "SELECT sqrt(0.04::numeric)",
+        "SELECT sqrt(0.000004::numeric)",
+        "SELECT sqrt(0.000000000000000004::numeric)",
+        "SELECT sqrt(0.0000000000000000000000000000000000000004::numeric)",
+        "SELECT sqrt(9::numeric)",
+        "SELECT sqrt(0.09::numeric)",
+        "SELECT sqrt(0.000009::numeric)",
+        "SELECT sqrt(0.000000000000000009::numeric)"
+      ]
+    },
+    {
+      "name": "q01_sqrt_matrix_03",
+      "sql": [
+        "SELECT sqrt(0.0000000000000000000000000000000000000009::numeric)",
+        "SELECT sqrt(10::numeric)",
+        "SELECT sqrt(0.10::numeric)",
+        "SELECT sqrt(0.000010::numeric)",
+        "SELECT sqrt(0.000000000000000010::numeric)",
+        "SELECT sqrt(0.0000000000000000000000000000000000000010::numeric)",
+        "SELECT sqrt(15::numeric)",
+        "SELECT sqrt(0.15::numeric)"
+      ]
+    },
+    {
+      "name": "q01_sqrt_matrix_04",
+      "sql": [
+        "SELECT sqrt(0.000015::numeric)",
+        "SELECT sqrt(0.000000000000000015::numeric)",
+        "SELECT sqrt(0.0000000000000000000000000000000000000015::numeric)",
+        "SELECT sqrt(16::numeric)",
+        "SELECT sqrt(0.16::numeric)",
+        "SELECT sqrt(0.000016::numeric)",
+        "SELECT sqrt(0.000000000000000016::numeric)",
+        "SELECT sqrt(0.0000000000000000000000000000000000000016::numeric)"
+      ]
+    },
+    {
+      "name": "q01_sqrt_matrix_05",
+      "sql": [
+        "SELECT sqrt(17::numeric)",
+        "SELECT sqrt(0.17::numeric)",
+        "SELECT sqrt(0.000017::numeric)",
+        "SELECT sqrt(0.000000000000000017::numeric)",
+        "SELECT sqrt(0.0000000000000000000000000000000000000017::numeric)",
+        "SELECT sqrt(99::numeric)",
+        "SELECT sqrt(0.99::numeric)",
+        "SELECT sqrt(0.000099::numeric)"
+      ]
+    },
+    {
+      "name": "q01_sqrt_matrix_06",
+      "sql": [
+        "SELECT sqrt(0.000000000000000099::numeric)",
+        "SELECT sqrt(0.0000000000000000000000000000000000000099::numeric)",
+        "SELECT sqrt(100::numeric)",
+        "SELECT sqrt(1.00::numeric)",
+        "SELECT sqrt(0.000100::numeric)",
+        "SELECT sqrt(0.000000000000000100::numeric)",
+        "SELECT sqrt(0.0000000000000000000000000000000000000100::numeric)",
+        "SELECT sqrt(101::numeric)"
+      ]
+    },
+    {
+      "name": "q01_sqrt_matrix_07",
+      "sql": [
+        "SELECT sqrt(1.01::numeric)",
+        "SELECT sqrt(0.000101::numeric)",
+        "SELECT sqrt(0.000000000000000101::numeric)",
+        "SELECT sqrt(0.0000000000000000000000000000000000000101::numeric)",
+        "SELECT sqrt(9999::numeric)",
+        "SELECT sqrt(99.99::numeric)",
+        "SELECT sqrt(0.009999::numeric)",
+        "SELECT sqrt(0.000000000000009999::numeric)"
+      ]
+    },
+    {
+      "name": "q01_sqrt_matrix_08",
+      "sql": [
+        "SELECT sqrt(0.0000000000000000000000000000000000009999::numeric)",
+        "SELECT sqrt(10000::numeric)",
+        "SELECT sqrt(100.00::numeric)",
+        "SELECT sqrt(0.010000::numeric)",
+        "SELECT sqrt(0.000000000000010000::numeric)",
+        "SELECT sqrt(0.0000000000000000000000000000000000010000::numeric)",
+        "SELECT sqrt(10001::numeric)",
+        "SELECT sqrt(100.01::numeric)"
+      ]
+    },
+    {
+      "name": "q01_sqrt_matrix_09",
+      "sql": [
+        "SELECT sqrt(0.010001::numeric)",
+        "SELECT sqrt(0.000000000000010001::numeric)",
+        "SELECT sqrt(0.0000000000000000000000000000000000010001::numeric)",
+        "SELECT sqrt(123456789::numeric)",
+        "SELECT sqrt(1234567.89::numeric)",
+        "SELECT sqrt(123.456789::numeric)",
+        "SELECT sqrt(0.000000000123456789::numeric)",
+        "SELECT sqrt(0.0000000000000000000000000000000123456789::numeric)"
+      ]
+    },
+    {
+      "name": "q01_sqrt_matrix_10",
+      "sql": [
+        "SELECT sqrt(0::numeric)",
+        "SELECT sqrt(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000::numeric)",
+        "SELECT sqrt(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001::numeric)",
+        "SELECT sqrt(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002::numeric)",
+        "SELECT sqrt(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000099::numeric)",
+        "SELECT sqrt(100000000000000000000000000000000000000000000000000000000000000::numeric)",
+        "SELECT sqrt(1000000000000000000000000000001000000000000000000000000000000::numeric)",
+        "SELECT sqrt(1000000000000000000000000000001000000000000000000000000000001::numeric)"
+      ]
+    },
+    {
+      "name": "q01_sqrt_overloads",
+      "sql": [
+        "SELECT sqrt(4)",
+        "SELECT sqrt(4::real)",
+        "SELECT sqrt('4')",
+        "SELECT sqrt(NULL)",
+        "SELECT sqrt(NULL::numeric)",
+        "SELECT sqrt(NULL::int2)",
+        "SELECT sqrt('-0'::float8)",
+        "SELECT sqrt('Infinity'::numeric)",
+        "SELECT sqrt('NaN'::numeric)",
+        "SELECT sqrt('NaN'::float8)",
+        "SELECT sqrt('Infinity'::float8)",
+        "SELECT sqrt(2::float8)",
+        "SELECT sqrt(-1)",
+        "SELECT sqrt(-1::numeric)",
+        "SELECT sqrt('-Infinity'::numeric)",
+        "SELECT sqrt('-Infinity'::float8)",
+        "SELECT sqrt(TRUE)",
+        "SELECT sqrt('4'::text)",
+        "SELECT sqrt(4::oid)",
+        "SELECT sqrt()",
+        "SELECT sqrt(1,2)"
+      ]
+    },
+    {
+      "name": "q01_sqrt_lifecycle",
+      "sql": [
+        "SELECT sqrt(0.9999999999999999999999999999999999999999999999999999999999999999::numeric)",
+        "SELECT sqrt('-0.00000'::numeric)",
+        "CREATE SEQUENCE root_seq",
+        "SELECT sqrt(nextval('root_seq'))",
+        "SELECT currval('root_seq')",
+        "CREATE TABLE roots(id INT PRIMARY KEY,v NUMERIC,g NUMERIC GENERATED ALWAYS AS(sqrt(v)) STORED)",
+        "INSERT INTO roots(id,v) VALUES(1,4),(2,9)",
+        "SELECT SUM(g) FROM roots",
+        "UPDATE roots SET v=CASE WHEN id=1 THEN 16 ELSE -1 END",
+        "SELECT SUM(v) FROM roots",
+        "SELECT SUM(g) FROM roots",
+        "INSERT INTO roots(id,v) VALUES(3,16),(4,-1)",
+        "SELECT COUNT(*) FROM roots",
+        "CREATE TABLE root_default(id INT PRIMARY KEY,n NUMERIC DEFAULT sqrt(4.0))",
+        "INSERT INTO root_default(id) VALUES(1)",
+        "SELECT n FROM root_default",
+        "DROP TABLE root_default",
+        "CREATE TABLE root_default(id INT PRIMARY KEY,n NUMERIC DEFAULT sqrt(-1::numeric))",
+        "INSERT INTO root_default(id) VALUES(1)",
+        "SELECT COUNT(*) FROM root_default",
+        "SELECT SUM(v) FROM roots"
+      ]
+    }
+  ]
+}

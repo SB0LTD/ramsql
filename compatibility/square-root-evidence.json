@@ -1,0 +1,72 @@
+{
+  "date": "2026-11-01",
+  "zpm_revision": "8d8e5c92a5af8a4fa0ce3139f014d082912d90ad",
+  "archive_sha256": "024869f32dd23597565fc84a357b3acb42f24ce5c9aba9694f1b40b1c2e5877b",
+  "inputs_lf_sha256": {
+    "build.sig": "71ccc4713be0cb2d6e3e2eefc658dcfe1ac410cd4b12d51101d2b701919d9d49",
+    "build.sig.zon": "ef9afd79bf805ae8bcf1081a3d1538f26b14e594dc614dcffbf05c617b771e23",
+    "tools/test_postgres_semantics.py": "f54c7f77b4c3c18e66f59405b860ce18b386d729eda11d3e2fc0ab2a34814ea0",
+    "tools/test_qualify_postgres.py": "1e5104c8ce24a3d9264bec3d35fe5026975809a07bddea42da359ac801499186",
+    "tools/fixtures/sql_square_root_programs.json": "4ecd7f636005f503caa9dc6c482be56c356d5add88a934ac912433bbf5e9e407"
+  },
+  "wire": {
+    "statements": 134,
+    "native_checked_probes": 123,
+    "binary_parameters": 4,
+    "exit": 0,
+    "report_lf_sha256": "ba1a26447313246b537eb7df4e0edab8bf0d35b6d5fbe560fa46c3585511ca01",
+    "negative_zero_sign_checked": true
+  },
+  "durable_scram": {
+    "statements": 7,
+    "after_restart": 4,
+    "expected_error": "2201F on failed UPDATE",
+    "exit": 0,
+    "report_lf_sha256": "40e1f7371fdf5987fa5d621615fda11d9d2e95f92505af7a4b497c78c4d84c2f"
+  },
+  "native_recovery_program": {
+    "engine": "PostgreSQL16.15",
+    "statements": 7,
+    "native_restart": false,
+    "exit": 0
+  },
+  "unit_tests": {
+    "qualification": 12,
+    "release_policy": 13
+  },
+  "hosted_qualification": "pending",
+  "scope": "SQRT typed scalar subset; configured capacities and explicit global planner gaps remain open",
+  "tested_binary": {
+    "path": "sig-out/bin/ramsql.exe",
+    "sha256": "259f5fe467141c9257589511ff83f1243317ff9cae3b5ff6c56f28ea1cd2c41c",
+    "optimize": "ReleaseSafe",
+    "build_argv": [
+      "C:/Users/Shado/AppData/Local/Programs/Sig/0.6.4/bin/sig.exe",
+      "build",
+      "-Doptimize=ReleaseSafe"
+    ],
+    "build_env": {
+      "SIG_LIB_DIR": "C:/Just-Things/Projects/sb0/ramsql-pr-consolidation-20261030/.sig-cache/consolidation-sdk/lib"
+    },
+    "independent_rebuild_exit": null,
+    "parent_rebuild_exit": 0
+  },
+  "before_change": {
+    "zpm_revision": "29bd16cd17c960822b4ab57157d19ed93f6f559e",
+    "binary_sha256": "12bac71abd5e98de49f665d03c534798971a9e82b510e7780e64c92c24198ed4",
+    "sql": "SELECT sqrt(1::numeric)",
+    "sqlstate": "42883",
+    "error_class": "UndefinedFunction",
+    "independently_observed": true
+  },
+  "prior_independent_rebuild": {
+    "zpm_revision": "9e8b2c840e4ef4e66b23cde348cf7c2978cfe235",
+    "exit": 0,
+    "binary_sha256": "d18f7768cac27ed138b483102003fb037c021ef90d0b01dc58dd68ac2e485fdd"
+  },
+  "pin_followup": {
+    "change": "ZPM build graph registration ordering, documentation and evidence only",
+    "runtime_changed": false,
+    "parent_current_rebuild_and_wire_exit": 0
+  }
+}
