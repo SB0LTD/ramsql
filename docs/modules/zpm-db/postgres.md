@@ -1,5 +1,17 @@
 # Module: `postgres` (PostgreSQL v3 wire codec)
 
+**Parameter-lexing candidate, 1 November 2026:** NET-01 is merged and qualified.
+The NET-02 candidate uses the public L0 `sql.Tokenizer` for parameter counting,
+interpolation, inference and DEALLOCATE spans. The module now explicitly imports
+`sql` as well as `scram`; source ownership remains with the named SQL module.
+Comments/quoted strings/quoted identifiers and dollars in identifiers never create
+parameter references. Untouched source bytes remain exact; fixed capacities and
+numeric boundary rendering remain. Lexical errors propagate before replacing
+statements/portals. Values still render into SQL text: typed binding B1.1 and
+broader type inference remain open. ZPM docs/PG_PARAMETER_LEXING.md records scope
+and tests; independent review and hosted qualification are required before closure.
+The baseline line numbers and wave-zero audit below are historical.
+
 | Field | Value |
 | --- | --- |
 | Repository / path | `zpm/src/db/postgres.sig` |

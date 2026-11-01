@@ -1,5 +1,13 @@
 # SQRT integration candidate
 
+**Qualified checkpoint, 1 November 2026:** PR48 merged as2756280 after independent
+review, CI41311411830 and release41311411851. The release retried one RC2 timing
+observation unchanged; the original failure remains recorded. The original exact
+bundle was published as CI prerelease run41311411851.2. PR49 then qualified the
+automatic non-latest publication policy on CI41315141760/release41315141691 and
+merged as0815419. Pending-gate text below is historical candidate-stage evidence;
+it does not imply that these qualification gates are still outstanding.
+
 Runtime SQRT implementation remains in allocator-free ZPM Layer 0 SQL, using the
 existing Sig integer-root primitive. RAMSQL pins the verified immutable archive
 8d8e5c92a5af8a4fa0ce3139f014d082912d90ad (ZPM PR95), SHA256

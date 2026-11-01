@@ -1,5 +1,14 @@
 # PostgreSQL feature gaps and divergences (ZPM SQL front end)
 
+**Current reconciliation, 1 November 2026:** ZPM main69f7555 / RAMSQL
+main0815419 have qualified conditional table/sequence DDL, JSON operators,
+LAG/LEAD, ranking/distribution/named/frame-value windows, ABS/CEIL/FLOOR/TRUNC/SIGN
+and SQRT. These finite slices do not close their complete families. The latest
+recorded 118-program inventory is **12 smoke passes,89 failures,17 unexecuted**;
+[the current checkpoint](https://github.com/SB0LTD/zpm/blob/main/docs/SQL_CONFORMANCE_TDD_STATUS.md)
+records evidence and explicit planner gaps. The older audit/checkpoints below
+remain historical; location references are not current line numbers.
+
 **Current update, 30 October 2026:** main pins ZPM `3301526`. The temporal
 follow-up fixes SQLF-01's six reported overflow paths and SQLF-05 infinite DATE
 subtraction. FV-12 remains an open formal proof obligation; interval syntax,
@@ -12,7 +21,7 @@ windows and other RANGE types remain open. Tables/line locations below began
 at the `2f060c2` audit; current updates are marked explicitly.
 
 The [original SQL TDD map](https://github.com/SB0LTD/zpm/blob/main/tests/sql_conformance/README.md)
-is refreshed: **8 passes, 93 failures, 17 unexecuted scopes/comparators**.
+historical consolidation snapshot had **8 passes, 93 failures, 17 unexecuted scopes/comparators**.
 Compound probes can still fail after one component is implemented: the window
 probe needs LAG/LEAD, the named-window probe needs WINDOW, and the formatting
 probe needs to_date/to_number. These counts are not a compatibility percentage.
@@ -49,11 +58,11 @@ table distinguishes the completed window/ROLLUP slices from remaining work.
 | `SERIAL`, `BIGSERIAL` | Integer column with an owned sequence default | Error 42601. `GENERATED ... AS IDENTITY` works instead. | `parser.sig:555-559` | P0 | B11 |
 | Table constraints: composite or table-level `PRIMARY KEY (a, b)`, `UNIQUE`, `CHECK`, `REFERENCES`/`FOREIGN KEY` | Enforced constraints | Error 42601. Only column-level NOT NULL and one single-column PRIMARY KEY exist. | `parser.sig:714-781` | P0 | B11 |
 | `CREATE [UNIQUE] INDEX` | Secondary indexes | Error 42601. `create()` requires TABLE. | `parser.sig:176-180` | P0 | B11 |
-| `IF [NOT] EXISTS` on CREATE/DROP | Idempotent DDL | Error 42601. `IF` is read as the table name. | `parser.sig:176-186`, `714-716` | P0 | B11 |
+| `IF [NOT] EXISTS` on CREATE/DROP | Idempotent DDL | Qualified for table/sequence clauses in ZPM PR93 and RAMSQL PR46; broader object types and notice parity remain open. | ZPM docs/SQL_CONDITIONAL_DDL.md; PR93/46 | P0 remainder | B11 |
 | `ALTER TABLE`, `TRUNCATE`, `CREATE VIEW`, `CREATE SCHEMA`, `COMMENT ON`, `GRANT` | DDL and administration | Error 0A000 (ALTER, TRUNCATE, COMMENT, GRANT) or 42601 (CREATE VIEW/SCHEMA) | `parser.sig:491`, `176-180` | P0 (ALTER), P2 others | B11 |
 | String functions: `lower`, `upper`, `length`, `substring`, `trim`, `replace`, `position`, `concat`, `left`, `right`, `lpad` | Built-ins | Error 42883. The function table has 21 entries: clocks, `round`, `to_char`, `grouping`, jsonb, sequence and catalog functions. | `binder.sig:581-606` | P0 | B11 |
 | Session and system functions: `version()`, `current_user`, `session_user`, `current_setting`, `set_config`, `pg_backend_pid` | Built-ins that drivers and tools call | 42883. `current_user` is parsed as a column and gives 42703. | `binder.sig:581-606` | P0 (unverified until L6 probes) | B11 |
-| Math functions: `abs`, `floor`, `ceil`, `mod()`, `power`, `sqrt`, `random` | Built-ins | Error 42883 | `binder.sig:581-606` | P1 | B11 |
+| Math functions beyond the qualified slice | Built-ins | ABS, CEIL/CEILING, FLOOR, TRUNC, SIGN and SQRT qualified (PR94/95, RAMSQL PR47/48). POWER/LN, MOD function and other overloads/families remain open; configured precision and planner timing still differ. | ZPM docs/SQL_NUMERIC_FUNCTIONS.md and SQL_SQUARE_ROOT.md | P1 remainder | B11 |
 | Date and time functions: `extract`/`date_part`, `date_trunc`, `age`, `make_date`, `to_timestamp`; `to_char` for numeric or interval | Built-ins | 42601 (the `EXTRACT(x FROM y)` syntax) or 42883 | `binder.sig:581-606`, `771` | P1 | B11 |
 | Aggregates: `string_agg`, `array_agg`, `json(b)_agg`, `stddev`, `variance`, `AVG(interval)` | Built-ins | Error 42883. Aggregates are COUNT, SUM, AVG, MIN, MAX, BOOL_AND/EVERY and BOOL_OR. | `binder.sig:608-620`, `681` | P1 | B11 |
 | `UUID`, `BYTEA` | Types | Error 42601 | `parser.sig:555-559` | P1 | B11 |
@@ -62,7 +71,7 @@ table distinguishes the completed window/ROLLUP slices from remaining work.
 | `UPDATE ... FROM`, `DELETE ... USING` | Joined DML | Error 42601 | `parser.sig:1205-1233` | P1 | B11 |
 | `E'...'` strings, dollar quoting, `U&'...'`, `B'...'`/`X'...'` | Literal forms used by `pg_dump` and migration tools | Error 42601 | `lexer.sig:375-468` | P1 | B11 |
 | JSONB operators and functions: `\|\|`, `-`, `#-`, `?\|`, `?&`, `jsonb_set`, `jsonb_build_object`, `jsonb_each`, `to_jsonb`, jsonpath, operators on JSON | Built-ins | 42883 or 42601. `jsonb \|\| 'literal'` is silently wrong (section 2). | `jsonb.sig`, `binder.sig:581-606` | P1 | B11 |
-| Remaining built-in/named windows, nonintegral or temporal RANGE offsets, volatile moving arguments/FILTERs and correlated window targets | Window functions | Update at 0f5af8d: RANK/DENSE_RANK/ROW_NUMBER and ordinary aggregate windows support FILTER, bounded ROWS/GROUPS, integral RANGE and all exclusions. LAG/LEAD/value/distribution functions and named windows remain missing. DISTINCT windows are unsupported in PostgreSQL too. | [Exact frame scope](https://github.com/SB0LTD/zpm/blob/0f5af8da5f4ca6f25576c1615ff2ef28bf96ca41/docs/SQL_WINDOW_FRAMES.md); ZPM PR 81 | P2 | B11 |
+| Remaining window forms | Window functions | LAG/LEAD, ranking/distribution, named inheritance and finite frame-value functions are qualified. Temporal/nonintegral RANGE, volatile moving inputs and documented frame/native boundary differences remain open. | ZPM docs/SQL_WINDOW_OFFSETS.md, SQL_NAMED_WINDOWS.md, SQL_WINDOW_VALUES.md | P2 remainder | B11 |
 | Regular expressions (`~`, `~*`, `!~`, `SIMILAR TO`, `regexp_*`) | Operators and functions | Error 42601 (the lexer rejects `~`) | `lexer.sig:375-468` | P2 | B11 |
 | `NATURAL JOIN`, `LATERAL`, parenthesized join trees, set-returning functions in FROM (`generate_series`) | Join forms | 42601 or 0A000 | `parser.sig:1127-1190` | P2 | B11 |
 | `TIME`, `TIMETZ`; non-ISO date input (`'Jan 1 2026'`); ISO 8601 durations (`'P1D'`); zone abbreviations (`EST`) | Types and input styles | 42601 for types; 22007 or 22023 for input | `parser.sig:555-559`, `temporal.sig:249-319`, `664-740` | P2 | B11 |
