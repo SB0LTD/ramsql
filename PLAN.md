@@ -1,5 +1,14 @@
 # RAMSQL hardening and professionalization plan
 
+**Current reconciliation, 1 November 2026:** ZPM main69f7555 includes qualified
+conditional DDL, JSON operators, offset/ranking/named/frame-value windows,
+basic numeric functions and SQRT. RAMSQL main0815419 includes their integrations
+and automatic non-latest CI prereleases. The latest recorded unchanged SQL
+inventory is12 smoke passes,89 failures,17 unexecuted; older counts and audit
+revisions below are historical. General planner semantics, NET-02, STO-05 and
+production gates remain open. The current parameter-lexing candidate addresses
+NET-02; it is not closed until independent review and hosted qualification.
+
 **Snapshot/sequence safety follow-up, 31 October 2026:** ZPM pin `6c9ad44`. Running statements and
 open COPY snapshots retain their versions (STO-02). Globally pending sequence
 watermarks survive live-owner/consumer commit ordering (STO-04). Core regressions
