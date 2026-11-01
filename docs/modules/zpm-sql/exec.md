@@ -210,7 +210,7 @@ the single `g+0` comparison in `test_sql_dense_group.sig`.
 - Which always-on routes (dense group, layout order, integer top-k, key
   speculation) should get `Config` switches like the newer ones?
 
-## Offset-window inventory candidate — 31 October 2026
+## Offset-window inventory candidate â€” 31 October 2026
 
 The candidate implements LAG/LEAD over deferred arguments and sorted partition
 handles. Selected-row values and current-row offset/default expressions retain
@@ -228,7 +228,7 @@ sequences, NULL groups, demand and durable materialization/restart cases.
 Hosted qualification is pending. Other window and SQL inventory families remain
 open; no performance or complete compatibility claim is made.
 
-## Ranking/distribution inventory candidate —31 October2026
+## Ranking/distribution inventory candidate â€”31 October2026
 
 The next candidate adds percent_rank, cume_dist and ntile. cume_dist scans peer
 runs once; ntile uses constant per-partition state and retries leading NULL
@@ -279,3 +279,38 @@ selection over native array_agg frame membership, plus a separately reproduced
 XX000 executor-mark failure. These are not passing parity cases or a closed
 window feature. Wider SQL closure, PG18 version characterization and performance
 superiority remain unproved.
+
+
+### Conditional DDL candidate - 1 November 2026
+
+CREATE TABLE/SEQUENCE IF NOT EXISTS and DROP TABLE/SEQUENCE IF EXISTS use an
+explicit no-op bound command. Skipped operations preserve command tags, rows,
+defaults, identity metadata, sequence values, OIDs and existing transaction
+writes. No-op callbacks/WAL encoding are bypassed only when no pending/carried
+sequence state needs persistence. Sequence DROP retries now refresh a catalog
+snapshot when their wait occurred before writes; conditional deletion can then
+skip a committed predecessor's deletion. Aborted predecessors remain actionable.
+
+The shared contract covers49 native-reference programs, skipped semantic-invalid
+definitions, unquoted IF names, capacity/work/cancel recovery, concurrent CREATE/
+DROP commit/abort transitions, callback failure and carried sequence WAL replay.
+Existing syntax/type/workspace bounds still apply; NoticeResponse, full SQL READ
+ONLY behavior, schemas and broader DDL variants remain open. Runtime is pure Sig
+in ZPM Layer0; no WAL opcode or version changes. Memory qualification explicitly
+skips16 restart-only cases; durable-SCRAM skips0. These finite tests do not close
+the complete schema/DDL family or establish throughput superiority.
+
+The first full durable qualification exposed historical quoted names rejected by
+the typed journal decoder. The correction preserves exact bounded non-NUL table,
+column and sequence names (case, spaces, punctuation and UTF8 bytes), and rejects
+identifier NULs before publication. It changes no WAL format, length/CRC/trailer
+checks or opcode versions. The restart case now keeps quoted table/column and
+sequence metadata across recovery. A preserved155-record failing history is an
+additional recovery gate. Core conditional coverage increases to220 assertions.
+The Python harness preserves a primary startup/recovery exception when cleanup
+also loses its connection, while cleanup-only failures still fail qualification.
+Its12 harness contracts cover that error precedence; actual SQL checks use real
+engines. Local49 wire programs, fresh quoted-schema restart, the complete238-case
+candidate durable/SCRAM workload and unchanged-byte recovery of the preserved
+155-record WAL now pass. Candidate-only workload completion does not establish
+native parity; fresh hosted PG16/PG18 differential qualification remains pending.
