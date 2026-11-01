@@ -1516,6 +1516,20 @@ SUITES["q01"] += (Case("q01_numeric_parameter_binary", "q01", 3.9, setup=(),
 
 
 
+_SQRT_PROGRAMS = json.loads((Path(__file__).parent / "fixtures" / "sql_square_root_programs.json").read_text(encoding="utf8"))["programs"]
+SUITES["q01"] += tuple(Case(program["name"], "q01", 3.9, setup=(),
+    statements=tuple(program["sql"]), tables=("roots", "root_default"), sequences=("root_seq",),
+    feature="SQRT exact decimal matrix, overloads, generated/default values and atomicity")
+    for program in _SQRT_PROGRAMS)
+SUITES["q01"] += (Case("q01_sqrt_parameter_binary", "q01", 3.9, setup=(),
+    statements=(
+        ("SELECT sqrt(%s::numeric),sqrt(%s::float8),sqrt(%s::real)",
+         (Decimal("2.25"),4.0,9.0), {"binary":True}),
+        ("SELECT sqrt(%s::numeric),sqrt(%s::float8)",(None,float("nan")), {"binary":True}),
+        ("SELECT sqrt(%s::numeric)",(Decimal("-1"),), {"binary":True}),
+    ), feature="SQRT typed/binary parameters and2201F domain errors"),)
+
+
 def split_statement(statement):
     if isinstance(statement, str):
         return statement, None, {}
@@ -1634,6 +1648,20 @@ SUITES["p01"] += (Case("p01_numeric_restart", "p01", 3.9, setup=(),
         "UPDATE numeric_state SET v=-3.81 WHERE id=1 RETURNING g",
     ), tables=("numeric_state",), sequences=("numeric_seq",),
     feature="numeric default/generated expression recovery and strict sequence effects"),)
+
+
+SUITES["p01"] += (Case("p01_sqrt_restart", "p01", 3.9, setup=(),
+    statements=(
+        "CREATE TABLE root_replay(id INT PRIMARY KEY,v NUMERIC,n NUMERIC DEFAULT sqrt(4.0),g NUMERIC GENERATED ALWAYS AS(sqrt(v)) STORED)",
+        "INSERT INTO root_replay(id,v) VALUES(1,4)",
+        "SELECT id,v,n,g FROM root_replay ORDER BY id",
+    ), restart=(
+        "SELECT id,v,n,g FROM root_replay ORDER BY id",
+        "INSERT INTO root_replay(id,v) VALUES(2,9) RETURNING g,n",
+        "UPDATE root_replay SET v=-1 WHERE id=1",
+        "SELECT id,v,g,n FROM root_replay ORDER BY id",
+    ), tables=("root_replay",),
+    feature="SQRT generated/default recovery and failed post-restart update atomicity"),)
 
 
 def drop_tables(psycopg, arguments, tables, sequences=()):

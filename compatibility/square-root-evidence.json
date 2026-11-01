@@ -1,0 +1,38 @@
+{
+  "date": "2026-11-01",
+  "zpm_revision": "9e8b2c840e4ef4e66b23cde348cf7c2978cfe235",
+  "archive_sha256": "5b1352cf963a1f7aee862cc07985b6be59c2831b45cd5982919783b79b61c31d",
+  "inputs_lf_sha256": {
+    "build.sig": "71ccc4713be0cb2d6e3e2eefc658dcfe1ac410cd4b12d51101d2b701919d9d49",
+    "build.sig.zon": "fab0a5bed570d0a89aae985935748ce59132e6f4ccda6bc1b3043c0d778d7f42",
+    "tools/test_postgres_semantics.py": "3d8ddb5645063e12d295122eaee9f2a87e79970fa392496b4b8743cab970cbbe",
+    "tools/test_qualify_postgres.py": "1e5104c8ce24a3d9264bec3d35fe5026975809a07bddea42da359ac801499186",
+    "tools/fixtures/sql_square_root_programs.json": "4ecd7f636005f503caa9dc6c482be56c356d5add88a934ac912433bbf5e9e407"
+  },
+  "wire": {
+    "statements": 133,
+    "native_checked_probes": 123,
+    "binary_parameters": 3,
+    "exit": 0,
+    "report_lf_sha256": "e5c8b95241778d7b5bfed7e5f468d62ad9427e7d322aa6f86a1100b954c7496c"
+  },
+  "durable_scram": {
+    "statements": 7,
+    "after_restart": 4,
+    "expected_error": "2201F on failed UPDATE",
+    "exit": 0,
+    "report_lf_sha256": "40e1f7371fdf5987fa5d621615fda11d9d2e95f92505af7a4b497c78c4d84c2f"
+  },
+  "native_recovery_program": {
+    "engine": "PostgreSQL16.15",
+    "statements": 7,
+    "native_restart": false,
+    "exit": 0
+  },
+  "unit_tests": {
+    "qualification": 12,
+    "release_policy": 13
+  },
+  "hosted_qualification": "pending",
+  "scope": "SQRT typed scalar subset; configured capacities and explicit global planner gaps remain open"
+}
