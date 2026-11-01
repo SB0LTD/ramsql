@@ -1592,14 +1592,16 @@ SUITES["p01"] += (
  Case('p01_conditional_quoted_case',"p01",3.9,setup=('CREATE TABLE "COMPAT"(id INTEGER)',),statements=('CREATE TABLE IF NOT EXISTS compat(id INTEGER)', 'SELECT COUNT(*) AS value FROM compat'),tables=("aux","compat","if",'"COMPAT"'),sequences=("ddl_seq","if","compat","compat_id_seq"),feature="native conditional DDL and post-command state"),
  Case("p01_conditional_restart","p01",3.9,setup=(
  "CREATE TABLE compat(id INTEGER PRIMARY KEY,v INTEGER DEFAULT 7)","INSERT INTO compat VALUES(1,10)",
- "CREATE SEQUENCE ddl_seq START WITH 19 INCREMENT BY 3","CREATE TABLE aux(id INTEGER PRIMARY KEY,v BIGINT)"),
- sequences=("ddl_seq",),feature="skipped definitions preserve durable table/sequence state",statements=(
+ "CREATE SEQUENCE ddl_seq START WITH 19 INCREMENT BY 3","CREATE TABLE aux(id INTEGER PRIMARY KEY,v BIGINT)",
+ 'CREATE TABLE "Case Table"("Case Column" INTEGER)','CREATE SEQUENCE "Case Seq"'),
+ tables=("aux","compat",'"Case Table"'),sequences=("ddl_seq",'"Case Seq"'),feature="skipped definitions and quoted table/column/sequence names survive durable replay",statements=(
  "CREATE TABLE IF NOT EXISTS compat(other INTEGER DEFAULT undefined_function())",
  "CREATE SEQUENCE IF NOT EXISTS ddl_seq AS TEXT AS BIGINT",
  "DROP TABLE IF EXISTS missing","DROP SEQUENCE IF EXISTS missing",
- "INSERT INTO aux SELECT 1,nextval('ddl_seq')","INSERT INTO aux SELECT 2,nextval('ddl_seq')"),restart=(
+ "INSERT INTO aux SELECT 1,nextval('ddl_seq')","INSERT INTO aux SELECT 2,nextval('ddl_seq')",'INSERT INTO "Case Table" VALUES(17)'),restart=(
  "SELECT id,v FROM compat ORDER BY id","SELECT id,v FROM aux ORDER BY id",
- "INSERT INTO compat(id) VALUES(2)","SELECT id,v FROM compat ORDER BY id")),
+ "INSERT INTO compat(id) VALUES(2)","SELECT id,v FROM compat ORDER BY id",'SELECT "Case Column" FROM "Case Table"',
+ "SELECT relname::text FROM pg_class WHERE relname='Case Seq'")),
 )
 
 def drop_tables(psycopg, arguments, tables, sequences=()):
@@ -1628,7 +1630,16 @@ def run_semantic_case(psycopg, arguments, case, restart):
                 result["after_restart"] = run_statements(connection, case.restart)
         return result
     finally:
-        drop_tables(psycopg, arguments, case.tables, case.sequences)
+        primary_error = sys.exc_info()[1]
+        try:
+            drop_tables(psycopg, arguments, case.tables, case.sequences)
+        except Exception as cleanup_error:
+            # Recovery can fail before a replacement listener exists. Preserve
+            # that failure instead of replacing it with connection-refused.
+            if primary_error is None:
+                raise
+            if hasattr(primary_error, "add_note"):
+                primary_error.add_note("case cleanup also failed: " + type(cleanup_error).__name__)
 
 
 class Candidate:

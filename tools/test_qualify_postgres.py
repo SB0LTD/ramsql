@@ -34,6 +34,25 @@ def synthetic_bundle(revision, binary_sha):
 
 
 class QualificationContracts(unittest.TestCase):
+    def test_restart_error_survives_unavailable_cleanup_connection(self):
+        import test_postgres_semantics as semantics
+        case=semantics.Case("restart_failure","p01",3.9,setup=(),restart=("SELECT 1",))
+        client=MagicMock()
+        def restart(): raise ValueError("original restart failure")
+        with patch.object(semantics,"drop_tables",side_effect=[None,RuntimeError("cleanup unavailable")]) as cleanup, patch.object(semantics,"run_statements",return_value=[]):
+            with self.assertRaisesRegex(ValueError,"original restart failure") as failure:
+                semantics.run_semantic_case(client,{},case,restart)
+            self.assertEqual(cleanup.call_count,2)
+            self.assertIn("case cleanup also failed: RuntimeError",failure.exception.__notes__)
+
+    def test_cleanup_failure_without_primary_error_still_fails(self):
+        import test_postgres_semantics as semantics
+        case=semantics.Case("cleanup_failure","p01",3.9,setup=())
+        with patch.object(semantics,"drop_tables",side_effect=[None,RuntimeError("cleanup unavailable")]) as cleanup, patch.object(semantics,"run_statements",return_value=[]):
+            with self.assertRaisesRegex(RuntimeError,"cleanup unavailable"):
+                semantics.run_semantic_case(MagicMock(),{},case,lambda:None)
+            self.assertEqual(cleanup.call_count,2)
+
     def setUp(self):
         self.revision, self.digest = "a" * 40, "b" * 64
         self.evidence = synthetic_bundle(self.revision, self.digest)
