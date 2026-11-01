@@ -1499,6 +1499,23 @@ SUITES["selfcheck"] = (
 )
 
 
+# Basic mathematical slice. Queries are frozen from the independently checked
+# core contract; each hosted run still executes native PostgreSQL as reference.
+_NUMERIC_PROGRAMS = json.loads((Path(__file__).parent / "fixtures" / "sql_numeric_programs.json").read_text(encoding="utf8"))["programs"]
+SUITES["q01"] += tuple(Case(program["name"], "q01", 3.9, setup=(),
+    statements=tuple(program["sql"]), tables=("nf", "nd"), sequences=("nf_seq",),
+    feature="ABS/CEIL/FLOOR/TRUNC/SIGN overloads, decimal matrix and strict evaluation")
+    for program in _NUMERIC_PROGRAMS)
+SUITES["q01"] += (Case("q01_numeric_parameter_binary", "q01", 3.9, setup=(),
+    statements=(
+        ("SELECT abs(%s::int2),abs(%s::real),ceil(%s::numeric),floor(%s::float8),trunc(%s::numeric,%s::int4)",
+         (-12,-1.25,Decimal("1.2"),-1.2,Decimal("-1.239"),2), {"binary":True}),
+        ("SELECT sign(%s::numeric),trunc(%s::numeric,%s::int4),abs(%s::int8)",
+         (Decimal("NaN"),None,2,-123), {"binary":True}),
+    ), feature="numeric overloads with typed parameters and binary results"),)
+
+
+
 def split_statement(statement):
     if isinstance(statement, str):
         return statement, None, {}
@@ -1603,6 +1620,21 @@ SUITES["p01"] += (
  "INSERT INTO compat(id) VALUES(2)","SELECT id,v FROM compat ORDER BY id",'SELECT "Case Column" FROM "Case Table"',
  "SELECT relname::text FROM pg_class WHERE relname='Case Seq'")),
 )
+
+SUITES["p01"] += (Case("p01_numeric_restart", "p01", 3.9, setup=(),
+    statements=(
+        "CREATE SEQUENCE numeric_seq",
+        "CREATE TABLE numeric_state(id INT PRIMARY KEY,v NUMERIC,n NUMERIC DEFAULT trunc(NULL::numeric,nextval('numeric_seq')::int4),g NUMERIC GENERATED ALWAYS AS(trunc(abs(v),1)) STORED)",
+        "INSERT INTO numeric_state(id,v) VALUES(1,-1.29)",
+        "SELECT id,v,n,g FROM numeric_state ORDER BY id",
+    ), restart=(
+        "SELECT id,v,n,g FROM numeric_state ORDER BY id",
+        "INSERT INTO numeric_state(id,v) VALUES(2,-2.99) RETURNING id,g,n",
+        "SELECT nextval('numeric_seq') AS value",
+        "UPDATE numeric_state SET v=-3.81 WHERE id=1 RETURNING g",
+    ), tables=("numeric_state",), sequences=("numeric_seq",),
+    feature="numeric default/generated expression recovery and strict sequence effects"),)
+
 
 def drop_tables(psycopg, arguments, tables, sequences=()):
     with psycopg.connect(**arguments) as connection:

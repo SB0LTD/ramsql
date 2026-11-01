@@ -1,0 +1,58 @@
+{
+  "date": "2026-11-01",
+  "zpm_revision": "29bd16cd17c960822b4ab57157d19ed93f6f559e",
+  "archive_sha256": "578cc1ac8c058fd975aaf9c20d31196f2526ccaf831a2bdd2833daed3ad6eeb0",
+  "inputs_lf_sha256": {
+    "build.sig.zon": "7a7d006bb272866262001f7c465e665e0f20ab4badc7bb8f9f61ca46b73e2b8c",
+    "build.sig": "6e5f2f9a72f3cf84e215598d9de24b92cdac0a7c703cb1f81fab0d91f4ce35f7",
+    "tools/test_postgres_semantics.py": "ad4f930ea9183f31fcc2acd9e4efcd855d040c709bdfa9edd8098ced32dc36c1",
+    "tools/fixtures/sql_numeric_programs.json": "959b9c4974a7ee131564d6e1fe2b8d7aaecf1cd11825637aa7263b9770406ba4",
+    "tools/test_qualify_postgres.py": "1b3b45f320c8ad7fc66b4074a1a9818a8769df75da21d4a1b82db498d56355f2",
+    ".github/workflows/ci.yml": "a40a56aff827623fd2e9d1e55d93a0ac4a6fd254f9ffd247df660c9b958f20a9"
+  },
+  "wire": {
+    "statements": 328,
+    "oracle_checks": 320,
+    "binary_parameter_queries": 2,
+    "exit": 0,
+    "report_lf_sha256": "9bd993958a51e438a5d7a87dfedaa6c8cb471c13325113fdf1bfa5a8c3d3360d"
+  },
+  "durable_scram": {
+    "statements": 8,
+    "after_restart": 4,
+    "exit": 0,
+    "report_lf_sha256": "37b0adb69123995f51e5e59f1e2b9858cc09aa78a712e786874253fc1d69d476"
+  },
+  "native_recovery_program": {
+    "engine": "PostgreSQL16.15",
+    "statements": 8,
+    "native_restart": false,
+    "exit": 0
+  },
+  "harness_unittests": 12,
+  "hosted_qualification": "pending",
+  "scope": "Basic numeric functions; wider math and unused derived-output pruning remain open",
+  "local_full_contracts": {
+    "exit": 0,
+    "succeeded": 85,
+    "failed": 0,
+    "skipped": 10,
+    "log_lf_sha256": "8bbc369fbaa28010f5e997e9ccbf6369221481f7982ff1be8075314d2afa6af6"
+  },
+  "local_product_checks": {
+    "demo": 0,
+    "cli": 0,
+    "server": 0,
+    "independent_clients": 0,
+    "auth": 0,
+    "persistence": 0
+  },
+  "first_hosted_head": {
+    "commit": "f2237f225bfe5157a50dc056488329a8daec904c",
+    "ci": 41262795270,
+    "ci_conclusion": "success",
+    "release": 41262795309,
+    "release_conclusion": "cancelled",
+    "reason": "Windows native job exceeded20-minute budget during configured-capacity libpq check; budget increased30, all checks retained"
+  }
+}
