@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-01",
+  "dependency_revision": "976d6081f89f0bbe863ad14dde544336d9bfa129",
+  "dependency_archive_sha256": "adfd2cb2b2d94344bd619b37a744bf30e0375c4b12f64b82239fd50d8b096db8",
+  "build": {
+    "command": "sig build -Doptimize=ReleaseSafe -j1",
+    "exit": 0,
+    "total_steps": 97,
+    "succeeded": 2,
+    "unselected": 95
+  },
+  "wire": {
+    "command": "test-env/Scripts/python.exe .scratch/parameters/live_parameters.py",
+    "exit": 0,
+    "statements": 76,
+    "binary_sha256": "303bfdb4950c7db3274f785f1d32161f8f9e5a89890d5a81880032faec5494e7",
+    "report_sha256": "691f57dc95b301a78cb2058c4cd5a7cf57fa858025dc3052db8733773228e027"
+  },
+  "inputs_lf_sha256": {
+    "build.sig": "ff1c1a0c911f3ecbbd1dc63233d3793e13128acd91bb71bfc3982beda38fe845",
+    "build.sig.zon": "3cea865f89fabb94777292300dc0f7666da95a88492e17cf4ec1a2df26da763e",
+    "tools/build_sb0.py": "f53de5be1c332cee9aca8c510c06b1d3345208c9e74ce220cdbfee8f8abc137f",
+    "tools/test_postgres_semantics.py": "20af2ee983d7e00a33165c317062593dcc6bfb902ee0b254bd83c4b2025442de"
+  },
+  "qualification": "Independent product review, CI and full exact-artifact release matrix pending",
+  "scope": "Lexical boundary repair NET-02 candidate; general typed binding/OID inference and SQL inventory remain open"
+}

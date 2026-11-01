@@ -1532,6 +1532,35 @@ SUITES["q01"] += (Case("q01_sqrt_parameter_binary", "q01", 3.9, setup=(),
     ), feature="SQRT typed/binary parameters and2201F domain errors"),)
 
 
+# NET-02: client placeholders remain outside comments; literal $32/$0 text is
+# deliberately sent to the server so its tokenizer must ignore those regions.
+_PARAMETER_COMMENTS = tuple(
+    ("SELECT "+"/* ' $32 "*depth+" */"*depth+"%s::int",(7,),{"binary":bool(depth%2)})
+    for depth in range(65))
+SUITES["q01"] += (
+    Case("q01_parameter_lexical_regions","q01",3.9,setup=(),tables=(),
+         feature="nested comments, quoted dollars and binary/text binding",
+         statements=_PARAMETER_COMMENTS+(
+             ("SELECT /* outer /* $32 */ $0 */ %s::int",(7,)),
+             ("SELECT /* ' -- \" $999999999999999 */ %s::int",(7,)),
+             ("SELECT %s::int /* ' */ + %s::int",(7,7)),
+             ("SELECT %s::int -- ' $32\n + %s::int",(7,7)),
+             ('SELECT \'it\'\'s $32\', %s::int AS "out$31"',(7,),{"binary":True}),
+             ("SELECT /* unterminated %s",(7,)),
+             ("SELECT 1e-%s",(7,)),
+         )),
+    Case("q01_parameter_comment_mutations","q01",3.9,
+         setup=("CREATE TABLE compat(a$2 INT PRIMARY KEY,v INT)","INSERT INTO compat VALUES(7,100)"),
+         feature="parameter-adjacent comments preserve mutation targets and identifier dollars",
+         statements=(
+             ("/* FROM missing $32 */ UPDATE compat SET v=%s WHERE a$2=%s",(-5,7)),
+             ("SELECT a$2,v FROM compat WHERE a$2=%s /* '$32 */",(7,),{"binary":True}),
+             ("INSERT /* $32 */ INTO compat(a$2,v) VALUES(%s,/* '$0 */%s)",(8,9)),
+             "SELECT a$2,v FROM compat ORDER BY a$2",
+         )),
+)
+
+
 def split_statement(statement):
     if isinstance(statement, str):
         return statement, None, {}

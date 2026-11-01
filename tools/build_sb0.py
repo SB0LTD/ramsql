@@ -86,7 +86,7 @@ def main():
         command += ["--dep", name]
     command += [f"-Mroot={ROOT / 'src/platform/sb0_app.sig'}",
                 f"-Msql={zpm / 'src/core/sql.sig'}", f"-Mdb_store={zpm / 'src/db/store.sig'}",
-                f"-Mscram={zpm / 'src/db/scram.sig'}", "--dep", "scram",
+                f"-Mscram={zpm / 'src/db/scram.sig'}", "--dep", "scram", "--dep", "sql",
                 f"-Mpostgres={zpm / 'src/db/postgres.sig'}",
                 f"-Mstream_server={zpm / 'src/db/stream_server.sig'}",
                 f"-Msb0_stream={zpm / 'src/platform/sb0_stream.sig'}", f"-Msb0_options={options}",

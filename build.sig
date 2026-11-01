@@ -106,6 +106,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     try ctx.addImport(region_module,"resource_budget",resource_budget_path);
     const pg_module = try ctx.addModule("postgres", pg_path);
     try ctx.addImport(pg_module, "scram", scram_path);
+    try ctx.addImport(pg_module, "sql", sql_path);
     const clients = ctx.option(usize, "clients", "Default runtime connection budget (1..60)") orelse 16;
     const rows = ctx.option(usize, "rows", "Rows per table") orelse 4096;
     const tables = ctx.option(usize, "tables", "Table capacity") orelse 8;
