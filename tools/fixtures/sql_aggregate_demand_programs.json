@@ -1,0 +1,640 @@
+{
+  "scope": "Finite native aggregate-demand programs; live PostgreSQL comparison is mandatory, not full SQL parity",
+  "zpm_fixture": "tests/fixtures/aggregate_demand_pg16.json",
+  "programs": [
+    {
+      "id": "aggregate_probe_0",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(2)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(1/0) AS x FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_probe_1",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(2)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(v) AS x,1/0 AS y FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_probe_2",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(2)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT x FROM (SELECT sum(v) AS x,sum(1/0) AS y FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_probe_3",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(2)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(1/0) AS x FROM t WHERE FALSE) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_probe_4",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(2)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(1/0) AS x FROM t GROUP BY v) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_probe_5",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(2)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(1/0) AS x FROM t GROUP BY v HAVING count(*)>0) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_probe_6",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(2)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(1/0) AS x FROM t ORDER BY x) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_probe_7",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(2)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT DISTINCT sum(1/0) AS x FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_probe_8",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(2)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(1/0) FILTER(WHERE FALSE) AS x FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_probe_9",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(2)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(nextval('seq')) AS x FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_probe_10",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(2)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT count(*) FILTER(WHERE nextval('seq')>0) AS x FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_probe_11",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(2)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT x FROM (SELECT sum(v) AS x,sum(nextval('seq')) AS y FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_probe_12",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(2)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "WITH q AS(SELECT sum(1/0) AS x FROM t) SELECT 7 FROM q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_probe_13",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(2)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "WITH q AS(SELECT sum(1/0) AS x FROM t) SELECT 7 FROM q a,q b",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_probe_14",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(2)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(1/0) AS x FROM t LIMIT 0) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_probe_15",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(2)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(1/0) AS x FROM t HAVING FALSE) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_duplicate_groups",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(1/0) AS dead FROM t GROUP BY v) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_empty_groups",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(1/0) AS dead FROM t GROUP BY v) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_live_group_keys",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT g FROM (SELECT v AS g,sum(1/(v-1)) AS dead FROM t GROUP BY v) q ORDER BY g NULLS LAST",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_selective_having",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(1/(v-1)) AS dead FROM t GROUP BY v HAVING count(*)>1) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_row_dependent",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(1/(v-1)) AS dead FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_dead_before_live",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT live FROM (SELECT sum(1/(v-1)) AS dead,sum(v) AS live FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_dead_after_live",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT live FROM (SELECT sum(v) AS live,sum(1/(v-1)) AS dead FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_deduplicated_dead",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(1/(v-1)) AS a,sum(1/(v-1)) AS b FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_deduplicated_live",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT a+b FROM (SELECT sum(1/(v-1)) AS a,sum(1/(v-1)) AS b FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_live_false_filter",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT x FROM (SELECT sum(1/(v-1)) FILTER(WHERE FALSE) AS x FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_live_selective_filter",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT x FROM (SELECT sum(1/(v-1)) FILTER(WHERE v<>1) AS x FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_dead_false_filter",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(1/(v-1)) FILTER(WHERE FALSE) AS x FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_dead_distinct_arg",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(DISTINCT 1/(v-1)) AS x FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_live_distinct_and_dead",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT live FROM (SELECT count(DISTINCT v) AS live,sum(1/(v-1)) AS dead FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_live_having_dependency",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(v) AS x FROM t HAVING sum(1/(v-1))>0) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_hidden_order_dependency",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(v) AS x FROM t ORDER BY sum(1/(v-1))) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_hidden_order_limit_zero",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(1/(v-1)) AS x FROM t ORDER BY x LIMIT 0) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_distinct_dependency",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT DISTINCT sum(1/(v-1)) AS x FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_shared_cte_dependency",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "WITH q AS(SELECT sum(1/(v-1)) AS x FROM t) SELECT 7 FROM q a,q b",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_single_cte_pruning",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "WITH q AS(SELECT sum(1/(v-1)) AS x FROM t) SELECT 7 FROM q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_empty_null_outputs",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT s,c,mn,mx,av FROM (SELECT sum(v) AS s,count(v) AS c,min(v) AS mn,max(v) AS mx,avg(v) AS av,sum(1/(v-1)) AS dead FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_all_null_outputs",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(NULL),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT s,c,mn,mx,av FROM (SELECT sum(v) AS s,count(v) AS c,min(v) AS mn,max(v) AS mx,avg(v) AS av,sum(1/(v-1)) AS dead FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_semantic_missing_column",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(missing) AS dead FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_semantic_wrong_type",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum('bad'::text) AS dead FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_semantic_nested_aggregate",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(sum(v)) AS dead FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_semantic_ungrouped_column",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT v,sum(v) AS dead FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_volatile_filter",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT count(*) FILTER(WHERE nextval('seq')>0) AS dead FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_volatile_dead_case",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(CASE WHEN FALSE THEN nextval('seq') ELSE 1 END) AS dead FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_volatile_row_case",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(CASE WHEN v=1 THEN nextval('seq') ELSE 0 END) AS dead FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_volatile_throwing_filter",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(1/(v-1)) FILTER(WHERE nextval('seq')>0) AS dead FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_float_overflow_dead",
+      "setup": [
+        "CREATE TABLE t(v DOUBLE PRECISION)",
+        "INSERT INTO t VALUES('1e308'::float8),('1e308'::float8)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(v) AS dead FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_float_overflow_live",
+      "setup": [
+        "CREATE TABLE t(v DOUBLE PRECISION)",
+        "INSERT INTO t VALUES('1e308'::float8),('1e308'::float8)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT x FROM (SELECT sum(v) AS x FROM t) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_rollup_cardinality",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 7 FROM (SELECT sum(1/(v-1)) AS dead FROM t GROUP BY ROLLUP(v)) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_live_having_group",
+      "setup": [
+        "CREATE TABLE t(v INT)",
+        "INSERT INTO t VALUES(1),(1),(2),(NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT g,n FROM (SELECT v AS g,count(*) AS n,sum(1/(v-1)) AS dead FROM t GROUP BY v HAVING count(*)>1) q",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "aggregate_unused_named_window_sequence",
+      "setup": [
+        "CREATE TABLE w(id INT,v INT)",
+        "INSERT INTO w VALUES(1,0),(2,1)",
+        "CREATE SEQUENCE unused_seq"
+      ],
+      "statements": [
+        "SELECT 1 AS id,1 AS value FROM w WINDOW n AS(ORDER BY sum(nextval('unused_seq')))",
+        "SELECT currval('unused_seq')",
+        "SELECT 1 FROM w WINDOW n AS(ORDER BY sum(nextval('unused_seq'))) LIMIT 0",
+        "SELECT currval('unused_seq')"
+      ]
+    },
+    {
+      "id": "aggregate_unused_named_window_order_error",
+      "setup": [
+        "CREATE TABLE w(id INT,v INT)",
+        "INSERT INTO w VALUES(1,0),(2,1)",
+        "CREATE SEQUENCE unused_seq"
+      ],
+      "statements": [
+        "SELECT 1 FROM w WINDOW n AS(ORDER BY sum(1/v))"
+      ]
+    },
+    {
+      "id": "aggregate_unused_named_window_partition_error",
+      "setup": [
+        "CREATE TABLE w(id INT,v INT)",
+        "INSERT INTO w VALUES(1,0),(2,1)",
+        "CREATE SEQUENCE unused_seq"
+      ],
+      "statements": [
+        "SELECT 1 FROM w WINDOW n AS(PARTITION BY sum(1/v))"
+      ]
+    }
+  ]
+}
