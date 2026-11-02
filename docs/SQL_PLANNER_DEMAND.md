@@ -30,3 +30,12 @@ Final independent review, full supported-platform/PG16+18 qualification and exac
 release publication are required before merge. Broader aggregate/window-state
 liveness, scalar-subquery projection pruning and general planner parity remain
 open; see the ZPM module doc and planner_demand_open.json.
+
+The first ZPM hosted broad graph exposed a private ReadContext Describe regression.
+The corrected pin separates metadata binding from executable preparation and
+retains snapshot/cancellation ownership. Independent ZPM re-review rebuilt
+444 planner assertions plus46 parallel-read assertions/2400queries/eight threads.
+The corrected product build passes99 statements in memory and durable-SCRAM
+against native16.15, and the four-worker regression suite including640 prepared
+binary queries. Final hosted qualification remains mandatory. Initial failed and
+corrected evidence is retained separately in the manifest.
