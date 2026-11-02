@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "date": "2026-11-02",
+  "zpm_source": "81e64041581c6c557b8eda09c3a00d4d6d0bb3fb",
+  "zpm_archive_sha256": "b069cfb8a3aa4c3eed1e9abb933bd86f53585f51669376ee5bdf329fdf3996c2",
+  "sha256": {
+    "build.sig.zon": "f4bf9b2133a52d03d0b5627d8b4aa6721f353edbd0e0eab5a44790d7bf5e4ad6",
+    "build.sig": "6c335cdb86b18e4bb53bce1b053a9b1c890b42e45b09a0c396836c9d245d06ab",
+    "tools/test_clients.py": "b741991a1993c6c7c86edd5ebf13df884a1d01100daaf4ef72edf26132f8071a",
+    "tools/test_postgres_semantics.py": "c91a25eba7608b97c9b18052b9f57c181907699bc881ac895effab1a7ab04b94",
+    "tools/fixtures/sql_planner_demand_program.json": "8d2f55408a0495fd34fbbf2858579f8e2dbc077b62b7628e8cd95a736c3efd90",
+    "sig-out/bin/ramsql.exe": "08f6dde71df6e95ab7b52eef9698d2c359f941a8f4f81a0b02981c977b15ba5e",
+    ".scratch/planner/build.log": "00046853ad8b10580f32f78375aa7c8c83cb109bed7eaaafb4804670754b1e06",
+    ".scratch/planner/wire_native.py": "d3342d2961051857a4703d4e95109fa91de11b48fb10ad79e26988f867a31360",
+    ".scratch/planner/wire-report.json": "b1ac55bd44e4233888b72dc87fc2d8bb818c0fd5fa38668cedcc68840648ee9f",
+    ".scratch/planner/wire-final.log": "c5fb42ba81e59fc55cefb7a0c3d8c74f896a3dffa6e6f709243280219f4325ce",
+    ".scratch/planner/wire-timezone-mismatch.json": "6e474cbe7a08dd929fc5705f93f7501e5e0ba4ff3a20766fe78e478f4a7eeeca"
+  },
+  "commands": [
+    {
+      "command": "sig build -Doptimize=ReleaseSafe -j1",
+      "exit": 0
+    },
+    {
+      "command": "python .scratch/planner/wire_native.py",
+      "exit": 0,
+      "native_version": "16.15",
+      "statements_per_mode": 99,
+      "modes": [
+        "memory",
+        "durable SCRAM"
+      ]
+    },
+    {
+      "command": "python tools/test_release.py",
+      "exit": 0,
+      "tests": 13
+    },
+    {
+      "command": "python tools/test_release_publication.py",
+      "exit": 0,
+      "tests": 6
+    }
+  ],
+  "initial_harness_observation": "Native Windows inherited Asia/Jerusalem; candidate UTC. Preserved initial report, configured native UTC as canonical harness does; final comparison has zero differences.",
+  "qualification": "Hosted exact-source qualification and independent product review pending; required before merge",
+  "scope": "Finite planner-demand correctness, no SQL-family closure or speedup claim"
+}
