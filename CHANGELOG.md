@@ -6,6 +6,12 @@ later binary.
 
 ## Unreleased
 
+- Add an allocator-free VARCHAR / CHARACTER VARYING candidate in shared ZPM SQL:
+  UTF-8 character lengths, explicit truncation, strict assignment, PostgreSQL
+  OID/typmod metadata, prepared/binary codecs and validated replay. Add 37 native
+  programs, bound-parameter checks and durable-restart coverage. CHAR/BPCHAR and
+  full SQL compatibility remain open; see docs/SQL_CHARACTER_TYPES.md for gates.
+
 - Retain running and COPY statement snapshots during reclamation, including
   resume under version pressure. Exhaustion returns 53200 with statement
   rollback instead of silently skipping rows (STO-02).

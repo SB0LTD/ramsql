@@ -82,7 +82,7 @@ class QualificationContracts(unittest.TestCase):
     def test_complete_matrix_and_explicit_restart_skips(self):
         self.validate(self.evidence)
         self.assertEqual(len(self.evidence["entries"]), 4)
-        self.assertEqual(len(self.evidence["entries"][0]["reports"]["semantics"]["skipped"]), 18)
+        self.assertEqual(len(self.evidence["entries"][0]["reports"]["semantics"]["skipped"]), 19)
         self.assertIn("q04_concat_restart", {case["name"] for case in self.evidence["entries"][0]["reports"]["semantics"]["skipped"]})
         self.assertIn("q06_window_offsets_restart", {case["name"] for case in self.evidence["entries"][0]["reports"]["semantics"]["skipped"]})
         self.assertIn("q06_window_distribution_restart", {case["name"] for case in self.evidence["entries"][0]["reports"]["semantics"]["skipped"]})

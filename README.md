@@ -137,6 +137,10 @@ candidate adds bounded ROWS/GROUPS, integral-key RANGE, exclusions and aggregate
 FILTER; named windows and the remaining built-in window functions stay open. See the
 [reporting qualification record](compatibility/REPORTING_SQL_PROGRESS.md) for
 supported forms, remaining gaps and pending original dbMeter validation.
+The [VARCHAR candidate](docs/SQL_CHARACTER_TYPES.md) adds distinct
+`VARCHAR` / `CHARACTER VARYING`, UTF-8 character lengths, PostgreSQL modifiers
+and prepared/binary/recovery contracts. Full hosted qualification remains pending;
+`CHAR`/`BPCHAR` remains open.
 Isolation is READ COMMITTED only. Secondary/foreign-key
 indexes, complete window coverage, complete catalogs, stored procedures/extensions and
 full dialect semantics are missing. Some MySQL/TDS types are rendered as text.

@@ -1,0 +1,466 @@
+{
+  "scope": "Finite VARCHAR programs; live native PostgreSQL comparison is mandatory; CHAR/BPCHAR remains open",
+  "zpm_fixture": "tests/fixtures/character_types_pg16.json",
+  "fixture_sha256": "0c50cb28bb8c865b00ce1eab7054fdd0b410fd68a6d376f62188be9710c11df2",
+  "programs": [
+    {
+      "id": "varchar_unbounded",
+      "setup": [
+        "SET TIME ZONE 'UTC'"
+      ],
+      "statements": [
+        "CREATE TABLE t(id INT PRIMARY KEY,v VARCHAR)",
+        "INSERT INTO t VALUES(1,''),(2,'abc '),(3,'\u00e9\ud83d\ude42'),(4,NULL)",
+        "SELECT id,v FROM t ORDER BY id"
+      ]
+    },
+    {
+      "id": "varchar_varying_alias",
+      "setup": [
+        "SET TIME ZONE 'UTC'"
+      ],
+      "statements": [
+        "CREATE TABLE t(v CHARACTER VARYING(3))",
+        "INSERT INTO t VALUES('abc ')",
+        "SELECT v FROM t"
+      ]
+    },
+    {
+      "id": "varchar_casts",
+      "setup": [
+        "SET TIME ZONE 'UTC'"
+      ],
+      "statements": [
+        "SELECT 'abcdef'::varchar(3),CAST('\u00e9\ud83d\ude42x' AS CHARACTER VARYING(2)),NULL::varchar(3)",
+        "SELECT 12345::varchar(2),true::varchar(3)",
+        "SELECT 'ab  '::varchar(2),'abc '::varchar"
+      ]
+    },
+    {
+      "id": "varchar_assignment_spaces",
+      "setup": [
+        "SET TIME ZONE 'UTC'",
+        "CREATE TABLE t(id INT PRIMARY KEY,v VARCHAR(3))"
+      ],
+      "statements": [
+        "INSERT INTO t VALUES(1,'abc '),(2,'ab '),(3,'')",
+        "SELECT id,v FROM t ORDER BY id"
+      ]
+    },
+    {
+      "id": "varchar_assignment_error",
+      "setup": [
+        "SET TIME ZONE 'UTC'",
+        "CREATE TABLE t(id INT PRIMARY KEY,v VARCHAR(3))"
+      ],
+      "statements": [
+        "INSERT INTO t VALUES(1,'abc')",
+        "INSERT INTO t VALUES(2,'xy'),(3,'abcd')",
+        "SELECT id,v FROM t ORDER BY id"
+      ]
+    },
+    {
+      "id": "varchar_assignment_unicode",
+      "setup": [
+        "SET TIME ZONE 'UTC'",
+        "CREATE TABLE t(id INT PRIMARY KEY,v VARCHAR(3))"
+      ],
+      "statements": [
+        "INSERT INTO t VALUES(1,'\u00e9\ud83d\ude42x'),(2,'a\u0301b'),(3,'\ud83d\ude42\ud83d\ude42\ud83d\ude42')",
+        "SELECT id,v FROM t ORDER BY id",
+        "INSERT INTO t VALUES(4,'\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42')",
+        "SELECT COUNT(*) FROM t"
+      ]
+    },
+    {
+      "id": "varchar_assignment_not_space",
+      "setup": [
+        "SET TIME ZONE 'UTC'",
+        "CREATE TABLE t(id INT PRIMARY KEY,v VARCHAR(3))"
+      ],
+      "statements": [
+        "INSERT INTO t VALUES(1,'abc\t')",
+        "INSERT INTO t VALUES(2,'abc\u00a0')",
+        "SELECT COUNT(*) FROM t"
+      ]
+    },
+    {
+      "id": "varchar_update_atomic",
+      "setup": [
+        "SET TIME ZONE 'UTC'",
+        "CREATE TABLE t(id INT PRIMARY KEY,v VARCHAR(3))"
+      ],
+      "statements": [
+        "INSERT INTO t VALUES(1,'a'),(2,'abc')",
+        "UPDATE t SET v=v||'x'",
+        "SELECT id,v FROM t ORDER BY id",
+        "UPDATE t SET v='xy '",
+        "SELECT id,v FROM t ORDER BY id"
+      ]
+    },
+    {
+      "id": "varchar_explicit_then_assignment",
+      "setup": [
+        "SET TIME ZONE 'UTC'",
+        "CREATE TABLE t(id INT PRIMARY KEY,v VARCHAR(3))"
+      ],
+      "statements": [
+        "INSERT INTO t VALUES(1,'abcd'::varchar(3))",
+        "INSERT INTO t VALUES(2,'abcd'::varchar(4))",
+        "SELECT id,v FROM t ORDER BY id"
+      ]
+    },
+    {
+      "id": "varchar_numeric_assignment",
+      "setup": [
+        "SET TIME ZONE 'UTC'",
+        "CREATE TABLE t(id INT PRIMARY KEY,v VARCHAR(3))"
+      ],
+      "statements": [
+        "INSERT INTO t VALUES(1,123)",
+        "INSERT INTO t VALUES(2,1234)",
+        "SELECT id,v FROM t ORDER BY id"
+      ]
+    },
+    {
+      "id": "varchar_defaults_generated",
+      "setup": [
+        "SET TIME ZONE 'UTC'"
+      ],
+      "statements": [
+        "CREATE TABLE t(id INT PRIMARY KEY,v VARCHAR(3) DEFAULT 'abcd'::varchar(2),g VARCHAR(3) GENERATED ALWAYS AS(v||'x') STORED)",
+        "INSERT INTO t(id) VALUES(1)",
+        "SELECT id,v,g FROM t",
+        "UPDATE t SET v='abc' WHERE id=1",
+        "SELECT id,v,g FROM t"
+      ]
+    },
+    {
+      "id": "varchar_default_overflow",
+      "setup": [
+        "SET TIME ZONE 'UTC'"
+      ],
+      "statements": [
+        "CREATE TABLE t(v VARCHAR(3) DEFAULT 'abcd')",
+        "INSERT INTO t DEFAULT VALUES",
+        "SELECT COUNT(*) FROM t"
+      ]
+    },
+    {
+      "id": "varchar_relational",
+      "setup": [
+        "SET TIME ZONE 'UTC'",
+        "CREATE TABLE t(id INT PRIMARY KEY,v VARCHAR(3))"
+      ],
+      "statements": [
+        "INSERT INTO t VALUES(1,'a'),(2,'a '),(3,'b')",
+        "SELECT v,COUNT(*) FROM t GROUP BY v ORDER BY v",
+        "SELECT v FROM t UNION SELECT v FROM t ORDER BY v",
+        "SELECT MIN(v),MAX(v) FROM t",
+        "SELECT v,v='a',v LIKE 'a%' FROM t ORDER BY id"
+      ]
+    },
+    {
+      "id": "varchar_coalesce_case",
+      "setup": [
+        "SET TIME ZONE 'UTC'",
+        "CREATE TABLE t(id INT PRIMARY KEY,v VARCHAR(3))",
+        "INSERT INTO t VALUES(1,'a'),(2,'b')"
+      ],
+      "statements": [
+        "SELECT COALESCE(NULL::varchar(3),'xy'::varchar(3)) AS a,CASE WHEN 1=1 THEN 'a'::varchar(3) ELSE 'b'::varchar(3) END AS b",
+        "SELECT COALESCE(NULL::varchar(2),'xyz'::varchar(3)),GREATEST('x'::varchar(2),'y'::varchar(3))",
+        "SELECT CASE WHEN id=1 THEN v ELSE 'x'::varchar(3) END AS v FROM t ORDER BY id"
+      ]
+    },
+    {
+      "id": "varchar_type_catalog",
+      "setup": [
+        "SET TIME ZONE 'UTC'",
+        "CREATE TABLE t(id INT PRIMARY KEY,v VARCHAR(3))"
+      ],
+      "statements": [
+        "SELECT 'varchar'::regtype::text,'character varying'::regtype::text,format_type(1043,-1),format_type(1043,7)",
+        "SELECT attname,atttypid,atttypmod FROM pg_attribute WHERE attrelid='t'::regclass AND attnum>0 ORDER BY attnum",
+        "SELECT column_name,data_type,character_maximum_length FROM information_schema.columns WHERE table_name='t' ORDER BY ordinal_position"
+      ]
+    },
+    {
+      "id": "varchar_invalid_0",
+      "setup": [
+        "SET TIME ZONE 'UTC'"
+      ],
+      "statements": [
+        "CREATE TABLE t(v VARCHAR(0))"
+      ]
+    },
+    {
+      "id": "varchar_invalid_minus1",
+      "setup": [
+        "SET TIME ZONE 'UTC'"
+      ],
+      "statements": [
+        "CREATE TABLE t(v VARCHAR(-1))"
+      ]
+    },
+    {
+      "id": "varchar_invalid_10485761",
+      "setup": [
+        "SET TIME ZONE 'UTC'"
+      ],
+      "statements": [
+        "CREATE TABLE t(v VARCHAR(10485761))"
+      ]
+    },
+    {
+      "id": "varchar_invalid_2_3",
+      "setup": [
+        "SET TIME ZONE 'UTC'"
+      ],
+      "statements": [
+        "CREATE TABLE t(v VARCHAR(2,3))"
+      ]
+    },
+    {
+      "id": "varchar_invalid_1_5",
+      "setup": [
+        "SET TIME ZONE 'UTC'"
+      ],
+      "statements": [
+        "CREATE TABLE t(v VARCHAR(1.5))"
+      ]
+    },
+    {
+      "id": "varchar_max_modifier",
+      "setup": [
+        "SET TIME ZONE 'UTC'"
+      ],
+      "statements": [
+        "CREATE TABLE t(v VARCHAR(10485760))",
+        "INSERT INTO t VALUES('x')",
+        "SELECT v FROM t"
+      ]
+    },
+    {
+      "id": "varchar_null_empty",
+      "setup": [
+        "SET TIME ZONE 'UTC'"
+      ],
+      "statements": [
+        "SELECT NULL::varchar(1),''::varchar(1),''::character varying",
+        "CREATE TABLE t(v VARCHAR(1))",
+        "INSERT INTO t VALUES(NULL),('')",
+        "SELECT v FROM t ORDER BY v"
+      ]
+    },
+    {
+      "id": "varchar_text_conversion",
+      "setup": [
+        "SET TIME ZONE 'UTC'"
+      ],
+      "statements": [
+        "SELECT '123'::varchar::int,('12'::varchar||'3') AS x,CAST('x ' AS varchar)='x'::text"
+      ]
+    },
+    {
+      "id": "varchar_metadata_unreachable",
+      "setup": [
+        "SET TIME ZONE 'UTC'",
+        "CREATE TABLE t(id INT PRIMARY KEY,v VARCHAR(3))",
+        "INSERT INTO t VALUES(1,'a'),(2,NULL)"
+      ],
+      "statements": [
+        "SELECT COALESCE(v,NULL::varchar(2)),COALESCE(v,'x'::varchar(3)),GREATEST(v,'x'::varchar(3)) FROM t ORDER BY id",
+        "SELECT CASE WHEN id=1 THEN v END AS a,CASE WHEN id=1 THEN v ELSE 'x'::varchar(2) END AS b FROM t ORDER BY id",
+        "SELECT CASE WHEN TRUE THEN 'a'::varchar(2) ELSE 'b'::varchar(3) END,CASE WHEN FALSE THEN 'a'::varchar(2) ELSE 'b'::varchar(3) END"
+      ]
+    },
+    {
+      "id": "varchar_string_overloads",
+      "setup": [
+        "SET TIME ZONE 'UTC'",
+        "CREATE TABLE t(id INT PRIMARY KEY,v VARCHAR(3))"
+      ],
+      "statements": [
+        "SELECT to_regtype('integer'::varchar)::text,to_regclass('t'::varchar)::text,'integer'::varchar::regtype::text",
+        "SELECT '{\"a\":1}'::jsonb->'a'::varchar,'{\"a\":1}'::jsonb ? 'a'::varchar",
+        "SELECT TIMESTAMP '2026-01-02 03:04:05' AT TIME ZONE 'UTC'::varchar"
+      ]
+    },
+    {
+      "id": "varchar_independent_review_adversarial",
+      "setup": [
+        "SET TIME ZONE 'UTC'",
+        "CREATE TABLE t(id int,v varchar(3))",
+        "INSERT INTO t VALUES(1,'abc'),(2,NULL)",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT NULLIF(v,'x') AS a,NULLIF(v,'x'::varchar) AS b,NULLIF(v,'x'::text) AS c FROM t ORDER BY id",
+        "SELECT COALESCE('a'::name,'b'::varchar) AS a,COALESCE('a'::varchar,'b'::name) AS b",
+        "SELECT CASE WHEN id=1 THEN 'a'::name ELSE v END AS a FROM t ORDER BY id",
+        "SELECT GREATEST('a'::name,'b'::varchar) AS a",
+        "SELECT nextval('seq'::varchar)",
+        "SELECT currval('seq'::varchar)",
+        "SELECT setval('seq'::varchar,7)",
+        "SELECT nextval('seq')",
+        "SELECT v FROM t UNION ALL SELECT 'de'::varchar(3)",
+        "SELECT 'ab'::varchar(3) UNION ALL SELECT 'cd'::varchar(4)",
+        "SELECT MIN(v),MAX(v) FROM t",
+        "SELECT FIRST_VALUE(v) OVER(ORDER BY id),LAG(v) OVER(ORDER BY id) FROM t ORDER BY id",
+        "SELECT COALESCE(NULL::varchar(2),v),GREATEST(v,NULL::varchar(3)) FROM t ORDER BY id",
+        "SELECT CASE WHEN id=1 THEN v ELSE NULL::varchar(3) END FROM t ORDER BY id",
+        "SELECT v LIKE 'a%'::varchar ESCAPE '!'::varchar FROM t ORDER BY id"
+      ]
+    },
+    {
+      "id": "varchar_name_utf8_boundary",
+      "setup": [
+        "SET TIME ZONE 'UTC'"
+      ],
+      "statements": [
+        "SELECT 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u00e9'::varchar::name::text"
+      ]
+    },
+    {
+      "id": "varchar_name_comparison",
+      "setup": [
+        "SET TIME ZONE 'UTC'"
+      ],
+      "statements": [
+        "SELECT 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'::name='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab'::varchar AS eq1,'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab'::varchar='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'::name AS eq2,'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'::name<'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab'::varchar AS lt",
+        "SELECT NULLIF('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'::name,'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab'::varchar) AS n1,NULLIF('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab'::varchar,'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'::name) AS n2"
+      ]
+    },
+    {
+      "id": "varchar_name_in_between",
+      "setup": [
+        "SET TIME ZONE 'UTC'"
+      ],
+      "statements": [
+        "SELECT 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'::name IN('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab'::varchar) AS value",
+        "SELECT 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'::name IN('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab'::varchar,'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac'::varchar) AS value",
+        "SELECT 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab'::varchar IN('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'::name) AS value",
+        "SELECT 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab'::varchar IN('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'::name,'z'::name) AS value",
+        "SELECT 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'::name NOT IN('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab'::varchar,'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac'::varchar) AS value",
+        "SELECT 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'::name BETWEEN 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab'::varchar AND 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac'::varchar AS value",
+        "SELECT 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab'::varchar BETWEEN 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'::name AND 'z'::name AS value",
+        "SELECT 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'::name BETWEEN 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'::name AND 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab'::varchar AS value",
+        "SELECT 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'::name BETWEEN SYMMETRIC 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab'::varchar AND 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac'::varchar AS value",
+        "SELECT ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'::name,'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'::name) IN(('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab'::varchar,'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab'::varchar)) AS value",
+        "SELECT ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'::name,'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'::name) IN(('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab'::varchar,'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab'::varchar),('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac'::varchar,'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac'::varchar)) AS value"
+      ]
+    },
+    {
+      "id": "varchar_name_in_variables",
+      "setup": [
+        "SET TIME ZONE 'UTC'",
+        "CREATE TABLE t(n NAME,v VARCHAR,z VARCHAR)",
+        "INSERT INTO t VALUES('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac')"
+      ],
+      "statements": [
+        "SELECT n IN(v,z),n IN(v,'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac'::varchar),n IN(v||'',z||'') FROM t",
+        "SELECT n IN('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab'::varchar,'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac'::varchar) FROM t",
+        "SELECT n IN(v,'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab'::varchar,'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac'::varchar) FROM t"
+      ]
+    },
+    {
+      "id": "varchar_grouped_metadata",
+      "setup": [
+        "SET TIME ZONE 'UTC'",
+        "CREATE TABLE t(id INT PRIMARY KEY,v VARCHAR(3))",
+        "INSERT INTO t VALUES(1,'abc'),(2,NULL)"
+      ],
+      "statements": [
+        "SELECT (SELECT 'a'::varchar(3)) AS a",
+        "SELECT COALESCE(v,'abc'::varchar(3)) AS a FROM t GROUP BY COALESCE(v,'abc'::varchar(3))",
+        "SELECT CASE WHEN id>0 THEN v ELSE NULL::varchar(3) END AS a FROM t GROUP BY CASE WHEN id>0 THEN v ELSE NULL::varchar(3) END ORDER BY a NULLS LAST"
+      ]
+    },
+    {
+      "id": "varchar_in_array_effects",
+      "setup": [
+        "SET TIME ZONE 'UTC'",
+        "CREATE TABLE t(v VARCHAR)",
+        "INSERT INTO t VALUES('x')",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT 'x'::name IN('x'::varchar,nextval('seq')::varchar)",
+        "SELECT nextval('seq')",
+        "SELECT 'x'::name IN(v||nextval('seq')::text,'x'::varchar,nextval('seq')::varchar) FROM t",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "varchar_string_common_order",
+      "setup": [
+        "SET TIME ZONE 'UTC'",
+        "CREATE TABLE t(id int)",
+        "INSERT INTO t VALUES(0),(1)"
+      ],
+      "statements": [
+        "SELECT COALESCE('a'::varchar(3),'b'::text) AS vt,COALESCE('a'::text,'b'::varchar(3)) AS tv",
+        "SELECT GREATEST('a'::varchar(3),'b'::text) AS vt,GREATEST('a'::text,'b'::varchar(3)) AS tv",
+        "SELECT CASE WHEN id=1 THEN 'a'::varchar(3) ELSE 'b'::text END AS then_v_else_t,CASE WHEN id=1 THEN 'a'::text ELSE 'b'::varchar(3) END AS then_t_else_v FROM t ORDER BY id",
+        "SELECT CASE WHEN id=1 THEN 'a'::name ELSE 'b'::text END AS then_n_else_t,CASE WHEN id=1 THEN 'a'::text ELSE 'b'::name END AS then_t_else_n FROM t ORDER BY id",
+        "SELECT COALESCE('a'::name,'b'::text) AS nt,COALESCE('a'::text,'b'::name) AS tn",
+        "SELECT GREATEST('a'::name,'b'::text) AS nt,GREATEST('a'::text,'b'::name) AS tn",
+        "SELECT CASE WHEN TRUE THEN 'a'::varchar(3) ELSE 'b'::text END AS then_v_else_t,CASE WHEN TRUE THEN 'a'::text ELSE 'b'::varchar(3) END AS then_t_else_v",
+        "SELECT CASE WHEN id=1 THEN 'a'::varchar(3) WHEN id=0 THEN 'b'::varchar(4) ELSE 'c'::text END AS a,CASE WHEN id=1 THEN 'a'::text WHEN id=0 THEN 'b'::text ELSE 'c'::varchar(3) END AS b FROM t ORDER BY id"
+      ]
+    },
+    {
+      "id": "varchar_independent_unknown_in_priority",
+      "setup": [
+        "SET TIME ZONE 'UTC'"
+      ],
+      "statements": [
+        "SELECT 7 FROM(SELECT 'bad' IN(1,'x'::varchar) AS unused)q",
+        "SELECT 7 FROM(SELECT 'bad' IN('bad'::varchar,1) AS unused)q",
+        "SELECT 'bad' IN('bad'::varchar,1)",
+        "SELECT '1' IN(1,'x'::varchar)"
+      ]
+    },
+    {
+      "id": "varchar_in_volatile_scalar",
+      "setup": [
+        "SET TIME ZONE 'UTC'",
+        "CREATE TABLE t(n NAME,v VARCHAR)",
+        "INSERT INTO t VALUES('0','2')",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT nextval('seq')::varchar IN(n,v) FROM t",
+        "SELECT nextval('seq')",
+        "SELECT nextval('seq')::varchar IN('0'::name,'0'::varchar,v) FROM t",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "varchar_in_null_array",
+      "setup": [
+        "SET TIME ZONE 'UTC'",
+        "CREATE SEQUENCE seq"
+      ],
+      "statements": [
+        "SELECT NULL::varchar IN('x'::name,nextval('seq')::varchar)",
+        "SELECT nextval('seq')",
+        "SELECT 'x'::name IN('x'::varchar,(1/0)::varchar)",
+        "SELECT nextval('seq')"
+      ]
+    },
+    {
+      "id": "varchar_typed_literals_identifiers",
+      "setup": [
+        "SET TIME ZONE 'UTC'"
+      ],
+      "statements": [
+        "SELECT VARCHAR(2) 'abcd',CHARACTER VARYING(2) '\u00e9\ud83d\ude42x',VARCHAR 'abc'",
+        "CREATE TABLE t(varchar INT,character INT,varying INT)",
+        "INSERT INTO t VALUES(1,2,3)",
+        "SELECT varchar,character,varying FROM t"
+      ]
+    }
+  ]
+}
