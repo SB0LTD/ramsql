@@ -1576,6 +1576,27 @@ SUITES['q01'] += (
 )
 
 
+_AGGREGATE_DEMAND = json.loads((Path(__file__).parent/'fixtures/sql_aggregate_demand_programs.json').read_text(encoding='utf8'))
+SUITES['q01'] += tuple(
+    Case('q01_aggregate_demand_'+program['id'], 'q01', 3.9,
+         setup=tuple(program['setup']), tables=('t','w'), sequences=('seq','unused_seq'),
+         statements=tuple(program['statements']),
+         feature='native aggregate demand: values, types, errors and sequence effects')
+    for program in _AGGREGATE_DEMAND['programs']
+) + (
+    Case('q01_aggregate_demand_binary_parameters', 'q01', 3.9,
+         setup=('CREATE TABLE t(v INT)', 'INSERT INTO t VALUES(1),(1),(2),(NULL)'),
+         tables=('t',), statements=(
+             ('SELECT 7 FROM (SELECT SUM(%s::int/(v-v)) AS unused FROM t) q', (1,), {'binary':True}),
+             ('SELECT v FROM (SELECT v,SUM(%s::int/(v-v)) AS unused FROM t GROUP BY v) q ORDER BY v', (1,), {'binary':True}),
+             ('SELECT SUM(%s::int/(v-v)) FROM t', (1,), {'binary':True}),
+             ('SELECT SUM(v) FROM t HAVING SUM(v)>%s::int', (2,), {'binary':True}),
+             ('SELECT SUM(v) FROM t ORDER BY SUM(%s::int/(v-v)) LIMIT 0', (1,), {'binary':True}),
+             ('SELECT SUM(v) FROM t', (), {'binary':True}),
+         ), feature='bound aggregate arguments and binary results retain demand and errors'),
+)
+
+
 def split_statement(statement):
     if isinstance(statement, str):
         return statement, None, {}

@@ -1,0 +1,48 @@
+{
+  "status": "candidate; full hosted platform/product/exact-release qualification pending",
+  "date": "2026-11-02",
+  "zpm_revision": "fbaeee24b2b0fc1c325c2d717aea5b3d0c16bec9",
+  "archive_sha256": "4070bb50daae22ef70527810e278d468ab4538939b90b069c120c70626f43690",
+  "local_wire": {
+    "native": "PostgreSQL16.15",
+    "client": "psycopg",
+    "matching": 108,
+    "gaps": 0,
+    "modes": [
+      "memory",
+      "durable-SCRAM"
+    ],
+    "cases_per_mode": 54,
+    "statements_per_mode": 112
+  },
+  "independent_review": {
+    "decision": "no introduced blocker; candidate approved for further qualification",
+    "core_programs": 53,
+    "unit_tests": 12,
+    "fixture_programs": 53,
+    "binary_queries": 6,
+    "not_repeated": [
+      "native wire",
+      "PG18",
+      "full platform/release"
+    ]
+  },
+  "evidence": [
+    {
+      "path": ".scratch/aggregate-demand/wire-corrected-report.json",
+      "sha256": "8f5f944426b462371611ac32e8fe2e5e4a3cf3156493de50034475793be25eda"
+    },
+    {
+      "path": ".scratch/aggregate-demand/wire-corrected.log",
+      "sha256": "7f949d72bdbd67e7187fdddfe8e406d21be1b93d44c3eb93045b3c95be3552f8"
+    },
+    {
+      "path": ".scratch/aggregate-demand/build-corrected.log",
+      "sha256": "8f335c9abbe243564d1e5bd9f0ecfca911d30995b18465032a0712f6e9a3e08d"
+    },
+    {
+      "path": ".scratch/aggregate-demand/zpm-corrected.tar.gz",
+      "sha256": "4070bb50daae22ef70527810e278d468ab4538939b90b069c120c70626f43690"
+    }
+  ]
+}
