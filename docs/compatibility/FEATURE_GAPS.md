@@ -1,6 +1,14 @@
 # PostgreSQL feature gaps and divergences (ZPM SQL front end)
 
-**Current reconciliation, 1 November 2026:** ZPM main69f7555 / RAMSQL
+**Development checkpoint, 3 November 2026:** VARCHAR / CHARACTER VARYING is under
+qualification with 37 native programs, shared protocol/storage/replay contracts
+and new live wire/durable-restart cases. The unchanged 118-program audit reports
+13 smoke passes, 88 failures and 17 unexecuted scopes on this candidate. Its
+PG.TYPE.CHARACTER probe tests VARCHAR only; CHAR/BPCHAR remains open. See
+[scope and gates](../SQL_CHARACTER_TYPES.md). These are candidate results, not a
+qualified release or a compatibility percentage.
+
+**Previous reconciliation, 1 November 2026:** ZPM main69f7555 / RAMSQL
 main0815419 have qualified conditional table/sequence DDL, JSON operators,
 LAG/LEAD, ranking/distribution/named/frame-value windows, ABS/CEIL/FLOOR/TRUNC/SIGN
 and SQRT. These finite slices do not close their complete families. The latest

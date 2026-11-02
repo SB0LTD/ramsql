@@ -1597,6 +1597,40 @@ SUITES['q01'] += tuple(
 )
 
 
+_CHARACTER_TYPES = json.loads((Path(__file__).parent/'fixtures/sql_character_types_programs.json').read_text(encoding='utf8'))
+SUITES['q01'] += tuple(
+    Case('q01_character_types_'+program['id'], 'q01', 3.9,
+         setup=tuple(program['setup']), tables=('t',), sequences=('seq',),
+         statements=tuple(program['statements']),
+         feature='VARCHAR native values, OIDs, typmods, errors and statement atomicity')
+    for program in _CHARACTER_TYPES['programs']
+) + (
+    Case('q01_character_types_parameters', 'q01', 3.9,
+         setup=('CREATE TABLE t(id INT PRIMARY KEY,v VARCHAR(2))',), tables=('t',),
+         statements=(
+             ('SELECT %s::varchar(2)', ('é🙂x',), {'binary':True}),
+             ('INSERT INTO t VALUES(%s,%s)', (1,'é🙂')),
+             ('INSERT INTO t VALUES(%s,%s)', (2,'abc')),
+             ('INSERT INTO t VALUES(%s,%s)', (3,'a  ')),
+             ('SELECT id,v FROM t ORDER BY id', (), {'binary':True}),
+             ('SELECT COALESCE(%s::varchar(2),%s::varchar(2))', (None,'xy'), {'binary':True}),
+         ), feature='prepared Unicode VARCHAR assignment, truncation and binary results'),
+)
+SUITES['p01'] += (Case('p01_character_types_restart', 'p01', 3.9, setup=(),
+    statements=(
+        "CREATE TABLE character_replay(id INT PRIMARY KEY,v VARCHAR(3) DEFAULT 'abcd'::varchar(2),g VARCHAR(3) GENERATED ALWAYS AS(v||'x') STORED)",
+        'INSERT INTO character_replay(id) VALUES(1)',
+        'SELECT id,v,g FROM character_replay ORDER BY id',
+    ), restart=(
+        'SELECT id,v,g FROM character_replay ORDER BY id',
+        'INSERT INTO character_replay(id) VALUES(2) RETURNING v,g',
+        "UPDATE character_replay SET v='é🙂' WHERE id=1 RETURNING v,g",
+        "UPDATE character_replay SET v='abcd' WHERE id=1",
+        'SELECT id,v,g FROM character_replay ORDER BY id',
+    ), tables=('character_replay',),
+    feature='VARCHAR metadata/default/generated recovery and failed update atomicity'),)
+
+
 def split_statement(statement):
     if isinstance(statement, str):
         return statement, None, {}

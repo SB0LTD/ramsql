@@ -1,0 +1,42 @@
+{
+  "status": "candidate; full hosted platform/native16+18/exact-release gates pending",
+  "date": "2026-11-03",
+  "zpm_revision": "9690f8fe0bc5d84966345e1253840cd2c4d172dd",
+  "url": "https://github.com/SB0LTD/zpm/archive/9690f8fe0bc5d84966345e1253840cd2c4d172dd.tar.gz",
+  "sha256": "e91483b8814cf7b6fd65802f87f9f248cd3e3143054dcc6620b2f1edf96015ac",
+  "local_core": {
+    "programs": 37,
+    "gaps": 0,
+    "storage_assertions": 321,
+    "build_exit": 0
+  },
+  "local_wire": {
+    "native": "16.15",
+    "binary_sha256": "ce54fb55bd7fef7e5b5e166085230d795f6db0ccfd41e4acc9fac0f17a844aea",
+    "matching": 77,
+    "gaps": 0,
+    "memory_cases": 38,
+    "durable_scram_cases": 39,
+    "durable_restarts": 1,
+    "raw_typmods_compared": true
+  },
+  "first_wire_red": {
+    "matching": 75,
+    "gaps": 2,
+    "total": 77,
+    "cause": "simple SELECT Describe omitted typmod copy; both parameter cases failed; restart matched"
+  },
+  "independent_review": "Runtime/parser and product reviews approved bounded candidate; exact hosted/release gates remain required",
+  "commands": [
+    "sig build ramsql test-sql_character_types test-sql_character_storage -Doptimize=ReleaseSafe -j1 --Sig-lib-dir <matchedSDK>",
+    "python -m unittest discover -s tools -p test_qualify_postgres.py",
+    "C:/Just-Things/Projects/sb0/ramsql-window-frames/.sig-cache/test-env/Scripts/python.exe .scratch/character/wire_native.py"
+  ],
+  "evidence_sha256": {
+    ".scratch/character/build-describe-fixed.log": "dd501565c73bd60fab73073d901e1b2c7192587da5b11d5c8d9de9f8f3e33831",
+    ".scratch/character/wire-before-describe-fix-report.json": "0dfb37b64720cbd731f1b369fcccff45d44888c036e4c2c353150837f1a1ccf9",
+    ".scratch/character/wire-native-report.json": "ead11e9beb77c78cb2c90df15b591ff788a23d8fb6fe9fc7890a1d47732a7b70",
+    ".scratch/character-review/review.txt": "b6e401bcd6c305b5bab498e4c6a0d956537b717661908426a7b4066fdf8669c8",
+    "tools/fixtures/sql_character_types_programs.json": "a4cc15e4d438568e09c324ceb7a23edac6b6358ef024013e276c5b5f932f0e00"
+  }
+}

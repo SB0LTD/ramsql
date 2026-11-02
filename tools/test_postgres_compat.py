@@ -386,7 +386,11 @@ def execute(connection, statement, params=None, *, binary=False, prepare=None):
     try:
         with connection.cursor(binary=binary) as cursor:
             cursor.execute(statement, params, prepare=prepare)
-            columns = [{"name": column.name, "oid": column.type_code} for column in (cursor.description or ())]
+            # Raw RowDescription typmods distinguish VARCHAR(n), NUMERIC(p,s),
+            # and temporal precision even when their OIDs/values agree.
+            columns = [{"name": column.name, "oid": column.type_code,
+                        "typmod": cursor.pgresult.fmod(index)}
+                       for index, column in enumerate(cursor.description or ())]
             rows = json_value(cursor.fetchall()) if cursor.description else []
             return {"sqlstate": "00000", "columns": columns, "rows": rows,
                     "rowcount": cursor.rowcount, "status": cursor.statusmessage}

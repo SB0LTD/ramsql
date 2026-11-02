@@ -151,3 +151,12 @@ cells. Gates: S1 +3% in PR CI; S2 median +5% nightly.
 - Should `Config` defaults match RAMSQL's PostgreSQL profile
   (`nulls_first_ascending = false`, `integer_bits = 32`), so library users
   get PostgreSQL semantics by default?
+
+## VARCHAR candidate, 3 November 2026
+
+The immutable ZPM candidate adds distinct VARCHAR / CHARACTER VARYING with UTF-8
+character lengths, strict assignment, explicit truncation and OID/typmod metadata.
+Shared contracts and live parameter/binary/restart comparisons are registered,
+including raw wire typmod comparison. Module status remains beta; CHAR/BPCHAR
+and broader type/collation behavior remain open. See
+[scope and qualification gates](../../SQL_CHARACTER_TYPES.md).

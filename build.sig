@@ -59,6 +59,8 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     var tds_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
     var tcp_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
     var store_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    var pg_types_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    const pg_types_path = try zpm.modulePath("src/db/pg_types.sig", &pg_types_buf);
     const pg_path = try zpm.modulePath("src/db/postgres.sig", &pg_buf);
     const mysql_path = try zpm.modulePath("src/db/mysql.sig", &mysql_buf);
     const tds_path = try zpm.modulePath("src/db/tds.sig", &tds_buf);
@@ -263,7 +265,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     const profile_reads=try ctx.addStep("profile-reads","ramsql-read-profile",&runBinary);
     try ctx.addDependency(profile_reads,read_profile);
     var test_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
-    inline for (.{ "postgres", "mysql", "tds", "db_store", "tcp_server", "sql_index", "scram", "durable_log", "db_file", "entropy", "db_stream", "pg_stream", "sql_storage", "sql_change_log", "sql_expr", "sql_mvcc", "sql_types", "sql_json_operators", "sql_window_offsets", "sql_window_ranking", "sql_named_windows", "sql_window_values", "sql_conditional_ddl", "sql_numeric_functions", "sql_square_root", "sql_planner_demand", "sql_aggregate_demand", "sql_query", "sql_stream_group", "sql_integer_topk", "sql_layout_order", "sql_summary", "sql_dense_group", "sql_rollup", "sql_ordered_probes", "sql_compact_scan", "sql_runtime_workspace", "sql_dml", "sql_catalog", "wall_clock", "pg_copy" }) |name| {
+    inline for (.{ "postgres", "mysql", "tds", "db_store", "tcp_server", "sql_index", "scram", "durable_log", "db_file", "entropy", "db_stream", "pg_stream", "sql_storage", "sql_change_log", "sql_expr", "sql_mvcc", "sql_types", "sql_json_operators", "sql_window_offsets", "sql_window_ranking", "sql_named_windows", "sql_window_values", "sql_conditional_ddl", "sql_numeric_functions", "sql_square_root", "sql_planner_demand", "sql_aggregate_demand", "sql_character_types", "sql_character_storage", "sql_query", "sql_stream_group", "sql_integer_topk", "sql_layout_order", "sql_summary", "sql_dense_group", "sql_rollup", "sql_ordered_probes", "sql_compact_scan", "sql_runtime_workspace", "sql_dml", "sql_catalog", "wall_clock", "pg_copy" }) |name| {
         const path = try zpm.modulePath("tests/test_" ++ name ++ ".sig", &test_buf);
         const compiled = try ctx.addCompileStep(.{
             .source_path = path,
@@ -271,7 +273,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
             .cache_dir = ctx.cache_dir[0..ctx.cache_dir_len],
             .optimize = ctx.optimize,
             .target = null,
-            .imports = &.{ importEntry("sql", sql_path), importEntry("postgres", pg_path), importEntry("mysql", mysql_path), importEntry("tds", tds_path), importEntry("db_store", store_path), importEntry("scram", scram_path), importEntry("durable_log", durable_log_path), importEntry("db_file", db_file_path), importEntry("entropy", entropy_path), importEntry("stream_server", stream_path), importEntry("profile", profile_path), importEntry("tcp_server", tcp_path), importEntry("wall_clock", wall_clock_path) },
+            .imports = &.{ importEntry("pg_types", pg_types_path), importEntry("sql", sql_path), importEntry("postgres", pg_path), importEntry("mysql", mysql_path), importEntry("tds", tds_path), importEntry("db_store", store_path), importEntry("scram", scram_path), importEntry("durable_log", durable_log_path), importEntry("db_file", db_file_path), importEntry("entropy", entropy_path), importEntry("stream_server", stream_path), importEntry("profile", profile_path), importEntry("tcp_server", tcp_path), importEntry("wall_clock", wall_clock_path) },
             .compiler_path = "",
         });
         const contract = try ctx.addStep("test-" ++ name, "contract-" ++ name, &runBinary);
