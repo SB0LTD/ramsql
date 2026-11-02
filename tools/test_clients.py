@@ -44,6 +44,21 @@ def main():
     import pytds
     with running_server(args.binary.resolve(),args.workers) as ports:
         pg = psycopg.connect(host='127.0.0.1',port=ports['postgres'],user='ramsql',dbname='ramsql',password='',sslmode='disable',autocommit=True,connect_timeout=5)
+        # libpq separates Parse/Describe metadata from execution planning.
+        for i,(source,oid,state) in enumerate([
+            (b'SELECT sqrt(-1::numeric) WHERE FALSE',1700,b'2201F'),
+            (b'SELECT sqrt(-1::numeric) FROM (SELECT 1) q WHERE FALSE',1700,b'2201F'),
+            (b'SELECT 1/0 LIMIT 0',23,b'22012'),
+        ]):
+            name=f'planner_metadata_{i}'.encode()
+            prepared=pg.pgconn.prepare(name,source)
+            assert prepared.status==psycopg.pq.ExecStatus.COMMAND_OK,prepared.error_message
+            described=pg.pgconn.describe_prepared(name)
+            assert described.status==psycopg.pq.ExecStatus.COMMAND_OK and described.nfields==1,described.error_message
+            assert described.ftype(0)==oid
+            executed=pg.pgconn.exec_prepared(name,None)
+            assert executed.status==psycopg.pq.ExecStatus.FATAL_ERROR and executed.error_field(67)==state,executed.error_message
+            pg.execute('DEALLOCATE '+name.decode())
         with pg.cursor() as cur:
             cur.execute('CREATE TABLE clients (id BIGINT PRIMARY KEY, active BOOLEAN, label TEXT)')
             cur.execute('INSERT INTO clients VALUES (%s, %s, %s)',(1,True,'0123'),prepare=True)

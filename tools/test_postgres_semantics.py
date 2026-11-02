@@ -1561,6 +1561,21 @@ SUITES["q01"] += (
 )
 
 
+_PLANNER_DEMAND = json.loads((Path(__file__).parent/'fixtures/sql_planner_demand_program.json').read_text(encoding='utf8'))
+SUITES['q01'] += (
+ Case('q01_planner_demand','q01',3.9,setup=tuple(_PLANNER_DEMAND['setup']),
+      tables=('t',),sequences=('seq',),statements=tuple(_PLANNER_DEMAND['statements']),
+      feature='required plain outputs, immutable errors, priority and materialization barriers'),
+ Case('q01_planner_demand_binary_parameters','q01',3.9,setup=(),tables=(),statements=(
+      ('SELECT sqrt(%s::numeric) WHERE FALSE',(-1,)),
+      ('SELECT 7 FROM (SELECT sqrt(%s::numeric) AS x) q',(-1,),{'binary':True}),
+      ('SELECT 7 FROM (SELECT %s::numeric AS x) q WHERE x=1 OR 1/0=0',(1,),{'binary':True}),
+      ('SELECT CASE WHEN FALSE THEN sqrt(%s::numeric) ELSE 7 END',(-1,),{'binary':True}),
+      ('SELECT 1 FROM (SELECT %s::int AS x LIMIT 0) q WHERE x=1 OR 1/0=0',(1,)),
+ ),feature='bound parameters and binary results retain planner demand semantics'),
+)
+
+
 def split_statement(statement):
     if isinstance(statement, str):
         return statement, None, {}
