@@ -10,7 +10,7 @@
 | Status | beta |
 | Formatting (`sig fmt --check`) | dirty (REPO-21; not re-run here). For example, two statements per line at 142 and 147 |
 
-> **Wave 0 update (2026-10-30).** `--create-data` is new (SRV-01, branch `b5/srv01-create-data`). It is rejected together with `--memory` or `--backup-to` (`InvalidServerOptions`, exit 2) and listed in `--help`. The fix is reviewed, but it is not merged yet; see `PLAN.md` §18. Until it merges, the rest of this page describes the `2f060c2` baseline.
+> **Wave 0 update (2026-10-30).** `--create-data` is new (SRV-01, branch `b5/srv01-create-data`). It is rejected together with `--memory` or `--backup-to` (`InvalidServerOptions`, exit 2) and listed in `--help`. Merged on 2026-10-30; see `PLAN.md` §18. Text below that describes the bug reflects the `2f060c2` baseline.
 
 ## 1. Purpose and scope
 

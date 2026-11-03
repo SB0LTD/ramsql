@@ -10,7 +10,7 @@
 | Status | beta |
 | Formatting (`sig fmt --check`) | `sql.sig` dirty (measured at `2f060c2`, 2026-10-30; REPO-21) |
 
-> **Historical wave 0 update (2026-10-30; superseded by the safety follow-up below).** The three lock-grant call sites in `sql.sig` (`lockTable`, `RowLocker.lock`, `conflictUpdate`) now go through `M.recordLock` (STO-03, branch `b8/sto03-lock-list`). STO-02 and the other facade findings are still open. The fix is reviewed, but it is not merged yet; see `PLAN.md` §18. Until it merges, the rest of this page describes the `2f060c2` baseline.
+> **Historical wave 0 update (2026-10-30; superseded by the safety follow-up below).** The three lock-grant call sites in `sql.sig` (`lockTable`, `RowLocker.lock`, `conflictUpdate`) now go through `M.recordLock` (STO-03, branch `b8/sto03-lock-list`). STO-02 and the other facade findings are still open. Merged on 2026-10-30; see `PLAN.md` §18. Text below that describes the bug reflects the `2f060c2` baseline.
 
 
 ## Safety follow-up — 31 October 2026

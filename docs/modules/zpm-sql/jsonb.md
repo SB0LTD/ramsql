@@ -138,7 +138,7 @@ present. There is no dedicated JSON suite yet.
 - Which JSONB functions do client and ORM probes need first? `jsonb_set`
   and `||` are common in application code.
 
-## JSON inventory candidate — 31 October 2026
+## JSON inventory candidate â€” 31 October 2026
 
 The source/docs above describe the original audited pin. The candidate adds plain
 JSON extraction and JSONB concatenation, corrects scalar path descent and overload
