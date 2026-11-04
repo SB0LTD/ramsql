@@ -22,7 +22,7 @@ The baseline line numbers and wave-zero audit below are historical.
 | Status | beta |
 | Formatting (`sig fmt --check`) | `postgres.sig` dirty (measured at `2f060c2`, 2026-10-30; REPO-21) |
 
-> **Wave 0 update (2026-10-30).** NET-01 is fixed on ZPM branch `b1/net01-param-splice`. Negative int4 and int8 parameters render as `(-n)`. `splice()` inserts a space wherever a neighbouring byte could merge with the value (word, number, `.`, `$`, quote doubling, `--`, `/*`, and the `e±` exponent sign). FV-03 now holds for every template that lexes, except templates hit by NET-02, which is still open: templates with `$n` or an apostrophe inside a nested `/* */`. Typed binding (B1.1) remains the long-term fix. Postgres suite assertions went from 15,807 to 17,225. The fix is reviewed, but it is not merged yet; see `PLAN.md` §18. Until it merges, the rest of this page describes the `2f060c2` baseline.
+> **Wave 0 update (2026-10-30).** NET-01 is fixed on ZPM branch `b1/net01-param-splice`. Negative int4 and int8 parameters render as `(-n)`. `splice()` inserts a space wherever a neighbouring byte could merge with the value (word, number, `.`, `$`, quote doubling, `--`, `/*`, and the `e±` exponent sign). FV-03 now holds for every template that lexes, except templates hit by NET-02, which is still open: templates with `$n` or an apostrophe inside a nested `/* */`. Typed binding (B1.1) remains the long-term fix. **Update 2026-11-03:** NET-02 is fixed too; placeholders are now found with the shared `sql.Tokenizer` (ZPM #96). Postgres suite assertions went from 15,807 to 17,225. Merged on 2026-10-30; see `PLAN.md` §18. Text below that describes the bug reflects the `2f060c2` baseline.
 
 ## 1. Purpose and scope
 

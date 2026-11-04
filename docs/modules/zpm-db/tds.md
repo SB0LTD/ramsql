@@ -10,7 +10,7 @@
 | Status | beta (local trust only) |
 | Formatting (`sig fmt --check`) | `tds.sig` dirty (measured at `2f060c2`, 2026-10-30; REPO-21) |
 
-> **Wave 0 update (2026-10-30).** NET-01 (TDS part) is fixed on ZPM branch `b1/net01-param-splice`. Negative SMALLINT, INT and BIGINT render as `(-n)`, and `expand` uses the same `splice()` rule as PostgreSQL. INV-TDS-5 holds. TDS suite assertions went from 2,661 to 2,733. The fix is reviewed, but it is not merged yet; see `PLAN.md` §18. Until it merges, the rest of this page describes the `2f060c2` baseline.
+> **Wave 0 update (2026-10-30).** NET-01 (TDS part) is fixed on ZPM branch `b1/net01-param-splice`. Negative SMALLINT, INT and BIGINT render as `(-n)`, and `expand` uses the same `splice()` rule as PostgreSQL. INV-TDS-5 holds. TDS suite assertions went from 2,661 to 2,733. Merged on 2026-10-30; see `PLAN.md` §18. Text below that describes the bug reflects the `2f060c2` baseline.
 
 ## 1. Purpose and scope
 

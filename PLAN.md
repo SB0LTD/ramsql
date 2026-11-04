@@ -239,11 +239,11 @@ These are the latest results recorded on `main` (CI and compatibility reports).
 
 | Id | Debt | Action (lane A0) |
 | --- | --- | --- |
-| INT-01 | RAMSQL PRs #30, #34 and #36 depend on ZPM PRs #77 and #81. No ZPM commit contains both. | merge order in §7 A0 |
-| INT-02 | Docs contradict reality: dbMeter "3/7" against 7/7 evidence, `VALIDATION.md` says alpha.3, `INFRASTRUCTURE_PROGRESS.md` says alpha.4, `RELEASE.md` says beta.1 | A5 docs-truth PR |
-| INT-03 | The sparse-factor feature is merged in RAMSQL history but not in ZPM, and the pin was moved back | maintainer decision (§17 D7) |
-| INT-04 | 34 local and 35 remote merged branches; 3 in-repo and 4 sibling worktrees (1.5 GB); the ZPM checkout is on an unrelated branch with a modified README | cleanup only with approval |
-| INT-05 | `release-gates.json` has not changed since 2026-10-22 although gates moved | A5 refresh with evidence links |
+| INT-01 | RAMSQL PRs #30, #34 and #36 depend on ZPM PRs #77 and #81. No ZPM commit contains both. | **resolved** 2026-10-30: RAMSQL #30, #34, #36 and ZPM #77, #81 merged |
+| INT-02 | Docs contradict reality: dbMeter "3/7" against 7/7 evidence, `VALIDATION.md` says alpha.3, `INFRASTRUCTURE_PROGRESS.md` says alpha.4, `RELEASE.md` says beta.1 | partial: RAMSQL #38 reconciled the temporal docs; `RELEASE.md` still says beta.1 (REPO-04) |
+| INT-03 | The sparse-factor feature is merged in RAMSQL history but not in ZPM, and the pin was moved back | **resolved**: ZPM #66 closed, and its branch archived as a tag (ZPM #101); RAMSQL pins `main` without it |
+| INT-04 | 34 local and 35 remote merged branches; 3 in-repo and 4 sibling worktrees (1.5 GB); the ZPM checkout is on an unrelated branch with a modified README | open: RAMSQL has 53 of 54 remote branches merged but not deleted; ZPM has 91 remote branches; ZPM experiments archived as tags (#101) |
+| INT-05 | `release-gates.json` has not changed since 2026-10-22 although gates moved | open: `release-gates.json` unchanged since 2026-10-22 |
 
 ---
 
@@ -286,14 +286,14 @@ lanes update only the status column of their own findings.
 
 | Id | Sev | Finding | Lane | Status |
 | --- | --- | --- | --- | --- |
-| NET-01 | **C** | Integer bind parameters spliced as bare text: int4/int8 in PostgreSQL (`postgres.sig:1666-1672`; int2 is quoted and unaffected; inferred OID-0 parameters take the column's type, so they are exposed too), SMALLINT/INT/BIGINT in TDS `expand`. `-$1` with a negative value forms a `--` comment and truncates the statement | B1, B2 | **fixed** in wave 0 (ZPM `b1/net01-param-splice`; reviewed; unmerged) |
-| NET-02 | M | The placeholder scanner ignores nested `/* */` comments that the lexer honors, so substitution can target the wrong text | B1 | open |
+| NET-01 | **C** | Integer bind parameters spliced as bare text: int4/int8 in PostgreSQL (`postgres.sig:1666-1672`; int2 is quoted and unaffected; inferred OID-0 parameters take the column's type, so they are exposed too), SMALLINT/INT/BIGINT in TDS `expand`. `-$1` with a negative value forms a `--` comment and truncates the statement | B1, B2 | **fixed, merged** (ZPM #82, consolidated in #81; RAMSQL pins it since #36) |
+| NET-02 | M | The placeholder scanner ignores nested `/* */` comments that the lexer honors, so substitution can target the wrong text | B1 | **fixed, merged**: placeholders found with the shared `sql.Tokenizer` (ZPM #96; RAMSQL #50) |
 | NET-03 | M | A named suspended portal survives COMMIT or ROLLBACK and re-executes from row 0, repeating `DML ... RETURNING` side effects | B1 | open |
 | NET-04 | M | Slowloris: any byte refreshes the idle timer, there is no authentication deadline, parked clients are exempt from the idle timeout | B6 | open |
 | NET-05 | M | Plaintext only (SSLRequest, MySQL SSL and TDS encryption all refused); `--insecure-local` disables authentication on all three protocols | B3, B2 | open |
 | NET-06 | M | Execute checks the result-format count after executing, so DML can run before the 08P01 error | B1 | open |
 | NET-07 | M | `unreachable` and `@intCast` on cell variants in MySQL, TDS and `pg_types.sendBinary` are undefined behavior in ReleaseFast if an engine invariant breaks | B2 | open |
-| NET-08 | M | Parse with unknown (oid 0) parameter types fails outside simple INSERT, UPDATE, SELECT and DELETE shapes; `SELECT $1` returns 0A000 | B1 | open |
+| NET-08 | M | Parse with unknown (oid 0) parameter types fails outside simple INSERT, UPDATE, SELECT and DELETE shapes; `SELECT $1` returns 0A000 | B1 | partial: constant `SELECT` accepts cast parameters (ZPM `ae93633`); context-wide inference open |
 | NET-09 | L | Cancel keys: predictable pid, 32-bit secret, no rate limit | B6 | open |
 | NET-10 | L | `client_encoding` compared case-sensitively at startup | B1 | open |
 | NET-11 | L | Internal `@errorName` text sent to clients, including before authentication | B1 | open |
@@ -310,7 +310,7 @@ lanes update only the status column of their own findings.
 
 | Id | Sev | Finding | Lane | Status |
 | --- | --- | --- | --- | --- |
-| SRV-01 | **H** | The default `--data ramsql.wal` is relative and `File.open` creates it, so a wrong directory or a typo starts an empty, authoritative database | B5 | **fixed** in wave 0 (RAMSQL `b5/srv01-create-data` + ZPM `b5/srv01-not-found`; reviewed; unmerged) |
+| SRV-01 | **H** | The default `--data ramsql.wal` is relative and `File.open` creates it, so a wrong directory or a typo starts an empty, authoritative database | B5 | **fixed, merged** (RAMSQL #36 + ZPM #85) |
 | SRV-02 | **H** | No unit or property tests for `server.sig`, `main.sig`, `timezones.sig` or `capacity.sig`; 28 module-level globals | A6 | open |
 | SRV-03 | M | Two diverging reactors. The parallel one wakes parked clients only when `tryLock` succeeds, so timeouts and cancel can be delayed without bound under write contention | A6 | open |
 | SRV-04 | M | `--backup-to` recovery can truncate a torn tail of the **source** WAL, which contradicts the documentation | B5 | open |
@@ -331,19 +331,19 @@ lanes update only the status column of their own findings.
 | SRV-19 | L | Help text and `OPERATIONS.md` drift ("SQL serialized", "one reactor") | A5 | open |
 | SRV-20 | L | `build.sig` hygiene: a failing test reports `error.BufferTooSmall`, unused modules, the review benchmark never runs in CI | A3 | open |
 | SRV-21 | L | `@panic` on any region-release failure (16 sites) takes down every connection | A6 | open |
-| TST-01 | **H** | The RAMSQL gate runs 32 of 83 ZPM suites at its pin (31 listed plus the engine suite); 36 relevant suites never run, including the ones that test the four engine flags the server enables | A3 | open |
+| TST-01 | **H** | The RAMSQL gate runs 32 of 83 ZPM suites at its pin (31 listed plus the engine suite); 36 relevant suites never run, including the ones that test the four engine flags the server enables | A3 | open: at the current pin RAMSQL runs 42 of 98 ZPM suites, and 40 relevant suites still never run (re-verified 2026-11-03) |
 | TST-02 | M | `sig build test` is all-or-nothing: one compile OOM skips every run step; there is no `-j` guidance | A3 | open |
-| TST-03 | M | ZPM `native-sig` check fails on merged PRs, so red has become normal | A0, A4 | open |
+| TST-03 | M | ZPM `native-sig` check fails on merged PRs, so red has become normal | A0, A4 | **closed**: `native-sig` passes on ZPM `main` since #98 |
 
 ### 3.3 SQL front end and types (ZPM `src/core/sql/`)
 
 | Id | Sev | Finding | Lane | Status |
 | --- | --- | --- | --- | --- |
-| SQLF-01 | **H** | Unchecked i64 overflow in date and time arithmetic (`temporal.sig:355` and others): a panic in ReleaseSafe, undefined behavior in ReleaseFast. `date ± int8` is accepted where PostgreSQL rejects it. | B7 | implementation fixed in temporal follow-up; FV-12 proof open |
+| SQLF-01 | **H** | Unchecked i64 overflow in date and time arithmetic (`temporal.sig:355` and others): a panic in ReleaseSafe, undefined behavior in ReleaseFast. `date ± int8` is accepted where PostgreSQL rejects it. | B7 | implementation fixed in temporal follow-up; FV-12 proof open (ZPM #86; RAMSQL #37, #38) |
 | SQLF-02 | **H** | Silent wrong results for SQL-standard interval forms (`'1-2'`, `'3 4:05:06'`); `INTERVAL '1' DAY` becomes 1 second aliased "day" | B7 | open |
 | SQLF-03 | M | Comparisons between REAL and int or numeric happened in float4 (PostgreSQL uses float8) | B7 | **closed upstream** at `2f060c2` (`value.comparisonType`); keep the differential test |
-| SQLF-04 | M | `jsonb \|\| '{...}'` resolves the unknown literal as text and concatenates strings | B7 | open |
-| SQLF-05 | M | `date - date` ignores infinity and can return an out-of-range int4 | B7 | fixed; 22008 regression and server/native probes |
+| SQLF-04 | M | `jsonb \|\| '{...}'` resolves the unknown literal as text and concatenates strings | B7 | **fixed, merged**: an unknown operand beside JSONB resolves as JSONB (ZPM #88; RAMSQL #41) |
+| SQLF-05 | M | `date - date` ignores infinity and can return an out-of-range int4 | B7 | fixed; 22008 regression and server/native probes (ZPM #86; RAMSQL #37) |
 | SQLF-06 | M | Possible stack exhaustion at large `text_bytes` (by-value cells in recursive evaluation, 43 KB of JSONB stack per nesting level) | B7 | open |
 | SQLF-07 | M | JSONB key insertion sort (O(k²), `jsonb.sig:443`) ignores cancel and statement timeout (LIKE now checkpoints at `2f060c2`) | B7 | open |
 | SQLF-08 | M | Specialized scan strategies duplicate the general engine; arithmetic dispatch relies on binder invariants | B10 | open |
@@ -353,17 +353,17 @@ lanes update only the status column of their own findings.
 | SQLF-12 | L | Stale headers, compressed one-line patches, helpers copied five times | A4, B7 | open |
 | SQLF-13 | M | Testing: byte-noise fuzzing only, no property tests for numeric, float or JSONB, few LIKE cases, no date-boundary tests | B7, C1 | open |
 | SQLF-15 | M | Legacy alpha-format WAL replay fails when a statement names an identifier that later became reserved (`symmetric` and `asymmetric` after `9606877`), so recovery stops. Older reserved words may have the same gap. | B7 (parser fix), B9 (replay fixtures) | open |
-| SQLF-14 | **H** | Application-blocking gaps: common types, scalar functions, DDL (indexes, constraints, ALTER), syntax; see [FEATURE_GAPS.md](docs/compatibility/FEATURE_GAPS.md) | B11 | open |
+| SQLF-14 | **H** | Application-blocking gaps: common types, scalar functions, DDL (indexes, constraints, ALTER), syntax; see [FEATURE_GAPS.md](docs/compatibility/FEATURE_GAPS.md) | B11 | partial: windows (ZPM #89–#92), numeric functions and `SQRT` (#94, #95), conditional DDL (#93), JSON operators (#88); the rest in FEATURE_GAPS |
 
 ### 3.4 Storage, MVCC, locks, change log, WAL (ZPM `src/core/sql.sig`, `exec`, `storage`, `mvcc`, `locks`, `change_log`, `db/store`, `db/durable_log`)
 
 | Id | Sev | Finding | Lane | Status |
 | --- | --- | --- | --- | --- |
-| STO-01 | **C** | Concurrent DDL committed out of OID order makes the WAL unrecoverable. OIDs are assigned when the statement runs; replay rejects any create whose OID is below the previous one (`change_log.sig:713`). Example: A `BEGIN; CREATE TABLE a`, B `BEGIN; CREATE TABLE b; COMMIT`, A `COMMIT`, restart → startup aborts. | B9 | **fixed** in wave 0 (ZPM `b9/sto01-replay-order`; reviewed; unmerged) |
-| STO-02 | **H** | Reclamation can free versions that a resumed statement or COPY still sees. `horizon()` counts only pins (`sql.sig:1315`), and a resume clears the pin before the body runs. Result: a silent lost update on resumed UPDATE, and duplicate or missing rows on resumed INSERT ... SELECT. | B8 | reported paths fixed; forced-pressure/COPY regressions; formal proof open |
-| STO-03 | **H** | Transaction lock list overflow. `FOR SHARE` then `FOR UPDATE` adds a second holder entry, and `pushLock` has no bounds check (`mvcc.sig:94`). From 140 rows at RAMSQL's build defaults (134 at ZPM defaults) it panics in safe builds and corrupts memory in ReleaseFast. | B8 | **fixed** in wave 0 (ZPM `b8/sto03-lock-list`; reviewed; unmerged) |
-| STO-04 | **H** | Sequence values can be issued twice across a crash. Commits from the cached log-ahead range do not persist the watermark. | B9 | fixed global pending watermark; replay/process-kill regressions |
-| STO-05 | **H** | A full-length torn final record (multi-write append, power loss) is treated as corruption, so the server refuses to start | B9 | open |
+| STO-01 | **C** | Concurrent DDL committed out of OID order makes the WAL unrecoverable. OIDs are assigned when the statement runs; replay rejects any create whose OID is below the previous one (`change_log.sig:713`). Example: A `BEGIN; CREATE TABLE a`, B `BEGIN; CREATE TABLE b; COMMIT`, A `COMMIT`, restart → startup aborts. | B9 | **fixed, merged** (ZPM #83, consolidated in #81) |
+| STO-02 | **H** | Reclamation can free versions that a resumed statement or COPY still sees. `horizon()` counts only pins (`sql.sig:1315`), and a resume clears the pin before the body runs. Result: a silent lost update on resumed UPDATE, and duplicate or missing rows on resumed INSERT ... SELECT. | B8 | reported paths fixed; forced-pressure/COPY regressions; formal proof open (ZPM #87; RAMSQL #39) |
+| STO-03 | **H** | Transaction lock list overflow. `FOR SHARE` then `FOR UPDATE` adds a second holder entry, and `pushLock` has no bounds check (`mvcc.sig:94`). From 140 rows at RAMSQL's build defaults (134 at ZPM defaults) it panics in safe builds and corrupts memory in ReleaseFast. | B8 | **fixed, merged** (ZPM #84, consolidated in #81) |
+| STO-04 | **H** | Sequence values can be issued twice across a crash. Commits from the cached log-ahead range do not persist the watermark. | B9 | fixed global pending watermark; replay/process-kill regressions (ZPM #87; RAMSQL #39) |
+| STO-05 | **H** | A full-length torn final record (multi-write append, power loss) is treated as corruption, so the server refuses to start | B9 | open (re-verified 2026-11-03: `durable_log.sig` unchanged since `2f060c2`; ZPM #87 lists it as remaining) |
 | STO-06 | **H** | Recovery cost grows with records × rows: `liveRows` is recomputed with a full scan for every table on every record, and there is no checkpoint | B9, C8 | open |
 | STO-07 | M | Unbounded WAL; replay capacity must cover historical peaks | C8 | open |
 | STO-08 | M | O(N) `vacuum` and `compact` (row-index rebuild) inside INSERT near capacity: latency cliffs | C9 | open |
@@ -390,10 +390,10 @@ audit's code reading; each module page records their evidence.
 
 | Id | Sev | Finding | Lane | Status |
 | --- | --- | --- | --- | --- |
-| REPO-01 | **H** | No branch protection or ruleset on `main` of a public repository | A4 | open |
-| REPO-02 | **H** | Three license statements: proprietary LICENSE, "MIT License" in README, `license = "MIT"` in `zpm.pkg.zon`; earlier tags shipped MIT | A5 | open |
-| REPO-03 | **H** | ramsql.com claims "488x faster than IRDB" and "snapshot isolation"; README says READ COMMITTED and slower on analytics | A5 | open |
-| REPO-04 | M | Release notes for beta.2 are headed "0.3.0-beta.1" | A5 | open |
+| REPO-01 | **H** | No branch protection or ruleset on `main` of a public repository | A4 | open (re-verified 2026-11-03: no branch protection, no rulesets) |
+| REPO-02 | **H** | Three license statements: proprietary LICENSE, "MIT License" in README, `license = "MIT"` in `zpm.pkg.zon`; earlier tags shipped MIT | A5 | open (re-verified 2026-11-03: README line 351, `zpm.pkg.zon`) |
+| REPO-03 | **H** | ramsql.com claims "488x faster than IRDB" and "snapshot isolation"; README says READ COMMITTED and slower on analytics | A5 | open (re-verified 2026-11-03: the site still says 488x and snapshot isolation) |
+| REPO-04 | M | Release notes for beta.2 are headed "0.3.0-beta.1" | A5 | open (re-verified 2026-11-03: `RELEASE.md` still headed beta.1) |
 | REPO-05 | M | All actions pinned to mutable tags, no dependabot | A4 | open |
 | REPO-06 | M | Publish job has no protected environment; prereleases skip `release_gate.py` | A4 | open |
 | REPO-07 | M | Duplicate CI runs on PRs, no concurrency cancellation, no caching | A4 | open |
@@ -404,7 +404,7 @@ audit's code reading; each module page records their evidence.
 | REPO-12 | M | Package manifest: `.paths` includes evidence, fingerprint `0x0`, `zpm.pkg.zon` dependency and layer wrong | A1 | open |
 | REPO-13 | M | Planning documents are stale and overlap (GAP_CLOSING_PLAN 1,105 lines, DEEP_INFRASTRUCTURE_RESEARCH 722) | A5 | open |
 | REPO-14 | M | No SECURITY, CONTRIBUTING, CODE_OF_CONDUCT, CODEOWNERS, templates, ADRs or threat model | A5 | open |
-| REPO-15 | M | Git state: 69 merged branches, 1.5 GB of worktrees, `.agents/` and `.worktrees/` not ignored, mixed commit style | A1 | open |
+| REPO-15 | M | Git state: 69 merged branches, 1.5 GB of worktrees, `.agents/` and `.worktrees/` not ignored, mixed commit style | A1 | open (re-verified 2026-11-03: `.agents/` and `.worktrees/` not ignored; 53 of 54 remote branches already merged) |
 | REPO-16 | L | Stray files: two empty untracked `tests/*.sig`, a document in `tests/`, a test kernel in `tools/` | A1 | open |
 | REPO-17 | L | Missing CI jobs: nightly, Debug, fuzz, link check, CodeQL; two shipped targets not in CI | A4 | open |
 | REPO-18 | L | Requirements not hash-pinned, unpinned apt, one PostgreSQL image pinned by tag | A4 | open |
@@ -1857,7 +1857,7 @@ linked in `release-gates.json` proves them.
 
 ## 18. Status log
 
-### Wave 0 (2026-10-30): code fixes reviewed and integrated, not yet merged
+### Wave 0 (2026-10-30): code fixes reviewed, integrated and merged
 
 Lanes ran in parallel, each in its own worktree with an implementer and an
 independent reviewer/verifier. Changes are uncommitted on these branches:
@@ -1898,13 +1898,47 @@ independent reviewer/verifier. Changes are uncommitted on these branches:
 - A4.1 rulesets (admin rights needed).
 - A4.2 one-time formatting commit.
 - The D1 disclosure decision for NET-01.
-- Committing the lane branches, opening ZPM and RAMSQL PRs, and the pin bump. SRV-01's RAMSQL change must land in the same pin bump as `b5/srv01-not-found`.
+- ~~Committing the lane branches, opening PRs and the pin bump.~~ Done: ZPM #82–#85 and RAMSQL #36 merged on 2026-10-30.
 
 Follow-ups recorded:
 - NET-02 (still exploitable when a template has `$n` or an apostrophe inside `/* */`);
 - moving `absolutePath` into ZPM;
 - STO-21 and STO-22;
 - a captured beta.2 kind-3 WAL fixture.
+
+
+### 2026-10-30 to 2026-11-02: follow-up work merged on `main`
+
+Recorded on 2026-11-03 from the merged PRs, and spot-checked in the code at RAMSQL `89e790a` (pinning ZPM `fbaeee2`) and ZPM `4ed58c9`.
+
+| PRs | Effect on the register |
+| --- | --- |
+| ZPM #81–#85, RAMSQL #36 | wave 0 merged: NET-01, STO-01, STO-03, SRV-01 fixed |
+| ZPM #86, RAMSQL #37, #38 | SQLF-01 (implementation) and SQLF-05 fixed; temporal docs reconciled |
+| ZPM #87, RAMSQL #39, #40 | STO-02 and STO-04 fixed with forced-pressure, COPY and process-kill regressions; STO-05 still open |
+| ZPM #96, RAMSQL #50 | NET-02 fixed: counting, interpolation, inference and DEALLOCATE spans all use the canonical `sql.Tokenizer`; verified against PostgreSQL 16.15/18.3 grammar oracles |
+| ZPM `ae93633` | NET-08 partly fixed: constant `SELECT`s accept cast parameters |
+| ZPM #88, RAMSQL #41 | JSON operators; SQLF-04 fixed |
+| ZPM #89–#92, RAMSQL #42–#45 | window functions: `LAG`/`LEAD`, distribution, named and lazy frame windows (SQLF-14 partial) |
+| ZPM #93–#95, RAMSQL #46–#48 | conditional DDL, numeric functions, exact `SQRT` (SQLF-14 partial) |
+| ZPM #97, #99, RAMSQL #51, #52 | planner and aggregate output demand |
+| ZPM #98 | `native-sig` green on ZPM `main` (TST-03 closed) |
+| ZPM #101 | experiment branches archived as tags (INT-03 resolved) |
+| RAMSQL #49 | release CI publishes qualified candidates as prereleases |
+
+**Re-verified as still open on 2026-11-03:**
+
+- REPO-01: no protection or rulesets
+- REPO-02: MIT line in README and `zpm.pkg.zon`
+- REPO-03: site claims
+- REPO-04: `RELEASE.md` heading
+- REPO-15: ignore rules and merged branches
+- STO-05: a torn tail refuses startup
+- TST-01: 40 relevant ZPM suites are never run by RAMSQL
+- INT-04
+- INT-05
+
+**Open critical and high findings after this refresh:** SQLF-02, SQLF-14 (partial), STO-05, STO-06, SRV-02, TST-01, REPO-01, REPO-02, REPO-03, plus the deployment gaps tracked as NET-05 (TLS and authentication). No open finding is critical.
 
 ---
 
