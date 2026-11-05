@@ -103,6 +103,20 @@ const config: sql.Config = .{
     // external storage region (ZPM #118): 4 x pow2(2 x versions) x 4 bytes
     // per table. The storage plan already counts and binds them.
     .external_indexes = 4,
+    // ZPM's database-wide session and catalog pools default to test sizes
+    // (4 cursors, 8 listening sessions, 8 routines, 32 catalog objects for
+    // the whole database). The server serves up to 60 clients at once.
+    .cursors = 64,
+    .cursor_rows = 1024,
+    .prepared_statements = 32,
+    .listeners = 64,
+    .notify_queue = 1024,
+    .notify_pending = 256,
+    .advisory_locks = 256,
+    .routines = 128,
+    .triggers = 128,
+    .rules = 32,
+    .catalog_objects = 512,
 };
 const Raw = sql.Database(config);
 const Store = stores.Store(Raw);
