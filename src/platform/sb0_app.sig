@@ -50,6 +50,59 @@ export fn nativeMain() callconv(.c) noreturn {
     }
 }
 
+// EL1 exception vectors for SB0K. Without them any synchronous fault (an
+// unaligned Device access, an svc, a bad pointer) left the kernel hung with no
+// output. Every vector reports the syndrome over the UART and parks, so the
+// QEMU transcript shows what failed and where.
+// One 128-byte vector entry: branch to the reporter, then pad with nops. The
+// table is a naked function so only inline asm is needed (no module-level
+// asm directives, which this assembler does not accept).
+const vector_entry = " b %[fault]\n" ++ (" nop\n" ** 31);
+
+export fn sb0kVectors() align(2048) callconv(.naked) noreturn {
+    asm volatile (vector_entry ** 16
+        :
+        : [fault] "S" (&sb0kFault),
+    );
+}
+
+fn hex(out: []u8, at: *usize, label: []const u8, value: u64) void {
+    for (label) |c| {
+        out[at.*] = c;
+        at.* += 1;
+    }
+    var shift: u6 = 60;
+    while (true) : (shift -= 4) {
+        const digit: u8 = @as(u8, @truncate(value >> shift)) & 15;
+        out[at.*] = if (digit < 10) '0' + digit else 'a' + digit - 10;
+        at.* += 1;
+        if (shift == 0) break;
+    }
+}
+
+export fn sb0kFault() callconv(.c) noreturn {
+    // Generic system-register encodings: ESR_EL1, ELR_EL1 and FAR_EL1.
+    const esr = asm volatile ("mrs %[r], s3_0_c5_c2_0"
+        : [r] "=r" (-> u64),
+    );
+    const elr = asm volatile ("mrs %[r], s3_0_c4_c0_1"
+        : [r] "=r" (-> u64),
+    );
+    const far = asm volatile ("mrs %[r], s3_0_c6_c0_0"
+        : [r] "=r" (-> u64),
+    );
+    var line: [96]u8 = undefined;
+    var at: usize = 0;
+    hex(&line, &at, "\r\nRAMSQL-SB0K-FAULT esr=0x", esr);
+    hex(&line, &at, " elr=0x", elr);
+    hex(&line, &at, " far=0x", far);
+    line[at] = '\r';
+    line[at + 1] = '\n';
+    var io: native.Uart = .{};
+    io.writeAll(line[0 .. at + 2]) catch {};
+    native.park();
+}
+
 export fn _start() callconv(.naked) noreturn {
     if (options.kernel) {
         asm volatile (
@@ -58,6 +111,9 @@ export fn _start() callconv(.naked) noreturn {
             \\ mov sp, x0
             \\ movz x1, #0x30, lsl #16
             \\ msr cpacr_el1, x1
+            \\ adrp x1, sb0kVectors
+            \\ add x1, x1, :lo12:sb0kVectors
+            \\ msr vbar_el1, x1
             \\ isb
             \\ bl %[main]
             \\ b .
