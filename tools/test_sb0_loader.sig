@@ -3,6 +3,11 @@
 //! It loads the real SB0X bytes, maps RX/RW/BSS, prepares the 256-byte BHB and
 //! delegated handle, enters EL0, and implements only the stream test's traps.
 const source_base: usize = 0x48000000;
+/// Largest SB0X file and segment this fixture accepts. The real SB0X loader
+/// (sb0s src/kernel/sb0x_loader.sig) caps only segment count and metadata;
+/// 32 MiB keeps the raw copy at source_base (to 0x4a000000) inside the
+/// 512 MiB guest and clear of the image, stack and metadata pages.
+const max_image_file: usize = 0x2000000;
 const image_base: usize = 0x00400000;
 const physical_bias: usize = 0x40000000;
 const l1_base: usize = 0x40100000;
@@ -99,7 +104,7 @@ fn mapPage(virtual: usize, writable: bool, executable: bool) void {
 
 fn userBuffer(address: usize, length: usize, writable: bool) bool {
     if (length == 0) return true;
-    if (address < image_base or address >= 0x10000000 or length > 0x1000000 or length > 0x10000000 - address) return false;
+    if (address < image_base or address >= 0x10000000 or length > max_image_file or length > 0x10000000 - address) return false;
     var current = address & ~@as(usize, 4095);
     const end = address + length;
     while (current < end) : (current += 4096) {
@@ -199,7 +204,7 @@ export fn loaderMain() callconv(.c) noreturn {
     initializeVectors();
     print("SB0-ABI-LOADER-START public single-process conformance fixture\n");
     const length: usize = table(0x47e00000)[0];
-    if (length < 64 or length > 0x1000000 or read32(0) != 0x58304253 or pointer(source_base)[4] != 1 or pointer(source_base)[5] != 0 or read16(6) != 1) reject();
+    if (length < 64 or length > max_image_file or read32(0) != 0x58304253 or pointer(source_base)[4] != 1 or pointer(source_base)[5] != 0 or read16(6) != 1) reject();
     const segments = read16(16);
     const image_size = read64(32);
     const stack_size = read64(40);
