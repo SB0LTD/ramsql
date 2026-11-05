@@ -99,6 +99,24 @@ const config: sql.Config = .{
     .typed_grouped_aggregates = true,
     .dimension_group_ids = true,
     .dimension_distinct_groups = true,
+    // Secondary indexes bind one slot run per index per table in the
+    // external storage region (ZPM #118): 4 x pow2(2 x versions) x 4 bytes
+    // per table. The storage plan already counts and binds them.
+    .external_indexes = 4,
+    // ZPM's database-wide session and catalog pools default to test sizes
+    // (4 cursors, 8 listening sessions, 8 routines, 32 catalog objects for
+    // the whole database). The server serves up to 60 clients at once.
+    .cursors = 64,
+    .cursor_rows = 1024,
+    .prepared_statements = 32,
+    .listeners = 64,
+    .notify_queue = 1024,
+    .notify_pending = 256,
+    .advisory_locks = 256,
+    .routines = 128,
+    .triggers = 128,
+    .rules = 32,
+    .catalog_objects = 512,
 };
 const Raw = sql.Database(config);
 const Store = stores.Store(Raw);
@@ -173,6 +191,11 @@ const Client = struct {
     cancel_request: std.atomic.Value(u64) = .init(0),
     socket: tcp.Socket = tcp.invalid_socket,
     connection: DB = .{ .store = &store, .id = 0 },
+    /// The active member of `session`. Tag tests read this field: comparing
+    /// the union by value (`session == .postgres`) copies the whole
+    /// ~1.1 MiB session into the frame in Debug builds, which overflowed
+    /// the 4 MiB reactor thread stack.
+    protocol: Protocol = .postgres,
     session: Session = .{ .postgres = .{} },
     input: [input_capacity]u8 = undefined,
     input_len: usize = 0,
@@ -189,6 +212,23 @@ const Client = struct {
     /// A statement of this client is parked on a lock.
     blocked: bool = false,
     cancel_secret: u32 = 0,
+    /// notification_sequence when this idle client last drained NOTIFY.
+    notify_seen: u64 = 0,
+
+    /// PostgreSQL sends NotificationResponse to an idle LISTEN session
+    /// without waiting for its next query. A statement that commits NOTIFY
+    /// moves notification_sequence; only then does an idle client take the
+    /// store lock and drain its own queue (the codec writes nothing inside a
+    /// transaction block, where delivery waits for ReadyForQuery).
+    fn deliverNotifications(self: *Client) void {
+        if (self.protocol != .postgres or self.blocked or self.closing or self.output_len != 0 or self.input_len != 0) return;
+        if (notification_sequence.load(.acquire) == self.notify_seen) return;
+        lockStore();
+        defer unlockStore();
+        self.notify_seen = store.database.notificationSequence();
+        const written = self.session.postgres.notifications(&self.connection, self.output[self.output_len..]) catch return;
+        self.output_len += written;
+    }
 
     fn close(self: *Client) void {
         const active = self.state.load(.acquire) == 2;
@@ -215,7 +255,7 @@ const Client = struct {
         if (self.blocked or self.output_sent != 0 or self.closing or (self.input_len == 0 and !self.connection.copyBlocked())) return;
         // Cancellation is control traffic and must not queue behind SQL held
         // by another reactor. An established session cannot send startup frames.
-        if (parallel and self.session == .postgres and !self.session.postgres.startup) {
+        if (parallel and self.protocol == .postgres and !self.session.postgres.startup) {
             if (pg.parseCancel(self.input[self.input_start..][0..self.input_len])) |key| {
                 cancelBackend(key); self.consume(16); self.closing = true; return;
             }
@@ -251,6 +291,7 @@ const Client = struct {
                 break :blk .{ .consumed = r.consumed, .written = r.written, .close = r.close, .blocked = r.blocked };
             },
         };
+        notification_sequence.store(store.database.notificationSequence(), .release);
         if (reply.consumed > self.input_len or reply.written > output.len) return error.InvalidReply;
         if (reply.blocked) {
             // Only a parked COPY row consumes input (through that row).
@@ -274,7 +315,7 @@ const Client = struct {
         if(self.read_deadline) |deadline| if(monotonicClock()>=deadline) return error.QueryCanceled;
     }
     fn dispatchRead(self:*Client) !bool {
-        if(!parallel or self.session!=.postgres or !self.connection.detachedReadEligible()) return false;
+        if(!parallel or self.protocol!=.postgres or !self.connection.detachedReadEligible()) return false;
         const session=&self.session.postgres;
         const input=self.input[self.input_start..][0..self.input_len];
         const candidate=session.detachedCandidate(input) orelse return false;
@@ -349,6 +390,7 @@ const Client = struct {
             };
             if (self.blocked or before == self.input_len or self.closing) break;
         }
+        self.deliverNotifications();
         self.flush() catch {
             self.close();
             return false;
@@ -381,7 +423,10 @@ var memory_slots:[capacity*2+max_reactors*2+4]resource_budget.Slot=undefined;
 var memory_hard:?u64=null;
 var memory_headroom:?u64=null;
 var memory_refresh_at:i64=0;
-const worker_budget_each:u64=5*1024*1024;
+// Each reactor: its native stack (ZPM worker_thread.stack_bytes, 16 MiB in
+// Debug and 4 MiB optimized) plus the 1 MiB margin the former fixed 5 MiB
+// grant carried above the 4 MiB stack.
+const worker_budget_each:u64=threads.stack_bytes+1024*1024;
 fn lockMemory() void {if(parallel) memory_mutex.lock();}
 fn unlockMemory() void {if(parallel) memory_mutex.unlock();}
 fn initializeMemory(options:Options) !void {
@@ -461,7 +506,7 @@ fn cancelBackend(key: pg.Cancel) void {
         for (&reactors) |*reactor| reactor.signal.notify();
         return;
     }
-    if (target.socket == tcp.invalid_socket or target.session != .postgres) return;
+    if (target.socket == tcp.invalid_socket or target.protocol != .postgres) return;
     if (!sameSecret(target.cancel_secret, key.secret)) return;
     target.connection.requestCancel();
 }
@@ -585,7 +630,7 @@ fn pollInterrupts(_: ?*anyopaque, _: u64) void {
         acceptConnections(interrupt_listener, .postgres, interrupt_max_clients, 4) catch {};
     pollOverflowCancels(now);
     for (clients[0..interrupt_max_clients]) |*client| {
-        if (client.socket == tcp.invalid_socket or client.session != .postgres or client.session.postgres.startup or client.closing or client.input_start != 0) continue;
+        if (client.socket == tcp.invalid_socket or client.protocol != .postgres or client.session.postgres.startup or client.closing or client.input_start != 0) continue;
         if (client.input_len < 16) {
             // Startup connections have not consumed any input yet.
             const n = tcp.recv(client.socket, client.input[client.input_len..16]) catch continue orelse continue;
@@ -634,11 +679,14 @@ fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial:
     client.connection = .{ .store = &store, .id = next_id };
     next_id +%= 1;
     if (next_id == 0) next_id = 1;
-    client.session = switch (protocol) {
-        .postgres => .{ .postgres = .{} },
-        .mysql => .{ .mysql = .{} },
-        .mssql => .{ .mssql = .{} },
-    };
+    // Each branch initializes the union in place (a switch expression would
+    // build a full-size temporary per branch in Debug builds).
+    switch (protocol) {
+        .postgres => client.session = .{ .postgres = .{} },
+        .mysql => client.session = .{ .mysql = .{} },
+        .mssql => client.session = .{ .mssql = .{} },
+    }
+    client.protocol = protocol;
     // The accept/admission queue retains the socket on setup failure so it can
     // emit a PostgreSQL resource error instead of silently resetting TCP.
     errdefer {client.socket=tcp.invalid_socket;client.close();}
@@ -677,6 +725,8 @@ fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial:
 const max_reactors = 16;
 var reactor_count: usize = 0;
 var reactor_stop: std.atomic.Value(bool) = .init(false);
+/// Committed NOTIFY count as last read under the store lock (any reactor).
+var notification_sequence: std.atomic.Value(u64) = .init(0);
 var reactor_failed: std.atomic.Value(bool) = .init(false);
 var reactors: [max_reactors]Reactor = @splat(.{});
 
