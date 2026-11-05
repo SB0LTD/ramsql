@@ -99,6 +99,10 @@ const config: sql.Config = .{
     .typed_grouped_aggregates = true,
     .dimension_group_ids = true,
     .dimension_distinct_groups = true,
+    // Secondary indexes bind one slot run per index per table in the
+    // external storage region (ZPM #118): 4 x pow2(2 x versions) x 4 bytes
+    // per table. The storage plan already counts and binds them.
+    .external_indexes = 4,
 };
 const Raw = sql.Database(config);
 const Store = stores.Store(Raw);
@@ -189,6 +193,23 @@ const Client = struct {
     /// A statement of this client is parked on a lock.
     blocked: bool = false,
     cancel_secret: u32 = 0,
+    /// notification_sequence when this idle client last drained NOTIFY.
+    notify_seen: u64 = 0,
+
+    /// PostgreSQL sends NotificationResponse to an idle LISTEN session
+    /// without waiting for its next query. A statement that commits NOTIFY
+    /// moves notification_sequence; only then does an idle client take the
+    /// store lock and drain its own queue (the codec writes nothing inside a
+    /// transaction block, where delivery waits for ReadyForQuery).
+    fn deliverNotifications(self: *Client) void {
+        if (self.session != .postgres or self.blocked or self.closing or self.output_len != 0 or self.input_len != 0) return;
+        if (notification_sequence.load(.acquire) == self.notify_seen) return;
+        lockStore();
+        defer unlockStore();
+        self.notify_seen = store.database.notificationSequence();
+        const written = self.session.postgres.notifications(&self.connection, self.output[self.output_len..]) catch return;
+        self.output_len += written;
+    }
 
     fn close(self: *Client) void {
         const active = self.state.load(.acquire) == 2;
@@ -251,6 +272,7 @@ const Client = struct {
                 break :blk .{ .consumed = r.consumed, .written = r.written, .close = r.close, .blocked = r.blocked };
             },
         };
+        notification_sequence.store(store.database.notificationSequence(), .release);
         if (reply.consumed > self.input_len or reply.written > output.len) return error.InvalidReply;
         if (reply.blocked) {
             // Only a parked COPY row consumes input (through that row).
@@ -349,6 +371,7 @@ const Client = struct {
             };
             if (self.blocked or before == self.input_len or self.closing) break;
         }
+        self.deliverNotifications();
         self.flush() catch {
             self.close();
             return false;
@@ -677,6 +700,8 @@ fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial:
 const max_reactors = 16;
 var reactor_count: usize = 0;
 var reactor_stop: std.atomic.Value(bool) = .init(false);
+/// Committed NOTIFY count as last read under the store lock (any reactor).
+var notification_sequence: std.atomic.Value(u64) = .init(0);
 var reactor_failed: std.atomic.Value(bool) = .init(false);
 var reactors: [max_reactors]Reactor = @splat(.{});
 

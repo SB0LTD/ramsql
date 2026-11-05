@@ -302,14 +302,20 @@ names, commit/restart and disconnect without retaining rolled-back changes.
 
 ### T04 — Complete isolation and transaction-control behavior
 
-**Status:** Partial. READ COMMITTED only; REPEATABLE READ/SERIALIZABLE are rejected with 0A000 instead of being emulated; transactional DDL is tested (DDL1–DDL4). **Owner:** ZPM transactions; codecs expose the behavior.
+**Status:** Partial. ZPM #120 adds transaction modes:
+
+- REPEATABLE READ: one snapshot per transaction, with 40001 on concurrent updates.
+- SERIALIZABLE: relation-level SSI. It is sound, but coarser than PostgreSQL's tuple-level SSI, so it raises more 40001 errors.
+- Transaction characteristics: SET TRANSACTION, SET SESSION CHARACTERISTICS, READ ONLY (25006) and DEFERRABLE.
+
+These modes have engine contracts but no PostgreSQL reference schedules in `test_postgres_isolation.py` yet. Only RC1–RC14 compare against PostgreSQL. Transactional DDL is tested (DDL1–DDL4). **Owner:** ZPM transactions; codecs expose the behavior.
 
 BEGIN/COMMIT/ROLLBACK working for the subset does not establish all transaction
 modes. Applications can request isolation levels, read-only transactions and
 other transaction characteristics.
 
-- [ ] Implement SET TRANSACTION and default/session transaction characteristics with real state.
-- [ ] Implement and verify Repeatable Read and Serializable semantics; investigate two-phase/prepared transactions as a separate required capability.
+- [x] Implement SET TRANSACTION and default/session transaction characteristics with real state (ZPM #120).
+- [ ] Verify Repeatable Read and Serializable against PostgreSQL reference schedules. Both are implemented in ZPM #120; Serializable is relation-level SSI. Investigate two-phase/prepared transactions as a separate required capability.
 - [ ] Cover transactional DDL, aborted commits, serialization retries and durability acknowledgements under concurrency.
 
 **Closed when:** each advertised mode has reference-tested semantics, including
