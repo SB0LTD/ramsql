@@ -1,4 +1,4 @@
-Pins ZPM b5bb5bb, which brings in the first B11 wave-3 merges.
+Pins ZPM adc3258, which brings in the first B11 wave-3 merges and the ZPM #127 fix for Debug-only contract failures.
 
 - CREATE INDEX now works in the server. ZPM #118 binds secondary index storage in the external storage region, and the server sets `external_indexes = 4`. That costs 4 × pow2(2 × versions) bytes per table per index: 64 KiB at the default 8,192 versions. Indexes serve equality probes, and unique indexes enforce 23505.
 - Transactions and sessions (ZPM #120):
