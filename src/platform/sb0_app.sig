@@ -103,6 +103,25 @@ export fn sb0kFault() callconv(.c) noreturn {
     native.park();
 }
 
+// SB0K turns the MMU on before entering Sig code. With the MMU off every
+// access is Device memory, where an unaligned load faults. The native compiler
+// emits unaligned loads for byte arrays and align(1) data even with
+// strict_align (an alignment fault at ldr w3,[sp,#0x141] under QEMU 10.2), and
+// real hardware faults the same way. This identity map uses 1 GiB blocks:
+// Device-nGnRnE below 0x40000000 (the PL011 UART at 0x09000000), and Normal
+// write-back memory from 0x40000000 for the image, data and stack. _start
+// programs MAIR_EL1 (attribute 0 = 0x00 Device, attribute 1 = 0xff Normal),
+// TCR_EL1 0x803519 (T0SZ 25, write-back walks, inner shareable, 4 KiB granule,
+// TTBR1 walks disabled) and TTBR0_EL1, then sets SCTLR_EL1.M/C/I with A clear.
+export var sb0kTranslation: [512]u64 align(4096) = blk: {
+    var table = [_]u64{0} ** 512;
+    // Block, AF, AttrIndx 0 (Device), UXN and PXN.
+    table[0] = 0x0000_0000 | (1 << 54) | (1 << 53) | (1 << 10) | (0 << 2) | 0b01;
+    // Block, AF, inner shareable, AttrIndx 1 (Normal write-back).
+    table[1] = 0x4000_0000 | (1 << 10) | (3 << 8) | (1 << 2) | 0b01;
+    break :blk table;
+};
+
 export fn _start() callconv(.naked) noreturn {
     if (options.kernel) {
         asm volatile (
@@ -114,6 +133,22 @@ export fn _start() callconv(.naked) noreturn {
             \\ adrp x1, sb0kVectors
             \\ add x1, x1, :lo12:sb0kVectors
             \\ msr vbar_el1, x1
+            \\ movz x1, #0xff00
+            \\ msr s3_0_c10_c2_0, x1
+            \\ movz x1, #0x3519
+            \\ movk x1, #0x80, lsl #16
+            \\ msr s3_0_c2_c0_2, x1
+            \\ adrp x1, sb0kTranslation
+            \\ add x1, x1, :lo12:sb0kTranslation
+            \\ msr s3_0_c2_c0_0, x1
+            \\ dsb sy
+            \\ isb
+            \\ mrs x1, s3_0_c1_c0_0
+            \\ movz x2, #0x1007
+            \\ orr x1, x1, x2
+            \\ movz x2, #0x2
+            \\ eor x1, x1, x2
+            \\ msr s3_0_c1_c0_0, x1
             \\ isb
             \\ bl %[main]
             \\ b .
