@@ -76,7 +76,10 @@ def main():
     cache.mkdir(parents=True, exist_ok=True)
     options = cache / "options.sig"
     options.write_text(f"pub const kernel = {'true' if args.format == 'sb0k' else 'false'};\n", encoding="utf-8")
-    command = [args.sig, "build-exe", "-target", "aarch64-sb0", "-mcpu=baseline", "-O" + args.optimize,
+    # SB0K runs at EL1 with the MMU off, where all memory is Device memory and
+    # any unaligned access faults. Keep its code to aligned accesses only.
+    cpu = "-mcpu=baseline+strict_align" if args.format == "sb0k" else "-mcpu=baseline"
+    command = [args.sig, "build-exe", "-target", "aarch64-sb0", cpu, "-O" + args.optimize,
                "--stack", "16777216", "-fno-stack-check", "-fno-stack-protector", "-fno-unwind-tables", "-fstrip", "-ffunction-sections"]
     if args.sig_lib_dir:
         command += ["--Sig-lib-dir", str(args.sig_lib_dir.resolve())]
