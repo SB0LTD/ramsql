@@ -199,6 +199,7 @@ def worker_scratch_reuse(binary):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--binary',type=Path,default=ROOT/'sig-out/bin'/('ramsql.exe' if os.name=='nt' else 'ramsql'))
+    parser.add_argument('--smoke',action='store_true',help='shared counter, durable restart and concurrent joins only (for Debug builds)')
     args=parser.parse_args();binary=args.binary.resolve(strict=True)
     import psycopg
     capabilities=json.loads(subprocess.check_output([str(binary),'--capabilities']))
@@ -214,10 +215,11 @@ def main():
     assert parallel_caps['parallel_simple_reads'] and parallel_caps['sql_execution_workers']==4
     assert parallel_caps['parallel_extended_reads']
     assert parallel_caps['exclusive_sql_workers']==1
-    # Reuse the complete framing/fairness/cleanup contracts with native reactors.
-    subprocess.run([sys.executable,str(ROOT/'tools/test_server.py'),'--binary',str(binary),'--workers','4'],check=True)
-    for suite in ('test_clients.py','test_auth.py'):
-        subprocess.run([sys.executable,str(ROOT/'tools'/suite),'--binary',str(binary),'--workers','4'],check=True)
+    if not args.smoke:
+        # Reuse the complete framing/fairness/cleanup contracts with native reactors.
+        subprocess.run([sys.executable,str(ROOT/'tools/test_server.py'),'--binary',str(binary),'--workers','4'],check=True)
+        for suite in ('test_clients.py','test_auth.py'):
+            subprocess.run([sys.executable,str(ROOT/'tools'/suite),'--binary',str(binary),'--workers','4'],check=True)
     with tempfile.TemporaryDirectory(prefix='ramsql-worker-restart-') as directory:
         wal=Path(directory)/'database.wal'
         options=('--workers','4','--max-clients','32')
@@ -237,6 +239,13 @@ def main():
         with running_ramsql(binary,extra_arguments=options,data_path=wal) as conn:
             with psycopg.connect(**conn) as db:
                 assert db.execute('SELECT value FROM counter WHERE id=1').fetchone()==(800,)
+    if args.smoke:
+        # Debug reactor frames are far larger than optimized ones; this is the
+        # regression check that workers can run real queries in a Debug build.
+        concurrent_join_and_aggregate_reads(binary)
+        print(json.dumps(dict(suite='workers-smoke',passed=True,reactors=4,shared_counter_updates=800,durable_restart=True,
+                             three_way_join_and_cte_queries=192)))
+        return
     cancel_during_work(binary)
     parallel_read_and_writer_gate(binary)
     parallel_read_and_writer_gate(binary,extended=True)

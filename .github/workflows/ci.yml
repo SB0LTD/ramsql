@@ -139,6 +139,17 @@ jobs:
       - name: Require native worker shared-store and protocol safety
         run: python tools/test_workers.py
 
+      # Debug frames are several times larger than optimized ones; a Debug
+      # reactor once overflowed its 4 MiB stack on the first query.
+      - name: Require native workers to serve queries in a Debug build
+        if: runner.os != 'macOS'
+        run: |
+          & $env:SIG build --prefix .sig-cache/debug-workers
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $binary = if ($env:RUNNER_OS -eq "Windows") { ".sig-cache/debug-workers/bin/ramsql.exe" } else { ".sig-cache/debug-workers/bin/ramsql" }
+          python tools/test_workers.py --smoke --binary $binary
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Require bounded three-table aggregates over real SQL-loaded data
         run: python tools/test_streamed_joins.py
 
