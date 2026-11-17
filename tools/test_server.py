@@ -646,22 +646,28 @@ def test_idle_expiry(binary):
         live_probe(server)
 
 
+# Correlated aggregates do substantial CPU work with bounded intermediate storage.
+SLOW_CONTROL_QUERY = ("SELECT a.id FROM running_work a WHERE "
+                      "(SELECT COUNT(*) FROM running_work b WHERE b.id < "
+                      "(SELECT COUNT(*) FROM running_work c WHERE c.id < a.id)) < 0")
+
+
+def seed_control_query(pg):
+    pg.ok("CREATE TABLE running_work (id INT PRIMARY KEY, value INT)")
+    for start in range(0, 256, 64):
+        values = ",".join(f"({i},{i})" for i in range(start, start + 64))
+        pg.ok("INSERT INTO running_work VALUES " + values)
+
+
 def test_running_query_controls(binary):
-    # Correlated aggregates do substantial CPU work with bounded intermediate
-    # storage. This must be interruptible without waiting for a row lock.
-    slow = ("SELECT a.id FROM running_work a WHERE "
-            "(SELECT COUNT(*) FROM running_work b WHERE b.id < "
-            "(SELECT COUNT(*) FROM running_work c WHERE c.id < a.id)) < 0")
+    slow = SLOW_CONTROL_QUERY
     with Server(binary, max_clients=1) as server:
         pg = PG(server.raw())
         try:
             startup = pg.startup()
             keys = [struct.unpack("!II", body) for tag, body in startup if tag == b"K"]
             check(len(keys) == 1, "missing cancellation key")
-            pg.ok("CREATE TABLE running_work (id INT PRIMARY KEY, value INT)")
-            for start in range(0, 256, 64):
-                values = ",".join(f"({i},{i})" for i in range(start, start + 64))
-                pg.ok("INSERT INTO running_work VALUES " + values)
+            seed_control_query(pg)
             pg.ok("SET statement_timeout = 5")
             started = time.monotonic()
             expect_error(pg.query(slow), "57014")
@@ -706,9 +712,7 @@ def test_running_query_controls(binary):
     # and resume in the outer reactor after the active statement is canceled.
     with Server(binary, max_clients=2) as server:
         with connection(server) as pg:
-            pg.ok("CREATE TABLE running_work (id INT PRIMARY KEY, value INT)")
-            for start in range(0, 256, 64):
-                pg.ok("INSERT INTO running_work VALUES " + ",".join(f"({i},{i})" for i in range(start, start + 64)))
+            seed_control_query(pg)
             # Deadline ends the CPU query; no SQL from the new socket may run
             # recursively while its workspace belongs to this statement.
             pg.ok("SET statement_timeout = 5")
@@ -738,6 +742,45 @@ def test_running_query_controls(binary):
             expect_error(pg.query("SELECT 1"), "25P02")
             pg.ok("ROLLBACK")
             pg.ok("SELECT value FROM budgeted WHERE id = 0", [["0"]])
+
+
+def test_read_cache(binary):
+    with Server(binary, extra_arguments=("--read-cache-bytes", "8388608")) as server:
+        with server.raw() as reader_socket, connection(server) as writer:
+            reader = PG(reader_socket)
+            startup = reader.startup()
+            keys = [struct.unpack("!II", body) for tag, body in startup if tag == b"K"]
+            check(len(keys) == 1, "missing cache-test cancellation key")
+            seed_control_query(writer)
+            writer.ok("CREATE TABLE cached_sales(id INT PRIMARY KEY, category TEXT, amount BIGINT)")
+            writer.ok("INSERT INTO cached_sales VALUES (1,'a',3),(2,'a',4),(3,'b',20)")
+            query = "SELECT category,SUM(amount) FROM cached_sales GROUP BY category ORDER BY category"
+            original = [["a", "7"], ["b", "20"]]
+            for _ in range(4):
+                reader.ok(query, original)
+
+            reader.ok("SET statement_timeout = 5")
+            expect_error(reader.query(SLOW_CONTROL_QUERY), "57014")
+            reader.ok("SET statement_timeout = 0")
+            reader.sock.sendall(query_packet(SLOW_CONTROL_QUERY))
+            time.sleep(0.01)
+            with server.raw() as cancel:
+                cancel.sendall(struct.pack("!IIII", 16, 80877102, *keys[0]))
+                expect_closed(PG(cancel))
+            expect_error(reader.ready(), "57014")
+            reader.ok(query, original)
+
+            writer.ok("BEGIN", status=b"T")
+            writer.ok("UPDATE cached_sales SET amount=30 WHERE id=1", status=b"T")
+            reader.ok(query, original)
+            writer.ok("COMMIT")
+            reader.ok(query, [["a", "34"], ["b", "20"]])
+            reader.ok(query, [["a", "34"], ["b", "20"]])
+            writer.ok("DROP TABLE cached_sales")
+            expect_error(reader.query(query), "42P01")
+            writer.ok("CREATE TABLE cached_sales(id INT PRIMARY KEY, category TEXT, amount BIGINT)")
+            writer.ok("INSERT INTO cached_sales VALUES (1,'other',-5)")
+            reader.ok(query, [["other", "-5"]])
 
 
 def test_integral_version_banks(binary):
@@ -795,6 +838,9 @@ def main():
     cases += 1
     test_running_query_controls(binary)
     cases += 1
+    if args.workers > 1:
+        test_read_cache(binary)
+        cases += 1
     if args.integral_version_banks:
         test_integral_version_banks(binary)
         cases += 1
