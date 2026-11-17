@@ -9,10 +9,13 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 from threading import Barrier
+from time import monotonic
 
 from benchmark import process_memory
+from test_persistence import DurableServer
 from test_server import Server
 
 
@@ -193,7 +196,15 @@ def concurrent_probes(connect, rows):
     return results
 
 
-def run_queries(binary, options, rows, report):
+def connection_factory(server):
+    import psycopg
+
+    return partial(psycopg.connect, host="127.0.0.1", port=server.port, user="ramsql",
+                   dbname="ramsql", sslmode="disable", autocommit=True, connect_timeout=5,
+                   prepare_threshold=None)
+
+
+def verify_queries(db, rows, report, require_ordered):
     import psycopg
 
     expected_whole, expected_selected = expected_groups(rows)
@@ -201,11 +212,44 @@ def run_queries(binary, options, rows, report):
     assert len(expected_selected) == 3
     assert 0 < sum(row[2] for row in expected_whole) < rows
     assert 0 < sum(row[2] for row in expected_selected) < sum(row[2] for row in expected_whole)
+    report["stage"] = "fact_bounds"
+    report["fact_bounds"] = db.execute("SELECT COUNT(*),MIN(id),MAX(id) FROM sales").fetchone()
+    expect("fact bounds", report["fact_bounds"], (rows, 0, rows - 1))
+
+    report["stage"] = "whole_star"
+    report["whole_star"] = db.execute(WHOLE_STAR, prepare=False).fetchall()
+    expect("whole star", report["whole_star"], expected_whole)
+
+    report["stage"] = "selective_star"
+    report["selective_star"] = db.execute(SELECTIVE_STAR, prepare=False).fetchall()
+    expect("selective star", report["selective_star"], expected_selected)
+
+    report["stage"] = "ordered_range"
+    sql = RANGE_STAR.format(start=rows - 128)
+    wanted = expected_range(rows)
+    if rows == FACT_ROWS:
+        assert len(wanted) == 20
+    try:
+        actual = db.execute(sql, prepare=False).fetchall()
+    except psycopg.Error as error:
+        if require_ordered or error.sqlstate != "54000" or error.diag.message_primary != "WorkspaceCapacity":
+            raise
+        report["ordered_range"] = {"status": "known_workspace_limit", "sql": sql,
+                                   "sqlstate": error.sqlstate, "expected": wanted}
+    else:
+        expect("ordered range", actual, wanted)
+        report["ordered_range"] = {"status": "passed", "sql": sql, "rows": actual}
+
+
+def run_queries(binary, options, rows, report, wal, require_ordered):
+    if wal is None:
+        initial = Server(binary, idle_ms=120_000, max_clients=CLIENTS, extra_arguments=options)
+    else:
+        durable_options = (*options, "--idle-ms", "120000", "--max-clients", str(CLIENTS))
+        initial = DurableServer(binary, wal, create=True, extra_arguments=durable_options)
     report["stage"] = "start_server"
-    with Server(binary, idle_ms=120_000, max_clients=CLIENTS, extra_arguments=options) as server:
-        connect = partial(psycopg.connect, host="127.0.0.1", port=server.port, user="ramsql",
-                          dbname="ramsql", sslmode="disable", autocommit=True, connect_timeout=5,
-                          prepare_threshold=None)
+    with initial as server:
+        connect = connection_factory(server)
         try:
             report["memory_before_load"] = process_memory(server.process)
             with closing(connect()) as db:
@@ -226,39 +270,50 @@ def run_queries(binary, options, rows, report):
                     if stop % 100_000 == 0 or stop == rows:
                         print(f"checked star bulk input: {stop} rows", flush=True)
 
-                report["stage"] = "fact_bounds"
-                report["fact_bounds"] = db.execute("SELECT COUNT(*),MIN(id),MAX(id) FROM sales").fetchone()
-                expect("fact bounds", report["fact_bounds"], (rows, 0, rows - 1))
-
-                report["stage"] = "whole_star"
-                report["whole_star"] = db.execute(WHOLE_STAR, prepare=False).fetchall()
-                expect("whole star", report["whole_star"], expected_whole)
-
-                report["stage"] = "selective_star"
-                report["selective_star"] = db.execute(SELECTIVE_STAR, prepare=False).fetchall()
-                expect("selective star", report["selective_star"], expected_selected)
-
-                report["stage"] = "ordered_range"
-                sql = RANGE_STAR.format(start=rows - 128)
-                wanted = expected_range(rows)
-                if rows == FACT_ROWS:
-                    assert len(wanted) == 20
-                try:
-                    actual = db.execute(sql, prepare=False).fetchall()
-                except psycopg.Error as error:
-                    if error.sqlstate != "54000" or error.diag.message_primary != "WorkspaceCapacity":
-                        raise
-                    report["ordered_range"] = {"status": "known_workspace_limit", "sql": sql,
-                                               "sqlstate": error.sqlstate, "expected": wanted}
-                else:
-                    expect("ordered range", actual, wanted)
-                    report["ordered_range"] = {"status": "passed", "sql": sql, "rows": actual}
+                verify_queries(db, rows, report, require_ordered)
             report["stage"] = "concurrent_point_reads"
             report["concurrent_probes"] = concurrent_probes(connect, rows)
             assert server.process.poll() is None
         finally:
             report["memory_after_checks"] = process_memory(server.process)
             report["server_stderr_tail"] = list(server.errors)
+
+        if wal is not None:
+            report["stage"] = "kill_with_uncommitted_update"
+            with closing(connect()) as writer, closing(connect()) as observer:
+                key = rows - 1
+                writer.execute("BEGIN")
+                update = writer.execute("UPDATE sales SET amount_cents=-2147483648 WHERE id=%s", (key,))
+                expect("uncommitted update count", update.rowcount, 1)
+                sql = "SELECT amount_cents FROM sales WHERE id=%s"
+                expect("writer sees private version", writer.execute(sql, (key,)).fetchone(), (-2147483648,))
+                expect("peer retains committed version", observer.execute(sql, (key,)).fetchone(), (fact(key)[3],))
+                report["private_update_seen"] = True
+                server.crash()
+    if wal is None:
+        return
+
+    report["wal_bytes"] = wal.stat().st_size
+    report["stage"] = "recover_wal"
+    report["after_recovery"] = recovery = {}
+    started = monotonic()
+    with DurableServer(binary, wal, extra_arguments=durable_options, startup_timeout=900) as server:
+        report["recovery_seconds"] = monotonic() - started
+        connect = connection_factory(server)
+        try:
+            with closing(connect()) as db:
+                for table, values in (("products", PRODUCTS), ("stores", STORES)):
+                    expect(f"recovered {table} contents", db.execute(f"SELECT * FROM {table} ORDER BY id").fetchall(),
+                           [(key, *attributes) for key, attributes in values.items()])
+                amount = db.execute("SELECT amount_cents FROM sales WHERE id=%s", (rows - 1,)).fetchone()
+                expect("uncommitted update absent after restart", amount, (fact(rows - 1)[3],))
+                recovery["private_update_absent"] = True
+                verify_queries(db, rows, recovery, require_ordered)
+            recovery["concurrent_probes"] = concurrent_probes(connect, rows)
+            recovery["stage"] = "complete"
+        finally:
+            recovery["memory_after_checks"] = process_memory(server.process)
+            recovery["server_stderr_tail"] = list(server.errors)
 
 
 def main():
@@ -268,6 +323,8 @@ def main():
     parser.add_argument("--rows", type=int, default=FACT_ROWS)
     parser.add_argument("--memory-budget", type=int, default=PROCESS_BUDGET)
     parser.add_argument("--plan-only", action="store_true")
+    parser.add_argument("--wal", type=Path, help="new WAL in a directory with space for the full fact data")
+    parser.add_argument("--require-ordered-range", action="store_true")
     parser.add_argument("--report", type=Path, required=True)
     args = parser.parse_args()
     if not 2 * PRODUCT_KEYS * STORE_KEYS <= args.rows <= FACT_ROWS or args.memory_budget <= 0:
@@ -275,12 +332,13 @@ def main():
     binary = args.binary.resolve(strict=True)
     with binary.open("rb") as stream:
         binary_hash = hashlib.file_digest(stream, "sha256").hexdigest()
+    wal = args.wal.absolute() if args.wal else None
     report = {"suite": "large-star-runtime", "passed": False, "fact_rows": args.rows,
               "fact_width_integral_words": 6, "plan_only": args.plan_only, "binary_sha256": binary_hash,
               "product_rows": len(PRODUCTS), "store_rows": len(STORES), "workers": WORKERS,
-              "durability": "memory", "stage": "plan",
-              "scope": "Load, full and selective grouped three-way joins, and independent point probes. "
-                       "The joined ordered range reports its known workspace limitation separately."}
+              "durability": "synchronous_wal" if wal else "memory", "stage": "plan",
+              "ordered_range_required": args.require_ordered_range,
+              "scope": "Load, full and selective grouped three-way joins, ordered range and concurrent point probes."}
     args.report.parent.mkdir(parents=True, exist_ok=True)
     with args.report.open("x", encoding="utf-8") as output:
         json.dump(report, output, indent=2)
@@ -300,7 +358,14 @@ def main():
         assert machine["read_workers"] == WORKERS
         assert machine["startup_fits"], "native memory grant cannot admit the exact fixture"
         if not args.plan_only:
-            run_queries(binary, options, args.rows, report)
+            if wal:
+                if wal.exists() or wal.is_symlink():
+                    raise FileExistsError(wal)
+                report["available_wal_disk_bytes"] = free = shutil.disk_usage(wal.parent).free
+                report["required_wal_disk_bytes"] = required = args.rows * 96 + (256 << 20)
+                if free < required:
+                    raise RuntimeError(f"WAL disk preflight requires {required} bytes, found {free}")
+            run_queries(binary, options, args.rows, report, wal, args.require_ordered_range)
         report.update(passed=True, stage="complete")
     except BaseException as error:
         report["error"] = f"{type(error).__name__}: {error}"

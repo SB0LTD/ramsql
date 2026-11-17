@@ -35,11 +35,13 @@ def check(condition, message="persistence contract failed"):
 
 
 class DurableServer:
-    def __init__(self, binary, wal, create=False, cwd=None):
+    def __init__(self, binary, wal, create=False, cwd=None, *, extra_arguments=(), startup_timeout=30):
         self.binary = binary
         self.wal = wal
         self.create = create
         self.cwd = cwd
+        self.extra_arguments = tuple(extra_arguments)
+        self.startup_timeout = startup_timeout
         self.process = None
         self.errors = deque(maxlen=40)
         self.port = None
@@ -47,7 +49,7 @@ class DurableServer:
     def command(self):
         return [str(self.binary), "--serve", "--insecure-local", "--data", str(self.wal),
                 *(["--create-data"] if self.create else []),
-                "--port", "0", "--idle-ms", "30000", "--max-clients", "8"]
+                "--port", "0", "--idle-ms", "30000", "--max-clients", "8", *self.extra_arguments]
 
     def __enter__(self):
         self.process = subprocess.Popen(self.command(), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -64,7 +66,10 @@ class DurableServer:
         self.error_reader = threading.Thread(target=collect_errors, daemon=True)
         self.error_reader.start()
         try:
-            line = output.get(timeout=30)
+            try:
+                line = output.get(timeout=self.startup_timeout)
+            except queue.Empty as error:
+                raise RuntimeError(f"WAL startup timed out; errors={list(self.errors)!r}") from error
             match = re.fullmatch(r"RAMSQL postgres 127\.0\.0\.1:(\d+)\n", line)
             check(match is not None, f"startup failed: {line!r}; errors={list(self.errors)!r}")
             self.port = int(match.group(1))
