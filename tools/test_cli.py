@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import mmap
 import os
 from pathlib import Path
 import subprocess
@@ -48,6 +49,35 @@ def main():
     assert caps['postgres_scram_catalog_roles'] is True and caps['postgres_scram_credential_limit'] == 512
     assert caps['sql_execution_workers']==1 and caps['exclusive_sql_workers']==1
     assert caps['parallel_simple_reads'] is False
+    cache_fields = ('read_cache_bytes', 'read_cache_region_bytes', 'read_cache_entries', 'read_cache_rows_per_entry')
+    assert all(caps[field] == 0 for field in cache_fields)
+    cache_limit = 8 * 1024 * 1024
+    cache_flags = ['--read-cache-bytes', str(cache_limit)]
+    for options in (['--workers', '1', *cache_flags],
+                    ['--workers', 'auto', '--max-clients', '1', *cache_flags],
+                    ['--workers', 'auto', '--memory-budget', '1', *cache_flags],
+                    ['--workers', '2', '--protocol', 'mysql', *cache_flags],
+                    ['--workers', '2', '--read-cache-bytes', '1']):
+        rejected = run(['--capabilities', *options])
+        assert rejected.returncode == 2 and not rejected.stdout and b'InvalidServerOptions' in rejected.stderr, rejected
+    if caps['native_workers_available'] and caps['compiled_clients'] >= 2:
+        parallel = ['--rows', '1024', '--versions', '3072', '--workers', '2']
+        cached = json.loads(run(['--capabilities', *parallel, *cache_flags]).stdout)
+        assert 0 < cached['read_cache_bytes'] <= cache_limit and cached['read_cache_entries'] > 0
+        assert cached['read_cache_rows_per_entry'] == min(128, cached['result_rows'])
+        charged = (cached['read_cache_bytes'] + mmap.PAGESIZE - 1) // mmap.PAGESIZE * mmap.PAGESIZE
+        assert cached['read_cache_region_bytes'] == charged
+        baseline_plan = json.loads(run(['--machine-capacity', *parallel]).stdout)
+        cached_plan = json.loads(run(['--machine-capacity', *parallel, *cache_flags]).stdout)
+        assert all(cached_plan[field] == cached[field] for field in cache_fields)
+        assert cached_plan['legacy_startup_bytes'] - baseline_plan['legacy_startup_bytes'] == cached['read_cache_bytes']
+        assert cached_plan['startup_region_bytes'] - baseline_plan['startup_region_bytes'] == charged
+    with tempfile.TemporaryDirectory(prefix='ramsql-cache-scope-') as directory:
+        wal = Path(directory) / 'must-not-be-created.wal'
+        rejected = run(['--serve', '--database-cluster', '--workers', '1', '--insecure-local',
+                        '--data', str(wal), '--create-data', *cache_flags])
+        assert rejected.returncode == 2 and not rejected.stdout and b'InvalidServerOptions' in rejected.stderr, rejected
+        assert not wal.exists()
     assert caps['integral_version_banks'] is args.expect_integral_version_banks, caps
     slots = caps['tables']
     assert caps['table_integral_words'] == [0] * slots, caps
