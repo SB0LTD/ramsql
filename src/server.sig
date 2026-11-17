@@ -61,6 +61,8 @@ pub const Options = struct {
     table_rows: ?[profile.tables]usize = null,
     table_versions: ?[profile.tables]usize = null,
     table_integral_words: ?[profile.tables]usize = null,
+    typed_bank_memory_profile: bool = false,
+    query_refs: ?usize = null,
     work_rows: usize = profile.work_rows,
     result_rows: usize = profile.result_rows,
     memory_budget: ?u64 = null,
@@ -866,11 +868,27 @@ fn runParallel(options: Options, listeners: []const tcp.Socket, protocols: []con
     if (reactor_failed.load(.acquire)) return error.ReactorFailed;
 }
 
-fn storagePlan(options: Options) !struct { max_rows: usize, versions: usize, budgets: [profile.tables]Raw.TableBudget, refs: usize, bytes: usize, workspace_bytes: usize, result_bytes: usize, response_bytes: usize } {
+const StoragePlan = struct {
+    max_rows: usize,
+    versions: usize,
+    budgets: [profile.tables]Raw.TableBudget,
+    refs: usize,
+    bytes: usize,
+    workspace_bytes: usize,
+    result_bytes: usize,
+    response_bytes: usize,
+};
+
+fn storagePlan(options: Options) !StoragePlan {
     if (!profile.integral_version_banks and options.table_integral_words != null) return error.InvalidServerOptions;
+    if (options.typed_bank_memory_profile and options.table_integral_words == null) return error.InvalidServerOptions;
+    if (options.query_refs) |refs| {
+        if (!options.typed_bank_memory_profile or refs == 0 or refs > 0x7fffffff) return error.InvalidServerOptions;
+    }
     if (options.storage_rows == 0 or options.storage_rows > 0x3fffffff) return error.InvalidServerOptions;
     var budgets: [profile.tables]Raw.TableBudget = undefined;
     var max_rows: usize = 0; var max_versions: usize = 0;
+    var typed_banks = false;
     for (&budgets,0..) |*budget,index| {
         const rows = if (options.table_rows) |values| values[index] else options.storage_rows;
         if (rows == 0 or rows > 0x3fffffff) return error.InvalidServerOptions;
@@ -880,21 +898,50 @@ fn storagePlan(options: Options) !struct { max_rows: usize, versions: usize, bud
         if (comptime profile.integral_version_banks) {
             if (options.table_integral_words) |words| budget.integral_row_words = words[index];
         }
+        if (budget.integral_row_words != 0) {
+            typed_banks = true;
+            if (options.typed_bank_memory_profile) {
+                budget.omit_compact_scan = true;
+                budget.secondary_hashes = 0;
+            }
+        }
         max_rows=@max(max_rows,rows); max_versions=@max(max_versions,versions);
     }
-    const ref_count = @max(max_rows * 4, Raw.queryReferenceCount(options.work_rows) catch return error.InvalidServerOptions);
+    if (options.typed_bank_memory_profile and !typed_banks) return error.InvalidServerOptions;
+    const workspace_refs = Raw.queryReferenceCount(options.work_rows) catch return error.InvalidServerOptions;
+    const ref_count = if (options.typed_bank_memory_profile) options.query_refs orelse workspace_refs else @max(max_rows * 4, workspace_refs);
     return .{ .max_rows=max_rows, .versions = max_versions, .budgets=budgets, .refs = ref_count, .bytes = try Raw.backingBytesFor(budgets, ref_count),
         .workspace_bytes = Raw.queryWorkspaceBytes(options.work_rows) catch return error.InvalidServerOptions,
         .result_bytes = Raw.Result.rowBytes(options.result_rows) catch return error.InvalidServerOptions,
         .response_bytes = responseBytes(options.result_rows) catch return error.InvalidServerOptions };
 }
 
+fn readContextPayload(options: Options, plan: *const StoragePlan) !usize {
+    const read_payload=@addWithOverflow(try Raw.ReadContext.backingBytesFor(options.work_rows,plan.refs),@sizeOf(Raw.ReadContext));
+    if(read_payload[1]!=0) return error.InvalidServerOptions;
+    return read_payload[0];
+}
+
+fn writeStorageDetails(out: sig.io.File, options: Options, plan: *const StoragePlan, read_payload: usize) !void {
+    var buffer: [384]u8 = undefined;
+    try out.writeStreamingAll(.{}, try std.fmt.bufPrint(&buffer,
+        ",\"typed_bank_memory_profile\":{s},\"query_refs\":{d},\"query_reference_bytes\":{d},\"read_context_payload_bytes_per_worker\":{d},\"table_storage\":[",
+        .{ if (options.typed_bank_memory_profile) "true" else "false", plan.refs, plan.refs * @sizeOf(u32), read_payload }));
+    for (plan.budgets, 0..) |budget, index| {
+        if (index != 0) try out.writeStreamingAll(.{}, ",");
+        const scan = config.compact_integral_scans and config.columns <= 64 and !budget.omit_compact_scan;
+        try out.writeStreamingAll(.{}, try std.fmt.bufPrint(&buffer,
+            "{{\"rows\":{d},\"versions\":{d},\"integral_row_words\":{d},\"committed_scan_projection\":{s},\"secondary_hashes\":{d}}}",
+            .{ budget.rows, budget.versions, budget.integral_row_words, if (scan) "true" else "false", budget.secondary_hashes orelse config.external_indexes }));
+    }
+    try out.writeStreamingAll(.{}, "]}\n");
+}
+
 pub fn describe(options: Options) !void {
     if (options.max_clients == 0 or options.max_clients > capacity or options.idle_ms == 0) return error.InvalidServerOptions;
     try validateWorkers(options);
     const plan = try storagePlan(options);
-    const read_payload=@addWithOverflow(try Raw.ReadContext.backingBytesFor(options.work_rows,plan.refs),@sizeOf(Raw.ReadContext));
-    if(read_payload[1]!=0) return error.InvalidServerOptions;
+    const read_payload = try readContextPayload(options, &plan);
     var buffer: [4096]u8 = undefined;
     const message = try sig.fmt.bufPrint(&buffer,
         "{{\"schema\":1,\"version\":\"{s}\",\"release_stage\":\"beta\",\"production_ready\":false,\"default_protocol\":\"postgres\",\"bind\":\"127.0.0.1\",\"tls\":false,\"roles\":false,\"isolation\":\"read_committed\",\"workers\":{d},\"sql_execution_workers\":{d},\"exclusive_sql_workers\":1,\"parallel_simple_reads\":{s},\"native_workers_available\":{s},\"libc_linked\":{s},\"cpu_model\":\"{s}\",\"build_mode\":\"{s}\",\"rows_per_table\":{d},\"versions_per_table\":{d},\"tables\":{d},\"columns\":{d},\"result_rows\":{d},\"work_rows\":{d},\"text_bytes\":{d},\"name_bytes\":{d},\"clients\":{d},\"compiled_clients\":{d},\"transaction_bytes\":{d},\"tx_writes\":{d},\"row_locks\":{d},\"predicates\":{d},\"expr_nodes\":{d},\"expr_depth\":{d},\"relations\":{d},\"subqueries\":{d},\"ctes\":{d},\"savepoints\":{d},\"sequences\":{d},\"numeric_digits\":{d},\"json_depth\":{d},\"copy_line_bytes\":{d},\"pg_packet_bytes\":{d},\"pg_prepared_sql_bytes\":{d},\"pg_statements\":{d},\"pg_portals\":{d},\"pg_parameters\":{d},\"input_bytes\":{d},\"output_bytes_per_client\":{d},\"backing_bytes\":{d},\"query_workspace_bytes\":{d},\"result_bytes_per_client\":{d},\"client_metadata_bytes\":{d},\"summary_groups\":{d},\"compact_integral_scans\":{s},\"wal_checkpointing\":false,\"mysql_tds_authentication\":false}}\n",
@@ -920,17 +967,27 @@ pub fn describe(options: Options) !void {
     }
     var policy_buffer:[384]u8=undefined;
     try out.writeStreamingAll(.{},try std.fmt.bufPrint(&policy_buffer,
-        "],\"integral_version_banks\":{s},\"server_region_budgeting\":true,\"memory_budget_bytes\":{?d},\"os_headroom_bytes\":{?d},\"read_context_payload_bytes_per_worker\":{d},\"parallel_extended_reads\":{s}}}\n",
-        .{if (profile.integral_version_banks) "true" else "false",options.memory_budget,options.os_headroom,read_payload[0],if(options.workers>1) "true" else "false"}));
+        "],\"integral_version_banks\":{s},\"server_region_budgeting\":true,\"memory_budget_bytes\":{?d},\"os_headroom_bytes\":{?d},\"parallel_extended_reads\":{s}",
+        .{if (profile.integral_version_banks) "true" else "false",options.memory_budget,options.os_headroom,if(options.workers>1) "true" else "false"}));
+    try writeStorageDetails(out, options, &plan, read_payload);
 }
 
 pub fn describeMachine(options:Options) !void {
     if(options.max_clients==0 or options.max_clients>capacity) return error.InvalidServerOptions;
     try validateWorkers(options);
     const plan=try storagePlan(options);
+    const read_payload = try readContextPayload(options, &plan);
     const worker_bytes=if(options.workers>1) options.workers*worker_budget_each else 0;
     const startup=try machine_capacity.startupCharges(&.{plan.bytes,plan.workspace_bytes,options.max_clients*@sizeOf(Client)},worker_bytes);
-    try machine_capacity.describe(options.memory_budget,options.os_headroom,startup,options.workers);
+    var buffer: [4096]u8 = undefined;
+    const machine = try machine_capacity.describe(&buffer, options.memory_budget, options.os_headroom, startup, options.workers);
+    var layout: [192]u8 = undefined;
+    const memory = try std.fmt.bufPrint(&layout, ",\"backing_bytes\":{d},\"query_workspace_bytes\":{d},\"client_metadata_bytes\":{d}",
+        .{ plan.bytes, plan.workspace_bytes, options.max_clients * @sizeOf(Client) });
+    const out = sig.io.File.stdout();
+    try out.writeStreamingAll(.{}, machine[0..machine.len - 2]);
+    try out.writeStreamingAll(.{}, memory);
+    try writeStorageDetails(out, options, &plan, read_payload);
 }
 /// Absolute spelling of a data path for operator messages; the file need not
 /// exist. Falls back to `path` itself when it cannot be resolved into `out`.

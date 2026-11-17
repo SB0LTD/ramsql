@@ -22,6 +22,8 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--binary',type=Path,default=ROOT/'sig-out/bin'/('ramsql.exe' if os.name=='nt' else 'ramsql'))
     parser.add_argument('--rows',type=int,default=1000000)
+    parser.add_argument('--typed-bank-memory-profile',action='store_true')
+    parser.add_argument('--memory-budget',type=int)
     parser.add_argument('--report',type=Path,required=True)
     args=parser.parse_args()
     import psycopg
@@ -30,8 +32,19 @@ def main():
     profile=json.loads(subprocess.check_output([str(binary),'--capabilities']))
     banks=[args.rows]+[1]*(profile['tables']-1)
     options=('--table-rows',','.join(map(str,banks)),'--work-rows','8192','--result-rows','1024')
+    if args.typed_bank_memory_profile:
+        assert profile['integral_version_banks'], 'build with -Dintegral-version-banks=true'
+        versions=[args.rows+65_536]+[2]*(profile['tables']-1)
+        words=[2]+[0]*(profile['tables']-1)
+        options+=('--table-versions',','.join(map(str,versions)),
+                  '--table-integral-words',','.join(map(str,words)),
+                  '--typed-bank-memory-profile')
+    if args.memory_budget is not None:
+        options+=('--memory-budget',str(args.memory_budget))
     capabilities=json.loads(subprocess.check_output([str(binary),'--capabilities',*options,'--max-clients','4']))
+    machine=json.loads(subprocess.check_output([str(binary),'--machine-capacity',*options,'--max-clients','4']))
     report=dict(suite='large-runtime',passed=False,rows=args.rows,capabilities=capabilities,
+        machine_capacity=machine,
         binary_sha256=hashlib.sha256(binary.read_bytes()).hexdigest(),durability='memory',
         scope='Actual COPY load and independent checks; no performance comparison or durable-load claim')
     args.report.parent.mkdir(parents=True,exist_ok=True)
@@ -39,6 +52,7 @@ def main():
     with args.report.open('x',encoding='utf-8') as output:json.dump(report,output,indent=2)
     began=time.monotonic()
     try:
+        assert machine['startup_fits'], 'sampled byte grant is below the requested startup charge'
         with Server(binary,max_clients=4,extra_arguments=options) as server:
             report['memory_before_load']=process_memory(server.process)
             with psycopg.connect(host='127.0.0.1',port=server.port,user='ramsql',dbname='ramsql',
@@ -53,6 +67,9 @@ def main():
                 cycles,remainder=divmod(args.rows,10007)
                 expected_sum=cycles*10007*10006//2+remainder*(remainder-1)//2
                 assert db.execute('SELECT COUNT(*),SUM(value),MIN(id),MAX(id) FROM large_data',prepare=False).fetchone()==(args.rows,expected_sum,0,args.rows-1)
+                selected=(0,1,10006)
+                assert db.execute('SELECT value,COUNT(*) FROM large_data WHERE value IN (0,1,10006) GROUP BY value ORDER BY value',prepare=False).fetchall()==[
+                    (value,cycles+int(value<remainder)) for value in selected if cycles or value<remainder]
                 for probe in range(1024):
                     key=(probe*48271)%args.rows
                     assert db.execute(f'SELECT id,value FROM large_data WHERE id={key}',prepare=False).fetchone()==(key,key%10007)

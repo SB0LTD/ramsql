@@ -229,6 +229,25 @@ That profile is tested with a 12-column table, a 600-row result and 200-byte tex
 Inline cells, workspaces and per-client result/response buffers grow with the
 profile. Hosted connection admission currently has a 60-client ceiling.
 
+### Experimental typed bank memory profile
+
+Build with `-Dintegral-version-banks=true` and set each typed slot's word width
+with `--table-integral-words`. Add `--typed-bank-memory-profile` to omit the
+committed column projection and secondary hash regions from those typed slots.
+Queries use exact committed summaries or ordinary MVCC execution. Materialized
+joins, sorts and other general execution can exhaust the supplied workspace.
+The profile derives its reference count from `--work-rows`. Set `--query-refs N`
+with the profile to choose an explicit positive reference budget.
+
+`--capabilities` and `--machine-capacity` show the effective `table_storage`,
+`query_refs`, backing bytes and lazy worker payload. `--machine-capacity` also
+shows the page-rounded startup charge and whether it fits the sampled grant.
+Compare these values with the same table, version, workspace and worker options
+planned for the actual run. The profile is experimental. Packed tables use
+restricted integral/DATE schemas and the current packed implementation gates
+ALTER-family operations. The [100M-row qualification plan](compatibility/MACHINE_CAPACITY_AND_100M_PLAN.md)
+tracks real load and query gates separately from capacity arithmetic.
+
 ## Measured performance
 
 The original reviewer suite is now available locally as sibling `dbMeter`, pinned

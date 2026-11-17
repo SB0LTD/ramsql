@@ -50,6 +50,8 @@ def main():
     assert caps['integral_version_banks'] is args.expect_integral_version_banks, caps
     slots = caps['tables']
     assert caps['table_integral_words'] == [0] * slots, caps
+    assert caps['typed_bank_memory_profile'] is False
+    assert caps['query_reference_bytes'] == 4 * caps['query_refs']
     capacity_args = ['--rows', '1024', '--versions', '3072']
     def integral_args(words):
         return ['--table-integral-words', ','.join(map(str, words))]
@@ -63,8 +65,53 @@ def main():
         assert parsed['backing_bytes'] < caps['backing_bytes'], (parsed, caps)
         zeros = run(['--capabilities', *capacity_args, *integral_args([0] * slots)])
         assert zeros.returncode == 0 and json.loads(zeros.stdout) == caps, zeros
+        with tempfile.TemporaryDirectory(prefix='ramsql-typed-capacity-') as directory:
+            wal = Path(directory) / 'must-not-be-created.wal'
+            large = ['--table-rows', ','.join(map(str, [100_000_000] + [1] * (slots - 1))),
+                     '--table-versions', ','.join(map(str, [100_065_536] + [2] * (slots - 1))),
+                     *integral_args([6] + [0] * (slots - 1)), '--work-rows', '65536',
+                     '--max-clients', '4', '--data', str(wal), '--create-data']
+
+            def facts(command, *arguments):
+                inspected = run([command, *large, *arguments])
+                assert inspected.returncode == 0 and not inspected.stderr, inspected
+                assert not wal.exists()
+                return json.loads(inspected.stdout)
+
+            stock = facts('--capabilities')
+            lean_flag = '--typed-bank-memory-profile'
+            lean = facts('--capabilities', lean_flag)
+            observed = facts('--machine-capacity', lean_flag, '--memory-budget', '1')
+            assert observed['startup_fits'] is False and observed['new_region_bytes'] == 0
+            assert observed['startup_region_bytes'] >= observed['legacy_startup_bytes']
+            for key in ('backing_bytes', 'query_workspace_bytes', 'query_refs', 'query_reference_bytes',
+                        'read_context_payload_bytes_per_worker', 'table_storage', 'typed_bank_memory_profile'):
+                assert observed[key] == lean[key], (key, observed, lean)
+            assert lean['typed_bank_memory_profile'] is True
+            assert lean['query_refs'] == 65536 * 4 * (caps['relations'] + 4)
+            assert stock['query_refs'] == max(400_000_000, lean['query_refs'])
+            assert lean['table_storage'][0] == dict(rows=100_000_000, versions=100_065_536,
+                integral_row_words=6, committed_scan_projection=False, secondary_hashes=0)
+            assert lean['table_storage'][1:] == stock['table_storage'][1:]
+            assert stock['table_storage'][0]['secondary_hashes'] > 0
+            if caps['columns'] == 8 and stock['table_storage'][0]['committed_scan_projection']:
+                hash_bytes = stock['table_storage'][0]['secondary_hashes'] * 268_435_456 * 4
+                removed = 7_700_000_000 + hash_bytes + stock['query_reference_bytes'] - lean['query_reference_bytes']
+                assert stock['backing_bytes'] - lean['backing_bytes'] == removed
+                assert observed['startup_region_bytes'] < 14_347_884_288
+            overridden = facts('--capabilities', lean_flag, '--query-refs', str(lean['query_refs'] + 123))
+            assert overridden['query_refs'] == lean['query_refs'] + 123
+            assert overridden['backing_bytes'] == lean['backing_bytes'] + 123 * 4
+        for flags in ([lean_flag], [lean_flag, *integral_args([0] * slots)],
+                      ['--query-refs', '1', *integral_args(compact)],
+                      [lean_flag, '--query-refs', '0', *integral_args(compact)],
+                      [lean_flag, '--query-refs', '2147483648', *integral_args(compact)]):
+            rejected = run(['--machine-capacity', *flags])
+            assert rejected.returncode == 2 and not rejected.stdout and b'InvalidServerOptions' in rejected.stderr, rejected
     else:
         assert candidate.returncode == 2 and b'InvalidServerOptions' in candidate.stderr, candidate
+        rejected = run(['--machine-capacity', '--typed-bank-memory-profile', *integral_args(compact)])
+        assert rejected.returncode == 2 and not rejected.stdout and b'InvalidServerOptions' in rejected.stderr, rejected
     for invalid in ([0] * (slots - 1), [0] * (slots + 1), [-1] + compact[1:],
                     [1 << 62] + compact[1:]):
         for command in ('--capabilities', '--machine-capacity'):
