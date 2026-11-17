@@ -6,6 +6,10 @@ later binary.
 
 ## Unreleased
 
+- Match PostgreSQL command completion for CREATE AS, SET CONSTRAINTS, indexes,
+  MERGE, views and materialized view refresh. Support CSV `FORCE_QUOTE` on
+  `COPY TO STDOUT`, including named output columns. The Windows candidate
+  passed all eight associated native PostgreSQL 18.3 wire probes.
 - Retain running and COPY statement snapshots during reclamation, including
   resume under version pressure. Exhaustion returns 53200 with statement
   rollback instead of silently skipping rows (STO-02).
