@@ -6,6 +6,9 @@ later binary.
 
 ## Unreleased
 
+- Support transactional SMALLINT, INTEGER and BIGINT domains with one simple
+  CHECK comparison, optional NOT NULL and standalone explicit casts. Preserve
+  PostgreSQL base-type wire metadata and recover domain definitions from WAL.
 - Support PostgreSQL JSON EXPLAIN for simple SELECTs. ANALYZE reports the
   observed root operation and its actual output cardinality. Plan-only mode
   binds the query without evaluating it.
