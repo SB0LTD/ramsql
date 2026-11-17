@@ -23,17 +23,20 @@ jobs:
   native:
     name: Native Sig (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    # Native contracts plus configured-capacity libpq builds exceed 20 minutes
-    # on some Windows hosts. Keep every check and allow the suite to finish.
-    timeout-minutes: 30
+    # Windows and macOS reached 30 minutes while running the native suite.
+    timeout-minutes: ${{ matrix.timeout_minutes }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
+            timeout_minutes: 30
           - os: ubuntu-24.04-arm
+            timeout_minutes: 30
           - os: macos-latest
+            timeout_minutes: 60
           - os: windows-latest
+            timeout_minutes: 60
     defaults:
       run:
         shell: pwsh
@@ -50,7 +53,7 @@ jobs:
           $archive = Join-Path $env:RUNNER_TEMP $identity.asset
           $destination = Join-Path $env:RUNNER_TEMP "sig-toolchain"
           $url = "https://github.com/SB0LTD/sig/releases/download/$($identity.tag)/$($identity.asset)"
-          Invoke-WebRequest -Uri $url -OutFile $archive
+          Invoke-WebRequest -Uri $url -OutFile $archive -MaximumRetryCount 3 -RetryIntervalSec 5
           $actual = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash
           if ($actual -ne $identity.sha256) {
             throw "Sig release checksum mismatch: $actual"
