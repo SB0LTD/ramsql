@@ -912,7 +912,7 @@ const StoragePlan = struct {
 };
 
 fn storagePlan(options: Options) !StoragePlan {
-   if (options.max_prepared_transactions >= Store.prepared_capacity or (options.memory and options.max_prepared_transactions != 0)) return error.InvalidServerOptions;
+    if (options.max_prepared_transactions >= Store.prepared_capacity or (options.memory and options.max_prepared_transactions != 0)) return error.InvalidServerOptions;
     if (!profile.integral_version_banks and options.table_integral_words != null) return error.InvalidServerOptions;
     if (options.typed_bank_memory_profile and options.table_integral_words == null) return error.InvalidServerOptions;
     if (options.query_refs) |refs| {

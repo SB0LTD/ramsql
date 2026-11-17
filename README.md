@@ -110,6 +110,14 @@ Recovery validates the WAL before listening. Commits flush synchronously before
 publication/acknowledgement; complete corruption fails closed. A failed write
 or flush disables writes until recovery.
 
+For PostgreSQL transaction coordinators, start durable mode with
+`--max-prepared-transactions N` to enable `PREPARE TRANSACTION`,
+`COMMIT PREPARED` and `ROLLBACK PREPARED` for permanent-table DML. The default
+is zero. Prepared changes and locks survive a restart. Keep the limit at or
+above the number of unresolved prepares when reopening or backing up the WAL.
+Prepared DDL, serializable transactions and prepared-transaction catalog
+inspection remain outside this beta scope.
+
 All listeners bind to 127.0.0.1. TLS and channel binding are pending, and
 MySQL/TDS require explicit insecure-local mode. Checkpointing, WAL compaction,
 online backup, replication and upgrade migration remain production blockers.

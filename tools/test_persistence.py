@@ -35,12 +35,13 @@ def check(condition, message="persistence contract failed"):
 
 
 class DurableServer:
-    def __init__(self, binary, wal, create=False, cwd=None, prepared=0):
+    def __init__(self, binary, wal, create=False, cwd=None, prepared=0, *, storage_options=()):
         self.binary = binary
         self.wal = wal
         self.create = create
         self.cwd = cwd
         self.prepared = prepared
+        self.storage_options = storage_options
         self.process = None
         self.errors = deque(maxlen=40)
         self.port = None
@@ -49,7 +50,7 @@ class DurableServer:
         return [str(self.binary), "--serve", "--insecure-local", "--data", str(self.wal),
                 *(["--create-data"] if self.create else []),
                 *(["--max-prepared-transactions", str(self.prepared)] if self.prepared else []),
-                "--port", "0", "--idle-ms", "30000", "--max-clients", "8"]
+                "--port", "0", "--idle-ms", "30000", "--max-clients", "8", *self.storage_options]
 
     def __enter__(self):
         self.process = subprocess.Popen(self.command(), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -102,9 +103,9 @@ class DurableServer:
         self.crash()
 
 
-def refuse(binary, wal, expected, prepared=0):
+def refuse(binary, wal, expected, prepared=0, *, storage_options=()):
     global cases
-    completed = subprocess.run(DurableServer(binary, wal, prepared=prepared).command(), capture_output=True,
+    completed = subprocess.run(DurableServer(binary, wal, prepared=prepared, storage_options=storage_options).command(), capture_output=True,
                                text=True, timeout=15)
     check(completed.returncode != 0, "unsafe WAL startup succeeded")
     check("RAMSQL postgres" not in completed.stdout, "listener bound before WAL validation")
@@ -308,7 +309,7 @@ def concurrent_sequence_crash(binary, artifacts):
             cases += 1
 
 
-def prepared_transactions(binary, artifacts):
+def prepared_transactions(binary, artifacts, *, storage_options=()):
     global cases
     wal = artifacts / "prepared.wal"
     scan = "SELECT id,amount FROM ledger ORDER BY id"
@@ -319,10 +320,12 @@ def prepared_transactions(binary, artifacts):
         result = pg.ok(source)
         check([body for tag, body in result if tag == b"C"] == [expected + b"\0"], source)
 
-    with DurableServer(binary, wal, create=True, prepared=3) as server:
+    with DurableServer(binary, wal, create=True, prepared=3, storage_options=storage_options) as server:
         admin, owner = server.connect(), server.connect()
         try:
             admin.ok("CREATE TABLE ledger(id INT PRIMARY KEY, amount INT)")
+            if storage_options:
+                wire.expect_error(admin.query("ALTER TABLE ledger ADD COLUMN unused INT"), "0A000")
             admin.ok("INSERT INTO ledger VALUES (1,10),(2,20),(3,30),(5,50)")
             admin.ok("CREATE ROLE tx_owner")
             admin.ok("CREATE ROLE tx_other")
@@ -346,7 +349,7 @@ def prepared_transactions(binary, artifacts):
             admin.close()
     pending = wal.read_bytes()
 
-    with DurableServer(binary, wal, prepared=3) as server:
+    with DurableServer(binary, wal, prepared=3, storage_options=storage_options) as server:
         admin, resolver = server.connect(), server.connect()
         try:
             admin.ok(scan, precommit)
@@ -364,7 +367,7 @@ def prepared_transactions(binary, artifacts):
             admin.close()
     complete = wal.read_bytes()
     check(complete.startswith(pending) and record_kinds(complete)[-2:] == [4, 4])
-    with DurableServer(binary, wal) as server:
+    with DurableServer(binary, wal, storage_options=storage_options) as server:
         pg = server.connect()
         try:
             pg.ok(scan, committed)
@@ -376,9 +379,9 @@ def prepared_transactions(binary, artifacts):
     torn = artifacts / "prepared-torn.wal"
     torn_bytes = complete[:len(pending) + 32 + decision_length + 15]
     torn.write_bytes(torn_bytes)
-    refuse(binary, torn, ("TransactionCapacity",))
+    refuse(binary, torn, ("TransactionCapacity",), storage_options=storage_options)
     check(torn.read_bytes() == torn_bytes, "pending restore failure repaired the source WAL")
-    with DurableServer(binary, torn, prepared=3) as server:
+    with DurableServer(binary, torn, prepared=3, storage_options=storage_options) as server:
         pg = server.connect()
         try:
             pg.ok(scan, precommit)
@@ -392,7 +395,7 @@ def prepared_transactions(binary, artifacts):
     struct.pack_into("<Q", decision, 4, 1)
     damaged = pending + batch_record(len(record_kinds(pending)) + 1, decision, kind=4)
     bad_decision.write_bytes(damaged)
-    refuse(binary, bad_decision, ("ChangeRecordConflict",), prepared=3)
+    refuse(binary, bad_decision, ("ChangeRecordConflict",), prepared=3, storage_options=storage_options)
     check(bad_decision.read_bytes() == damaged, "bad decision changed the WAL")
     cases += 4
 
@@ -405,6 +408,8 @@ def main():
                         ("ramsql.exe" if os.name == "nt" else "ramsql"))
     parser.add_argument("--cycles", type=int, default=5)
     parser.add_argument("--artifacts", type=Path)
+    parser.add_argument("--integral-prepared", action="store_true",
+                        help="also replay prepared changes through a packed integral bank")
     options = parser.parse_args()
     check(options.binary.is_file(), f"missing RAMSQL binary: {options.binary}")
     check(1 <= options.cycles <= 100, "cycles must be between 1 and 100")
@@ -414,6 +419,20 @@ def main():
     data_file_creation(binary, artifacts)
     concurrent_sequence_crash(binary, artifacts)
     prepared_transactions(binary, artifacts)
+    if options.integral_prepared:
+        packed = artifacts / "packed"
+        packed.mkdir()
+        caps = subprocess.run([str(binary), "--capabilities"], capture_output=True, check=True, timeout=15)
+        profile = json.loads(caps.stdout)
+        check(profile["integral_version_banks"], "packed replay needs an integral-bank build")
+        words = ",".join(["3"] + ["0"] * (profile["tables"] - 1))
+        storage_options = ("--table-integral-words", words, "--typed-bank-memory-profile")
+        caps = subprocess.run([str(binary), "--capabilities", *storage_options],
+                              capture_output=True, check=True, timeout=15)
+        first_bank = json.loads(caps.stdout)["table_storage"][0]
+        check(first_bank["integral_row_words"] == 3 and not first_bank["committed_scan_projection"]
+              and first_bank["secondary_hashes"] == 0, "packed replay needs the lean integral layout")
+        prepared_transactions(binary, packed, storage_options=storage_options)
     wal = artifacts / "database.wal"
     expected = [["1", "autocommit"], ["2", "transaction"], ["3", "literal; newline\nkept"]]
     with DurableServer(binary, wal, create=True) as server:
