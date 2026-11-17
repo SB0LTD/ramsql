@@ -113,9 +113,10 @@ To run the PostgreSQL listener under a catalog role, create a `LOGIN` role and
 grant its privileges using the bootstrap connection. Stop the server, then
 restart it on the same WAL with `--auth-catalog-role`, the exact role name in
 `--auth-user`, and that user's SCRAM verifier in `--auth-verifier-file`.
-The catalog role must exist, allow login, and have no finite connection limit.
-This option requires an existing durable WAL. It supports one verifier for the
-listener, which stays on loopback.
+A user-created role must exist, allow login, and have no finite connection limit.
+The built-in `ramsql` role is also eligible and retains bootstrap privileges.
+This option requires an existing durable WAL and supports one verifier on the
+loopback listener.
 See [operations](OPERATIONS.md) for backup, restoration and failure handling.
 
 ## Client and SQL compatibility
