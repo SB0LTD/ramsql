@@ -1,0 +1,101 @@
+{
+  "schema": "sb0.sig.release.v1",
+  "version": "0.6.5-zig0.17.0.3c72687",
+  "sig_version": "0.6.5",
+  "source_commit": "3c7268716970f554e2e7c34794fd4364b33d5cf7",
+  "bootstrap_tag": "bootstrap-sig-v79",
+  "llvm_artifact_tag": "llvm-22.1.8-sig-0.3.1",
+  "workflow_run": "https://github.com/SB0LTD/sig/actions/runs/43594633511",
+  "assets": [
+    {
+      "name": "sig-0.6.5-zig0.17.0.3c72687-x86_64-linux.tar.xz",
+      "sha256": "179094228e2e6b0db3a5a1e01a8a57e8e91db6aa3b5ca80094ca22d870cc373a",
+      "size": 61324448
+    },
+    {
+      "name": "sig-0.6.5-zig0.17.0.3c72687-aarch64-linux.tar.xz",
+      "sha256": "ef890f870f3215e60d25588742b74fa9d2808addbc0112b7c37818a73dfb0643",
+      "size": 56544656
+    },
+    {
+      "name": "sig-0.6.5-zig0.17.0.3c72687-aarch64-macos.tar.xz",
+      "sha256": "a936b163c87b471b603caa78aa84d4542c28b9ce3885f502d6901d68a3d716ae",
+      "size": 58672412
+    },
+    {
+      "name": "sig-0.6.5-zig0.17.0.3c72687-x86_64-windows.zip",
+      "sha256": "291a3225ff33c32e8c479471c44be6db0d811d6023d759c64e0a7d5bf810576c",
+      "size": 100359426
+    },
+    {
+      "name": "sig-0.6.5-zig0.17.0.3c72687-aarch64-sb0-runner.sb0k",
+      "sha256": "b6501d085e655dc3b3a0a63c712f1539a62a99753cb82df60df543ab14c81c6f",
+      "size": 12209160
+    },
+    {
+      "name": "sig-0.6.5-zig0.17.0.3c72687-sbpf-solana-program.so",
+      "sha256": "b1af519f88c6728094dd4ac5c5a531bb9c3419b9810ddb2a91c33af92acefb80",
+      "size": 4320
+    },
+    {
+      "name": "sig-x86_64-linux.tar.xz",
+      "sha256": "179094228e2e6b0db3a5a1e01a8a57e8e91db6aa3b5ca80094ca22d870cc373a",
+      "size": 61324448
+    },
+    {
+      "name": "sig-aarch64-linux.tar.xz",
+      "sha256": "ef890f870f3215e60d25588742b74fa9d2808addbc0112b7c37818a73dfb0643",
+      "size": 56544656
+    },
+    {
+      "name": "sig-aarch64-macos.tar.xz",
+      "sha256": "a936b163c87b471b603caa78aa84d4542c28b9ce3885f502d6901d68a3d716ae",
+      "size": 58672412
+    },
+    {
+      "name": "sig-x86_64-windows.zip",
+      "sha256": "291a3225ff33c32e8c479471c44be6db0d811d6023d759c64e0a7d5bf810576c",
+      "size": 100359426
+    },
+    {
+      "name": "sig-aarch64-sb0-runner.sb0k",
+      "sha256": "b6501d085e655dc3b3a0a63c712f1539a62a99753cb82df60df543ab14c81c6f",
+      "size": 12209160
+    },
+    {
+      "name": "sig-sbpf-solana-program.so",
+      "sha256": "b1af519f88c6728094dd4ac5c5a531bb9c3419b9810ddb2a91c33af92acefb80",
+      "size": 4320
+    },
+    {
+      "name": "sig-0.6.5-zig0.17.0.3c72687-x86_64-linux.tar.xz.provenance.txt",
+      "sha256": "bcab2456b2769d708b2635bf46316e216a9b50e9c072e5c247b810cff9fe012e",
+      "size": 352
+    },
+    {
+      "name": "sig-0.6.5-zig0.17.0.3c72687-aarch64-linux.tar.xz.provenance.txt",
+      "sha256": "e801a88ab2123ee8810bcefeb7b8910947d91b23ae804f0897e51b8be1f8d380",
+      "size": 355
+    },
+    {
+      "name": "sig-0.6.5-zig0.17.0.3c72687-aarch64-macos.tar.xz.provenance.txt",
+      "sha256": "3a7c10c299650158d6e73983e74df23e4e542e9d1d3aabf2743ec0630cd8c173",
+      "size": 355
+    },
+    {
+      "name": "sig-0.6.5-zig0.17.0.3c72687-x86_64-windows.zip.provenance.txt",
+      "sha256": "104851bdb42cef5fd1903f3008e1bd02c31932d132e2f725a891c73101d8ad50",
+      "size": 354
+    },
+    {
+      "name": "sig-0.6.5-zig0.17.0.3c72687-aarch64-sb0-runner.sb0k.provenance.txt",
+      "sha256": "f6de84f91d44e83a1fb058eba85615c1f1f7dd71416b9560c9183ab9dd781d7c",
+      "size": 368
+    },
+    {
+      "name": "sig-0.6.5-zig0.17.0.3c72687-sbpf-solana-program.so.provenance.txt",
+      "sha256": "50b1737286347114e043aed18ebd6e2aeed765c76f55e2ec481e403614365199",
+      "size": 389
+    }
+  ]
+}

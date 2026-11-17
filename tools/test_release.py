@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
 import json
 from pathlib import Path
 import struct
@@ -78,6 +79,32 @@ class ReleaseContracts(unittest.TestCase):
                 package.validate_toolchain(provenance,entry)
             else:
                 self.assertEqual(entry['build_runner'],'ubuntu-latest')
+
+    def test_hosted_sdk_pins_match_the_published_manifest_bytes(self):
+        manifest_path = matrix.ROOT / "toolchains/sig-0.6.5-release-manifest.json"
+        data = manifest_path.read_bytes()
+        self.assertEqual(hashlib.sha256(data).hexdigest(), "f851cbfe10cc904ac0ef37678ad38942b0f725e29447928e979f5030adff4d48")
+        manifest = json.loads(data)
+        self.assertEqual(manifest["schema"], "sb0.sig.release.v1")
+        self.assertEqual("sig-" + manifest["version"], matrix.SIG_TAG)
+        assets = {asset["name"]: asset["sha256"] for asset in manifest["assets"]}
+        for host in matrix.COMPILER_HOSTS:
+            compiler = matrix.compiler_host(host)
+            self.assertEqual(compiler["sha256"], assets[compiler["asset"]], host)
+        runtime = package.runtime_provenance()
+        self.assertEqual(runtime["compiler_release"], matrix.SIG_TAG)
+        self.assertEqual(runtime["stdlib_base_revision"], manifest["source_commit"])
+        self.assertTrue(runtime["archive"].endswith(f'/{manifest["source_commit"]}.tar.gz'))
+
+    def test_native_source_and_bootstrap_are_separate_from_hosted_sdk(self):
+        metadata = matrix.metadata()
+        revision = "90a898dcbe088455f07449b7de1feaea763c42a0"
+        self.assertEqual(metadata["native_sig_revision"], revision)
+        bootstrap = metadata["native_sig_bootstrap"]
+        self.assertEqual(bootstrap["tag"], "sig-0.6.4-zig0.17.0.90a898d")
+        self.assertEqual(bootstrap["asset"], bootstrap["tag"] + "-x86_64-linux.tar.xz")
+        self.assertEqual(bootstrap["sha256"], "8dd32622531b5f81dbb12502c78e187141dd42ea3553f4d9e2c09c3e82d64a89")
+        self.assertEqual(package.native_bootstrap_toolchain()["sha256"], bootstrap["sha256"])
 
     def test_public_sig_runtime_is_an_independent_immutable_source_pin(self):
         runtime=package.runtime_provenance()
@@ -244,7 +271,7 @@ class ReleaseContracts(unittest.TestCase):
                       "source_repository": "https://github.com/SB0LTD/sig",
                       "source_revision": matrix.NATIVE_SIG_REVISION, "library_revision": matrix.NATIVE_SIG_REVISION,
                       "compiler_sha256": "b" * 64, "compiler_version": "unit-test fixture",
-                      "bootstrap": package.published_toolchain()}
+                      "bootstrap": package.native_bootstrap_toolchain()}
         package.validate_toolchain(provenance, native)
         with self.assertRaisesRegex(ValueError, "only native"):
             package.validate_toolchain(provenance, matrix.target("x86_64-linux"))
