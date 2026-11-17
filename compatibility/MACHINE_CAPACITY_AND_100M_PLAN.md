@@ -111,6 +111,14 @@ the 91 full and three selective aggregate groups and concurrent point reads.
 The exact Linux artifact peaked at 13,379,989,504 bytes of RSS. The follow-up
 ran in memory mode. [100M ordered join qualification](https://github.com/benor1470/dbMeter/actions/runs/44159748217)
 
+The subsequent synchronous-WAL run loaded and checked the same 100M facts,
+recorded a 6,771,074,198-byte WAL, and killed the process with an uncommitted
+update still private to its writer. The server exceeded the 900-second
+restart deadline. Replay validation was scanning all committed rows for each
+change record to count the current relation. That count is already maintained
+by the committed summary. The 262,144-row durable control passed the same
+restart and verification protocol. [Durable 100M evidence](https://github.com/benor1470/dbMeter/actions/runs/44161735950)
+
 The earlier dense-storage ROLLUP campaign stopped during the third pair when
 the runner hit its memory budget. The packed retry completed all three pairs
 with identical compiler, capacity options and original data. Throughput for

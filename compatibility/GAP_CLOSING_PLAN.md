@@ -176,6 +176,14 @@ AUTO_INCREMENT remain open. SQL Server's exact metadata and values match
 for IDENTIFIERS, TOP and FUNCTIONS. Its remaining inventory cases are OUTPUT,
 APPLY and procedural SQL. [Native SQL Server run](https://github.com/benor1470/dbMeter/actions/runs/44161329548)
 
+RAMSQL `1a8dbb6846a5eb1df1ab96f141184731af904332` with ZPM
+`e3b7c13c07fafe4a3951b581c3ce203b81281d9a` matches all six original native
+SQL Server smoke cases and all 24 setup observations. The added cases cover
+direct `OUTPUT` images, derived-query `CROSS APPLY` and batch-local `INT`
+declarations. Full procedural control flow, OUTPUT sinks, APPLY table-valued
+functions and additional wire behaviors remain in the broader dialect scope.
+[Strict SQL Server comparison](https://github.com/benor1470/dbMeter/actions/runs/44165836087)
+
 ## Earlier checkpoints
 
 Reporting follow-up, 30 October 2026: the unchanged original dbMeter full 5M
