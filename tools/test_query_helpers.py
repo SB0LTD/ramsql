@@ -11,6 +11,7 @@ from test_persistence import DurableServer
 
 
 ROWS = 65536 + 13
+KEYS = 127
 QUERY = "SELECT k,COUNT(*),SUM(a),SUM(b) FROM fact GROUP BY k ORDER BY k"
 
 
@@ -37,9 +38,9 @@ def linux_ticks(pid, tid):
 
 
 def expected():
-    buckets = [[key - 5, 0, 0, 0] for key in range(11)]
+    buckets = [[key - KEYS // 2, 0, 0, 0] for key in range(KEYS)]
     for index in range(ROWS):
-        row = buckets[index % 11]
+        row = buckets[index % KEYS]
         row[1] += 1
         row[2] += 2 * ((index % 31) - 15)
         row[3] += (index % 17) - 8
@@ -54,7 +55,7 @@ def check_live(binary, base, options, prove_linux):
             client.ok("CREATE TABLE fact (id INT PRIMARY KEY,k BIGINT,a BIGINT,b INT)")
             for start in range(0, ROWS, 128):
                 end = min(start + 128, ROWS) - 1
-                client.ok("INSERT INTO fact SELECT n,(n % 11)-5,2*((n % 31)-15),(n % 17)-8 "
+                client.ok(f"INSERT INTO fact SELECT n,(n % {KEYS})-{KEYS // 2},2*((n % 31)-15),(n % 17)-8 "
                           f"FROM generate_series({start},{end}) AS g(n)")
             client.ok(QUERY, rows)
         finally:
@@ -99,6 +100,8 @@ def main():
     default = successful_json(binary, "--capabilities")
     assert default["query_helpers"] == 0 and default["query_helper_reserved_bytes"] == 0
     assert default["query_helper_ceiling"] == 3
+    # Force an actual compact scan beyond the precomputed GROUP BY synopsis.
+    assert default["summary_groups"] < KEYS
     rejected(binary, ("--workers", "2", "--query-helpers", "4"))
     rejected(binary, ("--workers", "1", "--query-helpers", "1"))
     rejected(binary, ("--database-cluster", "--workers", "1", "--query-helpers", "1"))
@@ -108,7 +111,7 @@ def main():
     csv = lambda numbers: ",".join(map(str, numbers))
     options = ("--workers", "2", "--table-rows", csv(table_rows),
                "--table-versions", csv([count * 2 for count in table_rows]),
-               "--work-rows", "512", "--result-rows", "32")
+               "--work-rows", "512", "--result-rows", "128")
     active = ("--query-helpers", "1")
     enabled = successful_json(binary, "--capabilities", *options, *active)
     assert enabled["query_helpers"] == 1 and enabled["query_helper_reserved_bytes"] > 0
