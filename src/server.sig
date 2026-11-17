@@ -97,6 +97,7 @@ const config: sql.Config = storageConfig(.{
     .compact_integral_scans = profile.compact_integral_scans,
     .factorized_aggregates = true,
     .block_presence_filters = true,
+    .block_range_filters = true,
     .typed_grouped_aggregates = true,
     .dimension_group_ids = true,
     .dimension_distinct_groups = true,
