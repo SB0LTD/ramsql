@@ -28,8 +28,14 @@ it never overwrites credentials. POSIX creation requests mode 0600. Windows
 inherits directory ACLs: restrict them yourself. For automation only, explicit
 `--password-stdin` reads one password line; do not put passwords in argv, logs
 or source control. The helper accepts printable ASCII passwords; externally
-provision PostgreSQL SCRAM verifiers for other encodings. The file represents
-one configured authentication identity, not a role/privilege catalog.
+provision PostgreSQL SCRAM verifiers for other encodings. With an existing WAL,
+use `--auth-catalog-role` for one configured identity or `--auth-credentials-file`
+with the [credential list setup](README.md#authenticated-persistent-beta) for
+multiple identities. Create their SQL roles and privileges before startup.
+Every configured role must resolve to an eligible login before the listener opens.
+The listener accepts up to 512 credential records, subject to the available
+SQL catalog capacity. Keep the `RAMSQL-SCRAM-V1` first line when editing the
+list so mock salts remain stable, and protect backups of the credential file.
 
 The server prints each actual listener address. `--port 0` selects an ephemeral
 port. PostgreSQL defaults to 5432, MySQL to 3306, TDS to 1433 when selected by

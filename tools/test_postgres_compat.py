@@ -321,14 +321,21 @@ def candidate_mode(work_directory, *, durable=False, scram=False, timezone_dir=N
 
 
 @contextmanager
-def running_ramsql(binary, legacy_cli=False, extra_arguments=(), *, data_path=None, create_data=False, auth=None, startup_timeout=20):
+def running_ramsql(binary, legacy_cli=False, extra_arguments=(), *, data_path=None, create_data=False, auth=None, auth_list=None, startup_timeout=20):
     command = [str(binary), "--serve", "--port", "0"]
     if data_path is not None:
         command += ["--data", str(data_path)] + (["--create-data"] if create_data else [])
     elif not legacy_cli:
         command += ["--memory"]
-    if auth is not None:
-        command += ["--auth-user", auth[0], "--auth-verifier-file", str(auth[1])]
+    if auth is not None and auth_list is not None:
+        raise ValueError("Specify only one authentication mode")
+    user, password = "ramsql", ""
+    if auth_list is not None:
+        credentials, user, password = auth_list
+        command += ["--auth-credentials-file", str(credentials)]
+    elif auth is not None:
+        user, verifier, password = auth
+        command += ["--auth-user", user, "--auth-verifier-file", str(verifier)]
     elif data_path is not None or not legacy_cli:
         command += ["--insecure-local"]
     command += extra_arguments
@@ -362,8 +369,7 @@ def running_ramsql(binary, legacy_cli=False, extra_arguments=(), *, data_path=No
                 port = int(match[1])
             elif time.monotonic() >= deadline:
                 raise RuntimeError("RAMSQL did not report a PostgreSQL loopback port")
-        yield dict(host="127.0.0.1", port=port, user=auth[0] if auth else "ramsql", dbname="ramsql",
-                   password=auth[2] if auth else "",
+        yield dict(host="127.0.0.1", port=port, user=user, dbname="ramsql", password=password,
                    sslmode="disable", connect_timeout=3, autocommit=True,
                    application_name="ramsql-postgres-compat", options="-c statement_timeout=4000")
         if process.poll() is not None:
