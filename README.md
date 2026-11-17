@@ -7,7 +7,7 @@ multiple dialects. Its engine, shared transactions, persistence and wire codecs
 are real implementations. There is no SQLite backend, database subprocess,
 query-result mock, heap allocator or garbage collector in the runtime.
 
-**0.3.0-beta.2 is for controlled beta testing, benchmarking and review. It is not
+**0.3.0-beta.3 is for controlled beta testing, benchmarking and review. It is not
 a production PostgreSQL drop-in replacement.** PostgreSQL is the default protocol
 and semantic reference. MySQL and SQL Server/TDS are experimental adapters over
 the shared SQL subset. Supporting all common SQL dialects is the
@@ -124,6 +124,7 @@ with the configured SCRAM login. The mode supports `CREATE DATABASE`,
 `DROP DATABASE` and discovery through `pg_database`. Each database has its own
 WAL and storage budget. This beta mode supports four databases and one reactor.
 The single-WAL offline backup command is unavailable in cluster mode.
+[PostgreSQL cluster operations](POSTGRES_CLUSTER.md)
 
 All listeners bind to 127.0.0.1. TLS and channel binding are pending, and
 MySQL/TDS require explicit insecure-local mode. Checkpointing, WAL compaction,
@@ -257,8 +258,9 @@ profile. Hosted connection admission currently has a 60-client ceiling.
 
 ### Experimental typed bank memory profile
 
-Build with `-Dintegral-version-banks=true` and set each typed slot's word width
-with `--table-integral-words`. Add `--typed-bank-memory-profile` to omit the
+Hosted release binaries include integral bank support. For a source build, use
+`-Dintegral-version-banks=true`. Set each typed slot's word width with
+`--table-integral-words`. Add `--typed-bank-memory-profile` to omit the
 committed column projection and secondary hash regions from those typed slots.
 Queries use exact committed summaries or ordinary MVCC execution. Materialized
 joins, sorts and other general execution can exhaust the supplied workspace.

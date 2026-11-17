@@ -6,6 +6,21 @@ later binary.
 
 ## Unreleased
 
+- Add the opt-in PostgreSQL database cluster with separate database storage
+  and WALs, authenticated database routing, CREATE/DROP DATABASE and
+  `pg_database` discovery. This beta profile supports four databases, one
+  reactor and one configured login.
+- Add opt-in durable PostgreSQL two-phase DML, including recovery of unresolved
+  transactions, lock ownership and commit/rollback decisions after restart.
+- Size the default PostgreSQL read-reactor pool from native CPU limits,
+  available memory and the configured connection ceiling. `--workers 1` fixes
+  one reactor. One execution lane owns writes.
+- Include typed integral banks in hosted release binaries. Support opt-in
+  lean banks, bounded joined Top-N, and linear replay validation for durable
+  100M-row fact tables.
+- Return PostgreSQL admission errors when the connection budget is exhausted.
+- Keep notification cursors on the serialized path and align TRUNCATE
+  visibility with WAL replay when an older snapshot is open.
 - Add PostgreSQL enum and composite catalog definitions with transactional
   WAL replay. Support standalone enum literal casts and flat, typed `ROW(...)`
   composite projections with PostgreSQL text and binary wire values.

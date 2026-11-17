@@ -36,7 +36,7 @@ def json_bytes(data: object) -> bytes:
 
 
 DOCUMENTS = {name: name for name in ('README.md', 'CHANGELOG.md', 'ROADMAP.md',
-    'CAPACITY.md', 'OPERATIONS.md', 'SQL_REFERENCE.md')}
+    'CAPACITY.md', 'OPERATIONS.md', 'SQL_REFERENCE.md', 'POSTGRES_CLUSTER.md')}
 DOCUMENTS.update({'compatibility/RELEASE.md': 'RELEASE.md',
                   'compatibility/BETA_USABILITY.md': 'BETA_USABILITY.md',
                   'compatibility/REVIEWER_BETA_2.md': 'REVIEWER_BETA_2.md'})

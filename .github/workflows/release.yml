@@ -164,7 +164,7 @@ jobs:
           args=()
           # An explicit target selects the portable CPU baseline, never the
           # build runner's native ISA. Pinned build support honors no-libc.
-          args+=(-Dtarget="$TARGET_TRIPLE")
+          args+=(-Dtarget="$TARGET_TRIPLE" -Dintegral-version-banks=true)
           if [[ "$TARGET_SLUG" == *-linux || "$TARGET_SLUG" == *-windows ]]; then
             args+=(-Dlink-libc=false)
           fi
@@ -367,17 +367,17 @@ jobs:
       - name: Install independent database clients
         run: python -m pip install -r tools/requirements-test.txt
       - name: Test command line and bounded SQL streams
-        run: python tools/test_cli.py
+        run: python tools/test_cli.py --expect-integral-version-banks
       - name: Test native machine planning and PostgreSQL memory admission
         run: python tools/test_machine_capacity.py
       - name: Test TCP framing, fairness and lifecycle
-        run: python tools/test_server.py
+        run: python tools/test_server.py --integral-version-banks
       - name: Test PostgreSQL, MySQL and SQL Server client interoperability
         run: python tools/test_clients.py
       - name: Test authenticated PostgreSQL access
         run: python tools/test_auth.py
       - name: Test synchronous durability, corruption and crash recovery
-        run: python tools/test_persistence.py
+        run: python tools/test_persistence.py --integral-prepared
 
       - name: Test durable PostgreSQL database isolation on the exact artifact
         run: python tools/test_database_cluster.py
