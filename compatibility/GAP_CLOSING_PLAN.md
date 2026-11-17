@@ -14,10 +14,28 @@ The Windows binary SHA-256 is
 `f8c9696f7e5173393ee194375f18163ea71160e22461de774b61cd9c97160f8e`.
 It passed 83 persistence cases and 3,372 assertions, including prepared
 update, delete, insert, lock and decision recovery on a lean packed table
-without a committed scan projection or secondary hashes. The new Linux
-100M-row recovery and dbMeter comparisons are running on this same revision.
+without a committed scan projection or secondary hashes. The Linux artifact
+recovered the 100M-row workload in 141.301 seconds. The dbMeter size-scaling
+comparison continues on this same revision.
 [100M recovery](https://github.com/benor1470/dbMeter/actions/runs/44175057270) ·
 [dbMeter qualification](https://github.com/benor1470/dbMeter/actions/runs/44175066222)
+
+Both original sales suites passed their live correctness and capacity checks.
+At one client, RAMSQL achieved 53.38 versus 56.40 queries per second on the
+full mix and 233.66 versus 243.85 on the subset, with IRDB leading both.
+At eight clients, RAMSQL achieved 134.76 versus 78.67 on the full mix
+and 581.58 versus 375.19 on the subset. These are 1.71× and 1.55× the fastest
+reference, respectively. Both suites remain below the required 2× throughput.
+[Same-run evidence](https://github.com/benor1470/dbMeter/actions/runs/44175066222)
+
+The separate Windows cluster candidate `bfb9db3a205455e003b4121766d02970b9744fe8`
+matches all 106 original PostgreSQL 18.3 programs on durable storage with
+prepared transactions enabled. This includes CREATE DATABASE, discovery in
+`pg_database` and DROP DATABASE. Focused tests also verified SCRAM admission,
+independent tables, rejection of a mismatched WAL and interrupted database
+creation. Cluster mode admits four databases on one reactor with one
+configured login. Broader cluster service and the cross-engine audit for the
+integrated release remain open. [Cluster qualification](https://github.com/SB0LTD/ramsql/actions/runs/44180335244)
 
 ### Published prerelease baseline
 

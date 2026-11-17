@@ -142,6 +142,14 @@ and 1,024 result rows. The 262,144-row control recovered in 0.254 seconds.
 Qualification remains open for multiple 100M-row tables, wider schemas,
 concurrent durable writes and cross-engine performance. [Exact workflow](https://github.com/benor1470/dbMeter/blob/7db332bd483641b474418e2121d75879fd140074/.github/workflows/typed-bank-100m-star.yml)
 
+The follow-up on RAMSQL `b90354c8911b22a340fb68d15383205cd2ccf4b5` with
+ZPM `7c56722bb354e1e44d418c6351edc08ee4539218` repeated the unchanged
+durable fixture. Recovery took **141.301 seconds** after abrupt termination
+with the same 6,771,074,198-byte WAL. Peak RSS was 13,381,877,760 bytes
+before restart and 13,382,922,240 bytes after it. All grouped results, the
+20 ordered rows, concurrent probes and rollback visibility matched.
+[Combined candidate 100M recovery](https://github.com/benor1470/dbMeter/actions/runs/44175057270)
+
 Linux binary SHA-256 `8253ab22d3d2aa459d442c26b4c1527183d0ef8798764df8ce24d36141aca774`.
 Evidence ZIP SHA-256 `c32d79a68a34ecf69f62fe259c69bc244ccb3b8c5daaec284b81582adc9439aa`.
 
