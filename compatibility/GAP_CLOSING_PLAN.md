@@ -28,6 +28,14 @@ hosted and SB0 release matrix is pending.
 [Failing qualification](https://github.com/SB0LTD/ramsql/actions/runs/44185459464) ·
 [Replacement matrix](https://github.com/SB0LTD/ramsql/actions/runs/44189642358)
 
+The original full and subset sales mixes both matched their correctness and
+capacity gates on `0af167b`. RAMSQL reached 1.75× and 1.70× IRDB throughput
+at eight clients and was slightly slower at one. The size matrix is still
+running for this revision. An independent same-binary helper comparison lost
+throughput in every Q3 trial with a dedicated fourth CPU and one query helper.
+[Sales suites](https://github.com/benor1470/dbMeter/actions/runs/44187617545) ·
+[Query helper comparison](https://github.com/benor1470/dbMeter/actions/runs/44187730700)
+
 ## 17 November 2026 qualification checkpoint
 
 The combined RAMSQL candidate `b90354c8911b22a340fb68d15383205cd2ccf4b5`, with
