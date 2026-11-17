@@ -482,6 +482,7 @@ def main():
     parser.add_argument("--schedule", required=True, help="comma-separated schedule ids or ranges (RC1-RC14): " + ",".join(SCHEDULES))
     parser.add_argument("--binary", type=Path, default=ROOT / "sig-out" / "bin" / ("ramsql.exe" if os.name == "nt" else "ramsql"))
     parser.add_argument("--image", default="postgres:18-alpine", help="locally available immutable reference image (no automatic pull)")
+    parser.add_argument("--postgres-bin", type=Path, help="use an owned native PostgreSQL installation for schedules without a reference crash")
     parser.add_argument("--work-dir", type=Path, default=ROOT / ".sig-cache" / "postgres-compat")
     parser.add_argument("--report", type=Path, default=ROOT / ".sig-cache" / "postgres-compat" / "isolation-report.json")
     parser.add_argument("--durable", action="store_true", help="run RAMSQL on a fresh durable WAL instead of --memory")
@@ -491,6 +492,8 @@ def main():
     unknown = [name for name in ids if name not in SCHEDULES]
     if not ids or unknown:
         parser.error("unknown schedule(s): " + ",".join(unknown or ["<none>"]))
+    if args.postgres_bin and args.durable and any(SCHEDULES[name].after_restart for name in ids):
+        parser.error("selected durable schedules require the Docker reference crash test")
     import psycopg
 
     binary = args.binary.resolve()
@@ -500,7 +503,7 @@ def main():
               "ramsql_binary": str(binary), "ramsql_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
               "client": {"name": "psycopg", "version": psycopg.__version__}, "schedules": []}
     try:
-        with native_postgres(args.image, psycopg, work_directory=args.work_dir) as (native, metadata), \
+        with native_postgres(args.image, psycopg, binary_directory=args.postgres_bin, work_directory=args.work_dir) as (native, metadata), \
                 candidate_mode(args.work_dir, durable=args.durable, scram=args.scram) as (mode_arguments, mode):
             report["reference"] = metadata
             report["mode"] = mode
