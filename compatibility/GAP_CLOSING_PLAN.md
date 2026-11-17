@@ -19,9 +19,12 @@ key probes and the absence of an uncommitted update.
 
 The separate PostgreSQL 18 durable SCRAM suite matched 327 of 331 cases on that
 revision. Four `regclass` catalog cases failed when admitted to a detached
-reader. The replacement revision routes statements that need catalog and session
-hooks to the owning session and adds a wire regression for simple queries and
-parameterized view queries. The replacement matrix is pending.
+reader. The replacement `5a51a6e1f5304a4c6228210d7538440d77f177df` routes
+statements that need catalog and session hooks to the owning session. Its
+Windows build matched all 331 unchanged cases against native PostgreSQL 18.3
+with durable SCRAM on RAMSQL and immediate-mode reference restarts. It passed
+15 two-worker packed-enabled wire cases with 4,286 assertions. The replacement
+hosted and SB0 release matrix is pending.
 [Failing qualification](https://github.com/SB0LTD/ramsql/actions/runs/44185459464) ·
 [Replacement matrix](https://github.com/SB0LTD/ramsql/actions/runs/44189642358)
 
@@ -427,7 +430,8 @@ not treated as an automatic reduction of the user's target.
 
 ### C02 — Replace the small probe list with broad discovery
 
-**Status:** Unverified beyond the existing subset. **Owner:** RAMSQL tests.
+**Status:** Partial. The 118 original programs and 331-case differential suite
+have native evidence under the profiles above. **Owner:** RAMSQL tests.
 
 Passing today's probes could still leave most applications incompatible. The
 tests currently contain only one example of many large feature families.
@@ -445,26 +449,23 @@ cannot close C02 or the production compatibility gate.
 
 ### S01 — Replace dense database-shaped storage and transaction copies
 
-**Status:** Partial (flag F-S01). Stable rowids, row versions in a fixed per-table arena, a multi-entry PK index and reclamation are implemented, and per-connection database copies are gone (one shared store). There is still no variable-length value store or caller-owned pages: cells stay inline at `text_bytes` and the version arena is preallocated at 2 × rows. [Evidence](#gap-closing-run-evidence-24-october-2026).
-**Alpha.4 candidate progress:** optional external row/version/index buffers,
-runtime index masks/capacities and separately bound reference workspace now exist
-in ZPM. A compiled four-row inline profile passes a 100,000-row test. RAMSQL
-binds hosted OS page regions through `--rows` / `--versions`; a 2,048-row Windows
-WAL restart and offline restore pass. Recovery validates actual bound capacity and
-sizes its per-record overlay from the transaction write budget. These changes
-are under qualification; published alpha.3 is unchanged. Inline cell/text storage,
-equal per-table reservations and materialized results still block efficient scale.
-
+**Status:** Partial. Stable row IDs, version reclamation and caller-owned
+row, version, index and query backing serve one shared store. Hosted RAMSQL
+accepts per-table row and version budgets. The 100M fixture uses compact
+integral banks for its six-column fact table. General text values still occupy
+fixed-size cells, and table and session capacities are granted up front.
 **Owner:** ZPM storage/SQL/store; RAMSQL configures resource budgets.
 
-Per-connection database copies have been removed. Remaining storage uses fixed
-per-table row/version arrays and inline text capacity, making integer-heavy rows
-and large profiles expensive. Page-backed compact values and independently
-budgeted result/session workspaces remain the scale bottleneck.
+An isolated A/B verified that 32-byte version headers save 1,601,085,600 bytes
+of backing at 100M fact rows with the same durable correctness and WAL bytes
+as the 48-byte baseline. Each lane ran on its own CI host. The fixture verifies
+one large fact table, two small dimensions and two workers. Multiple 100M-row
+tables and wider variable-length data still need independent qualification.
+[48-byte and 32-byte runs](https://github.com/benor1470/dbMeter/actions/runs/44186893882)
 
-- [ ] Introduce caller-owned pages and compact typed values, with a bounded variable-length value store.
-- [ ] Give rows stable identities so compaction, indexes and versions do not depend on a row's current array position.
-- [ ] Store private transaction changes without copying the complete database.
+- [ ] Add a bounded variable-length value store and qualify mixed-width and text-heavy tables.
+- [ ] Adapt physical grants to observed demand and qualify multiple large tables per database.
+- [ ] Qualify physical compaction with stable row identities under active readers and writers.
 - [ ] Specify ownership, reuse, stale-reference protection, rollback and out-of-memory behavior before replacing the current representation.
 - [ ] Keep active data in RAM; persistence must not silently turn the design into an on-demand disk database.
 
@@ -474,12 +475,12 @@ within a configured RAM budget, with no runtime heap allocation or atomicity reg
 
 ### S02 — Add useful indexes and scalable execution algorithms
 
-**Status:** Partial (flag F-S02). The alpha.4 candidate adds stable bounded top-K selection for eligible column ORDER BY/LIMIT and direct cell comparisons. Merge sort and full lock-row behavior remain where pruning is ineligible. Only the PK hash index exists; secondary/ordered indexes, hash joins and streaming/vectorized aggregates remain open. **Owner:** ZPM SQL/planner/index packages.
-
-Only a single-column primary-key hash index exists. Other filters scan rows;
-sorting now uses stable merge sort, joins use nested loops and general queries
-materialize intermediate rows in a bounded workspace. Stable row identities and
-version reclamation replace the previous dense-row compaction model.
+**Status:** Partial. The 100M qualification exercises bounded top-K, ordered
+range access, typed dimension probes and streaming three-way grouped joins.
+Unsupported shapes take the general executor, where joins, sorts and grouping
+can still exhaust configured statement workspace. Index and fast-path coverage
+need broader SQL and concurrent-mutation comparisons.
+**Owner:** ZPM SQL/planner/index packages.
 
 - [ ] Add secondary, composite and ordered indexes, including uniqueness and NULL rules.
 - [ ] Introduce planning that chooses indexed lookup, range scan, scan, sort and join strategies from actual query requirements.
@@ -1199,10 +1200,13 @@ procedures on each supported deployment platform, without developer-only interve
 
 **Status:** Unproven. **Owner:** RAMSQL reproducible benchmarks; optimizations belong in the layer containing the measured cost.
 
-The current benchmark uses a 512-row subset, five workloads and 1/4 clients.
-Alpha.2's local recovery/validation was 27 ms versus alpha.1's 698 ms for the same
-2.17 MB WAL. Some write measurements improved; PostgreSQL still leads durable
-writes. These results do not demonstrate the requested overall efficiency target.
+The complete CI dbMeter campaign ran unchanged JDBC cases for 100K and 1M
+rows plus the original full and subset sales workloads. Correctness and capacity
+passed across all three engines. Six of twelve size cases passed the performance
+gate. Point lookups were close to the fastest reference, and the mixed sales
+workloads did not reach 2×. The separate 100M recovery fixture verifies correctness
+and resource use. It does not compare 100M throughput across engines.
+[Completed dbMeter campaign](https://github.com/benor1470/dbMeter/actions/runs/44159631870)
 
 - [ ] Define equivalent supported workloads and the native PostgreSQL deployment envelope to replace: data size, schema shape, connection count, transaction mix and storage.
 - [ ] Match query semantics, durability, authentication/encryption, hardware, storage and client method before comparing speed.
