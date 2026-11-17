@@ -615,12 +615,42 @@ def test_running_query_controls(binary):
             pg.ok("SELECT value FROM budgeted WHERE id = 0", [["0"]])
 
 
+def test_integral_version_banks(binary):
+    inspected = subprocess.run([str(binary), "--capabilities"], check=True, capture_output=True, timeout=15)
+    capabilities = json.loads(inspected.stdout)
+    slots = capabilities["tables"]
+    check(capabilities["integral_version_banks"] and slots >= 4, "requires an integral-bank build with at least four slots")
+    options = (
+        "--table-integral-words", ",".join(["6"] + ["0"] * (slots - 1)),
+        "--table-rows", ",".join(["1"] + ["4"] * (slots - 1)),
+        "--table-versions", ",".join(["3"] + ["8"] * (slots - 1)),
+    )
+    with Server(binary, extra_arguments=options) as server:
+        with connection(server) as first, connection(server) as second:
+            first.ok("CREATE TABLE labels (id INT PRIMARY KEY, label TEXT)")
+            first.ok("INSERT INTO labels VALUES (1,'blue'), (2,'green')")
+            first.ok("CREATE TABLE facts (id INT PRIMARY KEY, day DATE, qty SMALLINT, amount BIGINT)")
+            first.ok("INSERT INTO facts VALUES (1,DATE '2024-02-29',NULL,9223372036854775807)")
+            expect_error(first.query("INSERT INTO facts VALUES (2,NULL,-3,1)"), "54000")
+            second.ok("SELECT day,qty,amount FROM facts", [["2024-02-29",None,"9223372036854775807"]])
+            first.ok("UPDATE facts SET qty=-32768, day=NULL WHERE id=1")
+            second.ok("SELECT day,qty,amount FROM facts", [[None,"-32768","9223372036854775807"]])
+            expect_error(first.query("ALTER TABLE facts ADD COLUMN extra INT"), "0A000")
+            first.ok("BEGIN", status=b"T")
+            first.ok("CREATE TABLE pending (id INT)", status=b"T")
+            expect_error(second.query("CREATE TABLE concurrent (id INT)"), "40001")
+            first.ok("ROLLBACK")
+            second.ok("CREATE TABLE concurrent (id INT)")
+            second.ok("SELECT COUNT(*) FROM labels", [["2"]])
+
+
 def main():
     global cases
     parser = argparse.ArgumentParser(description=__doc__)
     default = Path(__file__).resolve().parents[1] / "sig-out" / "bin" / ("ramsql.exe" if os.name == "nt" else "ramsql")
     parser.add_argument("--binary", type=Path, default=default)
     parser.add_argument("--workers", type=int, default=1)
+    parser.add_argument("--integral-version-banks", action="store_true")
     args = parser.parse_args()
     Server.test_workers = args.workers
     binary = args.binary.resolve(strict=True)
@@ -637,6 +667,9 @@ def main():
     cases += 1
     test_running_query_controls(binary)
     cases += 1
+    if args.integral_version_banks:
+        test_integral_version_banks(binary)
+        cases += 1
     print(json.dumps({"suite": "server", "pass": True, "cases": cases,
                       "assertions": assertions, "seconds": round(time.monotonic() - started, 3)}))
 

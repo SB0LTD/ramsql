@@ -1,7 +1,6 @@
 //! Machine observation/admission policy. OS mechanisms and byte accounting
 //! remain in ZPM; this module chooses RAMSQL's headroom and reports the plan.
 const std=@import("std");
-const sig=@import("sig");
 const pages=@import("page_region");
 const resources=@import("machine_resources");
 const budget=@import("resource_budget");
@@ -47,11 +46,10 @@ pub fn sample(hard:?u64,headroom:?u64,owned:u64) !Sample {
             .new_region_bytes=plan.process_bytes -| @max(observation.machine.process_committed,observation.machine.process_resident)};
     }
 }
-pub fn describe(hard:?u64,headroom:?u64,startup:StartupCharges,read_workers:usize) !void {
+pub fn describe(buffer: []u8, hard:?u64,headroom:?u64,startup:StartupCharges,read_workers:usize) ![]const u8 {
     const detected=try sample(hard,headroom,0);
     const observation=detected.observation;const machine=observation.machine;const plan=detected.plan;
-    var buffer:[4096]u8=undefined;
-    const text=try std.fmt.bufPrint(&buffer,
+    return std.fmt.bufPrint(buffer,
         "{{\"schema\":1,\"scope\":\"machine_capacity\",\"usable_cpus\":{d},\"cpu_quota_milli\":{?d},\"physical_cores\":{?d},\"numa_localities\":{?d},\"physical_total\":{d},\"available_physical\":{d},\"available_kind\":\"{s}\",\"process_resident\":{d},\"process_committed\":{d},\"available_commit\":{?d},\"available_address_space\":{?d},\"scope_limit\":{?d},\"scope_used\":{?d},\"visible_scope_levels\":{d},\"immediate_job\":{s},\"commit_source\":\"{s}\",\"headroom_bytes\":{d},\"process_budget_bytes\":{d},\"shared_pool_bytes\":{d},\"preferred_storage_bytes\":{d},\"preferred_execution_bytes\":{d},\"suggested_cpu_workers\":{d},\"admitted_tasks\":{d},\"new_region_bytes\":{d},\"legacy_startup_bytes\":{d},\"startup_region_bytes\":{d},\"startup_fits\":{s},\"pressure\":{s},\"server_region_budgeting\":true,\"elastic_sql_storage\":false,\"parallel_sql\":{s},\"read_workers\":{d},\"parallel_sql_scope\":\"postgres_simple_and_extended_autocommit_reads\"}}\n",
         .{machine.usable_cpus,machine.cpu_quota_milli,observation.physical_cores,observation.numa_localities,machine.physical_total,machine.available_physical,
         @tagName(observation.available_kind),machine.process_resident,machine.process_committed,machine.available_commit,machine.available_address_space,
@@ -59,5 +57,4 @@ pub fn describe(hard:?u64,headroom:?u64,startup:StartupCharges,read_workers:usiz
         plan.headroom_bytes,plan.process_bytes,plan.shared_pool_bytes,plan.preferred_storage_bytes,plan.preferred_execution_bytes,plan.cpu_workers,plan.admitted_tasks,
         detected.new_region_bytes,startup.legacy,startup.rounded,if(startup.rounded<=detected.new_region_bytes) "true" else "false",
         if(plan.pressure) "true" else "false",if(read_workers>1) "true" else "false",read_workers});
-    try sig.io.File.stdout().writeStreamingAll(.{},text);
 }
