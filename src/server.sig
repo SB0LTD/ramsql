@@ -809,9 +809,10 @@ const Reactor = struct {
         defer self.reader.close();
         while (!reactor_stop.load(.acquire)) {
             const epoch = self.signal.epoch.load(.acquire);
-            var sockets: [capacity]tcp.Socket = @splat(tcp.invalid_socket);
-            var readable: [capacity]bool = @splat(false);
-            var writable: [capacity]bool = @splat(false);
+            var sockets: [capacity]tcp.Socket = undefined;
+            var readable: [capacity]bool = undefined;
+            var writable: [capacity]bool = undefined;
+            var poll_slots: [capacity]usize = undefined;
             var active: usize = 0;
             var buffered = false;
             const now = sig.os.clockMonotonicNs();
@@ -851,22 +852,22 @@ const Reactor = struct {
                 if (now-client.touched >= @as(i64,self.idle_ms)*1000000) { client.close(); continue; }
                 if (client.serve()) buffered = true;
                 if (client.state.load(.acquire) != 2) continue;
-                sockets[slot] = client.socket;
-                readable[slot] = client.output_len == 0 and client.input_len < client.input.len;
-                writable[slot] = client.output_len != 0;
+                poll_slots[active] = slot;
+                sockets[active] = client.socket;
+                readable[active] = client.output_len == 0 and client.input_len < client.input.len;
+                writable[active] = client.output_len != 0;
                 active += 1;
             }
             if (active == 0) { self.reader.close();self.signal.wait(epoch, 100); continue; }
             // Finite poll bounds new admission, cancellation and shutdown
             // latency without introducing a second socket wakeup protocol.
-            _ = try tcp.waitMasked(tcp.invalid_socket, &sockets, &readable, &writable, if (buffered) 0 else 10);
-            slot = self.index;
-            while (slot < clients.len) : (slot += reactor_count) {
-                const client = &clients[slot];
+            _ = try tcp.waitMasked(tcp.invalid_socket, sockets[0..active], readable[0..active], writable[0..active], if (buffered) 0 else 10);
+            for (poll_slots[0..active], readable[0..active], writable[0..active]) |index, can_read, can_write| {
+                const client = &clients[index];
                 if (client.state.load(.acquire) != 2) continue;
-                if (writable[slot]) client.flush() catch { client.close(); continue; };
+                if (can_write) client.flush() catch { client.close(); continue; };
                 if (client.state.load(.acquire) != 2) continue;
-                if (readable[slot] and client.output_len == 0) {
+                if (can_read and client.output_len == 0) {
                     if (client.input_start != 0) {
                         for (0..client.input_len) |offset| client.input[offset] = client.input[client.input_start+offset];
                         client.input_start = 0;
