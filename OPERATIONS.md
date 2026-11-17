@@ -49,6 +49,13 @@ it is distinct from SQL `statement_timeout`, `lock_timeout` and deadlock checks.
 PG cancellation is tested. TDS ATTENTION acknowledges an idle protocol request;
 it is not a general asynchronous running-query cancellation implementation.
 
+A source build may opt into 32-byte external MVCC headers with
+`sig build -Dcompact-version-stamps=true`. The default build keeps its
+existing layout. In a build with `-Dintegral-version-banks=true`, the
+flag saves 16 bytes per provisioned version slot. The WAL format is
+shared between builds. Both `--capabilities` and `--machine-capacity`
+report the selected layout and the size of each provisioned version.
+
 ## Stop, backup, restore and upgrade
 
 There is no service-manager installer, graceful drain command or checkpoint
