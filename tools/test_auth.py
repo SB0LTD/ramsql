@@ -246,6 +246,15 @@ def catalog_role_contracts(binary, directory, admin_verifier, admin_password):
         with psycopg.connect(**options) as db:
             check(db.execute("SELECT current_user,session_user").fetchone() == ("test_reader", "test_reader"))
             check(db.execute("SELECT id,value FROM role_data ORDER BY id", prepare=True).fetchall() == [(2, "visible")])
+            with db.cursor().copy("COPY role_data TO STDOUT") as copy:
+                check(b"".join(copy) == b"2\tvisible\n", "COPY TO bypassed row security")
+            try:
+                with db.cursor().copy("COPY role_data FROM STDIN") as copy:
+                    copy.write_row((3, "denied"))
+            except psycopg.errors.InsufficientPrivilege:
+                check(True)
+            else:
+                raise AssertionError("COPY FROM bypassed the INSERT grant")
             for query in ("SET ROLE ramsql", "INSERT INTO role_data VALUES(3,'denied')"):
                 try:
                     db.execute(query)
