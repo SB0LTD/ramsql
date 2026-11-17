@@ -528,7 +528,6 @@ const OverflowCancel = struct {
     socket: tcp.Socket = tcp.invalid_socket,
     bytes: [pg.max_packet]u8 = undefined,
     used: usize = 0,
-    expected: usize = 0,
     output: [256]u8 = undefined,
     output_len: usize = 0,
     output_sent: usize = 0,
@@ -571,39 +570,48 @@ const OverflowCancel = struct {
             self.output_len = 0; self.output_sent = 0;
             if (self.closing) { self.close(); return; }
         }
-        for (0..4) |_| {
-            const target = if (self.used < 4) @as(usize,4) else if (self.used < 8) @as(usize,8) else self.expected;
-            if (self.used < target) {
-                const got = tcp.recv(self.socket, self.bytes[self.used..target]) catch { self.close(); return; } orelse return;
-                if (got == 0) { self.close(); return; }
-                self.used += got;
-            }
-            if (self.used < 4) continue;
-            if (self.expected == 0) {
-                self.expected = std.mem.readInt(u32,self.bytes[0..4],.big);
-                if (self.expected < 8 or self.expected > self.bytes.len) {
-                    // Let the normal session emit its fatal protocol error.
+        var reads: usize = 0;
+        while (true) {
+            const frame = pg.classifyStartup(self.bytes[0..self.used]);
+            switch (frame) {
+                .incomplete => |target| {
+                    // Transfer a short declared frame after its length, as before.
+                    if (self.used >= 4 and target < 8) {
+                        if (!self.handOff()) self.close();
+                        return;
+                    }
+                    if (reads == 4) return;
+                    reads += 1;
+                    const got = tcp.recv(self.socket, self.bytes[self.used..target]) catch { self.close(); return; } orelse return;
+                    if (got == 0) { self.close(); return; }
+                    self.used += got;
+                },
+                .ssl_request, .gss_request => {
+                    self.output[0] = 'N';
+                    self.output_len = 1;
+                    self.used = 0;
+                    return;
+                },
+                .cancel => |key| {
+                    cancelBackend(key);
+                    self.close();
+                    return;
+                },
+                .startup => {
+                    // A free SQL slot validates the StartupMessage parameters.
+                    if (self.handOff()) return;
+                    self.output_len = (if (!clientMemoryAvailable()) pg.memoryLimitError(&self.output) else pg.connectionLimitError(&self.output)) catch {
+                        self.close();
+                        return;
+                    };
+                    self.closing = true;
+                    return;
+                },
+                .invalid_length, .protocol_violation, .unsupported_protocol => {
                     if (!self.handOff()) self.close();
                     return;
-                }
+                },
             }
-            if (self.used < 8) continue;
-            const code = std.mem.readInt(u32,self.bytes[4..8],.big);
-            if (self.expected == 8 and (code == 80877103 or code == 80877104)) {
-                self.output[0]='N'; self.output_len=1; self.used=0; self.expected=0;
-                return;
-            }
-            if (self.used < self.expected) continue;
-            if (pg.parseCancel(self.bytes[0..self.used])) |key| {
-                cancelBackend(key); self.close(); return;
-            }
-            // Transfer complete startup, including malformed fields, to the
-            // normal protocol validator. Cancel requires no SQL worker slot.
-            if (self.handOff()) return;
-            if (code != 196608) { self.close(); return; }
-            self.output_len = (if(!clientMemoryAvailable()) pg.memoryLimitError(&self.output) else pg.connectionLimitError(&self.output)) catch { self.close(); return; };
-            self.closing = true;
-            return;
         }
     }
 };

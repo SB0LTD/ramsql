@@ -478,7 +478,11 @@ def test_pool_exhaustion(server):
         # sessions or accepting a connection it cannot service.
         overflow = PG(server.raw())
         try:
-            overflow.sock.sendall(startup_packet())
+            ssl = struct.pack("!II", 8, 80877103)
+            gss = struct.pack("!II", 8, 80877104)
+            overflow.sock.sendall(ssl[:5])
+            overflow.sock.sendall(ssl[5:] + gss + startup_packet())
+            check(overflow.exact(2) == b"NN", "pool overflow must refuse SSL and GSS before reading startup")
             tag, body = overflow.message()
             check(tag == b"E", "pool overflow must return a PostgreSQL error")
             expect_error([(tag,body)], "53300")
