@@ -334,10 +334,12 @@ def test_temporal_read_routing(binary):
                 pg.ok("SELECT t::timestamptz FROM zone_input", [["2000-01-15 12:00:00+00"]])
 
 
-def test_detached_relation_locks(server):
+def test_detached_relation_locks(server, *, warm_cache=False):
     import select
 
-    query = "SELECT id FROM wire_lock ORDER BY id"
+    query = ("SELECT id,SUM(id) FROM wire_lock GROUP BY id ORDER BY id" if warm_cache
+             else "SELECT id FROM wire_lock ORDER BY id")
+    expected = [["7", "7"]] if warm_cache else [["7"]]
 
     def queue(pg, sql):
         pg.sock.sendall(query_packet(sql))
@@ -346,8 +348,11 @@ def test_detached_relation_locks(server):
     with connection(server) as holder, connection(server) as ddl, connection(server) as reader:
         holder.ok("CREATE TABLE wire_lock (id BIGINT PRIMARY KEY)")
         holder.ok("INSERT INTO wire_lock VALUES (7)")
+        if warm_cache:
+            for _ in range(4):
+                reader.ok(query, expected)
         holder.ok("BEGIN", status=b"T")
-        holder.ok(query, [["7"]], status=b"T")
+        holder.ok(query, expected, status=b"T")
         ddl.ok("BEGIN", status=b"T")
         queue(ddl, "DROP TABLE wire_lock")
         queue(reader, query)
@@ -357,7 +362,7 @@ def test_detached_relation_locks(server):
         check(not select.select([reader.sock], [], [], 0.15)[0], "reader passed an uncommitted DROP")
         ddl.ok("ROLLBACK")
         restored = reader.ready()
-        check(not errors(restored) and rows(restored) == [["7"]])
+        check(not errors(restored) and rows(restored) == expected)
 
         statement = b"read_locked\0"
         source = b"SELECT id FROM wire_lock WHERE id=$1\0"
@@ -744,8 +749,9 @@ def test_running_query_controls(binary):
             pg.ok("SELECT value FROM budgeted WHERE id = 0", [["0"]])
 
 
-def test_read_cache(binary):
-    with Server(binary, extra_arguments=("--read-cache-bytes", "8388608")) as server:
+def test_read_cache(binary, read_cache_bytes=8388608):
+    with Server(binary, extra_arguments=("--read-cache-bytes", str(read_cache_bytes))) as server:
+        test_detached_relation_locks(server, warm_cache=True)
         with server.raw() as reader_socket, connection(server) as writer:
             reader = PG(reader_socket)
             startup = reader.startup()
@@ -776,6 +782,16 @@ def test_read_cache(binary):
             writer.ok("COMMIT")
             reader.ok(query, [["a", "34"], ["b", "20"]])
             reader.ok(query, [["a", "34"], ["b", "20"]])
+            moved = "UPDATE cached_sales SET id=9, category='b' WHERE id=1"
+            writer.ok("BEGIN", status=b"T")
+            writer.ok(moved, status=b"T")
+            reader.ok(query, [["a", "34"], ["b", "20"]])
+            writer.ok("ROLLBACK")
+            reader.ok(query, [["a", "34"], ["b", "20"]])
+            writer.ok(moved)
+            reader.ok(query, [["a", "4"], ["b", "50"]])
+            writer.ok("DELETE FROM cached_sales WHERE id=3")
+            reader.ok(query, [["a", "4"], ["b", "30"]])
             writer.ok("DROP TABLE cached_sales")
             expect_error(reader.query(query), "42P01")
             writer.ok("CREATE TABLE cached_sales(id INT PRIMARY KEY, category TEXT, amount BIGINT)")
