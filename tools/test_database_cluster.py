@@ -183,6 +183,45 @@ def prove_scram(binary, base):
         login(live, "postgres", password)
 
 
+def prove_prepared_scope(binary, base):
+    def server(create=False):
+        return DurableServer(binary, base, create=create, prepared=2, storage_options=SMALL_PROFILE)
+
+    def prepare(session, key, gid, expected=None):
+        session.ok("BEGIN", status=b"T")
+        session.ok(f"INSERT INTO t VALUES ({key})", status=b"T")
+        source = f"PREPARE TRANSACTION '{gid}'"
+        if expected is None:
+            command(session, source, "PREPARE TRANSACTION")
+        else:
+            messages = session.query(source)
+            assert errors(messages)[0]["C"] == expected, messages
+            assert (b"Z", b"I") in messages, messages
+
+    with server(create=True) as live, connect(live, "postgres") as primary:
+        command(primary, "CREATE DATABASE peer", "CREATE DATABASE")
+        with connect(live, "peer") as peer:
+            primary.ok("CREATE TABLE t(id INT PRIMARY KEY)")
+            peer.ok("CREATE TABLE t(id INT PRIMARY KEY)")
+            prepare(primary, 1, "shared_gid")
+            prepare(peer, 2, "shared_gid", "42710")
+            prepare(peer, 3, "second_gid")
+            prepare(primary, 4, "third_gid", "53200")
+            assert error_code(peer, "COMMIT PREPARED 'shared_gid'") == "0A000"
+            assert error_code(primary, "ROLLBACK PREPARED 'second_gid'") == "0A000"
+
+    with server() as live, connect(live, "postgres") as primary, connect(live, "peer") as peer:
+        primary.ok("SELECT id FROM t", [])
+        peer.ok("SELECT id FROM t", [])
+        assert error_code(peer, "COMMIT PREPARED 'shared_gid'") == "0A000"
+        command(primary, "ROLLBACK PREPARED 'shared_gid'", "ROLLBACK PREPARED")
+        command(peer, "COMMIT PREPARED 'second_gid'", "COMMIT PREPARED")
+        prepare(peer, 5, "shared_gid")
+        command(peer, "COMMIT PREPARED 'shared_gid'", "COMMIT PREPARED")
+        primary.ok("SELECT id FROM t", [])
+        peer.ok("SELECT id FROM t ORDER BY id", [["3"], ["5"]])
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     root = Path(__file__).resolve().parents[1]
@@ -195,6 +234,7 @@ def main():
     prove(args.binary.resolve(), case / "production.wal")
     prove_interrupted_create(args.binary.resolve(), case / "interrupted.wal")
     prove_scram(args.binary.resolve(), case / "scram.wal")
+    prove_prepared_scope(args.binary.resolve(), case / "prepared.wal")
     print(f"PASS database routing, independent stores, leases and WAL recovery in {case}")
 
 

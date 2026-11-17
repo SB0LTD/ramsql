@@ -1245,6 +1245,38 @@ fn openCluster() !void {
         if (!cluster_options.create_data or previous != 0) return error.InvalidDatabaseCatalog;
         try createClusterDatabase(primary_database);
     }
+    try validateClusterPrepared();
+}
+
+fn validateClusterPrepared() !void {
+    var count: usize = 0;
+    for (0..cluster_capacity) |index| {
+        const current = cluster_registry.readyStoreAt(index) orelse continue;
+        count += current.preparedCount();
+        for (&current.prepared) |*entry| {
+            if (!entry.used) continue;
+            for (0..index) |earlier| {
+                const peer = cluster_registry.readyStoreAt(earlier) orelse continue;
+                if (peer.hasPreparedGid(&entry.metadata.gid)) return error.ChangeRecordConflict;
+            }
+        }
+    }
+    if (count > cluster_options.max_prepared_transactions) return error.TransactionCapacity;
+}
+
+fn checkClusterPrepared(current: *const Store, gid: *const Raw.PreparedWal.Gid, operation: Store.PreparedOperation) anyerror!void {
+    if (cluster_catalog.failed) return error.WriterPoisoned;
+    var count: usize = 0;
+    for (0..cluster_capacity) |index| {
+        const peer = cluster_registry.readyStoreAt(index) orelse continue;
+        // An uncertain prepare sync can still be present in a peer's WAL.
+        if (peer.storage_failed) return error.WriterPoisoned;
+        if (peer != current and peer.hasPreparedGid(gid)) {
+            return if (operation == .prepare) error.DuplicateObject else error.UnsupportedStatement;
+        }
+        count += peer.preparedCount();
+    }
+    if (operation == .prepare and count >= current.prepared_limit) return error.TransactionCapacity;
 }
 
 fn clusterAcl(_: ?*anyopaque, principal: u32, metadata: ClusterRegistry.Metadata) bool {
@@ -1290,7 +1322,7 @@ fn clusterCommand(context: *anyopaque, connection: *DB, source: []const u8) anye
             const target = cluster_registry.lookup(drop.name.slice()) orelse return if (drop.if_exists) "DROP DATABASE" else error.DatabaseNotFound;
             if (std.mem.eql(u8, target.name, primary_database) or target.id.index == binding.database.index) return error.DatabaseBusy;
             const slot = &cluster_slots[target.id.index];
-            if (slot.database.?.store.preparedCount() != 0) return error.DatabaseBusy;
+            if (slot.database.?.store.storage_failed or slot.database.?.store.preparedCount() != 0) return error.DatabaseBusy;
             try cluster_registry.beginDrop(target.id);
             // On an uncertain sync outcome, keep the database fenced until
             // restart resolves the durable tombstone.
@@ -1312,6 +1344,7 @@ fn configureStore(target: *Store, options: Options) void {
     target.interrupt_poll = if (parallel) &pollWorkerInterrupts else &pollInterrupts;
     target.zone_provider = .{ .context = @ptrCast(&zones), .lookup = &Zones.lookup };
     if (options.database_cluster) {
+        target.prepared_check = &checkClusterPrepared;
         target.database.setDatabaseCatalog(.{ .capacity = cluster_capacity, .row = &databaseCatalogRow });
     }
 }
