@@ -6,6 +6,9 @@ later binary.
 
 ## Unreleased
 
+- Support PostgreSQL JSON EXPLAIN for simple SELECTs. ANALYZE reports the
+  observed root operation and its actual output cardinality. Plan-only mode
+  binds the query without evaluating it.
 - Match PostgreSQL command completion for CREATE AS, SET CONSTRAINTS, indexes,
   MERGE, views and materialized view refresh. Support CSV `FORCE_QUOTE` on
   `COPY TO STDOUT`, including named output columns. The Windows candidate
