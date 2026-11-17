@@ -49,6 +49,22 @@ it is distinct from SQL `statement_timeout`, `lock_timeout` and deadlock checks.
 PG cancellation is tested. TDS ATTENTION acknowledges an idle protocol request;
 it is not a general asynchronous running-query cancellation implementation.
 
+## Optional PostgreSQL read cache
+
+`--read-cache-bytes BYTES` reserves a shared cache for eligible PostgreSQL
+autocommit analytical reads on a server with at least two workers. Zero is
+the default. The same option works with `--workers auto` when the machine
+can support at least two workers after charging the cache's page-rounded
+region. Cluster mode uses one worker and rejects a positive cache budget.
+
+Both `--capabilities` and `--machine-capacity` show the number of entries,
+admitted payload bytes and page-rounded cache bytes. Each entry accepts SQL
+up to 1 KiB and at most 128 result rows. A result can be reused within its
+committed database snapshot. Writes, including DDL, advance the snapshot and
+invalidate earlier results. Restricted roles, nondefault session settings,
+work limits and timeouts use ordinary query execution. A restart starts with
+an empty cache.
+
 ## Stop, backup, restore and upgrade
 
 There is no service-manager installer, graceful drain command or checkpoint
