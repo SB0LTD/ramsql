@@ -696,7 +696,15 @@ channel binding; malformed handshakes fail safely and cannot starve other sessio
 
 ### A02 — Roles, permissions and database isolation
 
-**Status:** Missing beyond a configured PostgreSQL login. **Owner:** ZPM roles/catalog/authorization; RAMSQL provisioning policy.
+**Status:** Partial. **Owner:** ZPM roles/catalog/authorization and RAMSQL provisioning policy.
+
+The opt-in PostgreSQL catalog login path checks the SCRAM-verified username
+against the recovered role catalog before the session becomes ready. Live
+tests on an existing WAL passed with one and two workers. They cover session
+identity, prepared reads under row-level security, denied writes and
+role escalation, and listener startup rejection for a NOLOGIN role.
+Multiple simultaneous credentials, database admission and privilege checks for
+every metadata and COPY path still need independent qualification.
 
 One accepted username/verifier is not a multi-user authorization system. Users
 need ownership and permissions enforced for reads, writes, schemas and administration.
