@@ -12,18 +12,23 @@ from pathlib import Path
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
-SIG_TAG = "sig-0.6.4-zig0.17.0.90a898d"
+SIG_TAG = "sig-0.6.5-zig0.17.0.3c72687"
 SIG_ASSET = SIG_TAG + "-x86_64-linux.tar.xz"
-SIG_SHA256 = "8dd32622531b5f81dbb12502c78e187141dd42ea3553f4d9e2c09c3e82d64a89"
+SIG_SHA256 = "179094228e2e6b0db3a5a1e01a8a57e8e91db6aa3b5ca80094ca22d870cc373a"
 COMPILER_HOSTS = {
     "Linux/X64": ("x86_64-linux.tar.xz", SIG_SHA256),
-    "Linux/ARM64": ("aarch64-linux.tar.xz", "5b1d4e2e748a362f1379a3f5a597b9bb9d401505bcb7b506503fa73226d1d001"),
-    "macOS/ARM64": ("aarch64-macos.tar.xz", "75ae868e63b6a90ffd3e282f410b18e5098ea87d02cbdc0fd95224f5e922491f"),
-    "Windows/X64": ("x86_64-windows.zip", "49fc99ac20af7841a5b686c68a8720515deda9c28dcad0cb9191fa0de30e33a0"),
+    "Linux/ARM64": ("aarch64-linux.tar.xz", "ef890f870f3215e60d25588742b74fa9d2808addbc0112b7c37818a73dfb0643"),
+    "macOS/ARM64": ("aarch64-macos.tar.xz", "a936b163c87b471b603caa78aa84d4542c28b9ce3885f502d6901d68a3d716ae"),
+    "Windows/X64": ("x86_64-windows.zip", "291a3225ff33c32e8c479471c44be6db0d811d6023d759c64e0a7d5bf810576c"),
 }
 # Full source pin for the native compiler candidate. Database and loader QEMU
 # probes must pass before it can produce a release bundle; never use a branch.
 NATIVE_SIG_REVISION = "90a898dcbe088455f07449b7de1feaea763c42a0"
+NATIVE_SIG_BOOTSTRAP = {
+    "tag": "sig-0.6.4-zig0.17.0.90a898d",
+    "asset": "sig-0.6.4-zig0.17.0.90a898d-x86_64-linux.tar.xz",
+    "sha256": "8dd32622531b5f81dbb12502c78e187141dd42ea3553f4d9e2c09c3e82d64a89",
+}
 
 # SLS .github/workflows/release.yaml publishes these six hosted architectures
 # plus an aarch64-sb0 SB0X app. RAMSQL also packages the requested SB0K image.
@@ -82,6 +87,7 @@ def metadata(tag: str | None = None) -> dict:
                                           for entry in TARGETS if entry["kind"] == "hosted"]},
             "native_matrix": {"include": [entry for entry in TARGETS if entry["kind"] == "native-sb0"]},
             "native_sig_revision": NATIVE_SIG_REVISION,
+            "native_sig_bootstrap": NATIVE_SIG_BOOTSTRAP,
             "sig_tag": SIG_TAG,
             "sig_asset": SIG_ASSET, "sig_sha256": SIG_SHA256}
 

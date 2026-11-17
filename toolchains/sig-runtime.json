@@ -1,8 +1,8 @@
 {
   "schema": 1,
-  "archive": "https://github.com/SB0LTD/sig/archive/0df3506cbf958a5dabbeb8a250a045085e49f0b6.tar.gz",
-  "sha256": "04d3ec5a3b19dd6d5f058a2e315ba9ac404d078afb01be157927ce6a5682b5f9",
-  "stdlib_base_revision": "90a898dcbe088455f07449b7de1feaea763c42a0",
-  "compiler_release": "sig-0.6.4-zig0.17.0.90a898d",
-  "scope": "Hosted Sig public runtime and build support; compiler binary unchanged; released stdlib sources must match"
+  "archive": "https://github.com/SB0LTD/sig/archive/3c7268716970f554e2e7c34794fd4364b33d5cf7.tar.gz",
+  "sha256": "57fa147b9d77a8a6cbbd953c6e2572e703f888362f5fb111684bfa2a914d58eb",
+  "stdlib_base_revision": "3c7268716970f554e2e7c34794fd4364b33d5cf7",
+  "compiler_release": "sig-0.6.5-zig0.17.0.3c72687",
+  "scope": "Hosted Sig public runtime and build support from the released compiler source; installed stdlib sources must match"
 }

@@ -303,7 +303,7 @@ See [reproduction commands](benchmarks/production-20261026/README.md) and
 
 ## Build, test and review
 
-Use the complete [Sig 0.6.4 toolchain](https://github.com/SB0LTD/sig/releases/tag/sig-0.6.4-zig0.17.0.90a898d).
+Use the complete [Sig 0.6.5 toolchain](https://github.com/SB0LTD/sig/releases/tag/sig-0.6.5-zig0.17.0.3c72687).
 `sig build` resolves ZPM through its immutable archive and SHA-256 pin.
 Prepare the pinned public runtime/build support from
 [`toolchains/sig-runtime.json`](toolchains/sig-runtime.json) first. This verifies
@@ -312,7 +312,7 @@ compiler/toolchain untouched. Only the selected library and build-support trees
 are extracted; compiler repository test fixtures are not package dependencies.
 
 ```sh
-python tools/prepare_sig_runtime.py --installed-lib /path/to/sig-0.6.4/lib \
+python tools/prepare_sig_runtime.py --installed-lib /path/to/sig-0.6.5/lib \
   --output .sig-cache/prepared-sdk
 export SIG_LIB_DIR="$PWD/.sig-cache/prepared-sdk/lib"
 ```
