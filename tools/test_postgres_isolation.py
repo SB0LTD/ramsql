@@ -102,6 +102,23 @@ SCHEDULES: dict[str, Schedule] = {schedule.id: schedule for schedule in (
         Step("b", "UPDATE compat SET label = 'bee' WHERE id = 2", "ok"),
         Step("a", "SELECT label FROM compat WHERE id = 2", "ok"),
     )),
+    # Repeatable Read preserves the transaction snapshot and rejects stale writes.
+    t_schedule("RR1",
+        s("a", "BEGIN ISOLATION LEVEL REPEATABLE READ", "ok"),
+        s("a", ROWS, "ok"),
+        s("b", "UPDATE t SET v=10 WHERE id=1", "ok"),
+        s("b", "INSERT INTO t VALUES(4,40)", "ok"),
+        s("a", ROWS, "ok"),
+        s("a", "COMMIT", "ok"),
+        s("a", ROWS, "ok"),
+        tags=("repeatable_read",), after_restart=(ROWS,)),
+    t_schedule("RR2",
+        s("a", "BEGIN ISOLATION LEVEL REPEATABLE READ", "ok"),
+        s("a", ROWS, "ok"),
+        s("b", "UPDATE t SET v=10 WHERE id=1", "ok"),
+        s("a", "UPDATE t SET v=20 WHERE id=1", "40001"),
+        s("a", "ROLLBACK", "ok"),
+        tags=("repeatable_read",), after_restart=(ROWS,)),
     # ---- T01/T02 READ COMMITTED (design §5.18) ----
     Schedule("RC1", steps=(
         s("a", "BEGIN", "ok"), s("a", "SELECT label FROM compat WHERE id = 1", "ok"),

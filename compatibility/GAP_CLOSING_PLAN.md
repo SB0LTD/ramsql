@@ -308,7 +308,16 @@ names, commit/restart and disconnect without retaining rolled-back changes.
 - SERIALIZABLE: relation-level SSI. It is sound, but coarser than PostgreSQL's tuple-level SSI, so it raises more 40001 errors.
 - Transaction characteristics: SET TRANSACTION, SET SESSION CHARACTERISTICS, READ ONLY (25006) and DEFERRABLE.
 
-These modes have engine contracts but no PostgreSQL reference schedules in `test_postgres_isolation.py` yet. Only RC1–RC14 compare against PostgreSQL. Transactional DDL is tested (DDL1–DDL4). **Owner:** ZPM transactions; codecs expose the behavior.
+RR1 and RR2 compare transaction snapshots and stale-write rejection against
+native PostgreSQL. Both matched PostgreSQL 16.15 in memory and durable SCRAM
+on Wave 3 revision 665f897, including persisted rows after restart. The
+Serializable two-actor write-skew probe remains a known gap. In memory,
+PostgreSQL commits the first writer and rejects the second with 40001.
+RAMSQL raises 40001 on the second write and again on the first commit, so
+neither write survives. Keep that case open until error timing and final
+state match the reference.
+
+**Owner:** ZPM transactions. The codecs expose the behavior.
 
 BEGIN/COMMIT/ROLLBACK working for the subset does not establish all transaction
 modes. Applications can request isolation levels, read-only transactions and
