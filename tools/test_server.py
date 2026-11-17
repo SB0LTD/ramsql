@@ -278,6 +278,30 @@ def test_parameterized_primary_key(server):
         writer.ok("DROP TABLE prepared_rows")
 
 
+def test_catalog_read_routing(server):
+    with connection(server) as pg:
+        pg.ok("CREATE TABLE wire_catalog (id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY)")
+        pg.ok("SELECT 'wire_catalog'::regclass::text, to_regclass('wire_missing') IS NULL",
+              [["wire_catalog", "t"]])
+        pg.ok("SELECT pg_get_serial_sequence('wire_catalog','id')", [["public.wire_catalog_id_seq"]])
+        expect_error(pg.query("SELECT 'wire_missing'::regclass"), "42P01")
+        pg.ok("CREATE VIEW wire_catalog_view AS SELECT 'wire_catalog'::regclass::text AS relation")
+        statement = b"catalog\0"
+        query = b"SELECT relation FROM wire_catalog_view WHERE relation=$1\0"
+        parse = packet(b"P", statement + query + struct.pack("!HI", 1, 0))
+        argument = b"wire_catalog"
+        bind = packet(b"B", b"\0" + statement + struct.pack("!HHI", 0, 1, len(argument)) + argument + b"\0\0")
+        describe = packet(b"D", b"P\0")
+        execute = packet(b"E", b"\0" + U32.pack(0))
+        pg.sock.sendall(parse + bind + describe + execute + packet(b"S"))
+        messages = pg.ready()
+        check(not errors(messages), f"prepared catalog lookup failed: {errors(messages)!r}")
+        check([tag for tag, _ in messages] == [b"1", b"2", b"T", b"D", b"C", b"Z"])
+        check(rows(messages) == [["wire_catalog"]])
+        pg.ok("DROP VIEW wire_catalog_view")
+        pg.ok("DROP TABLE wire_catalog")
+
+
 def live_probe(server, timeout=3):
     """Allow asynchronous disconnect processing, with a hard recovery deadline."""
     deadline = time.monotonic() + timeout
@@ -685,7 +709,8 @@ def main():
     binary = args.binary.resolve(strict=True)
     started = time.monotonic()
     with Server(binary) as server:
-        for test in (test_crud_shared, test_parameterized_primary_key, test_fragmented_and_coalesced, test_ssl_negotiation,
+        for test in (test_crud_shared, test_parameterized_primary_key, test_catalog_read_routing,
+                     test_fragmented_and_coalesced, test_ssl_negotiation,
                      test_half_close_and_partial_reads,
                      test_protocol_errors, test_fatal_frames, test_truncated_disconnect,
                      test_transactions_and_disconnect, test_slow_reader_fairness, test_pool_exhaustion):
