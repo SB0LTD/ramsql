@@ -43,6 +43,23 @@ table. This measures planned startup bytes. The opt-in layout still needs
 heterogeneous schema, DDL, replay, reclamation and multi-table 100M-row tests.
 [Packed-bank CI evidence](https://github.com/benor1470/dbMeter/actions/runs/44121640322)
 
+The combined packed and typed-analytics build passed the original full and
+subset correctness and capacity checks. On the full five-million-row mixed
+workload it measured 52.86 queries/s at one client and 116.87 at eight. IRDB
+measured 62.94 and 88.38 respectively. The full case remains below the 2×
+threshold and the one-client result remains below IRDB. The full run used four
+logical CPUs and 16.76 GB of physical RAM. The server ran with four workers,
+explicit budgets and the six-word fact bank. [Matched full-sales CI](https://github.com/benor1470/dbMeter/actions/runs/44125997780)
+
+The packed Windows planner estimates 27.29 GB of startup reservations for one
+100M-row fact table plus the small dimension tables, and 52.64 GB for two such
+fact tables under the same sizing assumptions. Both use six-word integral
+payloads, 65,536 spare versions per fact table, 65,536 workspace rows, 2,048
+result rows, eight workers and 12 clients. These estimates come from the
+capacity command without loading data. The public benchmark runner has less
+physical memory than either startup estimate. Multi-table 100M qualification
+still requires actual SQL loads, concurrent reads/writes and durable recovery.
+
 The two completed typed ROLLUP trial pairs measured roughly 30–34× the
 RAMSQL control's throughput for the original segment/discount query. The
 third pair hit the runner's memory budget. Retry on matched packed-bank builds

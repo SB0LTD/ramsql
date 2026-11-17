@@ -50,6 +50,17 @@ Candidate differential report SHA-256 `13c894ffabe3cb5eb1b5d67fbad515467c8d2e169
 [Command completion](https://github.com/SB0LTD/zpm/pull/199) ·
 [COPY FORCE_QUOTE](https://github.com/SB0LTD/zpm/pull/200)
 
+With simple SELECT JSON EXPLAIN added in ZPM `8a82fc7898dd0648413dbeac8ff51c30e0066351`,
+the same live audit passed **102 of 103 executed probes**. The remaining mismatch
+is the combined user-defined enum, domain and composite case. The 15 unexecuted
+scopes and broader EXPLAIN formats, options and plan types remain open. The
+earlier eight-fix binary separately matched all 37 compatibility probes in both
+memory and durable SCRAM modes with both servers using UTC defaults.
+
+EXPLAIN candidate binary SHA-256 `fea2f28e6ee0197be070d13fc47a10cb7f978a17e213d2f07788add3eaeaf71a`.
+EXPLAIN differential report SHA-256 `55e678cfaaf67d71a2483dde2d903834e90891e2601a915f5cd422d9f8e0562a`.
+[Simple SELECT EXPLAIN](https://github.com/SB0LTD/zpm/pull/203)
+
 ## Earlier checkpoints
 
 Reporting follow-up, 30 October 2026: the unchanged original dbMeter full 5M
