@@ -465,9 +465,9 @@ fn clientMemoryAvailable() bool {
     const page=pages.pageSize();
     const result=Raw.Result.rowBytes(selected_result_rows) catch return false;
     const output=responseBytes(selected_result_rows) catch return false;
-    const a=@addWithOverflow(result,page-1);const b=@addWithOverflow(output,page-1);
-    if(a[1]!=0 or b[1]!=0) return false;
-    const required=@addWithOverflow(a[0]/page*page,b[0]/page*page);
+    const result_charge=machine_capacity.pageCharge(result,page) catch return false;
+    const output_charge=machine_capacity.pageCharge(output,page) catch return false;
+    const required=@addWithOverflow(result_charge,output_charge);
     return required[1]==0 and memory_ledger.stats().free>=required[0];
 }
 
@@ -929,11 +929,8 @@ pub fn describeMachine(options:Options) !void {
     try validateWorkers(options);
     const plan=try storagePlan(options);
     const worker_bytes=if(options.workers>1) options.workers*worker_budget_each else 0;
-    var total:u64=0;
-    for([_]u64{plan.bytes,plan.workspace_bytes,options.max_clients*@sizeOf(Client),worker_bytes}) |amount| {
-        const next=@addWithOverflow(total,amount);if(next[1]!=0) return error.ArithmeticOverflow;total=next[0];
-    }
-    try machine_capacity.describe(options.memory_budget,options.os_headroom,total,options.workers);
+    const startup=try machine_capacity.startupCharges(&.{plan.bytes,plan.workspace_bytes,options.max_clients*@sizeOf(Client)},worker_bytes);
+    try machine_capacity.describe(options.memory_budget,options.os_headroom,startup,options.workers);
 }
 /// Absolute spelling of a data path for operator messages; the file need not
 /// exist. Falls back to `path` itself when it cannot be resolved into `out`.
