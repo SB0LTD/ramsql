@@ -519,21 +519,42 @@ mechanism as PostgreSQL Serializable or complete Repeatable Read.
 
 ### T05 — Recoverable two-phase transactions
 
-**Status:** Open. The native inventory accepts `PREPARE TRANSACTION` on its
-disposable reference cluster and RAMSQL returns `0A000`. **Owner:** ZPM for
-the shared transaction state and record format, RAMSQL for WAL and recovery.
+**Status**
 
-- [ ] Reserve a budgeted prepared-transaction entry keyed by transaction ID,
-  owning role and database. PREPARE validates deferred work, detaches the
-  connection and keeps the version and lock ownership that protects its writes.
-- [ ] Persist complete prepare and resolution records with the existing stable
-  flush boundary. Recovery must reconstruct pending changes and their conflict
-  protection before accepting sessions. Replay must detect mismatched or
-  duplicate resolutions and preserve earlier committed records.
-- [ ] Support `COMMIT PREPARED`, `ROLLBACK PREPARED` and inspection of pending
-  transactions. Test role restrictions, transaction ID collisions, a disconnect
-  after PREPARE, conflicting readers and writers, and crash boundaries around
-  each durable acknowledgement.
+Qualified on a separate Windows candidate for opt-in permanent-table DML.
+RAMSQL `20cd383b8d4ce30c0820ec105766ccda2630fd6f` pins ZPM
+`0c8a939559a077a35421875f09870229e45bb70d`. Enable a positive
+`--max-prepared-transactions` limit in durable mode. The default limit is
+zero. Reopen a WAL with unresolved work using a grant that covers every
+pending prepared transaction. ZPM owns the transaction state and record
+format. RAMSQL owns the WAL and startup recovery. [Exact RAMSQL candidate](https://github.com/SB0LTD/ramsql/commit/20cd383b8d4ce30c0820ec105766ccda2630fd6f) · [Exact ZPM implementation](https://github.com/SB0LTD/zpm/commit/0c8a939559a077a35421875f09870229e45bb70d)
+
+The unchanged PostgreSQL 18.3 inventory matched 105 of 106 executed cases
+on this candidate. `PG.TX.TWO_PHASE` matched the `PREPARE TRANSACTION` and
+`COMMIT PREPARED` tags, results and idle transaction status. The remaining
+executed mismatch was database creation. A separate Windows crash test
+verified prepared INSERT, UPDATE and DELETE, with an ordinary commit
+interleaved between prepare and resolution. It verified implicit and
+explicit row locks after restart, owner enforcement, rollback, rejection of
+a mismatched decision, and torn-decision recovery. The persistence suite
+passed 77 cases and 2,877 assertions. [Exact crash test](https://github.com/SB0LTD/ramsql/blob/20cd383b8d4ce30c0820ec105766ccda2630fd6f/tools/test_persistence.py)
+
+Windows binary SHA-256 `9c7763a195abb684a945be6f7ca7e35d6171a21076d44424e545c15e5989c511`.
+Native inventory report SHA-256 `51faf199ec315130028b28d4fb71d566f80f84d0977afe1b83d49313dc4d61e7`.
+
+- [x] Reserve a budgeted entry keyed by a case-sensitive GID, role OID and
+  store identity. Detach on successful prepare while retaining pending row
+  versions and locks.
+- [x] Flush prepare and resolution records before changing their visible state.
+  Recover unresolved DML and its locks before opening listeners, and check
+  each decision against its exact prepare record.
+- [x] Verify `COMMIT PREPARED` and `ROLLBACK PREPARED`, duplicate GIDs,
+  disconnect, owner authorization, lock conflicts and crash recovery for the
+  admitted DML scope.
+- [ ] Add `pg_prepared_xacts` inspection and qualify prepared DDL, deferred
+  constraint work, advisory locks, sequence changes and Serializable
+  transactions. Qualify the combined native inventory and supported release
+  matrix with two-phase commit enabled.
 
 **Closed when:** a write transaction can stay prepared across disconnect and
 process restart, then be resolved by an eligible connection with the same

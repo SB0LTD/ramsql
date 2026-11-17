@@ -101,9 +101,7 @@ rows and all three selective groups over 92,896 joined rows. Two concurrent
 sessions also passed 512 fact lookups, 1,024 dimension lookups and two missing
 key checks. The run charged 13,392,289,792 startup bytes and peaked at
 13,380,136,960 resident bytes. The ordered three-way range projection returned
-`54000` even though only 128 keys qualified. That query remains open as a
-separate executor regression. Multiple 100M tables and durable replay at
-this size remain unqualified. [100M joined correctness](https://github.com/benor1470/dbMeter/actions/runs/44156569523)
+`54000` with only 128 qualifying keys. [100M joined correctness](https://github.com/benor1470/dbMeter/actions/runs/44156569523)
 
 The joined executor follow-up returns all 20 expected ordered rows from the
 last 128 keys with the same 100M-row fixture and memory budget. It also repeats
@@ -117,7 +115,35 @@ update still private to its writer. The server exceeded the 900-second
 restart deadline. Replay validation was scanning all committed rows for each
 change record to count the current relation. That count is already maintained
 by the committed summary. The 262,144-row durable control passed the same
-restart and verification protocol. [Durable 100M evidence](https://github.com/benor1470/dbMeter/actions/runs/44161735950)
+restart and verification protocol. [Initial durable 100M run](https://github.com/benor1470/dbMeter/actions/runs/44161735950)
+
+The synchronous-WAL rerun on RAMSQL `aebb257599da2325849c1975573b9d303b88ecc0`
+and ZPM `ae23be238fa7a1696b36b1d472cddef364d49a16` loaded the same 100M
+six-column facts, 963 products and 116 stores. After an abrupt process kill,
+the server reopened the 6,771,074,198-byte WAL and accepted connections in
+**132.213 seconds**. The uncommitted update was absent. Both before and after
+recovery, the fixture matched all 91 full groups, three selective groups,
+20 ordered rows from the last 128 fact keys, and both concurrent point-read
+probes. [Verified durable 100M run](https://github.com/benor1470/dbMeter/actions/runs/44168220455)
+
+Peak RSS was 13,380,149,248 bytes before restart and 13,380,636,672 bytes
+after recovery. The two-worker profile charged 13,392,289,792 startup bytes
+against a 14,347,884,288-byte process budget. Replay uses the committed row
+count when its summary is valid for the replay horizon and agrees with
+occupied row slots. It scans committed versions when those checks fail.
+The 953-assertion change-record contract covers mixed INSERT, UPDATE, DELETE
+and TRUNCATE, invalid or stale summaries, and a deleted slot retained by a
+pinned snapshot. [Replay validation change](https://github.com/SB0LTD/zpm/pull/216)
+
+The Linux run used ReleaseSafe, `-Dintegral-version-banks=true` and the
+opt-in typed bank memory profile. The fact bank held 100,065,536 version
+slots. The query limits were 8,192 workspace rows, 262,144 query references
+and 1,024 result rows. The 262,144-row control recovered in 0.254 seconds.
+Qualification remains open for multiple 100M-row tables, wider schemas,
+concurrent durable writes and cross-engine performance. [Exact workflow](https://github.com/benor1470/dbMeter/blob/7db332bd483641b474418e2121d75879fd140074/.github/workflows/typed-bank-100m-star.yml)
+
+Linux binary SHA-256 `8253ab22d3d2aa459d442c26b4c1527183d0ef8798764df8ce24d36141aca774`.
+Evidence ZIP SHA-256 `c32d79a68a34ecf69f62fe259c69bc244ccb3b8c5daaec284b81582adc9439aa`.
 
 The earlier dense-storage ROLLUP campaign stopped during the third pair when
 the runner hit its memory budget. The packed retry completed all three pairs
