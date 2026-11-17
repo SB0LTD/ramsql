@@ -51,7 +51,7 @@ pub fn Catalog(comptime capacity: usize, comptime name_capacity: usize) type {
             return null;
         }
 
-        fn replay(self: *Self, payload: []const u8) !void {
+        fn replay(self: *Self, _: u64, payload: []const u8) !void {
             if (self.identity == null) {
                 if (payload.len != 17 or payload[0] != 0) return error.InvalidDatabaseCatalog;
                 self.identity = payload[1..17].*;
