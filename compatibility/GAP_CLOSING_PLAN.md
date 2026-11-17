@@ -23,10 +23,14 @@ reader. The replacement `5a51a6e1f5304a4c6228210d7538440d77f177df` routes
 statements that need catalog and session hooks to the owning session. Its
 Windows build matched all 331 unchanged cases against native PostgreSQL 18.3
 with durable SCRAM on RAMSQL and immediate-mode reference restarts. It passed
-15 two-worker packed-enabled wire cases with 4,286 assertions. The replacement
-hosted and SB0 release matrix is pending.
+15 two-worker packed-enabled wire cases with 4,286 assertions. In a separate
+full CI run, an old workspace contract still expected optimized projected joins
+to fail. The corrected contract verifies eight surviving rows and retains
+the workspace-exhaustion check on the general outer-join path. The latest
+combined revision `1b1a3e747dc4fb1c093ee93911ce453a380c33d8` includes that fix,
+the temporal resolver routing and cluster-wide prepared-transaction semantics.
 [Failing qualification](https://github.com/SB0LTD/ramsql/actions/runs/44185459464) ·
-[Replacement matrix](https://github.com/SB0LTD/ramsql/actions/runs/44189642358)
+[Combined release matrix](https://github.com/SB0LTD/ramsql/actions/runs/44195561261)
 
 The original full and subset sales mixes both matched their correctness and
 capacity gates on `0af167b`. RAMSQL reached 1.75× and 1.70× IRDB throughput
@@ -35,6 +39,14 @@ running for this revision. An independent same-binary helper comparison lost
 throughput in every Q3 trial with a dedicated fourth CPU and one query helper.
 [Sales suites](https://github.com/benor1470/dbMeter/actions/runs/44187617545) ·
 [Query helper comparison](https://github.com/benor1470/dbMeter/actions/runs/44187730700)
+
+With a 256 MiB request for the opt-in result cache, a separate same-binary A/B
+passed the original 5M-row sales correctness checks in both modes. The repeated
+read-only full sales mix moved from 52.45 to 17,936.73 queries/s at one client
+and from 138.01 to 17,633.45 queries/s at eight. Eight-client p99 moved from
+174.079 ms to 8.575 ms. Cross-engine performance under that exact configured
+profile requires its own full campaign, including the original key cases.
+[Paired cache benchmark](https://github.com/benor1470/dbMeter/actions/runs/44188527666)
 
 ## 17 November 2026 qualification checkpoint
 
