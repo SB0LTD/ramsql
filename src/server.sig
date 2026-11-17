@@ -133,10 +133,11 @@ const config: sql.Config = storageConfig(.{
 });
 
 fn storageConfig(defaults: sql.Config) sql.Config {
-    if (comptime profile.integral_version_banks) {
+    if (comptime profile.integral_version_banks or profile.compact_version_stamps) {
         var experimental = defaults;
         experimental.split_external_versions = true;
-        experimental.integral_external_versions = true;
+        experimental.integral_external_versions = profile.integral_version_banks;
+        experimental.compact_external_version_stamps = profile.compact_version_stamps;
         return experimental;
     }
     return defaults;
@@ -1020,10 +1021,10 @@ fn readContextPayload(options: Options, plan: *const StoragePlan) !usize {
 }
 
 fn writeStorageDetails(out: sig.io.File, options: Options, plan: *const StoragePlan, read_payload: usize) !void {
-    var buffer: [384]u8 = undefined;
+    var buffer: [512]u8 = undefined;
     try out.writeStreamingAll(.{}, try std.fmt.bufPrint(&buffer,
-        ",\"typed_bank_memory_profile\":{s},\"query_refs\":{d},\"query_reference_bytes\":{d},\"read_context_payload_bytes_per_worker\":{d},\"max_prepared_transactions\":{d},\"prepared_transactions_ceiling\":{d},\"database_cluster\":{s},\"cluster_database_ceiling\":{d},\"table_storage\":[",
-        .{ if (options.typed_bank_memory_profile) "true" else "false", plan.refs, plan.refs * @sizeOf(u32), read_payload, options.max_prepared_transactions, Store.prepared_capacity - 1, if (options.database_cluster) "true" else "false", cluster_capacity }));
+        ",\"typed_bank_memory_profile\":{s},\"query_refs\":{d},\"query_reference_bytes\":{d},\"read_context_payload_bytes_per_worker\":{d},\"max_prepared_transactions\":{d},\"prepared_transactions_ceiling\":{d},\"database_cluster\":{s},\"cluster_database_ceiling\":{d},\"compact_version_stamps\":{s},\"storage_version_bytes\":{d},\"table_storage\":[",
+        .{ if (options.typed_bank_memory_profile) "true" else "false", plan.refs, plan.refs * @sizeOf(u32), read_payload, options.max_prepared_transactions, Store.prepared_capacity - 1, if (options.database_cluster) "true" else "false", cluster_capacity, if (profile.compact_version_stamps) "true" else "false", @sizeOf(Raw.StorageVersion) }));
     for (plan.budgets, 0..) |budget, index| {
         if (index != 0) try out.writeStreamingAll(.{}, ",");
         const scan = config.compact_integral_scans and config.columns <= 64 and !budget.omit_compact_scan;

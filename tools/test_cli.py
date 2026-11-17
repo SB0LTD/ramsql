@@ -15,6 +15,7 @@ def main():
     default_binary /= "ramsql.exe" if os.name == "nt" else "ramsql"
     parser.add_argument("--binary", type=Path, default=default_binary)
     parser.add_argument("--expect-integral-version-banks", action="store_true")
+    parser.add_argument("--expect-compact-version-stamps", action="store_true")
     args = parser.parse_args()
     binary = args.binary.resolve()
 
@@ -49,6 +50,11 @@ def main():
     assert caps['sql_execution_workers']==1 and caps['exclusive_sql_workers']==1
     assert caps['parallel_simple_reads'] is False
     assert caps['integral_version_banks'] is args.expect_integral_version_banks, caps
+    assert caps['compact_version_stamps'] is args.expect_compact_version_stamps, caps
+    if args.expect_compact_version_stamps:
+        assert caps['storage_version_bytes'] == 32, caps
+    elif args.expect_integral_version_banks:
+        assert caps['storage_version_bytes'] == 48, caps
     slots = caps['tables']
     assert caps['table_integral_words'] == [0] * slots, caps
     assert caps['typed_bank_memory_profile'] is False
@@ -86,7 +92,8 @@ def main():
             assert observed['startup_fits'] is False and observed['new_region_bytes'] == 0
             assert observed['startup_region_bytes'] >= observed['legacy_startup_bytes']
             for key in ('backing_bytes', 'query_workspace_bytes', 'query_refs', 'query_reference_bytes',
-                        'read_context_payload_bytes_per_worker', 'table_storage', 'typed_bank_memory_profile'):
+                        'read_context_payload_bytes_per_worker', 'table_storage', 'typed_bank_memory_profile',
+                        'compact_version_stamps', 'storage_version_bytes'):
                 assert observed[key] == lean[key], (key, observed, lean)
             assert lean['typed_bank_memory_profile'] is True
             assert lean['query_refs'] == 65536 * 4 * (caps['relations'] + 4)
