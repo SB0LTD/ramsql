@@ -104,6 +104,15 @@ population count improved category ranking 3.8% at one client and 1.2% at
 eight by median throughput. The mixed workload showed less than 0.5% change
 at either client count. [Exact DISTINCT CI](https://github.com/benor1470/dbMeter/actions/runs/44134658004)
 
+A bounded integer accumulator improved the original region/month report from
+22.17 to 24.28 queries/s at one client and 48.80 to 55.63 at eight versus the
+packed RAMSQL control. The corresponding p99 moved from 49.663 to 45.567 ms
+and from 255.999 to 215.039 ms. All three pairs improved for this query and
+passed the unchanged correctness checks. A follow-up measures skipping NULL
+flags and sharing group counts when committed summaries prove all inputs are
+present. [Bounded accumulator CI](https://github.com/benor1470/dbMeter/actions/runs/44139628227) ·
+[Shared count CI](https://github.com/benor1470/dbMeter/actions/runs/44147408025)
+
 The full-sales fact schema needs seven integral cells and one date per row.
 The dense MVCC layout reserves nine full-width cells in the widened build.
 Compact typed MVCC payloads are the storage priority. Establish that inserts,

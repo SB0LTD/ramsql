@@ -440,12 +440,34 @@ modes. Applications can request isolation levels, read-only transactions and
 other transaction characteristics.
 
 - [x] Implement SET TRANSACTION and default/session transaction characteristics with real state (ZPM #120).
-- [ ] Verify Repeatable Read and Serializable against PostgreSQL reference schedules. Both are implemented in ZPM #120; Serializable is relation-level SSI. Investigate two-phase/prepared transactions as a separate required capability.
+- [ ] Complete PostgreSQL Serializable qualification, including write-skew commit ordering. The latest memory candidate matches all 46 selected isolation schedules; the coarse Serializable conflict case above still needs its own closing evidence.
 - [ ] Cover transactional DDL, aborted commits, serialization retries and durability acknowledgements under concurrency.
 
 **Closed when:** each advertised mode has reference-tested semantics, including
 anomaly prevention and errors. Do not describe the present conservative snapshot
 mechanism as PostgreSQL Serializable or complete Repeatable Read.
+
+### T05 — Recoverable two-phase transactions
+
+**Status:** Open. The native inventory accepts `PREPARE TRANSACTION` on its
+disposable reference cluster and RAMSQL returns `0A000`. **Owner:** ZPM for
+the shared transaction state and record format, RAMSQL for WAL and recovery.
+
+- [ ] Reserve a budgeted prepared-transaction entry keyed by transaction ID,
+  owning role and database. PREPARE validates deferred work, detaches the
+  connection and keeps the version and lock ownership that protects its writes.
+- [ ] Persist complete prepare and resolution records with the existing stable
+  flush boundary. Recovery must reconstruct pending changes and their conflict
+  protection before accepting sessions. Replay must detect mismatched or
+  duplicate resolutions and preserve earlier committed records.
+- [ ] Support `COMMIT PREPARED`, `ROLLBACK PREPARED` and inspection of pending
+  transactions. Test role restrictions, transaction ID collisions, a disconnect
+  after PREPARE, conflicting readers and writers, and crash boundaries around
+  each durable acknowledgement.
+
+**Closed when:** a write transaction can stay prepared across disconnect and
+process restart, then be resolved by an eligible connection with the same
+visibility, conflict and durability outcomes as the reference.
 
 ## 3. SQL, types and schema behavior
 
@@ -613,6 +635,24 @@ Changing columns or enforcing relationships requires real schema management.
 
 **Closed when:** representative migrations run forward/backward, concurrent DDL
 and queries behave correctly, and failure cannot leave half-applied schema/index state.
+
+#### Database lifecycle and isolation
+
+The PostgreSQL wire startup database currently supplies a session name within
+one shared store. `CREATE DATABASE` therefore requires a cluster registry and
+real routing before the inventory probe can pass.
+
+- [ ] Give each database an owned store and stable ID. After credential proof,
+  admission resolves the startup database, checks `CONNECT` and binds the
+  session before ReadyForQuery. Each worker uses the selected store for SQL,
+  cursors, notifications and lock waits.
+- [ ] Add database create/drop records and a database ID to per-store WAL
+  records. Recover the cluster registry and data together before accepting
+  clients. Keep the original single-database WAL readable and make any format
+  upgrade explicit. Use the same registry for `pg_database` and backups.
+- [ ] Implement ownership, transaction-block rejection, an initial template
+  policy and in-use checks for DROP. Cover identifier reuse, reconnect races,
+  cross-database isolation, prior data recovery and create/drop crash edges.
 
 ### Q12 — Names, text, encodings, collations and dialect separation
 
