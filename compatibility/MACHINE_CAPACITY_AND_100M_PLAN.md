@@ -95,6 +95,16 @@ workloads, multiple 100M-row tables, durability and comparative performance
 remain separate qualification targets.
 [Verified 100M-row CI](https://github.com/benor1470/dbMeter/actions/runs/44152396601)
 
+A subsequent run loaded 100M six-column facts, 963 products and 116 stores.
+The three-table aggregate matched all 91 full groups over 85,226,703 joined
+rows and all three selective groups over 92,896 joined rows. Two concurrent
+sessions also passed 512 fact lookups, 1,024 dimension lookups and two missing
+key checks. The run charged 13,392,289,792 startup bytes and peaked at
+13,380,136,960 resident bytes. The ordered three-way range projection returned
+`54000` even though only 128 keys qualified. That query remains open as a
+separate executor regression. Multiple 100M tables and durable replay at
+this size remain unqualified. [100M joined correctness](https://github.com/benor1470/dbMeter/actions/runs/44156569523)
+
 The earlier dense-storage ROLLUP campaign stopped during the third pair when
 the runner hit its memory budget. The packed retry completed all three pairs
 with identical compiler, capacity options and original data. Throughput for

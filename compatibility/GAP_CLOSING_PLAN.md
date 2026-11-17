@@ -148,6 +148,25 @@ the existing text representation on 7.2.
 Composite catalog report SHA-256 `8cd14577a9fc8009502ffb1b9ef7641d6eb78f07148d3ad39e3563b5ea34050c`.
 Native MySQL report SHA-256 `f1a255e8e6605d82f617a803ac6e7f14724ee17017eb2958f6297182a4a06c00`.
 
+RAMSQL `f6c6867a1d776b96657c3ad3405b4927e48cfc9b` with ZPM
+`df5e8da5f85c1f4ff70dfec735e722cc3d625ac2` matches **104 of 106** original
+PostgreSQL cases. The exact composite projection matched native PostgreSQL
+text and binary wire results on both sides of a durable restart. The two
+remaining PostgreSQL cases start with database creation and prepared
+transaction lifecycle. Native MySQL matches three of six cases after `IFNULL`
+and `DATE_ADD` were added. Unsigned integers, AUTO_INCREMENT and REPLACE are
+the remaining native MySQL mismatches in this executable.
+
+Native SQL Server 2022 CU28 compared all six original T-SQL cases against
+the Linux artifact from the same source. Three produce the expected row
+values and fail on wire metadata. SQL Server reports the tested
+non-null INT result columns as fixed-length with nullable unset. Its unnamed
+function result columns have empty names. OUTPUT, APPLY and procedural SQL
+are rejected by the candidate. [Native SQL Server comparison](https://github.com/benor1470/dbMeter/actions/runs/44157665404)
+
+Latest PostgreSQL inventory report SHA-256 `297ebd021df3147fd63bf77c0e4f320568fb484831bb6bc312b3d4c2f84a08cf`.
+Latest native MySQL report SHA-256 `7a2b058d7c418d2fbd0e675a46226d57ee72c09546b043c278bd7b323be908b2`.
+
 ## Earlier checkpoints
 
 Reporting follow-up, 30 October 2026: the unchanged original dbMeter full 5M
