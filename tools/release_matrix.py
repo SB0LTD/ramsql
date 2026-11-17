@@ -23,7 +23,7 @@ COMPILER_HOSTS = {
 }
 # Full source pin for the native compiler candidate. Database and loader QEMU
 # probes must pass before it can produce a release bundle; never use a branch.
-NATIVE_SIG_REVISION = "90a898dcbe088455f07449b7de1feaea763c42a0"
+NATIVE_SIG_REVISION = "15a714dcdd58521b46868c036ce55cca4d283cfd"
 NATIVE_SIG_BOOTSTRAP = {
     "tag": "sig-0.6.4-zig0.17.0.90a898d",
     "asset": "sig-0.6.4-zig0.17.0.90a898d-x86_64-linux.tar.xz",

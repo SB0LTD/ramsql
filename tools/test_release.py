@@ -98,7 +98,7 @@ class ReleaseContracts(unittest.TestCase):
 
     def test_native_source_and_bootstrap_are_separate_from_hosted_sdk(self):
         metadata = matrix.metadata()
-        revision = "90a898dcbe088455f07449b7de1feaea763c42a0"
+        revision = "15a714dcdd58521b46868c036ce55cca4d283cfd"
         self.assertEqual(metadata["native_sig_revision"], revision)
         bootstrap = metadata["native_sig_bootstrap"]
         self.assertEqual(bootstrap["tag"], "sig-0.6.4-zig0.17.0.90a898d")

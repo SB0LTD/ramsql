@@ -25,6 +25,9 @@ owns all databases in this bounded mode. Capacity is four live databases
 including `postgres`, with the configured table and workspace budget applied
 to each Store independently.
 
+Prepared transactions use a per-database identifier namespace and grant in
+this beta. Resolve each prepared transaction through its owning database.
+
 The cluster journal records an OID reservation before file provisioning. An
 acknowledged CREATE means the database WAL's cluster/OID identity and the
 journal publication record are durable. DROP commits a tombstone before
@@ -36,5 +39,5 @@ records on every published Store before the listener starts.
 Cluster SQL currently excludes creation options, prepared database utility
 statements, database-level ACL/role DDL, and forced drops. The `pg_database`
 catalogue exposes the live registry's `oid`, `datname`, and `datdba` columns.
-MySQL, TDS, memory mode, multiple reactors and
-`--auth-catalog-role` are excluded from cluster mode.
+Cluster mode accepts one SCRAM verifier and runs the PostgreSQL listener
+with one reactor.
