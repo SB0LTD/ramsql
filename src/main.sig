@@ -185,8 +185,8 @@ fn run(init: std.process.Init.Minimal) !u8 {
             options.insecure_local = true;
             has_server_options = true;
         } else {
-            const option: enum { protocol, port, mysql_port, mssql_port, max_clients, workers, idle_ms, max_query_work, storage_rows, storage_versions, work_rows, result_rows, table_rows, table_versions, data, verifier_file, auth_user, backup_to, timezone_dir, memory_budget, os_headroom } =
-                if(same(arg,"--memory-budget")) .memory_budget else if(same(arg,"--os-headroom")) .os_headroom else if (same(arg, "--workers")) .workers else if (same(arg, "--table-rows")) .table_rows else if (same(arg, "--table-versions")) .table_versions else if (same(arg, "--work-rows")) .work_rows else if (same(arg, "--result-rows")) .result_rows else if (same(arg, "--rows")) .storage_rows else if (same(arg, "--versions")) .storage_versions else if (same(arg, "--protocol")) .protocol else if (same(arg, "--port")) .port else if (same(arg, "--mysql-port")) .mysql_port else if (same(arg, "--mssql-port")) .mssql_port else if (same(arg, "--max-clients")) .max_clients else if (same(arg, "--max-query-work")) .max_query_work else if (same(arg, "--idle-ms")) .idle_ms else if (same(arg, "--data")) .data else if (same(arg, "--auth-verifier-file")) .verifier_file else if (same(arg, "--auth-user")) .auth_user else if (same(arg, "--backup-to")) .backup_to else if (same(arg, "--timezone-dir")) .timezone_dir else return error.UnknownArgument;
+            const option: enum { protocol, port, mysql_port, mssql_port, max_clients, workers, idle_ms, max_query_work, max_prepared_transactions, storage_rows, storage_versions, work_rows, result_rows, table_rows, table_versions, data, verifier_file, auth_user, backup_to, timezone_dir, memory_budget, os_headroom } =
+                if(same(arg,"--memory-budget")) .memory_budget else if(same(arg,"--os-headroom")) .os_headroom else if (same(arg, "--workers")) .workers else if (same(arg, "--table-rows")) .table_rows else if (same(arg, "--table-versions")) .table_versions else if (same(arg, "--work-rows")) .work_rows else if (same(arg, "--result-rows")) .result_rows else if (same(arg, "--rows")) .storage_rows else if (same(arg, "--versions")) .storage_versions else if (same(arg, "--protocol")) .protocol else if (same(arg, "--port")) .port else if (same(arg, "--mysql-port")) .mysql_port else if (same(arg, "--mssql-port")) .mssql_port else if (same(arg, "--max-clients")) .max_clients else if (same(arg, "--max-query-work")) .max_query_work else if (same(arg, "--max-prepared-transactions")) .max_prepared_transactions else if (same(arg, "--idle-ms")) .idle_ms else if (same(arg, "--data")) .data else if (same(arg, "--auth-verifier-file")) .verifier_file else if (same(arg, "--auth-user")) .auth_user else if (same(arg, "--backup-to")) .backup_to else if (same(arg, "--timezone-dir")) .timezone_dir else return error.UnknownArgument;
             const value = try args.next() orelse return error.UnknownArgument;
             has_server_options = true;
             switch (option) {
@@ -231,6 +231,7 @@ fn run(init: std.process.Init.Minimal) !u8 {
                 .work_rows => options.work_rows = try fmt.parseInt(usize, value, 10),
                 .result_rows => options.result_rows = try fmt.parseInt(usize, value, 10),
                 .max_query_work => options.max_query_work = try fmt.parseInt(u64, value, 10),
+                .max_prepared_transactions => options.max_prepared_transactions = try fmt.parseInt(usize, value, 10),
                 .idle_ms => options.idle_ms = try fmt.parseInt(u32, value, 10),
             }
         }

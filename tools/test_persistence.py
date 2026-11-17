@@ -35,11 +35,12 @@ def check(condition, message="persistence contract failed"):
 
 
 class DurableServer:
-    def __init__(self, binary, wal, create=False, cwd=None):
+    def __init__(self, binary, wal, create=False, cwd=None, prepared=0):
         self.binary = binary
         self.wal = wal
         self.create = create
         self.cwd = cwd
+        self.prepared = prepared
         self.process = None
         self.errors = deque(maxlen=40)
         self.port = None
@@ -47,6 +48,7 @@ class DurableServer:
     def command(self):
         return [str(self.binary), "--serve", "--insecure-local", "--data", str(self.wal),
                 *(["--create-data"] if self.create else []),
+                *(["--max-prepared-transactions", str(self.prepared)] if self.prepared else []),
                 "--port", "0", "--idle-ms", "30000", "--max-clients", "8"]
 
     def __enter__(self):
@@ -100,9 +102,9 @@ class DurableServer:
         self.crash()
 
 
-def refuse(binary, wal, expected):
+def refuse(binary, wal, expected, prepared=0):
     global cases
-    completed = subprocess.run(DurableServer(binary, wal).command(), capture_output=True,
+    completed = subprocess.run(DurableServer(binary, wal, prepared=prepared).command(), capture_output=True,
                                text=True, timeout=15)
     check(completed.returncode != 0, "unsafe WAL startup succeeded")
     check("RAMSQL postgres" not in completed.stdout, "listener bound before WAL validation")
@@ -306,6 +308,95 @@ def concurrent_sequence_crash(binary, artifacts):
             cases += 1
 
 
+def prepared_transactions(binary, artifacts):
+    global cases
+    wal = artifacts / "prepared.wal"
+    scan = "SELECT id,amount FROM ledger ORDER BY id"
+    precommit = [["1", "10"], ["2", "20"], ["3", "30"], ["5", "51"]]
+    committed = [["1", "12"], ["2", "20"], ["4", "40"], ["5", "51"]]
+
+    def command(pg, source, expected):
+        result = pg.ok(source)
+        check([body for tag, body in result if tag == b"C"] == [expected + b"\0"], source)
+
+    with DurableServer(binary, wal, create=True, prepared=3) as server:
+        admin, owner = server.connect(), server.connect()
+        try:
+            admin.ok("CREATE TABLE ledger(id INT PRIMARY KEY, amount INT)")
+            admin.ok("INSERT INTO ledger VALUES (1,10),(2,20),(3,30),(5,50)")
+            admin.ok("CREATE ROLE tx_owner")
+            admin.ok("CREATE ROLE tx_other")
+            admin.ok("GRANT SELECT, INSERT, UPDATE, DELETE ON ledger TO tx_owner")
+            owner.ok("SET ROLE tx_owner")
+            owner.ok("BEGIN", status=b"T")
+            owner.ok("SELECT id FROM ledger WHERE id=2 FOR SHARE", [["2"]], status=b"T")
+            owner.ok("UPDATE ledger SET amount=11 WHERE id=1", status=b"T")
+            owner.ok("UPDATE ledger SET amount=12 WHERE id=1", status=b"T")
+            owner.ok("DELETE FROM ledger WHERE id=3", status=b"T")
+            owner.ok("INSERT INTO ledger VALUES (4,40)", status=b"T")
+            command(owner, "PREPARE TRANSACTION 'Mixed''Case'", b"PREPARE TRANSACTION")
+            admin.ok("BEGIN", status=b"T")
+            admin.ok("INSERT INTO ledger VALUES (8,80)", status=b"T")
+            command(admin, "PREPARE TRANSACTION 'discard'", b"PREPARE TRANSACTION")
+            admin.ok("UPDATE ledger SET amount=51 WHERE id=5")
+            admin.ok(scan, precommit)
+            wire.expect_error(admin.query("SELECT id FROM ledger WHERE id=1 FOR UPDATE NOWAIT"), "55P03")
+        finally:
+            owner.close()
+            admin.close()
+    pending = wal.read_bytes()
+
+    with DurableServer(binary, wal, prepared=3) as server:
+        admin, resolver = server.connect(), server.connect()
+        try:
+            admin.ok(scan, precommit)
+            for key in (1, 2):
+                wire.expect_error(admin.query(f"SELECT id FROM ledger WHERE id={key} FOR UPDATE NOWAIT"), "55P03")
+            resolver.ok("SET ROLE tx_other")
+            wire.expect_error(resolver.query("COMMIT PREPARED 'Mixed''Case'"), "42501")
+            resolver.ok("SET ROLE tx_owner")
+            command(resolver, "COMMIT PREPARED 'Mixed''Case'", b"COMMIT PREPARED")
+            command(admin, "ROLLBACK PREPARED 'discard'", b"ROLLBACK PREPARED")
+            admin.ok(scan, committed)
+            admin.ok("SELECT id FROM ledger WHERE id=2 FOR UPDATE NOWAIT", [["2"]])
+        finally:
+            resolver.close()
+            admin.close()
+    complete = wal.read_bytes()
+    check(complete.startswith(pending) and record_kinds(complete)[-2:] == [4, 4])
+    with DurableServer(binary, wal) as server:
+        pg = server.connect()
+        try:
+            pg.ok(scan, committed)
+            wire.expect_error(pg.query("COMMIT PREPARED 'Mixed''Case'"), "42704")
+        finally:
+            pg.close()
+
+    decision_length = struct.unpack_from("<I", complete, len(pending) + 12)[0]
+    torn = artifacts / "prepared-torn.wal"
+    torn_bytes = complete[:len(pending) + 32 + decision_length + 15]
+    torn.write_bytes(torn_bytes)
+    refuse(binary, torn, ("TransactionCapacity",))
+    check(torn.read_bytes() == torn_bytes, "pending restore failure repaired the source WAL")
+    with DurableServer(binary, torn, prepared=3) as server:
+        pg = server.connect()
+        try:
+            pg.ok(scan, precommit)
+            wire.expect_error(pg.query("SELECT id FROM ledger WHERE id=2 FOR UPDATE NOWAIT"), "55P03")
+        finally:
+            pg.close()
+    check(torn.read_bytes() == pending, "torn decision changed an acknowledged prepare")
+
+    bad_decision = artifacts / "prepared-wrong-sequence.wal"
+    decision = bytearray(complete[len(pending) + 32:len(pending) + 32 + decision_length])
+    struct.pack_into("<Q", decision, 4, 1)
+    damaged = pending + batch_record(len(record_kinds(pending)) + 1, decision, kind=4)
+    bad_decision.write_bytes(damaged)
+    refuse(binary, bad_decision, ("ChangeRecordConflict",), prepared=3)
+    check(bad_decision.read_bytes() == damaged, "bad decision changed the WAL")
+    cases += 4
+
+
 def main():
     global cases
     parser = argparse.ArgumentParser(description=__doc__)
@@ -322,6 +413,7 @@ def main():
     artifacts.mkdir(parents=True, exist_ok=False)
     data_file_creation(binary, artifacts)
     concurrent_sequence_crash(binary, artifacts)
+    prepared_transactions(binary, artifacts)
     wal = artifacts / "database.wal"
     expected = [["1", "autocommit"], ["2", "transaction"], ["3", "literal; newline\nkept"]]
     with DurableServer(binary, wal, create=True) as server:
