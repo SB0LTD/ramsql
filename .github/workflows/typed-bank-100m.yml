@@ -1,0 +1,90 @@
+name: Typed bank 100M correctness
+
+on:
+  push:
+    branches: [bench/typed-bank-100m-20261117]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  typed-bank:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      RAMSQL_SOURCE_REVISION: 668e855bb53b9ee1097659ca741970444a3acda7
+      RAMSQL_SOURCE_SHA256: a7eb185f2c94c66a0c268c95deb5af99af90050cb20c6a971d6ca09fccce1ea0
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RAMSQL_SOURCE_REVISION }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install checksum-verified Sig release
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RAMSQL_SOURCE_REVISION"
+          mkdir -p evidence
+          source_archive="$RUNNER_TEMP/ramsql-$RAMSQL_SOURCE_REVISION.tar.gz"
+          curl --fail --location --retry 3 "https://github.com/SB0LTD/ramsql/archive/$RAMSQL_SOURCE_REVISION.tar.gz" --output "$source_archive"
+          printf '%s  %s\n' "$RAMSQL_SOURCE_SHA256" "$source_archive" | sha256sum --check --strict -
+          python tools/release_matrix.py --compiler-host "$RUNNER_OS/$RUNNER_ARCH" > evidence/compiler-release.json
+          read -r tag asset expected < <(python -c 'import json; p=json.load(open("evidence/compiler-release.json")); print(p["tag"], p["asset"], p["sha256"])')
+          archive="$RUNNER_TEMP/$asset"
+          destination="$RUNNER_TEMP/sig-toolchain"
+          curl --fail --location --retry 3 "https://github.com/SB0LTD/sig/releases/download/$tag/$asset" --output "$archive"
+          printf '%s  %s\n' "$expected" "$archive" | sha256sum --check --strict -
+          mkdir -p "$destination"
+          tar -xf "$archive" -C "$destination"
+          compiler="$(find "$destination" -type f -name sig -print -quit)"
+          marker="$(find "$destination" -type f -path '*/lib/std/std.sig' -print -quit)"
+          test -n "$compiler" && test -n "$marker"
+          chmod +x "$compiler"
+          echo "SIG=$compiler" >> "$GITHUB_ENV"
+          echo "SIG_LIB_DIR=$(dirname "$(dirname "$marker")")" >> "$GITHUB_ENV"
+      - name: Prepare the pinned runtime and build support
+        run: python tools/prepare_sig_runtime.py --installed-lib "$SIG_LIB_DIR" --output "$RUNNER_TEMP/sig-runtime" --github-env "$GITHUB_ENV"
+      - name: Build and identify the experimental binary
+        run: |
+          set -euo pipefail
+          "$SIG" version | tee evidence/sig-version.txt
+          "$SIG" build -Doptimize=ReleaseSafe -Dintegral-version-banks=true 2>&1 | tee evidence/build.txt
+          install -m 755 sig-out/bin/ramsql evidence/ramsql
+          sha256sum evidence/ramsql > evidence/SHA256SUMS
+          cp "$SIG_RUNTIME_PREPARATION" evidence/runtime-preparation.json
+          PYTHONPATH=tools python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          from package_release import dependency_provenance
+
+          path = Path("evidence")
+          identity = {
+              "product_revision": os.environ["RAMSQL_SOURCE_REVISION"],
+              "product_archive_sha256": os.environ["RAMSQL_SOURCE_SHA256"],
+              "workflow_revision": os.environ["GITHUB_SHA"],
+              "run_id": os.environ["GITHUB_RUN_ID"],
+              "binary_sha256": hashlib.file_digest((path / "ramsql").open("rb"), "sha256").hexdigest(),
+              "build_options": ["-Doptimize=ReleaseSafe", "-Dintegral-version-banks=true"],
+              "zpm": dependency_provenance(),
+              "scope": "one two-word integral table, one worker, memory only",
+          }
+          (path / "provenance.json").write_text(json.dumps(identity, indent=2) + "\n", encoding="utf-8")
+          PY
+      - name: Validate dry-run capacity and load 100M rows over PostgreSQL
+        run: |
+          set -euo pipefail
+          python -m pip install -r tools/requirements-test.txt
+          python tools/test_cli.py --binary evidence/ramsql --expect-integral-version-banks
+          python tools/test_large_runtime.py --binary evidence/ramsql --typed-bank-memory-profile \
+            --rows 100000000 --memory-budget 14347884288 --report evidence/typed-bank-100m.json
+          sha256sum --check --strict evidence/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: typed-bank-100m-evidence
+          path: evidence/
+          if-no-files-found: warn
