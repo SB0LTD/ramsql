@@ -114,6 +114,28 @@ the reference-engine comparison.
 
 MySQL differential report SHA-256 `fe944d6f3d13073289e4410d54f212bef5f77678d4be1a98ccf1bc53b305a6a0`.
 
+The follow-up with native MySQL parsing passes the unchanged comma LIMIT case.
+The backtick query now returns the expected alias and row. Native MySQL reports
+the signed integer literal as LONGLONG and the candidate reports LONG. The
+strict comparator keeps that case open. [MySQL parser PR](https://github.com/SB0LTD/zpm/pull/207)
+
+The integrated enum and dialect candidate reached composite DDL in the grouped
+type probe, after native enum and integer domain creation. An independent
+PostgreSQL 18.3 probe matched enum labels and order, catalog ownership and OID
+links, and text and binary result metadata. The individual server identities
+and results survived restarts of both engines. The candidate's main PostgreSQL
+inventory still matches 103 of 106 cases.
+
+The python-tds client reproduced both expected candidate result sets for
+T-SQL bracket identifiers and `SELECT TOP`. The other four original T-SQL
+cases failed on feature SQL. The native SQL Server comparator supplies the
+reference results for a strict comparison. [T-SQL parser PR](https://github.com/SB0LTD/zpm/pull/208) ·
+[SQL Server comparison](https://github.com/SB0LTD/zpm/actions/runs/44146301734)
+
+Enum and dialect candidate binary SHA-256 `f89763b8d1e22ebc03d5c9a948c523a23deb0f89d95e402c6eedd035fca8385d`.
+Enum focused report SHA-256 `2766c75935007b9cac4968d154634420b5ad1491b50d760171e3c7a719bf6d56`.
+T-SQL candidate-only report SHA-256 `1dae63a9213c436f7eef6e609a1fb474ee44990135fd8e79d6b40a1de488df00`.
+
 ## Earlier checkpoints
 
 Reporting follow-up, 30 October 2026: the unchanged original dbMeter full 5M
