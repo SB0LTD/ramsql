@@ -12,6 +12,8 @@ later binary.
   reactor and one configured login.
 - Add opt-in durable PostgreSQL two-phase DML, including recovery of unresolved
   transactions, lock ownership and commit/rollback decisions after restart.
+- Accept a SCRAM credential list for multiple login roles on the single-database
+  listener. Bind authenticated clients to the privileges of their catalog roles.
 - Size the default PostgreSQL read-reactor pool from native CPU limits,
   available memory and the configured connection ceiling. `--workers 1` fixes
   one reactor. One execution lane owns writes.
