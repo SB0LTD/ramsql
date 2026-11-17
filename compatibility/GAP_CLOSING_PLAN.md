@@ -35,6 +35,21 @@ recovery and application contracts have closing evidence.
 Inventory SHA-256 `1feee91259a68605cd6d50c3a1863b79f3882e0d5c424126912ba3036520f47c`.
 Expanded differential report SHA-256 `769d2d3a8bc6356168b9c0e4c70a3eae58eb683575a2257991dce17168ad50cc`.
 
+### Windows candidate with the eight wire fixes
+
+The ReleaseSafe candidate with ZPM `0e2b0a041bd4cc462e5d505d11c5ce2e44738296`
+passed **101 probes** on the same manifest and native PostgreSQL 18.3 server.
+The remaining executed failures were `PG.TYPE.ENUM_DOMAIN_COMPOSITE` and
+`PG.UTILITY.EXPLAIN`. All 15 previously unexecuted scopes remain open. The
+candidate also passed 3,944 wire assertions each at one and two workers,
+2,394 persistence assertions across 71 cases, 8,516 authentication assertions
+and the independent psycopg, PyMySQL and python-tds client suite.
+
+Candidate binary SHA-256 `5578075963b21dcc46dfb24ce85e480a4c1019ab44d0e128c4d090c8d6f1e54a`.
+Candidate differential report SHA-256 `13c894ffabe3cb5eb1b5d67fbad515467c8d2e16993da40da7a2c4ab8dd78ced`.
+[Command completion](https://github.com/SB0LTD/zpm/pull/199) ·
+[COPY FORCE_QUOTE](https://github.com/SB0LTD/zpm/pull/200)
+
 ## Earlier checkpoints
 
 Reporting follow-up, 30 October 2026: the unchanged original dbMeter full 5M
