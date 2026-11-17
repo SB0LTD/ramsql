@@ -23,16 +23,16 @@ jobs:
   native:
     name: Native Sig (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    # Windows and macOS reached 30 minutes while running the native suite.
+    # Cold native builds on Windows, macOS and Linux reached 30 minutes.
     timeout-minutes: ${{ matrix.timeout_minutes }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
-            timeout_minutes: 30
+            timeout_minutes: 60
           - os: ubuntu-24.04-arm
-            timeout_minutes: 30
+            timeout_minutes: 60
           - os: macos-latest
             timeout_minutes: 60
           - os: windows-latest

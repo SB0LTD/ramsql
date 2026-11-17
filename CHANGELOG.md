@@ -6,6 +6,11 @@ later binary.
 
 ## Unreleased
 
+- Support named-relation `VACUUM` and `ANALYZE` for ordinary and materialized
+  tables without descendants. Reclaim MVCC versions beyond the live snapshot
+  horizon and rebuild committed row, column and primary-key summaries.
+- Run the PostgreSQL differential suite against an isolated native Windows
+  PostgreSQL installation using `tools/test_postgres_compat.py --postgres-bin`.
 - Support transactional SMALLINT, INTEGER and BIGINT domains with one simple
   CHECK comparison, optional NOT NULL and standalone explicit casts. Preserve
   PostgreSQL base-type wire metadata and recover domain definitions from WAL.
