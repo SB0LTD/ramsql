@@ -334,6 +334,46 @@ def test_temporal_read_routing(binary):
                 pg.ok("SELECT t::timestamptz FROM zone_input", [["2000-01-15 12:00:00+00"]])
 
 
+def test_detached_relation_locks(server):
+    import select
+
+    query = "SELECT id FROM wire_lock ORDER BY id"
+
+    def queue(pg, sql):
+        pg.sock.sendall(query_packet(sql))
+        check(not select.select([pg.sock], [], [], 0.15)[0], f"{sql!r} bypassed a table lock")
+
+    with connection(server) as holder, connection(server) as ddl, connection(server) as reader:
+        holder.ok("CREATE TABLE wire_lock (id BIGINT PRIMARY KEY)")
+        holder.ok("INSERT INTO wire_lock VALUES (7)")
+        holder.ok("BEGIN", status=b"T")
+        holder.ok(query, [["7"]], status=b"T")
+        ddl.ok("BEGIN", status=b"T")
+        queue(ddl, "DROP TABLE wire_lock")
+        queue(reader, query)
+        holder.ok("COMMIT")
+        dropped = ddl.ready()
+        check(not errors(dropped) and dropped[-1] == (b"Z", b"T"))
+        check(not select.select([reader.sock], [], [], 0.15)[0], "reader passed an uncommitted DROP")
+        ddl.ok("ROLLBACK")
+        restored = reader.ready()
+        check(not errors(restored) and rows(restored) == [["7"]])
+
+        statement = b"read_locked\0"
+        source = b"SELECT id FROM wire_lock WHERE id=$1\0"
+        reader.sock.sendall(packet(b"P", statement + source + struct.pack("!HI", 1, 20)) + packet(b"S"))
+        check([tag for tag, _ in reader.ready()] == [b"1", b"Z"])
+        ddl.ok("BEGIN", status=b"T")
+        ddl.ok("DROP TABLE wire_lock", status=b"T")
+        bind = packet(b"B", b"\0" + statement + struct.pack("!HHI", 0, 1, 1) + b"7\0\0")
+        reader.sock.sendall(bind + packet(b"E", b"\0" + U32.pack(0)) + packet(b"S"))
+        check(reader.message()[0] == b"2", "bind did not complete")
+        check(not reader.buffer and not select.select([reader.sock], [], [], 0.15)[0], "prepared read bypassed DROP")
+        ddl.ok("COMMIT")
+        expect_error(reader.ready(), "42P01")
+        reader.ok("SELECT 1", [["1"]])
+
+
 def live_probe(server, timeout=3):
     """Allow asynchronous disconnect processing, with a hard recovery deadline."""
     deadline = time.monotonic() + timeout
@@ -741,7 +781,7 @@ def main():
     binary = args.binary.resolve(strict=True)
     started = time.monotonic()
     with Server(binary) as server:
-        for test in (test_crud_shared, test_parameterized_primary_key, test_catalog_read_routing,
+        for test in (test_crud_shared, test_parameterized_primary_key, test_catalog_read_routing, test_detached_relation_locks,
                      test_fragmented_and_coalesced, test_ssl_negotiation,
                      test_half_close_and_partial_reads,
                      test_protocol_errors, test_fatal_frames, test_truncated_disconnect,

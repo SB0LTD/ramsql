@@ -27,6 +27,8 @@ later binary.
   visibility with WAL replay when an older snapshot is open.
 - Use the owning PostgreSQL session for catalog lookups, session functions,
   and temporal conversions that need a named-zone resolver.
+- Route reads through PostgreSQL table locks while exclusive DDL holds a lock
+  or waits ahead of them.
 - Add PostgreSQL enum and composite catalog definitions with transactional
   WAL replay. Support standalone enum literal casts and flat, typed `ROW(...)`
   composite projections with PostgreSQL text and binary wire values.

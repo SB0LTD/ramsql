@@ -363,6 +363,7 @@ const Client = struct {
         if(reader.context==null and monotonicClock()<reader.retry_at) return false;
         reader.provision() catch {reader.retry_at=monotonicClock()+1000000000;return false;};
         data_gate.lockRead();defer data_gate.unlockRead();
+        if (store.database.detachedReadsBlocked()) return false;
         const context=reader.context.?;
         // Protocol Describe may lend stack-local interpolation text. No plan
         // or source reference survives the complete codec call or worker reuse.
