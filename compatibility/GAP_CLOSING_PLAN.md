@@ -136,6 +136,18 @@ Enum and dialect candidate binary SHA-256 `f89763b8d1e22ebc03d5c9a948c523a23deb0
 Enum focused report SHA-256 `2766c75935007b9cac4968d154634420b5ad1491b50d760171e3c7a719bf6d56`.
 T-SQL candidate-only report SHA-256 `1dae63a9213c436f7eef6e609a1fb474ee44990135fd8e79d6b40a1de488df00`.
 
+The next exact build matched two of six native MySQL cases after fixing signed
+integer literal metadata. It also matched the supported PostgreSQL composite
+catalog fields, typmods, array and relation links, rollback and restart. The
+stock build rejected a ten-column projection with `54000`, and the extended
+catalog comparison found that `pg_class.reltype` is still unavailable. The
+combined PostgreSQL type case now reaches the composite value cast. An
+independent python-tds client verified native DATE results on protocol 7.4 and
+the existing text representation on 7.2.
+
+Composite catalog report SHA-256 `8cd14577a9fc8009502ffb1b9ef7641d6eb78f07148d3ad39e3563b5ea34050c`.
+Native MySQL report SHA-256 `f1a255e8e6605d82f617a803ac6e7f14724ee17017eb2958f6297182a4a06c00`.
+
 ## Earlier checkpoints
 
 Reporting follow-up, 30 October 2026: the unchanged original dbMeter full 5M

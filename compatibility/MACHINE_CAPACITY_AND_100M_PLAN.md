@@ -51,6 +51,14 @@ threshold and the one-client result remains below IRDB. The full run used four
 logical CPUs and 16.76 GB of physical RAM. The server ran with four workers,
 explicit budgets and the six-word fact bank. [Matched full-sales CI](https://github.com/benor1470/dbMeter/actions/runs/44125997780)
 
+The completed campaign passed the original correctness and capacity checks in
+size-scaling, full sales and subset sales. Six of the 12 scored size-scaling
+cases passed the strict advantage criteria. Top-N throughput across 100k and
+1M rows measured 2.60–7.69× the fastest reference. The 100k filters measured
+3.15–5.23×. The 1M filters measured 1.16–1.93× and all four primary-key
+cases remained below PostgreSQL in this campaign. The full and subset mixed
+suites also failed the advantage threshold. [Complete dbMeter decision](https://github.com/benor1470/dbMeter/actions/runs/44125997780)
+
 The packed Windows planner estimates 27.29 GB of startup reservations for one
 100M-row fact table plus the small dimension tables, and 52.64 GB for two such
 fact tables under the same sizing assumptions. Both use six-word integral
@@ -76,7 +84,16 @@ one worker. A six-word profile with eight workers reports 13,704,036,352
 startup bytes. Both are capacity-only results and exclude lazy per-connection
 and read-context allocations. The same executable passed a real 10,000-row
 COPY, grouping and key-lookup check under the opt-in profile.
-[First 100M-row load and SQL checks](https://github.com/SB0LTD/ramsql/actions/runs/44142065442)
+
+The exact ReleaseSafe Linux artifact then loaded **100,000,000 rows** through
+PostgreSQL COPY. SQL checked count, sum, min and max, selective grouping,
+1,024 primary-key lookups and three duplicate-key errors. Load and checks took
+201.371 seconds. Peak and final RSS were 10,171,846,656 bytes. The runner had
+16,758,390,784 physical bytes and sampled a 14,343,235,328-byte grant. This run
+used one worker and a two-column fact table in memory mode. Wide joined
+workloads, multiple 100M-row tables, durability and comparative performance
+remain separate qualification targets.
+[Verified 100M-row CI](https://github.com/benor1470/dbMeter/actions/runs/44152396601)
 
 The earlier dense-storage ROLLUP campaign stopped during the third pair when
 the runner hit its memory budget. The packed retry completed all three pairs
@@ -108,10 +125,14 @@ A bounded integer accumulator improved the original region/month report from
 22.17 to 24.28 queries/s at one client and 48.80 to 55.63 at eight versus the
 packed RAMSQL control. The corresponding p99 moved from 49.663 to 45.567 ms
 and from 255.999 to 215.039 ms. All three pairs improved for this query and
-passed the unchanged correctness checks. A follow-up measures skipping NULL
-flags and sharing group counts when committed summaries prove all inputs are
-present. [Bounded accumulator CI](https://github.com/benor1470/dbMeter/actions/runs/44139628227) ·
-[Shared count CI](https://github.com/benor1470/dbMeter/actions/runs/44147408025)
+passed the unchanged correctness checks. [Bounded accumulator CI](https://github.com/benor1470/dbMeter/actions/runs/44139628227)
+
+Skipping NULL flags and sharing group counts when committed summaries prove
+all inputs are present improved median Q1 throughput a further 17.0% at one
+client and 26.3% at eight versus the bounded-accumulator executable. In the
+same paired run, the mixed workload improved 10.3% and 11.8%. All 24 timed
+windows and the original correctness checks passed. These are paired RAMSQL
+build comparisons. [Shared count CI](https://github.com/benor1470/dbMeter/actions/runs/44147408025)
 
 The full-sales fact schema needs seven integral cells and one date per row.
 The dense MVCC layout reserves nine full-width cells in the widened build.
