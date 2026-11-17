@@ -1,5 +1,42 @@
 # RAMSQL gap-closing plan
 
+## 17 November 2026 qualification checkpoint
+
+The exact Windows x64 binary from the published CI prerelease passed 93 of 103
+executed probes against native PostgreSQL 18.3 and left 15 scopes unexecuted.
+The release also passed the platform matrix and the separate PostgreSQL 16 and
+18 suites in memory and durable SCRAM modes. [CI prerelease](https://github.com/SB0LTD/ramsql/releases/tag/ci-v0.3.0-beta.2-run.44099014318.1)
+
+The following seven probes agreed on result rows and types and differed in the
+PostgreSQL command-completion message.
+
+| Inventory probe | Expected completion observed on PostgreSQL |
+| --- | --- |
+| `PG.DDL.CREATE_VARIANTS` | `SELECT 4` for populated `CREATE TABLE AS` |
+| `PG.CONSTRAINT.DEFERRED` | `SET CONSTRAINTS` |
+| `PG.INDEX.SECONDARY` and `PG.INDEX.ADVANCED` | `CREATE INDEX` |
+| `PG.DML.MERGE` | `MERGE 3` |
+| `PG.VIEW.ORDINARY` | `CREATE VIEW` |
+| `PG.VIEW.MATERIALIZED` | `SELECT 2` for populated creation and `REFRESH MATERIALIZED VIEW` on refresh |
+
+`PG.TYPE.ENUM_DOMAIN_COMPOSITE` stopped at the first `CREATE TYPE ... AS ENUM`
+with SQLSTATE `42601`. Test enum, domain and composite definitions independently
+before extending the bundled probe. Qualify type OIDs, casts, comparison,
+validation, schema dependencies and WAL replay as each type family is added.
+
+Two newly executed probes found SQLSTATE `0A000` for `EXPLAIN (FORMAT JSON,
+ANALYZE)` and `COPY ... FORCE_QUOTE`. The first compares plan structure and
+observed final cardinality. The second compares the COPY output format and
+bytes. Scope work still covers database lifecycle, two-phase transactions and
+maintenance, plus six MySQL and six T-SQL probes requiring native oracle runs.
+Keep the production gate open until those scopes and the broader SQL, wire,
+recovery and application contracts have closing evidence.
+
+Inventory SHA-256 `1feee91259a68605cd6d50c3a1863b79f3882e0d5c424126912ba3036520f47c`.
+Expanded differential report SHA-256 `769d2d3a8bc6356168b9c0e4c70a3eae58eb683575a2257991dce17168ad50cc`.
+
+## Earlier checkpoints
+
 Reporting follow-up, 30 October 2026: the unchanged original dbMeter full 5M
 and subset suites now pass 7/7 correctness checks for RAMSQL, PostgreSQL and
 IRDB in [run 41024725859](https://github.com/benor1470/dbMeter/actions/runs/41024725859).

@@ -26,8 +26,31 @@ retains three 60-second trials per case, result and capacity checks, and raw
 latency data. Keep the performance gate open until the repeated rate and tail
 latency requirements pass on every original case.
 
+The full-duration mixed workload measured 1.38 and 3.21 queries/s for RAMSQL
+and 56.26 and 77.02 for IRDB, respectively at one and eight clients. The same
+runner comparison for the date-formatting optimization improved the original
+region/month query 4.77× at one client and 5.13× at eight versus the RAMSQL
+control. Those runs used the original SQL and expected results.
+[Full-duration comparison](https://github.com/benor1470/dbMeter/actions/runs/44104864502) ·
+[Date optimization](https://github.com/benor1470/dbMeter/actions/runs/44111073448)
+
+The five-million-row packed-bank experiment passed all 114 original result
+checks across the three engines and all six capacity probes. RAMSQL's
+reported startup reservation fell from 11,587,103,312 to 1,982,847,056 bytes
+with the same executable and capacity profile, an 82.9% reduction. The
+experiment changes the six-word payload for the integral and date sales fact
+table. This measures planned startup bytes. The opt-in layout still needs
+heterogeneous schema, DDL, replay, reclamation and multi-table 100M-row tests.
+[Packed-bank CI evidence](https://github.com/benor1470/dbMeter/actions/runs/44121640322)
+
+The two completed typed ROLLUP trial pairs measured roughly 30–34× the
+RAMSQL control's throughput for the original segment/discount query. The
+third pair hit the runner's memory budget. Retry on matched packed-bank builds
+to obtain a complete score. Keep the gate open for the unchanged mixed workload.
+[Incomplete ROLLUP campaign](https://github.com/benor1470/dbMeter/actions/runs/44117394260)
+
 The full-sales fact schema needs seven integral cells and one date per row.
-Each MVCC version currently reserves nine full-width cells in the widened build.
+The dense MVCC layout reserves nine full-width cells in the widened build.
 Compact typed MVCC payloads are the storage priority. Establish that inserts,
 updates, ordered and unique indexes, chained snapshots, reclamation and logical
 WAL replay agree with dense storage before using a compact layout in the server.
