@@ -25,8 +25,12 @@ owns all databases in this bounded mode. Capacity is four live databases
 including `postgres`, with the configured table and workspace budget applied
 to each Store independently.
 
-Prepared transactions use a per-database identifier namespace and grant in
-this beta. Resolve each prepared transaction through its owning database.
+Prepared transaction identifiers and `--max-prepared-transactions` apply to
+the entire cluster. Resolve each prepared transaction through its owning
+database. Opening the cluster validates the recovered identifiers and grant
+before admitting connections. Check for outstanding prepared transactions
+before lowering the grant. The `pg_prepared_xacts` administrative view is
+still pending.
 
 The cluster journal records an OID reservation before file provisioning. An
 acknowledged CREATE means the database WAL's cluster/OID identity and the

@@ -16,6 +16,7 @@ import re
 import socket
 import struct
 import subprocess
+from tempfile import TemporaryDirectory
 import threading
 import time
 
@@ -300,6 +301,37 @@ def test_catalog_read_routing(server):
         check(rows(messages) == [["wire_catalog"]])
         pg.ok("DROP VIEW wire_catalog_view")
         pg.ok("DROP TABLE wire_catalog")
+
+
+def test_temporal_read_routing(binary):
+    facts = json.loads(subprocess.check_output([str(binary), "--capabilities"]))
+    workers = "2" if facts["native_workers_available"] else "1"
+    with TemporaryDirectory() as zone_directory:
+        # TZif v2 with one fixed UTC+02 type and no transitions.
+        block = struct.pack("!4sc15x6I", b"TZif", b"2", 0, 0, 0, 0, 1, 4)
+        block += struct.pack("!iBB", 7200, 0, 0) + b"TST\0"
+        zone = Path(zone_directory, "Wire", "Plus2")
+        zone.parent.mkdir()
+        zone.write_bytes(block * 2 + b"\nTST-2\n")
+        with Server(binary, extra_arguments=("--workers", workers, "--timezone-dir", zone_directory)) as server:
+            with connection(server) as pg:
+                pg.ok("CREATE TABLE zone_input (id INT PRIMARY KEY, v VARCHAR, a TEXT[], r TEXT, t TIMESTAMP)")
+                pg.ok(
+                    "INSERT INTO zone_input VALUES (1, '2000-01-15 12:00:00 Wire/Plus2', "
+                    "ARRAY['2000-01-15 12:00:00 Wire/Plus2'::text], "
+                    "'[\"2000-01-15 12:00:00 Wire/Plus2\",\"2000-01-15 13:00:00 Wire/Plus2\")', "
+                    "'2000-01-15 12:00:00')"
+                )
+                for statement in (
+                    "SELECT v::timestamptz FROM zone_input",
+                    "SELECT (a::timestamptz[])[1] FROM zone_input",
+                    "SELECT lower(r::tstzrange) FROM zone_input",
+                    "SELECT v FROM JSON_TABLE('\"2000-01-15 12:00:00 Wire/Plus2\"', '$' "
+                    "COLUMNS(v TIMESTAMPTZ PATH '$')) AS jt",
+                ):
+                    pg.ok(statement, [["2000-01-15 10:00:00+00"]])
+                pg.ok("SELECT v::timetz FROM zone_input", [["12:00:00+02"]])
+                pg.ok("SELECT t::timestamptz FROM zone_input", [["2000-01-15 12:00:00+00"]])
 
 
 def live_probe(server, timeout=3):
@@ -718,6 +750,8 @@ def main():
             check(server.process.poll() is None, f"server exited after {test.__name__}: {list(server.errors)!r}")
             cases += 1
     test_idle_expiry(binary)
+    cases += 1
+    test_temporal_read_routing(binary)
     cases += 1
     test_running_query_controls(binary)
     cases += 1

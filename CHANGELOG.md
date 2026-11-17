@@ -12,6 +12,8 @@ later binary.
   reactor and one configured login.
 - Add opt-in durable PostgreSQL two-phase DML, including recovery of unresolved
   transactions, lock ownership and commit/rollback decisions after restart.
+  Cluster mode shares the prepared identifier namespace and capacity grant
+  across database stores.
 - Accept a SCRAM credential list for multiple login roles on the single-database
   listener. Bind authenticated clients to the privileges of their catalog roles.
 - Size the default PostgreSQL read-reactor pool from native CPU limits,
@@ -23,6 +25,8 @@ later binary.
 - Return PostgreSQL admission errors when the connection budget is exhausted.
 - Keep notification cursors on the serialized path and align TRUNCATE
   visibility with WAL replay when an older snapshot is open.
+- Use the owning PostgreSQL session for catalog lookups, session functions,
+  and temporal conversions that need a named-zone resolver.
 - Add PostgreSQL enum and composite catalog definitions with transactional
   WAL replay. Support standalone enum literal casts and flat, typed `ROW(...)`
   composite projections with PostgreSQL text and binary wire values.
