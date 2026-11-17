@@ -210,6 +210,10 @@ def prove_prepared_scope(binary, base):
             assert error_code(peer, "COMMIT PREPARED 'shared_gid'") == "0A000"
             assert error_code(primary, "ROLLBACK PREPARED 'second_gid'") == "0A000"
 
+    too_small = DurableServer(binary, base, prepared=1, storage_options=SMALL_PROFILE)
+    denied = subprocess.run(too_small.command(), capture_output=True, text=True, timeout=20)
+    assert denied.returncode and not denied.stdout and "TransactionCapacity" in denied.stderr, denied
+
     with server() as live, connect(live, "postgres") as primary, connect(live, "peer") as peer:
         primary.ok("SELECT id FROM t", [])
         peer.ok("SELECT id FROM t", [])
