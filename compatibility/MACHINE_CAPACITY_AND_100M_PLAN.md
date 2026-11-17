@@ -105,6 +105,12 @@ key checks. The run charged 13,392,289,792 startup bytes and peaked at
 separate executor regression. Multiple 100M tables and durable replay at
 this size remain unqualified. [100M joined correctness](https://github.com/benor1470/dbMeter/actions/runs/44156569523)
 
+The joined executor follow-up returns all 20 expected ordered rows from the
+last 128 keys with the same 100M-row fixture and memory budget. It also repeats
+the 91 full and three selective aggregate groups and concurrent point reads.
+The exact Linux artifact peaked at 13,379,989,504 bytes of RSS. The follow-up
+ran in memory mode. [100M ordered join qualification](https://github.com/benor1470/dbMeter/actions/runs/44159748217)
+
 The earlier dense-storage ROLLUP campaign stopped during the third pair when
 the runner hit its memory budget. The packed retry completed all three pairs
 with identical compiler, capacity options and original data. Throughput for

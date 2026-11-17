@@ -164,8 +164,17 @@ non-null INT result columns as fixed-length with nullable unset. Its unnamed
 function result columns have empty names. OUTPUT, APPLY and procedural SQL
 are rejected by the candidate. [Native SQL Server comparison](https://github.com/benor1470/dbMeter/actions/runs/44157665404)
 
-Latest PostgreSQL inventory report SHA-256 `297ebd021df3147fd63bf77c0e4f320568fb484831bb6bc312b3d4c2f84a08cf`.
-Latest native MySQL report SHA-256 `7a2b058d7c418d2fbd0e675a46226d57ee72c09546b043c278bd7b323be908b2`.
+PostgreSQL inventory report SHA-256 `297ebd021df3147fd63bf77c0e4f320568fb484831bb6bc312b3d4c2f84a08cf`.
+Native MySQL report SHA-256 `7a2b058d7c418d2fbd0e675a46226d57ee72c09546b043c278bd7b323be908b2`.
+
+RAMSQL `13294c5246dce4ef6ab23af55c1679b7d189af42` with ZPM
+`5f674e9e561d208bed7f29338b462d257e482165` preserves the 104 PostgreSQL matches
+and reaches **4 of 6** MySQL and **3 of 6** strict SQL Server matches. The
+MySQL trace compares replacement counts, defaults, repeated keys, rollback,
+concurrent writers and WAL reopening with MySQL 8.4.13. Unsigned integers and
+AUTO_INCREMENT remain open. SQL Server's exact metadata and values match
+for IDENTIFIERS, TOP and FUNCTIONS. Its remaining inventory cases are OUTPUT,
+APPLY and procedural SQL. [Native SQL Server run](https://github.com/benor1470/dbMeter/actions/runs/44161329548)
 
 ## Earlier checkpoints
 
