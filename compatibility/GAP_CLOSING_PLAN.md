@@ -2,6 +2,25 @@
 
 ## 17 November 2026 qualification checkpoint
 
+The combined RAMSQL candidate `b90354c8911b22a340fb68d15383205cd2ccf4b5`, with
+ZPM `7c56722bb354e1e44d418c6351edc08ee4539218`, matches **117 of 118** original
+inventory programs. PostgreSQL 18.3 matches 105 of 106 with prepared
+transactions enabled, including the complete original two-phase commit probe.
+`PG.DDL.DATABASE` is the remaining mismatch. Native MySQL 8.4.13 and SQL Server
+2022 CU28 each match all six cases.
+[Native SQL Server evidence](https://github.com/benor1470/dbMeter/actions/runs/44175056901)
+
+The Windows binary SHA-256 is
+`f8c9696f7e5173393ee194375f18163ea71160e22461de774b61cd9c97160f8e`.
+It passed 83 persistence cases and 3,372 assertions, including prepared
+update, delete, insert, lock and decision recovery on a lean packed table
+without a committed scan projection or secondary hashes. The new Linux
+100M-row recovery and dbMeter comparisons are running on this same revision.
+[100M recovery](https://github.com/benor1470/dbMeter/actions/runs/44175057270) ·
+[dbMeter qualification](https://github.com/benor1470/dbMeter/actions/runs/44175066222)
+
+### Published prerelease baseline
+
 The exact Windows x64 binary from the published CI prerelease passed 93 of 103
 executed probes against native PostgreSQL 18.3 and left 15 scopes unexecuted.
 The release also passed the platform matrix and the separate PostgreSQL 16 and
