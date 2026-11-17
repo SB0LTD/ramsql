@@ -244,3 +244,29 @@ checksums for every run and recheck versions before a new comparison campaign.
 5. Add parallel reads and budget-aware scheduling across all usable cores.
 6. Run the matrix, profile the largest remaining costs, optimize and repeat.
    Preserve old results, regressions and counterexamples throughout.
+
+## Experimental three-table correctness fixture
+
+`tools/test_large_star_runtime.py` loads 100,000,000 six-column integral facts
+and two separate dimension tables with 963 products and 116 stores. It checks
+the 91 full three-way groups, three selective groups, NULL-aware counts and
+sums, signed sums, extrema and references to missing dimensions. The reference
+calculation reduces one deterministic 524,288-row input period and the exact
+partial period with independent scalar lookups. Two connected clients check
+512 successful fact lookups, 1,024 dimension probes and two missing fact keys.
+
+The six-word lean layout reserves 13,392,289,792 startup bytes in the Windows
+dry run with four client slots, two workers, 8,192 workspace rows, 1,024 result
+rows and 262,144 query references. The previous single-table Linux run sampled
+14,343,235,328 bytes available for new regions. The star workflow samples its
+own runner before any load and fails admission if the exact layout exceeds its
+grant. That measurement excludes later lazy client/worker payload admission.
+
+On product revision `668e855b`, the direct joined range over the last 128 fact
+keys can fail with SQLSTATE `54000` (`WorkspaceCapacity`) even with
+`ORDER BY ... LIMIT 20`. The fixture executes that query and preserves the
+result or exact failure and independently expected rows under `ordered_range`.
+The compatibility claim covers the passing grouped joins and point reads.
+The fixture uses memory-only storage and records correctness and memory
+evidence. Durability, joins between two 100M-row tables and comparative
+performance remain separate qualification cases.
