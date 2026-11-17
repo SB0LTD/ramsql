@@ -64,6 +64,8 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     const tds_path = try zpm.modulePath("src/db/tds.sig", &tds_buf);
     const tcp_path = try zpm.modulePath("src/platform/tcp_server.sig", &tcp_buf);
     const store_path = try zpm.modulePath("src/db/store.sig", &store_buf);
+    var registry_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    const registry_path = try zpm.modulePath("src/db/database_registry.sig", &registry_buf);
     var scram_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
     const scram_path = try zpm.modulePath("src/db/scram.sig", &scram_buf);
     _ = try ctx.addModule("scram", scram_path);
@@ -157,6 +159,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
             importEntry("tds", tds_path),
             importEntry("tcp_server", tcp_path),
             importEntry("db_store", store_path),
+            importEntry("database_registry", registry_path),
             importEntry("scram", scram_path),
             importEntry("durable_log", durable_log_path),
             importEntry("db_file", db_file_path),

@@ -1,0 +1,43 @@
+name: Database cluster qualification
+
+on:
+  push:
+    branches: [feat/postgres-durable-databases-20261117]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cluster:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prepare verified Sig toolchain
+        shell: pwsh
+        run: |
+          $identity = python tools/release_matrix.py --compiler-host Linux/X64 | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $archive = Join-Path $env:RUNNER_TEMP $identity.asset
+          $destination = New-Item -ItemType Directory -Path (Join-Path $env:RUNNER_TEMP 'cluster-sig')
+          Invoke-WebRequest "https://github.com/SB0LTD/sig/releases/download/$($identity.tag)/$($identity.asset)" -OutFile $archive -MaximumRetryCount 3 -RetryIntervalSec 5
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne $identity.sha256) { throw 'Sig checksum mismatch' }
+          tar -xf $archive -C $destination.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $compiler = Get-ChildItem -Path $destination.FullName -Recurse -File -Filter sig | Select-Object -First 1
+          $library = Get-ChildItem -Path $destination.FullName -Recurse -Directory -Filter lib | Where-Object { Test-Path (Join-Path $_.FullName 'std/std.sig') } | Select-Object -First 1
+          if ($null -eq $compiler -or $null -eq $library) { throw 'Incomplete Sig SDK' }
+          "SIG=$($compiler.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          python tools/prepare_sig_runtime.py --installed-lib "$($library.FullName)" --output "$env:RUNNER_TEMP/sig-runtime" --github-env "$env:GITHUB_ENV"
+      - name: Build RAMSQL
+        run: '"$SIG" build -Doptimize=ReleaseSafe'
+      - name: Prove cluster isolation and durable replay
+        run: python tools/test_database_cluster.py sig-out/bin/ramsql
+      - name: Check established single-database wire and persistence paths
+        run: |
+          python tools/test_server.py
+          python tools/test_persistence.py

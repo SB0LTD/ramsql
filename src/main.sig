@@ -178,6 +178,9 @@ fn run(init: std.process.Init.Minimal) !u8 {
             if (options.memory) return error.InvalidServerOptions;
             options.create_data = true;
             has_server_options = true;
+        } else if (same(arg, "--database-cluster")) {
+            options.database_cluster = true;
+            has_server_options = true;
         } else if (same(arg, "--auth-catalog-role")) {
             options.auth_catalog_role = true;
             has_server_options = true;
@@ -243,7 +246,7 @@ fn run(init: std.process.Init.Minimal) !u8 {
     }
     if (has_server_options and mode != .serve and mode != .capabilities and mode != .machine_capacity) return error.UnknownArgument;
     if (backup_target) |target| {
-        if (mode != .serve or options.memory or options.create_data) return error.InvalidServerOptions;
+        if (mode != .serve or options.memory or options.create_data or options.database_cluster) return error.InvalidServerOptions;
         try server.backup(options, target);
         try write("RAMSQL backup complete\n");
         return 0;
