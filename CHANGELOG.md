@@ -6,6 +6,15 @@ later binary.
 
 ## Unreleased
 
+- Add PostgreSQL enum and composite catalog definitions with transactional
+  WAL replay. Support standalone enum literal casts and flat, typed `ROW(...)`
+  composite projections with PostgreSQL text and binary wire values.
+- Parse MySQL backtick identifiers and two-argument `LIMIT`. Support signed
+  integer literal result metadata, signed integer `IFNULL`, and `DATE_ADD`
+  with day and month intervals for dates and canonical ISO date strings.
+- Parse T-SQL bracket identifiers and literal `SELECT TOP`. Support signed
+  integer `ISNULL`, calendar `DATEADD` on typed dates, and native TDS 7.3+
+  DATE result framing. See the compatibility plan for remaining dialect scope.
 - Support named-relation `VACUUM` and `ANALYZE` for ordinary and materialized
   tables without descendants. Reclaim MVCC versions beyond the live snapshot
   horizon and rebuild committed row, column and primary-key summaries.
