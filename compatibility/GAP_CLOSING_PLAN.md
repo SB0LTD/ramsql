@@ -93,10 +93,26 @@ summary on interruption. Only database lifecycle, user-defined enum and
 composite types, and two-phase commit fail in the PostgreSQL inventory.
 The candidate also passed the one- and two-worker wire suites, crash/backup
 suite, authentication checks, independent clients and machine admission tests.
+[RAMSQL qualification](https://github.com/SB0LTD/ramsql/pull/64) ·
 [Named-relation ANALYZE](https://github.com/SB0LTD/zpm/pull/206)
 
 Maintenance candidate binary SHA-256 `c90a4818940d26d7eeb0436d68505631426e33abf3331c2cb8f69bb572caa827`.
 Maintenance differential report SHA-256 `96616cc6c21b555b9e7622ad2392d2c2e8022aeff9837d4ae7ac49344980c027`.
+
+The same executable matched all 37 PostgreSQL probes in memory and durable
+SCRAM modes. It also matched 313 native PostgreSQL semantics cases, 46
+isolation schedules and 11 COPY cases in the memory profile. The explicit
+512-row control returned `54000` and left the table empty. The memory
+semantics run carried 18 explicit durable-restart skips.
+
+Native MySQL Community 8.4.13 executed the six unchanged MySQL inventory
+cases. RAMSQL passed every setup statement and rejected the first feature
+statement in each case with MySQL error 1064. The gaps cover backtick
+identifiers, unsigned BIGINT, AUTO_INCREMENT, REPLACE, comma LIMIT and
+native scalar functions. All six native SQL Server cases still require
+the reference-engine comparison.
+
+MySQL differential report SHA-256 `fe944d6f3d13073289e4410d54f212bef5f77678d4be1a98ccf1bc53b305a6a0`.
 
 ## Earlier checkpoints
 
