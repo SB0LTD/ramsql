@@ -46,6 +46,18 @@ def main():
     assert caps['tls'] is False and caps['bind'] == '127.0.0.1'
     assert caps['sql_execution_workers']==1 and caps['exclusive_sql_workers']==1
     assert caps['parallel_simple_reads'] is False
+    assert caps['read_cache_bytes'] == 0 and caps['read_cache_entries'] == 0
+    if caps['native_workers_available']:
+        parallel = ['--workers', '2']
+        cache = ['--read-cache-bytes', '8388608']
+        enabled = json.loads(run(['--capabilities', *parallel, *cache]).stdout)
+        assert 0 < enabled['read_cache_bytes'] <= 8388608 and enabled['read_cache_entries'] > 0
+        assert enabled['read_cache_rows_per_entry'] == min(128, enabled['result_rows'])
+        default_plan = json.loads(run(['--machine-capacity', *parallel]).stdout)
+        cached_plan = json.loads(run(['--machine-capacity', *parallel, *cache]).stdout)
+        assert cached_plan['legacy_startup_bytes'] - default_plan['legacy_startup_bytes'] == enabled['read_cache_bytes']
+        assert run(['--capabilities', *cache]).returncode == 2
+        assert run(['--capabilities', *parallel, '--read-cache-bytes', '1']).returncode == 2
     with tempfile.TemporaryDirectory(prefix='ramsql-capabilities-') as directory:
         wal = Path(directory) / 'must-not-be-created.wal'
         inspected = subprocess.run([str(binary), '--capabilities', '--data', str(wal)],

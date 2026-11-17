@@ -611,6 +611,27 @@ def test_running_query_controls(binary):
             pg.ok("SELECT value FROM budgeted WHERE id = 0", [["0"]])
 
 
+def test_read_cache(binary):
+    with Server(binary, extra_arguments=("--read-cache-bytes", "8388608")) as server:
+        with connection(server) as reader, connection(server) as writer:
+            writer.ok("CREATE TABLE cached_sales(id INT PRIMARY KEY, category TEXT, amount BIGINT)")
+            writer.ok("INSERT INTO cached_sales VALUES (1,'a',3),(2,'a',4),(3,'b',20)")
+            query = "SELECT category,SUM(amount) FROM cached_sales GROUP BY category ORDER BY category"
+            for _ in range(4):
+                reader.ok(query, [["a", "7"], ["b", "20"]])
+            writer.ok("BEGIN", status=b"T")
+            writer.ok("UPDATE cached_sales SET amount=30 WHERE id=1", status=b"T")
+            reader.ok(query, [["a", "7"], ["b", "20"]])
+            writer.ok("COMMIT")
+            reader.ok(query, [["a", "34"], ["b", "20"]])
+            reader.ok(query, [["a", "34"], ["b", "20"]])
+            writer.ok("DROP TABLE cached_sales")
+            expect_error(reader.query(query), "42P01")
+            writer.ok("CREATE TABLE cached_sales(id INT PRIMARY KEY, category TEXT, amount BIGINT)")
+            writer.ok("INSERT INTO cached_sales VALUES (1,'other',-5)")
+            reader.ok(query, [["other", "-5"]])
+
+
 def main():
     global cases
     parser = argparse.ArgumentParser(description=__doc__)
@@ -633,6 +654,9 @@ def main():
     cases += 1
     test_running_query_controls(binary)
     cases += 1
+    if args.workers > 1:
+        test_read_cache(binary)
+        cases += 1
     print(json.dumps({"suite": "server", "pass": True, "cases": cases,
                       "assertions": assertions, "seconds": round(time.monotonic() - started, 3)}))
 
