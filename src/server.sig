@@ -246,6 +246,7 @@ const Client = struct {
     /// transaction block, where delivery waits for ReadyForQuery).
     fn deliverNotifications(self: *Client) void {
         if (self.protocol != .postgres or self.blocked or self.closing or self.output_len != 0 or self.input_len != 0) return;
+        if (cluster_options.database_cluster and self.database_binding == null) return;
         if (!cluster_options.database_cluster and notification_sequence.load(.acquire) == self.notify_seen) return;
         lockStore();
         defer unlockStore();
