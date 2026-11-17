@@ -61,6 +61,43 @@ EXPLAIN candidate binary SHA-256 `fea2f28e6ee0197be070d13fc47a10cb7f978a17e213d2
 EXPLAIN differential report SHA-256 `55e678cfaaf67d71a2483dde2d903834e90891e2601a915f5cd422d9f8e0562a`.
 [Simple SELECT EXPLAIN](https://github.com/SB0LTD/zpm/pull/203)
 
+The disposable cluster audit executed three additional PostgreSQL probes using
+unique database, schema and prepared-transaction names. PostgreSQL 18.3 used
+`max_prepared_transactions=8` for this run. The same binary matched 102 of 106
+PostgreSQL cases, with failures at `CREATE DATABASE`, `CREATE TYPE ... AS ENUM`,
+`PREPARE TRANSACTION` and `VACUUM`. The 12 native MySQL and T-SQL cases remain
+unexecuted. The audit now resolves dynamic wire type OIDs to schema, name and
+type kind while retaining the raw OIDs and other metadata.
+
+Expanded administrative audit SHA-256 `83fd508a7b64f2218c1d29fe0ee044efea3a1ed02b8639d1ff2733911defa279`.
+
+The separate named-relation `VACUUM` candidate passed 21,505 wire and store
+assertions. The new cases verify that real reclamation waits for a repeatable
+read snapshot to release old versions and creates no logical WAL record.
+This evidence covers the basic VACUUM command within the maintenance probe.
+[Named-relation VACUUM](https://github.com/SB0LTD/zpm/pull/205)
+
+The integer-domain candidate with ZPM `699753159d84fc33a4015e2e8a8ac8723b1dd6c7`
+matched 16 focused native wire probes and replayed a durable domain definition
+through an actual RAMSQL restart. It covers SMALLINT, INTEGER and BIGINT domains
+with bounded comparisons, optional NOT NULL and standalone casts. The bundled
+type case still requires enum and composite DDL and values. The full inventory
+counts above also held on this candidate. [Integer domain implementation](https://github.com/SB0LTD/zpm/pull/204)
+
+Focused integer-domain audit SHA-256 `0693e431a2e6cc3a5421232fb4d5aeb9b378ce9b76799a0edb3397e1e567fff5`.
+
+The integrated maintenance candidate, with ZPM `7f16e85e01b7e154fd5b8083ec7d6d2bb0fa953d`,
+matched **103 of 106** native PostgreSQL probes. The complete maintenance case
+passed. `ANALYZE` refreshes committed table summaries and preserves the prior
+summary on interruption. Only database lifecycle, user-defined enum and
+composite types, and two-phase commit fail in the PostgreSQL inventory.
+The candidate also passed the one- and two-worker wire suites, crash/backup
+suite, authentication checks, independent clients and machine admission tests.
+[Named-relation ANALYZE](https://github.com/SB0LTD/zpm/pull/206)
+
+Maintenance candidate binary SHA-256 `c90a4818940d26d7eeb0436d68505631426e33abf3331c2cb8f69bb572caa827`.
+Maintenance differential report SHA-256 `96616cc6c21b555b9e7622ad2392d2c2e8022aeff9837d4ae7ac49344980c027`.
+
 ## Earlier checkpoints
 
 Reporting follow-up, 30 October 2026: the unchanged original dbMeter full 5M

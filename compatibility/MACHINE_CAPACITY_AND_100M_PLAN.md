@@ -60,6 +60,24 @@ capacity command without loading data. The public benchmark runner has less
 physical memory than either startup estimate. Multi-table 100M qualification
 still requires actual SQL loads, concurrent reads/writes and durable recovery.
 
+One 100M-row fact bank reserves about 9.61 GB for version metadata and the
+six-word typed payload, 7.70 GB for the duplicate committed scan projection,
+and 4.29 GB for four secondary hashes. Scoped core contracts now validate
+omitting the scan projection and admitting fewer secondary hashes per table.
+A logical index with no hash storage enforces uniqueness through an exact
+MVCC scan in the supported layout. Omitted committed projections fall back to
+existing execution paths and retain their workspace requirements. The shared
+query references and lazy worker workspaces are the next significant
+reservations to account for in a live 100M run.
+
+The opt-in typed-bank memory profile brings the page-rounded startup
+reservation to 10,176,737,280 bytes for one 100M-row two-word fact table with
+one worker. A six-word profile with eight workers reports 13,704,036,352
+startup bytes. Both are capacity-only results and exclude lazy per-connection
+and read-context allocations. The same executable passed a real 10,000-row
+COPY, grouping and key-lookup check under the opt-in profile.
+[First 100M-row load and SQL checks](https://github.com/SB0LTD/ramsql/actions/runs/44142065442)
+
 The earlier dense-storage ROLLUP campaign stopped during the third pair when
 the runner hit its memory budget. The packed retry completed all three pairs
 with identical compiler, capacity options and original data. Throughput for
@@ -68,6 +86,23 @@ eight versus the packed RAMSQL control. The full mixed workload improved
 27.3–30.2×. The reference-engine results above still determine qualification.
 [Incomplete dense campaign](https://github.com/benor1470/dbMeter/actions/runs/44117394260) ·
 [Completed packed comparison](https://github.com/benor1470/dbMeter/actions/runs/44125997780)
+
+The separate opt-in cache comparison completed all three original trial pairs
+using the same packed executable and unchanged data. With warm repeated reads,
+the full mix reached 18,528.72 queries/s at one client and 17,213.43 at eight,
+compared with 41.99 and 94.40 with its cache disabled. The all-engine campaign
+uses the uncached profile. [Same-executable cache CI](https://github.com/benor1470/dbMeter/actions/runs/44129733754)
+
+The prepared primary-key fast path improved original JDBC throughput by
+12.9–13.9% at one client and 18.8–20.0% at eight across paired 100k- and
+1M-row fixtures. At 1M rows, p99 improved from 78 to 70 microseconds at one
+client and from 267 to 229 at eight. Both binaries passed all original checks
+in the comparison. [Prepared primary-key CI](https://github.com/benor1470/dbMeter/actions/runs/44135273175)
+
+Changing exact DISTINCT membership to idempotent bitmap writes and a final
+population count improved category ranking 3.8% at one client and 1.2% at
+eight by median throughput. The mixed workload showed less than 0.5% change
+at either client count. [Exact DISTINCT CI](https://github.com/benor1470/dbMeter/actions/runs/44134658004)
 
 The full-sales fact schema needs seven integral cells and one date per row.
 The dense MVCC layout reserves nine full-width cells in the widened build.
