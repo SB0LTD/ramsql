@@ -168,7 +168,7 @@ before importing a schema; wire compatibility does not establish dialect parity.
 
 Eligible PostgreSQL listeners size their read-worker pool from the process's
 native CPU affinity or quota, the maximum admitted clients and the startup
-memory grant. The pool is capped at 16 reactors in this build. The estimate
+memory grant. The pool can grow to the configured connection ceiling. The estimate
 includes a stack, query scratch and one client response per selected worker.
 `--workers N` fixes the count for controlled deployments or benchmarks.
 

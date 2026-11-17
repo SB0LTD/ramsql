@@ -770,7 +770,7 @@ fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial:
     if (parallel) reactors[slot % reactor_count].signal.notify();
 }
 
-const max_reactors = 16;
+const max_reactors = capacity;
 var reactor_count: usize = 0;
 var reactor_stop: std.atomic.Value(bool) = .init(false);
 /// Committed NOTIFY count as last read under the store lock (any reactor).

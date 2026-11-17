@@ -123,6 +123,9 @@ def main():
     assert 1 <= automatic['workers'] <= 2 and automatic['exclusive_sql_workers'] == 1
     assert automatic['parallel_simple_reads'] is (automatic['workers'] > 1)
     assert run(["--capabilities", "--workers", "0"]).returncode == 2
+    if caps['native_workers_available'] and caps['compiled_clients'] >= 17:
+        higher = json.loads(run(["--capabilities", "--workers", "17", "--max-clients", "17"]).stdout)
+        assert higher['workers'] == 17 and higher['exclusive_sql_workers'] == 1
     with tempfile.TemporaryDirectory(prefix='ramsql-capabilities-') as directory:
         wal = Path(directory) / 'must-not-be-created.wal'
         inspected = subprocess.run([str(binary), '--capabilities', '--data', str(wal)],

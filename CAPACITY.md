@@ -19,7 +19,7 @@ query planner, RSS forecast or admission guarantee for every SQL statement.
 | Identifier bytes | 63 | Fixed server policy |
 | Client slots | 16 | Runtime `--max-clients` 1..60; build `-Dclients` changes the default |
 | Transaction slots | 62 | Maximum hosted clients + 2 |
-| Socket reactors | 1 | Experimental `--workers` 1..16 on Windows/no-libc Linux; <= clients; shared SQL remains serialized |
+| Socket reactors | Automatic for PostgreSQL | `--workers auto\|N`, at most the runtime connection ceiling on supported Windows and no-libc Linux builds. PostgreSQL read sessions can overlap, and writes share one execution lane. |
 | Changes per transaction | 4,096 | Build `-Dtx-writes`; version/mark/catalog entries also consume budget |
 | Encoded change/recovery bytes | 1 MiB | Build `-Dtransaction-bytes`; minimum 65,540 |
 | Explicit row locks, server-wide | 256 | Build `-Drow-locks`; 8 SHARE holders per row remain fixed |
