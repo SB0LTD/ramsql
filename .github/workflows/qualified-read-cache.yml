@@ -49,10 +49,12 @@ jobs:
           mkdir -p "$RUNNER_TEMP/zpm-cache-source"
           tar -xf "$zpm_archive" --strip-components=1 -C "$RUNNER_TEMP/zpm-cache-source"
           cp build.sig.zon evidence/build.sig.zon
-      - name: Build the exact packed-capable RAMSQL artifact
+      - name: Build the exact dbMeter cache-pair profile
         run: |
           set -euo pipefail
-          "$SIG" build -Doptimize=ReleaseSafe -Dintegral-version-banks=true 2>&1 | tee evidence/build.txt
+          flags=(-Doptimize=ReleaseFast -Dtarget=x86_64-linux-musl -Dlink-libc=false -Dtables=32 -Dcolumns=9 -Dtext-bytes=200 -Dintegral-version-banks=true)
+          printf '%s\n' "${flags[@]}" > evidence/build-flags.txt
+          "$SIG" build "${flags[@]}" 2>&1 | tee evidence/build.txt
           install -m 755 sig-out/bin/ramsql evidence/ramsql
           (cd evidence && sha256sum ramsql > SHA256SUMS && sha256sum --check --strict SHA256SUMS)
           cp "$SIG_RUNTIME_PREPARATION" evidence/runtime-preparation.json
@@ -67,7 +69,11 @@ jobs:
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/zpm-cache-source"
-          "$SIG" build run-contract-parallel-read -Doptimize=ReleaseSafe --Sig-lib-dir "$SIG_LIB_DIR" 2>&1 | tee "$GITHUB_WORKSPACE/evidence/zpm-parallel-read.txt"
+          "$SIG" build-exe --Sig-lib-dir "$SIG_LIB_DIR" -OReleaseSafe --dep sql --dep worker_thread --dep db_store \
+            -Mroot=tests/test_sql_parallel_read.sig -Msql=src/core/sql.sig \
+            -Mworker_thread=src/platform/worker_thread.sig -Mdb_store=src/db/store.sig \
+            "-femit-bin=$RUNNER_TEMP/zpm-parallel-read" 2>&1 | tee "$GITHUB_WORKSPACE/evidence/zpm-parallel-read-build.txt"
+          "$RUNNER_TEMP/zpm-parallel-read" 2>&1 | tee "$GITHUB_WORKSPACE/evidence/zpm-parallel-read.txt"
           grep -E 'PASS|"pass":true' "$GITHUB_WORKSPACE/evidence/zpm-parallel-read.txt"
       - uses: actions/upload-artifact@v4
         if: always()
