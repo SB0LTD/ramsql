@@ -55,6 +55,7 @@ pub const Options = struct {
     idle_ms: u32 = 30000,
     /// Execution checkpoints per statement; zero disables the work limit.
     max_query_work: u64 = 0,
+    read_cache_bytes: usize = 0,
     /// Runtime storage budget, independent of result/query workspace sizes.
     storage_rows: usize = profile.rows,
     storage_versions: ?usize = null,
@@ -747,6 +748,21 @@ fn validateWorkers(options: Options) !void {
     if (options.workers > 1 and !threads.available) return error.WorkersUnsupportedOnPlatform;
 }
 
+const ReadCachePlan = struct {
+    bytes: usize = 0,
+    entries: usize = 0,
+    rows: usize = 0,
+};
+const read_cache_key_bytes = 1024;
+
+fn planReadCache(options: Options) !ReadCachePlan {
+    if (options.read_cache_bytes == 0) return .{};
+    if (options.workers < 2 or options.protocol != .postgres) return error.InvalidServerOptions;
+    const rows = @min(@as(usize, 128), options.result_rows);
+    const layout = Raw.ReadResultCache.layoutForBytes(options.read_cache_bytes, read_cache_key_bytes, rows) catch return error.InvalidServerOptions;
+    return .{ .bytes = layout.bytes, .entries = layout.entries, .rows = rows };
+}
+
 const Reactor = struct {
     thread: threads.Thread = .{},
     signal: threads.Signal = .{},
@@ -893,6 +909,7 @@ pub fn describe(options: Options) !void {
     if (options.max_clients == 0 or options.max_clients > capacity or options.idle_ms == 0) return error.InvalidServerOptions;
     try validateWorkers(options);
     const plan = try storagePlan(options);
+    const cache = try planReadCache(options);
     const read_payload=@addWithOverflow(try Raw.ReadContext.backingBytesFor(options.work_rows,plan.refs),@sizeOf(Raw.ReadContext));
     if(read_payload[1]!=0) return error.InvalidServerOptions;
     var buffer: [4096]u8 = undefined;
@@ -918,19 +935,20 @@ pub fn describe(options: Options) !void {
         const words = if (options.table_integral_words) |values| values[index] else 0;
         try out.writeStreamingAll(.{},try sig.fmt.bufPrint(&number,"{d}",.{words}));
     }
-    var policy_buffer:[384]u8=undefined;
+    var policy_buffer:[512]u8=undefined;
     try out.writeStreamingAll(.{},try std.fmt.bufPrint(&policy_buffer,
-        "],\"integral_version_banks\":{s},\"server_region_budgeting\":true,\"memory_budget_bytes\":{?d},\"os_headroom_bytes\":{?d},\"read_context_payload_bytes_per_worker\":{d},\"parallel_extended_reads\":{s}}}\n",
-        .{if (profile.integral_version_banks) "true" else "false",options.memory_budget,options.os_headroom,read_payload[0],if(options.workers>1) "true" else "false"}));
+        "],\"integral_version_banks\":{s},\"server_region_budgeting\":true,\"memory_budget_bytes\":{?d},\"os_headroom_bytes\":{?d},\"read_context_payload_bytes_per_worker\":{d},\"parallel_extended_reads\":{s},\"read_cache_bytes\":{d},\"read_cache_entries\":{d},\"read_cache_rows_per_entry\":{d}}}\n",
+        .{if (profile.integral_version_banks) "true" else "false",options.memory_budget,options.os_headroom,read_payload[0],if(options.workers>1) "true" else "false",cache.bytes,cache.entries,cache.rows}));
 }
 
 pub fn describeMachine(options:Options) !void {
     if(options.max_clients==0 or options.max_clients>capacity) return error.InvalidServerOptions;
     try validateWorkers(options);
     const plan=try storagePlan(options);
+    const cache=try planReadCache(options);
     const worker_bytes=if(options.workers>1) options.workers*worker_budget_each else 0;
     var total:u64=0;
-    for([_]u64{plan.bytes,plan.workspace_bytes,options.max_clients*@sizeOf(Client),worker_bytes}) |amount| {
+    for([_]u64{plan.bytes,plan.workspace_bytes,options.max_clients*@sizeOf(Client),worker_bytes,cache.bytes}) |amount| {
         const next=@addWithOverflow(total,amount);if(next[1]!=0) return error.ArithmeticOverflow;total=next[0];
     }
     try machine_capacity.describe(options.memory_budget,options.os_headroom,total,options.workers);
@@ -999,6 +1017,7 @@ pub fn run(options: Options) !void {
     parallel = options.workers > 1;
     try initializeMemory(options);
     const plan = try storagePlan(options);
+    const cache_plan = try planReadCache(options);
     selected_work_rows=options.work_rows;selected_read_refs=plan.refs;
     var worker_grant:?resource_budget.Token=null;
     if(parallel) worker_grant=try memory_ledger.acquire(options.workers*worker_budget_each);
@@ -1048,8 +1067,17 @@ pub fn run(options: Options) !void {
         verifier = try scram.Verifier.parse(options.auth_user, source[0..used]);
         std.crypto.secureZero(u8, &source);
     } else if (options.auth_verifier_file != null) return error.InvalidServerOptions;
+    var cache_region: owned_pages.Region = .{};
+    defer cache_region.close() catch @panic("lost result cache memory ownership");
+    if (cache_plan.entries != 0) try cache_region.reserve(&memory_ledger, cache_plan.bytes);
     if (!options.memory) try openData(options);
     defer persistence.close();
+    var read_cache: Raw.ReadResultCache = undefined;
+    if (cache_plan.entries != 0) {
+        try read_cache.bindMemory(&store.database, cache_region.memory.bytes, cache_plan.entries, read_cache_key_bytes, cache_plan.rows);
+        store.read_result_cache = &read_cache;
+    }
+    defer store.read_result_cache = null;
     try tcp.init();
     defer tcp.deinit();
     var listeners: [3]tcp.Socket = @splat(tcp.invalid_socket);
