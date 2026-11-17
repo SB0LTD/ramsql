@@ -19,7 +19,7 @@ def psql(container_args, connection, label, *args):
 
 
 def discovery(result):
-    blocks = re.findall(r"\*+ QUERY \*+\s*(.*?)\n\*{5,}", result.stdout + "\n" + result.stderr, re.S)
+    blocks = re.findall(r"^/\*+ QUERY \*+/\s*\n(.*?)\n/\*{5,}/$", result.stdout + "\n" + result.stderr, re.M | re.S)
     return next(sql for sql in blocks if "pg_table_is_visible" in sql
                 and "OPERATOR(pg_catalog.~)" in sql and "COLLATE pg_catalog.default" in sql)
 

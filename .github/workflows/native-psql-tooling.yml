@@ -33,6 +33,7 @@ jobs:
           python tools/prepare_sig_runtime.py --installed-lib "${standard%/std/std.sig}" \
             --output "$RUNNER_TEMP/sig-runtime" --github-env "$GITHUB_ENV"
       - name: Build exact candidate and run PostgreSQL 18.3 psql
+        shell: bash
         run: |
           mkdir evidence
           "$SIG" build -Doptimize=ReleaseSafe 2>&1 | tee evidence/build.log
