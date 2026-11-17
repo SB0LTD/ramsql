@@ -337,13 +337,15 @@ const Client = struct {
         if(!parallel or self.protocol!=.postgres or !self.connection.detachedReadEligible()) return false;
         const session=&self.session.postgres;
         const input=self.input[self.input_start..][0..self.input_len];
-        const candidate=session.detachedCandidate(input) orelse return false;
+        const schedule = session.detachedSchedule(input) orelse return false;
+        const required=try session.requiredCapacity();
+        if(self.output.len-self.output_len<required) return false;
+        if (schedule.session_only) return self.replyDetached(session, input);
+        const candidate = schedule.candidate;
         const source:?[]const u8=switch(candidate){.metadata=>null,.describe,.execute=>|text|text};
         if(source) |text| {
             if(!Raw.queryCandidate(text)) return false;
         }
-        const required=try session.requiredCapacity();
-        if(self.output.len-self.output_len<required) return false;
         const reader=self.reader orelse return false;
         if(reader.context==null and monotonicClock()<reader.retry_at) return false;
         reader.provision() catch {reader.retry_at=monotonicClock()+1000000000;return false;};
@@ -384,6 +386,10 @@ const Client = struct {
         if(source!=null and prepared and !prepared_primary_key and context.needsZoneResolver()) return false;
         self.connection.read_context=context;self.connection.running_statement=true;
         defer {self.connection.read_context=null;self.connection.running_statement=false;self.read_deadline=null;}
+        return self.replyDetached(session, input);
+    }
+
+    fn replyDetached(self: *Client, session: *PG, input: []const u8) !bool {
         const output=self.output[self.output_len..];
         const reply=try session.handle(&self.connection,input,output);
         if(reply.consumed>self.input_len or reply.written>output.len or reply.blocked or reply.cancel!=null) return error.InvalidReply;
