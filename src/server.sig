@@ -30,6 +30,7 @@ const wall_clock = @import("wall_clock");
 const timezones = @import("timezones.sig");
 const pages = @import("page_region");
 const threads = @import("worker_thread");
+const task_team = @import("task_team");
 const resource_budget = @import("resource_budget");
 const owned_pages = @import("budgeted_region");
 const machine_capacity = @import("capacity.sig");
@@ -54,6 +55,7 @@ pub const Options = struct {
     /// a missing file is DataFileMissing before any listener opens.
     create_data: bool = false,
     database_cluster: bool = false,
+    query_helpers: usize = 0,
     insecure_local: bool = false,
     auth_user: ?[]const u8 = null,
     auth_verifier_file: ?[]const u8 = null,
@@ -370,6 +372,13 @@ const Client = struct {
         self.cancel_request.store(0,.release);
         self.connection.execution.reset(store.max_query_work);
         self.connection.execution.context=self;self.connection.execution.poll=pollRead;
+        if (query_helper_count != 0 and candidate == .execute) {
+            self.connection.execution.parallel_scan = .{
+                .participants = query_helper_count + 1,
+                .dispatch = &dispatchQueryTasks,
+            };
+        }
+        defer self.connection.execution.parallel_scan = null;
         self.read_deadline=if(self.connection.settings.statement_timeout_ms==0) null else monotonicClock()+@as(i64,self.connection.settings.statement_timeout_ms)*1000000;
         const statement_us=wallClock();
         context.session=self.connection.detachedReadSession(&self.connection.execution,statement_us);
@@ -507,6 +516,21 @@ var memory_refresh_at:i64=0;
 // Debug and 4 MiB optimized) plus the 1 MiB margin the former fixed 5 MiB
 // grant carried above the 4 MiB stack.
 const worker_budget_each:u64=threads.stack_bytes+1024*1024;
+const max_query_helpers = 3;
+const query_helper_budget_each: u64 = task_team.stack_bytes_per_helper + 1024 * 1024;
+const QueryTeam = task_team.Team(sql.ExecutionControl.ScanTask, max_query_helpers);
+var query_team: QueryTeam = .{};
+var query_helper_count: usize = 0;
+
+fn dispatchQueryTasks(_: ?*anyopaque, tasks: []const sql.ExecutionControl.ScanTask) Raw.SqlError!void {
+    if (query_team.tryDispatch(tasks)) return;
+    for (tasks) |task| task.run(task.context);
+}
+
+fn workerStackBytes(options: Options) u64 {
+    const reactors_bytes = if (options.workers > 1) options.workers * worker_budget_each else 0;
+    return reactors_bytes + options.query_helpers * query_helper_budget_each;
+}
 fn lockMemory() void {if(parallel) memory_mutex.lock();}
 fn unlockMemory() void {if(parallel) memory_mutex.unlock();}
 fn initializeMemory(options:Options) !machine_capacity.Sample {
@@ -974,6 +998,13 @@ const StoragePlan = struct {
 };
 
 fn storagePlan(options: Options) !StoragePlan {
+    if (options.query_helpers != 0) {
+        if (options.query_helpers > max_query_helpers or options.database_cluster or options.protocol != .postgres or
+            options.mysql_port != null or options.mssql_port != null or options.workers == 1) return error.InvalidServerOptions;
+        if (!task_team.available or !config.compact_integral_scans or config.columns > 64 or config.numeric_digits < 39) {
+            return error.QueryHelpersUnsupportedOnPlatform;
+        }
+    }
     if (options.database_cluster and (options.memory or options.protocol != .postgres or
         options.mysql_port != null or options.mssql_port != null or options.auth_catalog_role or options.auth_credentials_file != null)) return error.InvalidServerOptions;
     if (options.max_prepared_transactions >= Store.prepared_capacity or (options.memory and options.max_prepared_transactions != 0)) return error.InvalidServerOptions;
@@ -1020,6 +1051,10 @@ fn readContextPayload(options: Options, plan: *const StoragePlan) !usize {
 }
 
 fn writeStorageDetails(out: sig.io.File, options: Options, plan: *const StoragePlan, read_payload: usize) !void {
+    var helper_info: [192]u8 = undefined;
+    try out.writeStreamingAll(.{}, try std.fmt.bufPrint(&helper_info,
+        ",\"query_helpers\":{d},\"query_helper_ceiling\":{d},\"query_helper_reserved_bytes\":{d}",
+        .{ options.query_helpers, max_query_helpers, options.query_helpers * query_helper_budget_each }));
     var buffer: [384]u8 = undefined;
     try out.writeStreamingAll(.{}, try std.fmt.bufPrint(&buffer,
         ",\"typed_bank_memory_profile\":{s},\"query_refs\":{d},\"query_reference_bytes\":{d},\"read_context_payload_bytes_per_worker\":{d},\"max_prepared_transactions\":{d},\"prepared_transactions_ceiling\":{d},\"database_cluster\":{s},\"cluster_database_ceiling\":{d},\"table_storage\":[",
@@ -1041,14 +1076,26 @@ fn storageCharges(options: Options, plan: *const StoragePlan, worker_bytes: u64)
 fn chooseWorkers(options: Options, plan: *const StoragePlan, observed: machine_capacity.Sample) !usize {
     if (options.workers != 0) return options.workers;
     if (!threads.available or options.protocol != .postgres or options.database_cluster) return 1;
-    const max_cpu = @min(options.max_clients, max_reactors, @as(usize, observed.plan.cpu_workers));
+    const max_cpu = @min(options.max_clients, max_reactors, @as(usize, observed.plan.cpu_workers) -| options.query_helpers);
     if (max_cpu <= 1) return 1;
-    const fixed = try storageCharges(options, plan, 0);
+    const fixed = try storageCharges(options, plan, options.query_helpers * query_helper_budget_each);
     const read_bytes = try Raw.ReadContext.backingBytesFor(options.work_rows, plan.refs);
     const per_worker = try machine_capacity.startupCharges(
         &.{ @sizeOf(Raw.ReadContext), read_bytes, plan.result_bytes, plan.response_bytes }, worker_budget_each);
     const available = observed.new_region_bytes -| fixed.rounded;
     return @intCast(@max(1, @min(@as(u64, max_cpu), available / per_worker.rounded)));
+}
+
+fn validateQueryHelperCapacity(options: Options, plan: *const StoragePlan, observed: machine_capacity.Sample) !void {
+    if (options.query_helpers == 0) return;
+    if (options.workers < 2 or options.workers + options.query_helpers > observed.plan.cpu_workers) {
+        return error.QueryHelpersExceedCpuCapacity;
+    }
+    const startup = try storageCharges(options, plan, workerStackBytes(options));
+    const read_bytes = try Raw.ReadContext.backingBytesFor(options.work_rows, plan.refs);
+    const one_reader = try machine_capacity.startupCharges(
+        &.{ @sizeOf(Raw.ReadContext), read_bytes, plan.result_bytes, plan.response_bytes }, 0);
+    if (one_reader.rounded > observed.new_region_bytes -| startup.rounded) return error.QueryHelpersExceedMemoryCapacity;
 }
 
 pub fn describe(requested: Options) !void {
@@ -1058,6 +1105,8 @@ pub fn describe(requested: Options) !void {
     if (options.workers == 0) options.workers = if (!threads.available or options.protocol != .postgres or options.max_clients == 1) 1
         else try chooseWorkers(options, &plan, try machine_capacity.sample(options.memory_budget, options.os_headroom, 0));
     try validateWorkers(options);
+    if (options.query_helpers != 0) try validateQueryHelperCapacity(options, &plan,
+        try machine_capacity.sample(options.memory_budget, options.os_headroom, 0));
     const read_payload = try readContextPayload(options, &plan);
     var buffer: [4096]u8 = undefined;
     const message = try sig.fmt.bufPrint(&buffer,
@@ -1098,8 +1147,9 @@ pub fn describeMachine(requested:Options) !void {
     const observed = try machine_capacity.sample(options.memory_budget, options.os_headroom, 0);
     options.workers = try chooseWorkers(options, &plan, observed);
     try validateWorkers(options);
+    try validateQueryHelperCapacity(options, &plan, observed);
     const read_payload = try readContextPayload(options, &plan);
-    const worker_bytes=if(options.workers>1) options.workers*worker_budget_each else 0;
+    const worker_bytes = workerStackBytes(options);
     const startup=try storageCharges(options, &plan, worker_bytes);
     var buffer: [4096]u8 = undefined;
     const machine = try machine_capacity.describe(&buffer, observed, startup, options.workers);
@@ -1379,12 +1429,14 @@ pub fn run(requested: Options) !void {
     const observed = try initializeMemory(options);
     options.workers = try chooseWorkers(options, &plan, observed);
     try validateWorkers(options);
+    try validateQueryHelperCapacity(options, &plan, observed);
     parallel = options.workers > 1;
     cluster_options = options;
     defer clearAuthentication();
     selected_work_rows=options.work_rows;selected_read_refs=plan.refs;
     var worker_grant:?resource_budget.Token=null;
-    if(parallel) worker_grant=try memory_ledger.acquire(options.workers*worker_budget_each);
+    const stack_bytes = workerStackBytes(options);
+    if (stack_bytes != 0) worker_grant = try memory_ledger.acquire(stack_bytes);
     defer if(worker_grant) |grant| memory_ledger.release(grant) catch @panic("lost worker stack grant");
     var client_memory:owned_pages.Region=.{};
     try client_memory.reserve(&memory_ledger,options.max_clients * @sizeOf(Client));
@@ -1421,6 +1473,14 @@ pub fn run(requested: Options) !void {
             if (store.database.authenticatedRole(entry.identity()) == null) return error.AuthenticationFailed;
         }
     } else if (bind_catalog_role and store.database.authenticatedRole(verifier.?.identity()) == null) return error.AuthenticationFailed;
+    if (options.query_helpers != 0) {
+        try query_team.start(options.query_helpers);
+        query_helper_count = options.query_helpers;
+    }
+    defer if (options.query_helpers != 0) {
+        query_helper_count = 0;
+        query_team.stop() catch @panic("lost native query helper ownership");
+    };
     try tcp.init();
     defer tcp.deinit();
     var listeners: [3]tcp.Socket = @splat(tcp.invalid_socket);
@@ -1557,7 +1617,7 @@ pub fn run(requested: Options) !void {
 
 /// Offline backup validates/replays the existing source before publishing a copy.
 pub fn backup(options: Options, target: []const u8) !void {
-    if (options.memory or options.database_cluster) return error.InvalidServerOptions;
+    if (options.memory or options.database_cluster or options.query_helpers != 0) return error.InvalidServerOptions;
     _ = try initializeMemory(options);
     var backing:owned_pages.Region=.{};
     try openStorage(options,&backing);

@@ -90,6 +90,10 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     var workers_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
     const workers_path = try zpm.modulePath("src/platform/worker_thread.sig", &workers_buf);
     _ = try ctx.addModule("worker_thread", workers_path);
+    var task_team_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    const task_team_path = try zpm.modulePath("src/platform/task_team.sig", &task_team_buf);
+    const task_team_module = try ctx.addModule("task_team", task_team_path);
+    try ctx.addImport(task_team_module, "worker_thread", workers_path);
     var resource_facts_buf:[sig_build.PATH_BUF_SIZE]u8=undefined;
     var resource_budget_buf:[sig_build.PATH_BUF_SIZE]u8=undefined;
     var machine_resources_buf:[sig_build.PATH_BUF_SIZE]u8=undefined;
@@ -168,6 +172,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
             importEntry("profile", profile_path),
             importEntry("page_region", pages_path),
             importEntry("worker_thread", workers_path),
+            importEntry("task_team", task_team_path),
             importEntry("machine_resources",machine_resources_path),
             importEntry("resource_budget",resource_budget_path),
             importEntry("budgeted_region",budgeted_region_path),
