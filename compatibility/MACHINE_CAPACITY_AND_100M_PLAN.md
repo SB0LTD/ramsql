@@ -8,6 +8,43 @@ constant or a larger executable does not satisfy this requirement.
 
 ## Current evidence and blockers
 
+The original dbMeter workload passed 38 result checks each for RAMSQL,
+PostgreSQL and IRDB in [CI run 44103107594](https://github.com/benor1470/dbMeter/actions/runs/44103107594).
+That includes all seven full sales checks on the six-table dataset with five
+million fact rows. The RAMSQL build at `2da350be` used 32 table slots, nine
+columns per table and 200 bytes per text value. All three original capacity
+probes also passed with those build options. The four-worker full-sales plan
+reported 11,587,103,312 legacy startup bytes on the hosted runner. The exact
+published build in [CI run 44100105604](https://github.com/benor1470/dbMeter/actions/runs/44100105604)
+passed the result checks and returned `54000` on the three capacity probes.
+
+The widened build's three-second timing smoke left both full-sales mixed cases
+without enough valid samples. Primary-key throughput ranged from 0.86× to
+1.11× the faster reference across the four scored size-scaling cases. The
+[full-duration campaign](https://github.com/benor1470/dbMeter/actions/runs/44104864502)
+retains three 60-second trials per case, result and capacity checks, and raw
+latency data. Keep the performance gate open until the repeated rate and tail
+latency requirements pass on every original case.
+
+The full-sales fact schema needs seven integral cells and one date per row.
+Each MVCC version currently reserves nine full-width cells in the widened build.
+Compact typed MVCC payloads are the storage priority. Establish that inserts,
+updates, ordered and unique indexes, chained snapshots, reclamation and logical
+WAL replay agree with dense storage before using a compact layout in the server.
+Measure exact bytes per version and resident memory on the original five-million
+row load, then qualify multiple 100-million-row tables with concurrent queries
+and durable restart on hardware with sufficient admitted memory.
+
+The full-sales region/month check took 2.84 seconds on RAMSQL, 1.07 on PostgreSQL
+and 0.20 on IRDB in the smoke job's result check. The segment/discount rollup
+took 1.89, 1.33 and 0.32 seconds respectively. Profile formatting and grouping
+in the first query, and repeated prefix updates in the second. Preserve date
+and time-zone semantics, null groups, aggregate counts and numeric precision.
+Use isolated original queries to locate CPU and queue costs, then require the
+unchanged mixed workload to pass the full gate.
+
+### Earlier capacity evidence
+
 The [actual five-million-row campaign](../benchmarks/dbmeter-full-five-million-20261028/REPORT.md)
 loads the original full data into the default text-128 build using unequal
 runtime banks, 65k spare fact versions, 65k workspace rows and 1,024 final result

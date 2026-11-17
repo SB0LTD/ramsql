@@ -25,10 +25,15 @@ these commands are not present in the published beta.2 binaries:
 
 The report shows available physical/commit/address-space memory, observed CPU
 constraints, headroom and proposed storage/execution shares. It creates no WAL
-or listener. The same options apply to `--serve`; the server charges storage,
-workspace, client buffers and worker stack allowances to one shared byte ledger.
-It refreshes observations at admission, stops new grants under pressure and
-keeps live data/buffers owned. PostgreSQL startup returns `53200` when the memory
+or listener. `startup_region_bytes` includes page-rounded storage, query workspace
+and client metadata, plus any reactor stack allowance charged at startup.
+`startup_fits` compares that charge with the sampled `new_region_bytes` available
+to `--serve`. `legacy_startup_bytes` retains the previous unrounded estimate.
+`pressure` indicates existing process commitment above the planner budget.
+The shared byte ledger charges client result and response buffers when clients
+connect and worker read contexts when first used. The server refreshes its
+observations at admission, stops new grants under pressure and keeps live data
+and buffers owned. PostgreSQL startup returns `53200` when the memory
 budget cannot admit another client, and `53300` for the configured connection
 limit. Failed page commitments return their grants.
 
