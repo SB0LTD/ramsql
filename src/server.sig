@@ -1000,7 +1000,8 @@ const StoragePlan = struct {
 fn storagePlan(options: Options) !StoragePlan {
     if (options.query_helpers != 0) {
         if (options.query_helpers > max_query_helpers or options.database_cluster or options.protocol != .postgres or
-            options.mysql_port != null or options.mssql_port != null or options.workers == 1) return error.InvalidServerOptions;
+            options.mysql_port != null or options.mssql_port != null or options.workers == 1 or
+            options.max_clients < 2) return error.InvalidServerOptions;
         if (!task_team.available or !config.compact_integral_scans or config.columns > 64 or config.numeric_digits < 39) {
             return error.QueryHelpersUnsupportedOnPlatform;
         }
@@ -1088,9 +1089,10 @@ fn chooseWorkers(options: Options, plan: *const StoragePlan, observed: machine_c
 
 fn validateQueryHelperCapacity(options: Options, plan: *const StoragePlan, observed: machine_capacity.Sample) !void {
     if (options.query_helpers == 0) return;
-    if (options.workers < 2 or options.workers + options.query_helpers > observed.plan.cpu_workers) {
+    if (@max(options.workers, 2) + options.query_helpers > observed.plan.cpu_workers) {
         return error.QueryHelpersExceedCpuCapacity;
     }
+    if (options.workers < 2) return error.QueryHelpersExceedMemoryCapacity;
     const startup = try storageCharges(options, plan, workerStackBytes(options));
     const read_bytes = try Raw.ReadContext.backingBytesFor(options.work_rows, plan.refs);
     const one_reader = try machine_capacity.startupCharges(
