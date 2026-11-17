@@ -52,6 +52,7 @@ pub const Options = struct {
     insecure_local: bool = false,
     auth_user: []const u8 = "postgres",
     auth_verifier_file: ?[]const u8 = null,
+    auth_catalog_role: bool = false,
     idle_ms: u32 = 30000,
     /// Execution checkpoints per statement; zero disables the work limit.
     max_query_work: u64 = 0,
@@ -406,6 +407,7 @@ var persistence: Persistence = .{};
 // recoverable.
 var recovery_buffer: [profile.transaction_bytes]u8 = undefined;
 var verifier: ?scram.Verifier = null;
+var bind_catalog_role = false;
 // Keep large caller-owned buffers out of the executable data image.
 // run initializes free-slot metadata; accept initializes every live field.
 var clients: []Client = &.{};
@@ -702,7 +704,11 @@ fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial:
             try entropy.fill(&random);
             var nonce: [32]u8 = undefined;
             _ = std.base64.standard.Encoder.encode(&nonce, &random);
-            try client.session.postgres.configureAuthentication(credential, &nonce);
+            if (bind_catalog_role) {
+                try client.session.postgres.configureRoleAuthentication(credential, &nonce);
+            } else {
+                try client.session.postgres.configureAuthentication(credential, &nonce);
+            }
         }
     }
     @memcpy(client.input[0..initial.len], initial);
@@ -972,6 +978,10 @@ fn openStorage(options: Options,backing:*owned_pages.Region) !void {
 }
 
 pub fn run(options: Options) !void {
+    if (options.auth_catalog_role and (options.insecure_local or options.memory or options.create_data or options.auth_verifier_file == null)) {
+        return error.InvalidServerOptions;
+    }
+    bind_catalog_role = options.auth_catalog_role;
     if (options.max_clients == 0 or options.max_clients > capacity or options.idle_ms == 0) return error.InvalidServerOptions;
     try validateWorkers(options);
     parallel = options.workers > 1;
@@ -1028,6 +1038,7 @@ pub fn run(options: Options) !void {
     } else if (options.auth_verifier_file != null) return error.InvalidServerOptions;
     if (!options.memory) try openData(options);
     defer persistence.close();
+    if (bind_catalog_role and store.database.authenticatedRole(options.auth_user) == null) return error.AuthenticationFailed;
     try tcp.init();
     defer tcp.deinit();
     var listeners: [3]tcp.Socket = @splat(tcp.invalid_socket);

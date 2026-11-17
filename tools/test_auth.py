@@ -219,12 +219,61 @@ def psycopg_contracts(port, password):
         raise AssertionError("TLS-required client unexpectedly connected")
 
 
+def catalog_role_contracts(binary, directory, admin_verifier, admin_password):
+    import psycopg
+
+    from test_postgres_compat import running_ramsql
+
+    wal = directory / "catalog-role.wal"
+    admin = ("postgres", admin_verifier, admin_password.decode())
+    password = secrets.token_urlsafe(32).encode()
+    verifier = directory / "reader.verifier"
+    verifier.write_bytes(make_verifier(password, secrets.token_bytes(32)) + b"\n")
+    verifier.chmod(0o600)
+    reader = ("test_reader", verifier, password.decode())
+
+    with running_ramsql(binary, data_path=wal, create_data=True, auth=admin) as options:
+        with psycopg.connect(**options) as db:
+            db.execute("CREATE ROLE test_reader LOGIN")
+            db.execute("CREATE TABLE role_data(id INT PRIMARY KEY, value TEXT)")
+            db.execute("INSERT INTO role_data VALUES (1,'hidden'),(2,'visible')")
+            db.execute("GRANT SELECT ON role_data TO test_reader")
+            db.execute("ALTER TABLE role_data ENABLE ROW LEVEL SECURITY")
+            db.execute("CREATE POLICY visible_rows ON role_data USING (id > 1)")
+
+    extra = ("--auth-catalog-role", "--workers", str(test_workers))
+    with running_ramsql(binary, data_path=wal, auth=reader, extra_arguments=extra) as options:
+        with psycopg.connect(**options) as db:
+            check(db.execute("SELECT current_user,session_user").fetchone() == ("test_reader", "test_reader"))
+            check(db.execute("SELECT id,value FROM role_data ORDER BY id", prepare=True).fetchall() == [(2, "visible")])
+            for query in ("SET ROLE ramsql", "INSERT INTO role_data VALUES(3,'denied')"):
+                try:
+                    db.execute(query)
+                except psycopg.errors.InsufficientPrivilege:
+                    check(True)
+                else:
+                    raise AssertionError(f"restricted session unexpectedly accepted {query}")
+            check(db.execute("SELECT count(*) FROM role_data").fetchone() == (1,))
+
+    with running_ramsql(binary, data_path=wal, auth=admin) as options:
+        with psycopg.connect(**options) as db:
+            check(db.execute("SELECT id FROM role_data ORDER BY id").fetchall() == [(1,), (2,)])
+            db.execute("ALTER ROLE test_reader NOLOGIN")
+
+    try:
+        with running_ramsql(binary, data_path=wal, auth=reader, extra_arguments=extra):
+            raise AssertionError("NOLOGIN role opened a listener")
+    except RuntimeError as error:
+        check("AuthenticationFailed" in str(error), "unexpected NOLOGIN startup failure")
+
+
 def startup_contracts(binary, directory):
     def fails(arguments, wanted):
         result = subprocess.run([str(binary), "--memory", "--port", "0", *arguments], capture_output=True, timeout=10)
         check(result.returncode != 0 and not result.stdout and wanted in result.stderr, "unsafe server startup was accepted")
 
     fails([], b"AuthenticationRequired")
+    fails(["--auth-catalog-role"], b"InvalidServerOptions")
     fails(["--auth-user", "postgres"], b"AuthenticationRequired")
     invalid = directory / "invalid.verifier"
     for content in (b"", b"not-a-postgresql-verifier", b"SCRAM-SHA-256$4096:bad$bad:bad", b"x" * 513):
@@ -254,6 +303,7 @@ def main():
         with running_server(binary, verifier) as port:
             psycopg_contracts(port, password)
             raw_contracts(port, password, salt)
+        catalog_role_contracts(binary, directory, verifier, password)
     print(json.dumps({"suite": "auth-live", "pass": True, "assertions": assertions, "unique_authenticated_nonces": 128, "clients": ["psycopg", "independent Python SCRAM"], "tls_supported": False}))
 
 

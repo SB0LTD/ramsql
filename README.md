@@ -105,10 +105,17 @@ Recovery validates the WAL before listening. Commits flush synchronously before
 publication/acknowledgement; complete corruption fails closed. A failed write
 or flush disables writes until recovery.
 
-There is **no TLS, channel binding or role authorization**. All listeners bind
-to 127.0.0.1; do not expose them through public forwarding. MySQL/TDS require
-explicit insecure-local mode. Checkpointing, WAL compaction, online backup,
-replication and general upgrade migration remain production blockers.
+All listeners bind to 127.0.0.1. TLS and channel binding are pending, and
+MySQL/TDS require explicit insecure-local mode. Checkpointing, WAL compaction,
+online backup, replication and upgrade migration remain production blockers.
+
+To run the PostgreSQL listener under a catalog role, create a `LOGIN` role and
+grant its privileges using the bootstrap connection. Stop the server, then
+restart it on the same WAL with `--auth-catalog-role`, the exact role name in
+`--auth-user`, and that user's SCRAM verifier in `--auth-verifier-file`.
+The catalog role must exist, allow login, and have no finite connection limit.
+This option requires an existing durable WAL. It supports one verifier for the
+listener, which stays on loopback.
 See [operations](OPERATIONS.md) for backup, restoration and failure handling.
 
 ## Client and SQL compatibility
