@@ -1821,6 +1821,8 @@ def main():
     parser.add_argument("--step", type=float, required=True, help="execute cases with case.step <= N")
     parser.add_argument("--binary", type=Path, default=ROOT / "sig-out" / "bin" / ("ramsql.exe" if os.name == "nt" else "ramsql"))
     parser.add_argument("--image", default="postgres:18-alpine", help="locally available immutable reference image (no automatic pull)")
+    parser.add_argument("--postgres-bin", type=Path, help="use an owned native PostgreSQL installation for cases without a reference crash")
+    parser.add_argument("--timezone-dir", type=Path, help="set RAMSQL's IANA zoneinfo path for a native reference")
     parser.add_argument("--work-dir", type=Path, default=ROOT / ".sig-cache" / "postgres-compat")
     parser.add_argument("--report", type=Path, default=ROOT / ".sig-cache" / "postgres-compat" / "semantics-report.json")
     parser.add_argument("--durable", action="store_true", help="run RAMSQL on a fresh durable WAL instead of --memory")
@@ -1830,10 +1832,14 @@ def main():
     unknown = [name for name in suites if name not in SUITES]
     if not suites or unknown:
         parser.error("unknown suite(s): " + ",".join(unknown or ["<none>"]))
-    timezone_dir = reference_timezone_dir(args.image)
+    timezone_dir = args.timezone_dir
+    if not timezone_dir and not args.postgres_bin:
+        timezone_dir = reference_timezone_dir(args.image)
     import psycopg
 
     executed, skipped = select_cases(suites, args.step, args.durable)
+    if args.postgres_bin and any(case.restart for case in executed):
+        parser.error("selected durable cases require the Docker reference crash test")
     binary = args.binary.resolve()
     report = {"schema": 1, "started_utc": datetime.now(timezone.utc).isoformat(),
               "scope": "finite differential semantics suites; matching does not establish full PostgreSQL parity",
@@ -1846,7 +1852,7 @@ def main():
     try:
         if not executed:
             raise RuntimeError("no case executed for the selected suites and step")
-        with native_postgres(args.image, psycopg, work_directory=args.work_dir) as (native, metadata), \
+        with native_postgres(args.image, psycopg, binary_directory=args.postgres_bin, work_directory=args.work_dir) as (native, metadata), \
                 candidate_mode(args.work_dir, durable=args.durable, scram=args.scram, timezone_dir=timezone_dir) as (mode_arguments, mode):
             report["reference"] = metadata
             report["mode"] = mode

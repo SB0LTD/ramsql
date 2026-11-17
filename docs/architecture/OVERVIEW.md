@@ -6,7 +6,7 @@ the same engine. This page explains how the pieces fit together. Per-module
 detail lives in [`docs/modules/`](../modules/README.md).
 
 Baseline: RAMSQL `origin/main` 6d677ee (PR #35), pinning ZPM `2f060c2`, built
-with Sig 0.6.4 (`sig-0.6.4-zig0.17.0.90a898d`).
+with Sig 0.6.5 (`sig-0.6.5-zig0.17.0.3c72687`).
 
 ## 1. Layers
 

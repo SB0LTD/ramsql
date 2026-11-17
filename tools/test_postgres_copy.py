@@ -358,6 +358,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--binary", type=Path, default=ROOT / "sig-out" / "bin" / ("ramsql.exe" if os.name == "nt" else "ramsql"))
     parser.add_argument("--image", default="postgres:18-alpine", help="locally available immutable reference image (no automatic pull)")
+    parser.add_argument("--postgres-bin", type=Path, help="use an owned native PostgreSQL installation for cases without a reference crash")
     parser.add_argument("--work-dir", type=Path, default=ROOT / ".sig-cache" / "postgres-compat")
     parser.add_argument("--report", type=Path, default=ROOT / ".sig-cache" / "postgres-compat" / "copy-report.json")
     parser.add_argument("--durable", action="store_true", help="run RAMSQL on a fresh durable WAL instead of --memory")
@@ -365,7 +366,9 @@ def main():
     parser.add_argument("--large", action="store_true", help="30 000-row import/export against a large-profile --binary")
     parser.add_argument("--case", action="append", default=[], help="run only the named case(s)")
     args = parser.parse_args()
-    timezone_dir = reference_timezone_dir(args.image)
+    if args.postgres_bin and args.durable and args.large:
+        parser.error("durable large COPY requires the Docker reference crash test")
+    timezone_dir = None if args.postgres_bin else reference_timezone_dir(args.image)
     import psycopg
 
     binary = args.binary.resolve()
@@ -375,7 +378,7 @@ def main():
               "client": {"name": "psycopg", "version": psycopg.__version__}, "large": args.large,
               "cases": [], "divergences": []}
     try:
-        with native_postgres(args.image, psycopg, work_directory=args.work_dir) as (native, metadata), \
+        with native_postgres(args.image, psycopg, binary_directory=args.postgres_bin, work_directory=args.work_dir) as (native, metadata), \
                 candidate_mode(args.work_dir, durable=args.durable, scram=args.scram, timezone_dir=timezone_dir) as (mode_arguments, mode):
             report["reference"] = metadata
             report["mode"] = mode
