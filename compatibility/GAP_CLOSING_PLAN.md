@@ -1,5 +1,30 @@
 # RAMSQL gap-closing plan
 
+## 18 November 2026 qualification checkpoint
+
+RAMSQL `0af167b420edd605597bf5bb7c25dc0fc9483136` with ZPM
+`aa0250509ebb1befb9d9864bd98581f7e695f970` matched all 118 original wire
+inventory programs. PostgreSQL 18.3 matched all 106 with durable cluster mode
+and prepared transactions enabled. MySQL Community 8.4.13 and SQL Server 2022
+CU28 matched all six programs each. Windows x64 was used for PostgreSQL and
+MySQL and Linux x64 for SQL Server. [Release candidate](https://github.com/SB0LTD/ramsql/pull/70) ·
+[Native SQL Server comparison](https://github.com/benor1470/dbMeter/actions/runs/44185665967)
+
+The Linux x64 build of that revision also recovered a 6,771,074,198-byte
+synchronous WAL in 114.628 seconds after the process was killed. The fixture
+contains 100M six-column integral fact rows and two dimension tables. Recovery
+verified full and selective grouped three-way joins, ordered results, concurrent
+key probes and the absence of an uncommitted update.
+[100M recovery](https://github.com/benor1470/dbMeter/actions/runs/44185666188)
+
+The separate PostgreSQL 18 durable SCRAM suite matched 327 of 331 cases on that
+revision. Four `regclass` catalog cases failed when admitted to a detached
+reader. The replacement revision routes statements that need catalog and session
+hooks to the owning session and adds a wire regression for simple queries and
+parameterized view queries. The replacement matrix is pending.
+[Failing qualification](https://github.com/SB0LTD/ramsql/actions/runs/44185459464) ·
+[Replacement matrix](https://github.com/SB0LTD/ramsql/actions/runs/44189642358)
+
 ## 17 November 2026 qualification checkpoint
 
 The combined RAMSQL candidate `b90354c8911b22a340fb68d15383205cd2ccf4b5`, with
