@@ -47,8 +47,7 @@ pub fn sample(hard:?u64,headroom:?u64,owned:u64) !Sample {
             .new_region_bytes=plan.process_bytes -| @max(observation.machine.process_committed,observation.machine.process_resident)};
     }
 }
-pub fn describe(hard:?u64,headroom:?u64,startup:StartupCharges,read_workers:usize) !void {
-    const detected=try sample(hard,headroom,0);
+pub fn describe(detected:Sample,startup:StartupCharges,read_workers:usize) !void {
     const observation=detected.observation;const machine=observation.machine;const plan=detected.plan;
     var buffer:[4096]u8=undefined;
     const text=try std.fmt.bufPrint(&buffer,

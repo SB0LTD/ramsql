@@ -218,7 +218,14 @@ fn run(init: std.process.Init.Minimal) !u8 {
                 .mysql_port => options.mysql_port = try fmt.parseInt(u16, value, 10),
                 .mssql_port => options.mssql_port = try fmt.parseInt(u16, value, 10),
                 .max_clients => options.max_clients = try fmt.parseInt(usize, value, 10),
-                .workers => options.workers = try fmt.parseInt(usize, value, 10),
+                .workers => {
+                    if (same(value, "auto")) {
+                        options.workers = 0;
+                    } else {
+                        options.workers = try fmt.parseInt(usize, value, 10);
+                        if (options.workers == 0) return error.InvalidServerOptions;
+                    }
+                },
                 .memory_budget => {const amount=try fmt.parseInt(u64,value,10);if(amount==0) return error.InvalidServerOptions;options.memory_budget=amount;},
                 .os_headroom => options.os_headroom = try fmt.parseInt(u64,value,10),
                 .storage_rows => options.storage_rows = try fmt.parseInt(usize, value, 10),
@@ -240,7 +247,7 @@ fn run(init: std.process.Init.Minimal) !u8 {
         return 0;
     }
     switch (mode) {
-        .help => try write("ramsql beta (controlled testing; not production)\nUsage: ramsql [--serve|--demo|--stdin|--version|--capabilities|--machine-capacity|--help]\nServer: --protocol postgres|mysql|mssql --port N --mysql-port N --mssql-port N\n        --max-clients N --workers N (experimental I/O reactors; SQL serialized) --idle-ms N --max-query-work N (0: unlimited); default loopback PostgreSQL:5432\nMachine: --machine-capacity (JSON native resources and byte plan; opens no database/listeners)\n         --memory-budget BYTES --os-headroom BYTES (also apply to server region admission)\nInspect: --capabilities (JSON; accepts runtime capacity options; opens no files/listeners)\nCapacity: --rows N --versions N --work-rows N --result-rows N (independent runtime budgets)\n          --table-rows n,n,... --table-versions n,n,... (one budget per table slot)\nStorage: --data WAL_PATH (default ramsql.wal; must exist) | --memory\n         --create-data (first start: create a missing WAL; without it a missing WAL fails startup)\nBackup: --data EXISTING_WAL --backup-to NEW_PATH (offline)\nAuth: --auth-user USER --auth-verifier-file PATH (PostgreSQL SCRAM verifier)\nTime zones: --timezone-dir ZONEINFO_DIR (default /usr/share/zoneinfo on Linux/macOS)\n      --insecure-local explicitly enables unauthenticated loopback testing\n--stdin: one SQL statement per line. --demo: run the example and exit.\n"),
+        .help => try write("ramsql beta (controlled testing; not production)\nUsage: ramsql [--serve|--demo|--stdin|--version|--capabilities|--machine-capacity|--help]\nServer: --protocol postgres|mysql|mssql --port N --mysql-port N --mssql-port N\n        --max-clients N --workers auto|N (automatic PostgreSQL read workers by default) --idle-ms N --max-query-work N (0: unlimited); default loopback PostgreSQL:5432\nMachine: --machine-capacity (JSON native resources and byte plan; opens no database/listeners)\n         --memory-budget BYTES --os-headroom BYTES (also apply to server region admission)\nInspect: --capabilities (JSON; accepts runtime capacity options; opens no files/listeners)\nCapacity: --rows N --versions N --work-rows N --result-rows N (independent runtime budgets)\n          --table-rows n,n,... --table-versions n,n,... (one budget per table slot)\nStorage: --data WAL_PATH (default ramsql.wal; must exist) | --memory\n         --create-data (first start: create a missing WAL; without it a missing WAL fails startup)\nBackup: --data EXISTING_WAL --backup-to NEW_PATH (offline)\nAuth: --auth-user USER --auth-verifier-file PATH (PostgreSQL SCRAM verifier)\nTime zones: --timezone-dir ZONEINFO_DIR (default /usr/share/zoneinfo on Linux/macOS)\n      --insecure-local explicitly enables unauthenticated loopback testing\n--stdin: one SQL statement per line. --demo: run the example and exit.\n"),
         .version => try write("ramsql " ++ ram.version ++ "\n"),
         .capabilities => try server.describe(options),
         .machine_capacity => try server.describeMachine(options),

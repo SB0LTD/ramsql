@@ -19,13 +19,26 @@ def main():
         result=subprocess.run([str(binary),'--machine-capacity',*arguments],capture_output=True,timeout=15)
         assert result.returncode==0 and not result.stderr,result
         return json.loads(result.stdout)
-    native=report()
+    native=report('--workers','1')
     assert native['scope']=='machine_capacity' and native['usable_cpus']>0
     assert 0<=native['available_physical']<=native['physical_total']
     assert native['process_budget_bytes']<=native['physical_total']
     assert native['preferred_storage_bytes']+native['preferred_execution_bytes']==native['shared_pool_bytes']
     assert native['server_region_budgeting'] and not native['elastic_sql_storage'] and not native['parallel_sql']
     assert native['startup_fits'] is (native['startup_region_bytes']<=native['new_region_bytes'])
+    automatic=report('--max-clients','4')
+    assert 1<=automatic['read_workers']<=min(automatic['suggested_cpu_workers'],4)
+    assert automatic['parallel_sql'] is (automatic['read_workers']>1)
+    assert report('--workers','auto','--max-clients','1')['read_workers']==1
+    assert report('--protocol','mysql')['read_workers']==1
+    assert report('--workers','auto','--memory-budget','1')['read_workers']==1
+    with Server(binary,max_clients=4,extra_arguments=('--workers','auto')) as server:
+        client=PG(server.raw())
+        try:
+            client.startup()
+            client.ok('SELECT 1',[['1']])
+        finally:
+            client.close()
     capped=report('--memory-budget',str(256*1024**2),'--os-headroom',str(32*1024**2))
     assert capped['process_budget_bytes']<=256*1024**2 and capped['headroom_bytes']==32*1024**2
     with tempfile.TemporaryDirectory(prefix='ramsql-machine-capacity-') as directory:
@@ -44,7 +57,7 @@ def main():
     for bad in (['--memory-budget','0'],['--memory-budget','-1'],['--memory-budget','18446744073709551616']):
         result=subprocess.run([str(binary),'--machine-capacity',*bad],capture_output=True,timeout=15)
         assert result.returncode==2,(bad,result)
-    caps=json.loads(subprocess.check_output([str(binary),'--capabilities']))
+    caps=json.loads(subprocess.check_output([str(binary),'--capabilities','--workers','1']))
     regions=[caps[key] for key in ('backing_bytes','query_workspace_bytes','client_metadata_bytes')]
     assert native['legacy_startup_bytes']==sum(regions)
     assert native['startup_region_bytes']==sum((size+mmap.PAGESIZE-1)//mmap.PAGESIZE*mmap.PAGESIZE for size in regions)

@@ -61,7 +61,7 @@ class Server:
         self.process = subprocess.Popen(
             [str(self.binary), "--serve", "--memory", "--insecure-local", "--protocol", "postgres", "--port", "0",
              "--idle-ms", str(self.idle_ms), "--max-clients", str(self.max_clients),
-             *(["--workers", str(min(self.test_workers,self.max_clients))] if self.test_workers > 1 else []),
+             "--workers", str(min(self.test_workers,self.max_clients)),
              *(["--max-query-work", str(self.max_query_work)] if self.max_query_work else []), *self.extra_arguments],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1,
         )
