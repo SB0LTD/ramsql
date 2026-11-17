@@ -62,6 +62,8 @@ pub const Options = struct {
     idle_ms: u32 = 30000,
     /// Execution checkpoints per statement; zero disables the work limit.
     max_query_work: u64 = 0,
+    /// Caller-selected budget for shared PostgreSQL read results.
+    read_cache_bytes: usize = 0,
     /// Zero disables PostgreSQL prepared transactions. A positive limit
     /// reserves at least one ordinary transaction slot for other work.
     max_prepared_transactions: usize = 0,
@@ -840,6 +842,7 @@ var reactors: [max_reactors]Reactor = @splat(.{});
 fn validateWorkers(options: Options) !void {
     if (options.workers == 0 or options.workers > max_reactors or options.workers > options.max_clients) return error.InvalidServerOptions;
     if (options.database_cluster and options.workers != 1) return error.InvalidServerOptions;
+    if (options.read_cache_bytes != 0 and options.workers < 2) return error.InvalidServerOptions;
     if (options.workers > 1 and !threads.available) return error.WorkersUnsupportedOnPlatform;
 }
 
@@ -962,6 +965,23 @@ fn runParallel(options: Options, listeners: []const tcp.Socket, protocols: []con
     if (reactor_failed.load(.acquire)) return error.ReactorFailed;
 }
 
+const ReadCachePlan = struct {
+    bytes: usize = 0,
+    region_bytes: u64 = 0,
+    entries: usize = 0,
+    rows: usize = 0,
+};
+const read_cache_key_bytes = 1024;
+
+fn planReadCache(options: Options) !ReadCachePlan {
+    if (options.read_cache_bytes == 0) return .{};
+    if (options.protocol != .postgres or options.database_cluster or options.workers == 1) return error.InvalidServerOptions;
+    const rows = @min(@as(usize, 128), options.result_rows);
+    const layout = Raw.ReadResultCache.layoutForBytes(options.read_cache_bytes, read_cache_key_bytes, rows) catch return error.InvalidServerOptions;
+    const charges = machine_capacity.startupCharges(&.{layout.bytes}, 0) catch return error.InvalidServerOptions;
+    return .{ .bytes = layout.bytes, .region_bytes = charges.rounded, .entries = layout.entries, .rows = rows };
+}
+
 const StoragePlan = struct {
     max_rows: usize,
     versions: usize,
@@ -971,6 +991,7 @@ const StoragePlan = struct {
     workspace_bytes: usize,
     result_bytes: usize,
     response_bytes: usize,
+    read_cache: ReadCachePlan,
 };
 
 fn storagePlan(options: Options) !StoragePlan {
@@ -1010,7 +1031,9 @@ fn storagePlan(options: Options) !StoragePlan {
     return .{ .max_rows=max_rows, .versions = max_versions, .budgets=budgets, .refs = ref_count, .bytes = try Raw.backingBytesFor(budgets, ref_count),
         .workspace_bytes = Raw.queryWorkspaceBytes(options.work_rows) catch return error.InvalidServerOptions,
         .result_bytes = Raw.Result.rowBytes(options.result_rows) catch return error.InvalidServerOptions,
-        .response_bytes = responseBytes(options.result_rows) catch return error.InvalidServerOptions };
+        .response_bytes = responseBytes(options.result_rows) catch return error.InvalidServerOptions,
+        .read_cache = try planReadCache(options),
+    };
 }
 
 fn readContextPayload(options: Options, plan: *const StoragePlan) !usize {
@@ -1031,11 +1054,14 @@ fn writeStorageDetails(out: sig.io.File, options: Options, plan: *const StorageP
             "{{\"rows\":{d},\"versions\":{d},\"integral_row_words\":{d},\"committed_scan_projection\":{s},\"secondary_hashes\":{d}}}",
             .{ budget.rows, budget.versions, budget.integral_row_words, if (scan) "true" else "false", budget.secondary_hashes orelse config.external_indexes }));
     }
-    try out.writeStreamingAll(.{}, "]}\n");
+    try out.writeStreamingAll(.{}, try std.fmt.bufPrint(&buffer,
+        "],\"read_cache_bytes\":{d},\"read_cache_region_bytes\":{d},\"read_cache_entries\":{d},\"read_cache_rows_per_entry\":{d}}}\n",
+        .{ plan.read_cache.bytes, plan.read_cache.region_bytes, plan.read_cache.entries, plan.read_cache.rows }));
 }
 
 fn storageCharges(options: Options, plan: *const StoragePlan, worker_bytes: u64) !machine_capacity.StartupCharges {
-    return machine_capacity.startupCharges(&.{plan.bytes, plan.workspace_bytes, options.max_clients * @sizeOf(Client)}, worker_bytes);
+    const regions = [_]usize{ plan.bytes, plan.workspace_bytes, options.max_clients * @sizeOf(Client), plan.read_cache.bytes };
+    return machine_capacity.startupCharges(regions[0..if (plan.read_cache.bytes == 0) 3 else 4], worker_bytes);
 }
 
 fn chooseWorkers(options: Options, plan: *const StoragePlan, observed: machine_capacity.Sample) !usize {
@@ -1410,6 +1436,9 @@ pub fn run(requested: Options) !void {
     zones.in_use = &zoneInUse;
     configureStore(&store, options);
     try loadAuthentication(options);
+    var cache_region: owned_pages.Region = .{};
+    defer cache_region.close() catch @panic("lost result cache memory ownership");
+    if (plan.read_cache.entries != 0) try cache_region.reserve(&memory_ledger, plan.read_cache.bytes);
     defer persistence.close();
     defer if (options.database_cluster) {
         for (&cluster_slots) |*slot| slot.close();
@@ -1421,6 +1450,12 @@ pub fn run(requested: Options) !void {
             if (store.database.authenticatedRole(entry.identity()) == null) return error.AuthenticationFailed;
         }
     } else if (bind_catalog_role and store.database.authenticatedRole(verifier.?.identity()) == null) return error.AuthenticationFailed;
+    var read_cache: Raw.ReadResultCache = undefined;
+    if (plan.read_cache.entries != 0) {
+        try read_cache.bindMemory(&store.database, cache_region.memory.bytes, plan.read_cache.entries, read_cache_key_bytes, plan.read_cache.rows);
+        store.read_result_cache = &read_cache;
+    }
+    defer store.read_result_cache = null;
     try tcp.init();
     defer tcp.deinit();
     var listeners: [3]tcp.Socket = @splat(tcp.invalid_socket);
