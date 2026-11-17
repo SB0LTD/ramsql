@@ -184,6 +184,15 @@ declarations. Full procedural control flow, OUTPUT sinks, APPLY table-valued
 functions and additional wire behaviors remain in the broader dialect scope.
 [Strict SQL Server comparison](https://github.com/benor1470/dbMeter/actions/runs/44165836087)
 
+The combined RAMSQL `deb1ed41c32e65b7cdf2a86d9f2820569ed1e286` candidate with
+ZPM `f208559a76a2e03f026221ac86c929a00da57c32` matches **116 of 118** original
+programs across the three native reference engines. The two PostgreSQL cases
+still require database lifecycle and prepared transaction support. MySQL
+adds full-range `BIGINT UNSIGNED` storage and signed-primary-key
+`AUTO_INCREMENT` with mixed inserts, native insert IDs and rollback. Broader
+MySQL arithmetic, unsigned automatic counters, schema and wire behavior
+remain outside these probes. [Combined candidate](https://github.com/SB0LTD/ramsql/pull/69) · [Native SQL Server run](https://github.com/benor1470/dbMeter/actions/runs/44169351782)
+
 ## Earlier checkpoints
 
 Reporting follow-up, 30 October 2026: the unchanged original dbMeter full 5M
