@@ -38,7 +38,7 @@ def main():
     assert help_result.returncode == 0 and not help_result.stderr, help_result
     assert b"ramsql" in help_result.stdout and b"--stdin" in help_result.stdout
     assert b"--version" in help_result.stdout and b"--create-data" in help_result.stdout
-    described = run(["--capabilities", "--rows", "1024", "--versions", "3072"])
+    described = run(["--capabilities", "--rows", "1024", "--versions", "3072", "--workers", "1"])
     assert described.returncode == 0 and not described.stderr, described
     caps = json.loads(described.stdout)
     assert caps['version'] == source_version() and caps['production_ready'] is False
@@ -52,7 +52,7 @@ def main():
     assert caps['table_integral_words'] == [0] * slots, caps
     assert caps['typed_bank_memory_profile'] is False
     assert caps['query_reference_bytes'] == 4 * caps['query_refs']
-    capacity_args = ['--rows', '1024', '--versions', '3072']
+    capacity_args = ['--rows', '1024', '--versions', '3072', '--workers', '1']
     def integral_args(words):
         return ['--table-integral-words', ','.join(map(str, words))]
     compact = [1] + [0] * (slots - 1)
@@ -119,6 +119,10 @@ def main():
             assert rejected.returncode in (1, 2) and not rejected.stdout, rejected
             assert any(reason in rejected.stderr for reason in
                        (b'InvalidServerOptions', b'InvalidParameterValue', b'InvalidCharacter', b'Overflow')), rejected
+    automatic = json.loads(run(["--capabilities", "--workers", "auto", "--max-clients", "2"]).stdout)
+    assert 1 <= automatic['workers'] <= 2 and automatic['exclusive_sql_workers'] == 1
+    assert automatic['parallel_simple_reads'] is (automatic['workers'] > 1)
+    assert run(["--capabilities", "--workers", "0"]).returncode == 2
     with tempfile.TemporaryDirectory(prefix='ramsql-capabilities-') as directory:
         wal = Path(directory) / 'must-not-be-created.wal'
         inspected = subprocess.run([str(binary), '--capabilities', '--data', str(wal)],

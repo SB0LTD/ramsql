@@ -43,7 +43,8 @@ pub const Options = struct {
     mssql_port: ?u16 = null,
     max_clients: usize = profile.clients,
     /// Reactors and concurrent simple readers; mutations remain exclusive.
-    workers: usize = 1,
+    /// Zero selects the native CPU and memory plan.
+    workers: usize = 0,
     memory: bool = false,
     data: []const u8 = "ramsql.wal",
     /// Durable startup creates a missing `data` file only when set; otherwise
@@ -463,11 +464,12 @@ var memory_refresh_at:i64=0;
 const worker_budget_each:u64=threads.stack_bytes+1024*1024;
 fn lockMemory() void {if(parallel) memory_mutex.lock();}
 fn unlockMemory() void {if(parallel) memory_mutex.unlock();}
-fn initializeMemory(options:Options) !void {
+fn initializeMemory(options:Options) !machine_capacity.Sample {
     memory_hard=options.memory_budget;memory_headroom=options.os_headroom;
     const observed=try machine_capacity.sample(memory_hard,memory_headroom,0);
     try memory_ledger.bind(&memory_slots,observed.new_region_bytes);
     memory_refresh_at=monotonicClock()+1000000000;
+    return observed;
 }
 // The memory mutex keeps our region ownership stable while sampling. Pressure
 // reduces only future grants; existing mappings are never discarded/revoked.
@@ -970,10 +972,30 @@ fn writeStorageDetails(out: sig.io.File, options: Options, plan: *const StorageP
     try out.writeStreamingAll(.{}, "]}\n");
 }
 
-pub fn describe(options: Options) !void {
+fn storageCharges(options: Options, plan: *const StoragePlan, worker_bytes: u64) !machine_capacity.StartupCharges {
+    return machine_capacity.startupCharges(&.{plan.bytes, plan.workspace_bytes, options.max_clients * @sizeOf(Client)}, worker_bytes);
+}
+
+fn chooseWorkers(options: Options, plan: *const StoragePlan, observed: machine_capacity.Sample) !usize {
+    if (options.workers != 0) return options.workers;
+    if (!threads.available or options.protocol != .postgres) return 1;
+    const max_cpu = @min(options.max_clients, max_reactors, @as(usize, observed.plan.cpu_workers));
+    if (max_cpu <= 1) return 1;
+    const fixed = try storageCharges(options, plan, 0);
+    const read_bytes = try Raw.ReadContext.backingBytesFor(options.work_rows, plan.refs);
+    const per_worker = try machine_capacity.startupCharges(
+        &.{ @sizeOf(Raw.ReadContext), read_bytes, plan.result_bytes, plan.response_bytes }, worker_budget_each);
+    const available = observed.new_region_bytes -| fixed.rounded;
+    return @intCast(@max(1, @min(@as(u64, max_cpu), available / per_worker.rounded)));
+}
+
+pub fn describe(requested: Options) !void {
+    var options = requested;
     if (options.max_clients == 0 or options.max_clients > capacity or options.idle_ms == 0) return error.InvalidServerOptions;
-    try validateWorkers(options);
     const plan = try storagePlan(options);
+    if (options.workers == 0) options.workers = if (!threads.available or options.protocol != .postgres or options.max_clients == 1) 1
+        else try chooseWorkers(options, &plan, try machine_capacity.sample(options.memory_budget, options.os_headroom, 0));
+    try validateWorkers(options);
     const read_payload = try readContextPayload(options, &plan);
     var buffer: [4096]u8 = undefined;
     const message = try sig.fmt.bufPrint(&buffer,
@@ -1005,15 +1027,18 @@ pub fn describe(options: Options) !void {
     try writeStorageDetails(out, options, &plan, read_payload);
 }
 
-pub fn describeMachine(options:Options) !void {
+pub fn describeMachine(requested:Options) !void {
+    var options = requested;
     if(options.max_clients==0 or options.max_clients>capacity) return error.InvalidServerOptions;
-    try validateWorkers(options);
     const plan=try storagePlan(options);
+    const observed = try machine_capacity.sample(options.memory_budget, options.os_headroom, 0);
+    options.workers = try chooseWorkers(options, &plan, observed);
+    try validateWorkers(options);
     const read_payload = try readContextPayload(options, &plan);
     const worker_bytes=if(options.workers>1) options.workers*worker_budget_each else 0;
-    const startup=try machine_capacity.startupCharges(&.{plan.bytes,plan.workspace_bytes,options.max_clients*@sizeOf(Client)},worker_bytes);
+    const startup=try storageCharges(options, &plan, worker_bytes);
     var buffer: [4096]u8 = undefined;
-    const machine = try machine_capacity.describe(&buffer, options.memory_budget, options.os_headroom, startup, options.workers);
+    const machine = try machine_capacity.describe(&buffer, observed, startup, options.workers);
     var layout: [192]u8 = undefined;
     const memory = try std.fmt.bufPrint(&layout, ",\"backing_bytes\":{d},\"query_workspace_bytes\":{d},\"client_metadata_bytes\":{d}",
         .{ plan.bytes, plan.workspace_bytes, options.max_clients * @sizeOf(Client) });
@@ -1080,16 +1105,19 @@ fn openStorage(options: Options,backing:*owned_pages.Region) !void {
     try store.database.bindMemoryFor(backing.memory.bytes, plan.budgets, plan.refs);
 }
 
-pub fn run(options: Options) !void {
+pub fn run(requested: Options) !void {
+    var options = requested;
     if (options.auth_catalog_role and (options.insecure_local or options.memory or options.create_data or options.auth_verifier_file == null)) {
         return error.InvalidServerOptions;
     }
     bind_catalog_role = options.auth_catalog_role;
     if (options.max_clients == 0 or options.max_clients > capacity or options.idle_ms == 0) return error.InvalidServerOptions;
+    if (options.workers != 0) try validateWorkers(options);
+    const plan = try storagePlan(options);
+    const observed = try initializeMemory(options);
+    options.workers = try chooseWorkers(options, &plan, observed);
     try validateWorkers(options);
     parallel = options.workers > 1;
-    try initializeMemory(options);
-    const plan = try storagePlan(options);
     selected_work_rows=options.work_rows;selected_read_refs=plan.refs;
     var worker_grant:?resource_budget.Token=null;
     if(parallel) worker_grant=try memory_ledger.acquire(options.workers*worker_budget_each);
@@ -1278,7 +1306,7 @@ pub fn run(options: Options) !void {
 /// Offline backup validates/replays the existing source before publishing a copy.
 pub fn backup(options: Options, target: []const u8) !void {
     if (options.memory) return error.InvalidServerOptions;
-    try initializeMemory(options);
+    _ = try initializeMemory(options);
     var backing:owned_pages.Region=.{};
     try openStorage(options,&backing);
     defer backing.close() catch @panic("lost backup storage ownership");

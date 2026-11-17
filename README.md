@@ -166,8 +166,11 @@ before importing a schema; wire compatibility does not establish dialect parity.
 
 ## Concurrent clients
 
-The default uses one reactor. Windows and no-libc Linux builds offer experimental
-`--workers 4` socket reactors, for example:
+Eligible PostgreSQL listeners size their read-worker pool from the process's
+native CPU affinity or quota, the maximum admitted clients and the startup
+memory grant. The pool is capped at 16 reactors in this build. The estimate
+includes a stack, query scratch and one client response per selected worker.
+`--workers N` fixes the count for controlled deployments or benchmarks.
 
 ```sh
 ./ramsql --memory --insecure-local --max-clients 32 --workers 4
