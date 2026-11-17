@@ -50,8 +50,9 @@ pub const Options = struct {
     /// a missing file is DataFileMissing before any listener opens.
     create_data: bool = false,
     insecure_local: bool = false,
-    auth_user: []const u8 = "postgres",
+    auth_user: ?[]const u8 = null,
     auth_verifier_file: ?[]const u8 = null,
+    auth_credentials_file: ?[]const u8 = null,
     auth_catalog_role: bool = false,
     idle_ms: u32 = 30000,
     /// Execution checkpoints per statement; zero disables the work limit.
@@ -407,6 +408,8 @@ var persistence: Persistence = .{};
 // recoverable.
 var recovery_buffer: [profile.transaction_bytes]u8 = undefined;
 var verifier: ?scram.Verifier = null;
+var catalog_verifiers: [config.catalog_objects]scram.Verifier = undefined;
+var catalog_credentials: ?scram.Credentials = null;
 var bind_catalog_role = false;
 // Keep large caller-owned buffers out of the executable data image.
 // run initializes free-slot metadata; accept initializes every live field.
@@ -699,15 +702,19 @@ fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial:
         try entropy.fill(&secret);
         client.cancel_secret = std.mem.readInt(u32, &secret, .little);
         client.session.postgres.configureBackendKey(@intCast(slot + 1), client.cancel_secret);
-        if (verifier) |*credential| {
+        if (catalog_credentials != null or verifier != null) {
             var random: [24]u8 = undefined;
             try entropy.fill(&random);
             var nonce: [32]u8 = undefined;
             _ = std.base64.standard.Encoder.encode(&nonce, &random);
-            if (bind_catalog_role) {
-                try client.session.postgres.configureRoleAuthentication(credential, &nonce);
-            } else {
-                try client.session.postgres.configureAuthentication(credential, &nonce);
+            if (catalog_credentials) |*credentials| {
+                try client.session.postgres.configureRoleCredentials(credentials, &nonce);
+            } else if (verifier) |*credential| {
+                if (bind_catalog_role) {
+                    try client.session.postgres.configureRoleAuthentication(credential, &nonce);
+                } else {
+                    try client.session.postgres.configureAuthentication(credential, &nonce);
+                }
             }
         }
     }
@@ -891,8 +898,10 @@ pub fn describe(options: Options) !void {
         .{ @import("ramsql").version, options.workers, options.workers, if(options.workers>1) "true" else "false", if (threads.available) "true" else "false", if (@import("builtin").link_libc) "true" else "false", @import("builtin").cpu.model.name, @tagName(@import("builtin").mode), plan.max_rows, plan.versions, config.tables, config.columns, options.result_rows, options.work_rows, config.text_bytes, config.name_bytes, options.max_clients, capacity, profile.transaction_bytes, config.tx_writes, config.row_locks, config.predicates, config.expr_nodes, config.expr_depth, config.relations, config.subqueries, config.ctes, config.savepoints, config.sequences, config.numeric_digits, config.json_depth, config.copy_line_bytes, pg.max_packet, pg.sql_capacity, pg.statement_capacity, pg.portal_capacity, pg.parameter_capacity, input_capacity, plan.response_bytes, plan.bytes, plan.workspace_bytes, plan.result_bytes, options.max_clients * @sizeOf(Client), config.summary_groups, if(config.compact_integral_scans and config.columns <= 64) "true" else "false" });
     const out = sig.io.File.stdout();
     try out.writeStreamingAll(.{}, message[0..message.len-2]);
-    try out.writeStreamingAll(.{}, ",\"table_rows\":[");
     var number: [32]u8 = undefined;
+    try out.writeStreamingAll(.{}, ",\"postgres_scram_catalog_roles\":true,\"postgres_scram_credential_limit\":");
+    try out.writeStreamingAll(.{}, try sig.fmt.bufPrint(&number, "{d}", .{config.catalog_objects}));
+    try out.writeStreamingAll(.{}, ",\"table_rows\":[");
     for (plan.budgets,0..) |budget,index| {
         if (index!=0) try out.writeStreamingAll(.{},",");
         try out.writeStreamingAll(.{},try sig.fmt.bufPrint(&number,"{d}",.{budget.rows}));
@@ -977,16 +986,68 @@ fn openStorage(options: Options,backing:*owned_pages.Region) !void {
     try store.database.bindMemoryFor(backing.memory.bytes, plan.budgets, plan.refs);
 }
 
-pub fn run(options: Options) !void {
-    if (options.auth_catalog_role and (options.insecure_local or options.memory or options.create_data or options.auth_verifier_file == null)) {
-        return error.InvalidServerOptions;
+fn readCredentialFile(path: []const u8, buffer: []u8) ![]u8 {
+    const file = try sig.io.Dir.cwd().openFile(.{}, path, .{});
+    defer file.close(.{});
+    var reader = file.reader(.{}, &.{});
+    const used = try reader.interface.readSliceShort(buffer);
+    if (used == 0 or used == buffer.len) return error.InvalidVerifier;
+    return buffer[0..used];
+}
+
+fn clearAuthentication() void {
+    std.crypto.secureZero(u8, std.mem.asBytes(&catalog_verifiers));
+    std.crypto.secureZero(u8, std.mem.asBytes(&catalog_credentials));
+    std.crypto.secureZero(u8, std.mem.asBytes(&verifier));
+    catalog_credentials = null;
+    verifier = null;
+}
+
+fn loadCatalogCredentials(path: []const u8) !void {
+    const prefix = "RAMSQL-SCRAM-V1\t";
+    const file_limit = prefix.len + 64 + 2 + config.catalog_objects * (64 + 1 + 512 + 2);
+    var region: owned_pages.Region = .{};
+    try region.reserve(&memory_ledger, file_limit + 1);
+    defer region.close() catch @panic("lost authentication file memory ownership");
+    const buffer = region.memory.bytes[0 .. file_limit + 1];
+    defer std.crypto.secureZero(u8, buffer);
+    const source = try readCredentialFile(path, buffer);
+    const line_end = std.mem.indexOfScalar(u8, source, '\n') orelse return error.InvalidVerifier;
+    const header_end = if (line_end != 0 and source[line_end - 1] == '\r') line_end - 1 else line_end;
+    const header = source[0..header_end];
+    if (header.len != prefix.len + 64 or !std.mem.startsWith(u8, header, prefix)) return error.InvalidVerifier;
+    var mock_key: [32]u8 = undefined;
+    defer std.crypto.secureZero(u8, &mock_key);
+    _ = std.fmt.hexToBytes(&mock_key, header[prefix.len..]) catch return error.InvalidVerifier;
+    const entries = try scram.parseVerifierList(source[line_end + 1 ..], &catalog_verifiers);
+    catalog_credentials = try scram.Credentials.init(entries, mock_key);
+}
+
+fn loadAuthentication(options: Options) !void {
+    if (options.insecure_local) {
+        if (options.auth_verifier_file != null) return error.InvalidServerOptions;
+        return;
     }
-    bind_catalog_role = options.auth_catalog_role;
+    if (options.auth_credentials_file == null and options.auth_verifier_file == null) return error.AuthenticationRequired;
+    if (options.protocol != .postgres or options.mysql_port != null or options.mssql_port != null) return error.AuthenticationUnsupportedForProtocol;
+    if (options.auth_credentials_file) |path| return loadCatalogCredentials(path);
+    var source_buffer: [513]u8 = undefined;
+    defer std.crypto.secureZero(u8, &source_buffer);
+    const source = try readCredentialFile(options.auth_verifier_file.?, &source_buffer);
+    verifier = try scram.Verifier.parse(options.auth_user orelse "postgres", std.mem.trimEnd(u8, source, "\r\n"));
+}
+
+pub fn run(options: Options) !void {
+    if (options.auth_credentials_file != null and (options.auth_user != null or options.auth_verifier_file != null)) return error.InvalidServerOptions;
+    bind_catalog_role = options.auth_catalog_role or options.auth_credentials_file != null;
+    if (bind_catalog_role and (options.insecure_local or options.memory or options.create_data or
+        (options.auth_verifier_file == null and options.auth_credentials_file == null))) return error.InvalidServerOptions;
     if (options.max_clients == 0 or options.max_clients > capacity or options.idle_ms == 0) return error.InvalidServerOptions;
     try validateWorkers(options);
     parallel = options.workers > 1;
     try initializeMemory(options);
     const plan = try storagePlan(options);
+    defer clearAuthentication();
     selected_work_rows=options.work_rows;selected_read_refs=plan.refs;
     var worker_grant:?resource_budget.Token=null;
     if(parallel) worker_grant=try memory_ledger.acquire(options.workers*worker_budget_each);
@@ -1018,27 +1079,14 @@ pub fn run(options: Options) !void {
     zones.directory = options.timezone_dir;
     zones.in_use = &zoneInUse;
     store.zone_provider = .{ .context = @ptrCast(&zones), .lookup = &Zones.lookup };
-    if (!options.insecure_local) {
-        const verifier_path = options.auth_verifier_file orelse return error.AuthenticationRequired;
-        if (options.protocol != .postgres or options.mysql_port != null or options.mssql_port != null) return error.AuthenticationUnsupportedForProtocol;
-        const file = try sig.io.Dir.cwd().openFile(.{}, verifier_path, .{});
-        defer file.close(.{});
-        var source: [513]u8 = undefined;
-        var reader = file.reader(.{}, &.{});
-        var used: usize = 0;
-        while (used < source.len) {
-            const n = try reader.interface.readSliceShort(source[used..]);
-            if (n == 0) break;
-            used += n;
-        }
-        if (used == 0 or used > 512) return error.InvalidVerifier;
-        while (used != 0 and (source[used - 1] == '\n' or source[used - 1] == '\r')) used -= 1;
-        verifier = try scram.Verifier.parse(options.auth_user, source[0..used]);
-        std.crypto.secureZero(u8, &source);
-    } else if (options.auth_verifier_file != null) return error.InvalidServerOptions;
+    try loadAuthentication(options);
     if (!options.memory) try openData(options);
     defer persistence.close();
-    if (bind_catalog_role and store.database.authenticatedRole(options.auth_user) == null) return error.AuthenticationFailed;
+    if (catalog_credentials) |*credentials| {
+        for (credentials.verifiers) |*entry| {
+            if (store.database.authenticatedRole(entry.identity()) == null) return error.AuthenticationFailed;
+        }
+    } else if (bind_catalog_role and store.database.authenticatedRole(verifier.?.identity()) == null) return error.AuthenticationFailed;
     try tcp.init();
     defer tcp.deinit();
     var listeners: [3]tcp.Socket = @splat(tcp.invalid_socket);

@@ -115,8 +115,19 @@ restart it on the same WAL with `--auth-catalog-role`, the exact role name in
 `--auth-user`, and that user's SCRAM verifier in `--auth-verifier-file`.
 A user-created role must exist, allow login, and have no finite connection limit.
 The built-in `ramsql` role is also eligible and retains bootstrap privileges.
-This option requires an existing durable WAL and supports one verifier on the
-loopback listener.
+For multiple roles, initialize the same WAL and create each login role using
+the bootstrap connection. Create a verifier for each role, then combine them:
+
+```sh
+python create_verifier.py --output roles.credentials \
+  --credential reporting reporting.verifier --credential ingest ingest.verifier
+./ramsql --data ramsql.wal --auth-credentials-file roles.credentials
+```
+
+The list uses exact role names and requires a common SCRAM salt length and
+iteration count. The helper generates a key in the credential file for stable
+failed-authentication challenges across restarts. Protect the whole file like
+the individual verifiers. Changes to the file take effect after restart.
 See [operations](OPERATIONS.md) for backup, restoration and failure handling.
 
 ## Client and SQL compatibility

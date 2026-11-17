@@ -235,9 +235,11 @@ def catalog_role_contracts(binary, directory, admin_verifier, admin_password):
     with running_ramsql(binary, data_path=wal, create_data=True, auth=admin) as options:
         with psycopg.connect(**options) as db:
             db.execute("CREATE ROLE test_reader LOGIN")
+            db.execute("CREATE ROLE test_writer LOGIN")
             db.execute("CREATE TABLE role_data(id INT PRIMARY KEY, value TEXT)")
             db.execute("INSERT INTO role_data VALUES (1,'hidden'),(2,'visible')")
             db.execute("GRANT SELECT ON role_data TO test_reader")
+            db.execute("GRANT INSERT ON role_data TO test_writer")
             db.execute("ALTER TABLE role_data ENABLE ROW LEVEL SECURITY")
             db.execute("CREATE POLICY visible_rows ON role_data USING (id > 1)")
 
@@ -264,9 +266,78 @@ def catalog_role_contracts(binary, directory, admin_verifier, admin_password):
                     raise AssertionError(f"restricted session unexpectedly accepted {query}")
             check(db.execute("SELECT count(*) FROM role_data").fetchone() == (1,))
 
+    writer_password = secrets.token_urlsafe(32).encode()
+    writer_verifier = directory / "writer.verifier"
+    writer_verifier.write_bytes(make_verifier(writer_password, secrets.token_bytes(32)) + b"\n")
+    writer_verifier.chmod(0o600)
+    credentials = directory / "roles.credentials"
+    provision = [sys.executable, str(ROOT / "tools/create_verifier.py"), "--output", str(credentials),
+                 "--credential", "test_reader", str(verifier), "--credential", "test_writer", str(writer_verifier)]
+    created = subprocess.run(provision, capture_output=True, timeout=10)
+    check(created.returncode == 0, "could not provision catalog credentials")
+    check(subprocess.run(provision, capture_output=True, timeout=10).returncode != 0, "credential provisioning overwrote an existing file")
+    bad_input = directory / "bad-list-input.verifier"
+    bad_output = directory / "bad-list-output.credentials"
+    bad_provision = [sys.executable, str(ROOT / "tools/create_verifier.py"), "--output", str(bad_output),
+                     "--credential", "test_reader", str(verifier), "--credential", "test_writer", str(bad_input)]
+    for invalid in (b"SCRAM-SHA-256$broken\n", make_verifier(writer_password, secrets.token_bytes(16)) + b"\n"):
+        bad_input.write_bytes(invalid)
+        failed = subprocess.run(bad_provision, capture_output=True, timeout=10)
+        check(failed.returncode != 0 and not bad_output.exists(), "helper emitted an invalid credential list")
+    auth_list = (credentials, "test_reader", password.decode())
+    workers = ("--workers", str(test_workers))
+
+    malformed = directory / "bad.credentials"
+    malformed.write_bytes(b"RAMSQL-SCRAM-V1\tbad\n")
+    for credential_path, flags, diagnostic in (
+        (malformed, (), b"InvalidVerifier"),
+        (credentials, ("--auth-user", "test_reader"), b"InvalidServerOptions"),
+        (credentials, ("--auth-verifier-file", str(verifier)), b"InvalidServerOptions"),
+        (credentials, ("--insecure-local",), b"InvalidServerOptions"),
+        (credentials, ("--create-data",), b"InvalidServerOptions"),
+    ):
+        command = [str(binary), "--data", str(wal), "--port", "0", "--auth-credentials-file", str(credential_path), *flags]
+        rejected_startup = subprocess.run(command, capture_output=True, timeout=10)
+        check(rejected_startup.returncode != 0 and not rejected_startup.stdout and diagnostic in rejected_startup.stderr,
+              "invalid catalog credentials opened a listener")
+
+    def failed_challenge(port, role):
+        with connect_raw(port, role) as sock:
+            bare, first, fields, nonce = challenge(sock)
+            salt = base64.b64decode(fields[b"s"], validate=True)
+            rounds = int(fields[b"i"])
+            final, _ = raw_final(bare, first, fields, proof_keys(b"wrong-password", salt, rounds))
+            sock.sendall(frame(b"p", final))
+            rejected(sock)
+            return salt, rounds, nonce
+
+    with running_ramsql(binary, data_path=wal, auth_list=auth_list, extra_arguments=workers) as options:
+        writer_options = options | {"user": "test_writer", "password": writer_password.decode()}
+        with psycopg.connect(**options) as read_db, psycopg.connect(**writer_options) as write_db:
+            check(write_db.execute("SELECT session_user").fetchone() == ("test_writer",))
+            check(read_db.execute("SELECT current_user").fetchone() == ("test_reader",))
+            write_db.execute("INSERT INTO role_data VALUES (3,'writer')")
+            check(read_db.execute("SELECT id FROM role_data ORDER BY id", prepare=True).fetchall() == [(2,), (3,)])
+            try:
+                write_db.execute("SELECT id FROM role_data")
+            except psycopg.errors.InsufficientPrivilege:
+                check(True)
+            else:
+                raise AssertionError("writer inherited the reader's privileges")
+        bad_salt, bad_rounds, _ = failed_challenge(options["port"], "test_reader")
+        mock_salt, mock_rounds, mock_nonce = failed_challenge(options["port"], "unknown_role")
+        other_salt, other_rounds, _ = failed_challenge(options["port"], "another_unknown_role")
+        check(len(bad_salt) == len(mock_salt) == len(other_salt) == 32)
+        check(bad_rounds == mock_rounds == other_rounds == 4096 and mock_salt != other_salt)
+
+    with running_ramsql(binary, data_path=wal, auth_list=auth_list, extra_arguments=workers) as options:
+        salt_after_restart, rounds_after_restart, nonce_after_restart = failed_challenge(options["port"], "unknown_role")
+        check((salt_after_restart, rounds_after_restart) == (mock_salt, mock_rounds))
+        check(nonce_after_restart != mock_nonce)
+
     with running_ramsql(binary, data_path=wal, auth=admin) as options:
         with psycopg.connect(**options) as db:
-            check(db.execute("SELECT id FROM role_data ORDER BY id").fetchall() == [(1,), (2,)])
+            check(db.execute("SELECT id FROM role_data ORDER BY id").fetchall() == [(1,), (2,), (3,)])
             db.execute("ALTER ROLE test_reader NOLOGIN")
 
     try:
@@ -274,6 +345,11 @@ def catalog_role_contracts(binary, directory, admin_verifier, admin_password):
             raise AssertionError("NOLOGIN role opened a listener")
     except RuntimeError as error:
         check("AuthenticationFailed" in str(error), "unexpected NOLOGIN startup failure")
+    try:
+        with running_ramsql(binary, data_path=wal, auth_list=auth_list, extra_arguments=workers):
+            raise AssertionError("credential list with NOLOGIN role opened a listener")
+    except RuntimeError as error:
+        check("AuthenticationFailed" in str(error), "unexpected credential-list NOLOGIN failure")
 
 
 def startup_contracts(binary, directory):
