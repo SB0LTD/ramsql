@@ -33,6 +33,9 @@ const threads = @import("worker_thread");
 const resource_budget = @import("resource_budget");
 const owned_pages = @import("budgeted_region");
 const machine_capacity = @import("capacity.sig");
+const database_registry = @import("database_registry");
+const database_catalog = @import("database_catalog.sig");
+const disk = @import("db_file");
 
 pub const Protocol = enum { postgres, mysql, mssql };
 pub const table_capacity = profile.tables;
@@ -50,6 +53,7 @@ pub const Options = struct {
     /// Durable startup creates a missing `data` file only when set; otherwise
     /// a missing file is DataFileMissing before any listener opens.
     create_data: bool = false,
+    database_cluster: bool = false,
     insecure_local: bool = false,
     auth_user: []const u8 = "postgres",
     auth_verifier_file: ?[]const u8 = null,
@@ -165,7 +169,7 @@ fn wallClock() ?i64 {
     const unix_us = wall_clock.nowUs() catch return null;
     return sql.temporal.fromUnixUs(unix_us);
 }
-const PG = pg.Session(DB);
+const PG = pg.SessionWithAdmission(DB, true);
 const MySQL = mysql.Session(DB);
 const TDS = tds.Session(DB);
 const capacity = 60;
@@ -222,6 +226,8 @@ const Client = struct {
     output: []u8 = &.{},
     result_region: owned_pages.Region = .{},
     output_region: owned_pages.Region = .{},
+    startup_region: owned_pages.Region = .{},
+    database_binding: ?ClusterRegistry.Binding = null,
     reader:?*Reader=null,
     read_deadline:?i64=null,
     output_len: usize = 0,
@@ -241,10 +247,13 @@ const Client = struct {
     /// transaction block, where delivery waits for ReadyForQuery).
     fn deliverNotifications(self: *Client) void {
         if (self.protocol != .postgres or self.blocked or self.closing or self.output_len != 0 or self.input_len != 0) return;
-        if (notification_sequence.load(.acquire) == self.notify_seen) return;
+        if (cluster_options.database_cluster and self.database_binding == null) return;
+        if (!cluster_options.database_cluster and notification_sequence.load(.acquire) == self.notify_seen) return;
         lockStore();
         defer unlockStore();
-        self.notify_seen = store.database.notificationSequence();
+        const sequence = self.connection.store.database.notificationSequence();
+        if (sequence == self.notify_seen) return;
+        self.notify_seen = sequence;
         const written = self.session.postgres.notifications(&self.connection, self.output[self.output_len..]) catch return;
         self.output_len += written;
     }
@@ -254,12 +263,17 @@ const Client = struct {
         if (active) lockStore();
         self.cancel_key.store(0, .release);
         if (active) self.connection.disconnect();
+        if (self.database_binding) |binding| {
+            cluster_registry.release(binding.lease) catch @panic("lost database lease");
+            self.database_binding = null;
+        }
         self.state.store(1, .release);
         if (active) unlockStore();
         if(self.socket!=tcp.invalid_socket) tcp.close(self.socket);
         lockMemory();
         self.result_region.close() catch @panic("lost client result ownership");
         self.output_region.close() catch @panic("lost client response ownership");
+        self.startup_region.close() catch @panic("lost client startup ownership");
         self.reader=null;
         unlockMemory();
         self.output = &.{};
@@ -295,7 +309,7 @@ const Client = struct {
         if (self.blocked or self.output_sent != 0 or self.closing or (self.input_len == 0 and !parked_copy) or self.output.len - self.output_len < required) return;
         const input = self.input[self.input_start..][0..self.input_len];
         const output = self.output[self.output_len..];
-        store.now_ns = sig.os.clockMonotonicNs();
+        self.connection.store.now_ns = sig.os.clockMonotonicNs();
         const reply: Reply = switch (self.session) {
             .postgres => |*session| blk: {
                 const r = try session.handle(&self.connection, input, output);
@@ -435,6 +449,34 @@ const Client = struct {
 };
 var store: Store = .{};
 var persistence: Persistence = .{};
+const cluster_capacity = 4;
+const primary_database = "postgres";
+const cluster_owner: u32 = 10;
+const ClusterRegistry = database_registry.Registry(Store, config.name_bytes);
+const ClusterCatalog = database_catalog.Catalog(cluster_capacity, config.name_bytes);
+const ClusterStore = struct { store: Store = .{}, persistence: Persistence = .{} };
+const ClusterSlot = struct {
+    metadata: owned_pages.Region = .{},
+    backing: owned_pages.Region = .{},
+    workspace: owned_pages.Region = .{},
+    log_buffer: owned_pages.Region = .{},
+    database: ?*ClusterStore = null,
+
+    fn close(self: *ClusterSlot) void {
+        if (self.database) |database| database.persistence.close();
+        self.database = null;
+        self.log_buffer.close() catch @panic("lost cluster log memory");
+        self.workspace.close() catch @panic("lost cluster workspace");
+        self.backing.close() catch @panic("lost cluster storage");
+        self.metadata.close() catch @panic("lost cluster metadata");
+    }
+};
+var cluster_options: Options = .{};
+var cluster_registry: ClusterRegistry = undefined;
+var cluster_entries: [cluster_capacity]ClusterRegistry.Entry = undefined;
+var cluster_leases: [capacity]ClusterRegistry.LeaseEntry = undefined;
+var cluster_catalog: ClusterCatalog = .{};
+var cluster_slots: [cluster_capacity]ClusterSlot = @splat(.{});
 // profile.transaction_bytes sizes this recovery buffer, which Persistence also
 // hands to the store as the change-record encode buffer: any record written is
 // recoverable.
@@ -717,6 +759,9 @@ fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial:
     client.socket = socket;
     client.result_region = .{};
     client.output_region = .{};
+    client.startup_region = .{};
+    client.database_binding = null;
+    client.notify_seen = 0;
     client.reader=if(parallel) &reactors[slot % reactor_count].reader else null;client.read_deadline=null;
     client.output = &.{};
     client.blocked = false;
@@ -736,6 +781,13 @@ fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial:
     errdefer {client.socket=tcp.invalid_socket;client.close();}
     try provisionClient(client);
     if (protocol == .postgres) {
+        if (cluster_options.database_cluster) {
+            try client.startup_region.reserve(&memory_ledger, pg.routed_startup_capacity);
+            try client.session.postgres.configureStartupAdmission(.{
+                .context = @ptrCast(client), .scratch = client.startup_region.memory.bytes,
+                .admit = &clusterAdmit, .utility = &clusterCommand,
+            });
+        }
         // BackendKeyData: pid = slot + 1, fresh 32-bit secret.
         var secret: [4]u8 = undefined;
         try entropy.fill(&secret);
@@ -780,6 +832,7 @@ var reactors: [max_reactors]Reactor = @splat(.{});
 
 fn validateWorkers(options: Options) !void {
     if (options.workers == 0 or options.workers > max_reactors or options.workers > options.max_clients) return error.InvalidServerOptions;
+    if (options.database_cluster and options.workers != 1) return error.InvalidServerOptions;
     if (options.workers > 1 and !threads.available) return error.WorkersUnsupportedOnPlatform;
 }
 
@@ -914,6 +967,8 @@ const StoragePlan = struct {
 };
 
 fn storagePlan(options: Options) !StoragePlan {
+    if (options.database_cluster and (options.memory or options.protocol != .postgres or
+        options.mysql_port != null or options.mssql_port != null or options.auth_catalog_role)) return error.InvalidServerOptions;
     if (options.max_prepared_transactions >= Store.prepared_capacity or (options.memory and options.max_prepared_transactions != 0)) return error.InvalidServerOptions;
     if (!profile.integral_version_banks and options.table_integral_words != null) return error.InvalidServerOptions;
     if (options.typed_bank_memory_profile and options.table_integral_words == null) return error.InvalidServerOptions;
@@ -960,8 +1015,8 @@ fn readContextPayload(options: Options, plan: *const StoragePlan) !usize {
 fn writeStorageDetails(out: sig.io.File, options: Options, plan: *const StoragePlan, read_payload: usize) !void {
     var buffer: [384]u8 = undefined;
     try out.writeStreamingAll(.{}, try std.fmt.bufPrint(&buffer,
-        ",\"typed_bank_memory_profile\":{s},\"query_refs\":{d},\"query_reference_bytes\":{d},\"read_context_payload_bytes_per_worker\":{d},\"table_storage\":[",
-        .{ if (options.typed_bank_memory_profile) "true" else "false", plan.refs, plan.refs * @sizeOf(u32), read_payload }));
+        ",\"typed_bank_memory_profile\":{s},\"query_refs\":{d},\"query_reference_bytes\":{d},\"read_context_payload_bytes_per_worker\":{d},\"max_prepared_transactions\":{d},\"prepared_transactions_ceiling\":{d},\"database_cluster\":{s},\"cluster_database_ceiling\":{d},\"table_storage\":[",
+        .{ if (options.typed_bank_memory_profile) "true" else "false", plan.refs, plan.refs * @sizeOf(u32), read_payload, options.max_prepared_transactions, Store.prepared_capacity - 1, if (options.database_cluster) "true" else "false", cluster_capacity }));
     for (plan.budgets, 0..) |budget, index| {
         if (index != 0) try out.writeStreamingAll(.{}, ",");
         const scan = config.compact_integral_scans and config.columns <= 64 and !budget.omit_compact_scan;
@@ -978,7 +1033,7 @@ fn storageCharges(options: Options, plan: *const StoragePlan, worker_bytes: u64)
 
 fn chooseWorkers(options: Options, plan: *const StoragePlan, observed: machine_capacity.Sample) !usize {
     if (options.workers != 0) return options.workers;
-    if (!threads.available or options.protocol != .postgres) return 1;
+    if (!threads.available or options.protocol != .postgres or options.database_cluster) return 1;
     const max_cpu = @min(options.max_clients, max_reactors, @as(usize, observed.plan.cpu_workers));
     if (max_cpu <= 1) return 1;
     const fixed = try storageCharges(options, plan, 0);
@@ -1105,6 +1160,153 @@ fn openStorage(options: Options,backing:*owned_pages.Region) !void {
     try store.database.bindMemoryFor(backing.memory.bytes, plan.budgets, plan.refs);
 }
 
+fn clusterWalPath(oid: u32, buffer: []u8) ![]const u8 {
+    return sig.fmt.bufPrint(buffer, "{s}.db-{d}.wal", .{ cluster_options.data, oid });
+}
+
+fn clusterStoreOpen(id: ClusterRegistry.Id, oid: u32, name: []const u8, create: bool) !*Store {
+    var path_buffer: [4096]u8 = undefined;
+    const path = try clusterWalPath(oid, &path_buffer);
+    const identity: @import("persistence.sig").DatabaseIdentity = .{ .cluster = cluster_catalog.identity orelse return error.InvalidDatabaseCatalog, .oid = oid };
+    if (std.mem.eql(u8, name, primary_database)) {
+        store.database_oid = oid;
+        _ = try persistence.initDatabase(path, &store, &recovery_buffer, identity, create);
+        return &store;
+    }
+    const slot = &cluster_slots[id.index];
+    const plan = try storagePlan(cluster_options);
+    try refreshMemoryBudget();
+    errdefer slot.close();
+    try slot.metadata.reserve(&memory_ledger, @sizeOf(ClusterStore));
+    const objects = try slot.metadata.memory.view(ClusterStore, 0, 1);
+    const database = &objects[0];
+    database.* = .{};
+    slot.database = database;
+    try slot.backing.reserve(&memory_ledger, plan.bytes);
+    try database.store.database.bindMemoryFor(slot.backing.memory.bytes, plan.budgets, plan.refs);
+    try slot.workspace.reserve(&memory_ledger, plan.workspace_bytes);
+    try database.store.database.bindWorkspaceMemory(slot.workspace.memory.bytes, cluster_options.work_rows);
+    try slot.log_buffer.reserve(&memory_ledger, profile.transaction_bytes);
+    configureStore(&database.store, cluster_options);
+    database.store.database_oid = oid;
+    _ = try database.persistence.initDatabase(path, &database.store, slot.log_buffer.memory.bytes[0..profile.transaction_bytes], identity, create);
+    return &database.store;
+}
+
+fn createClusterDatabase(name: []const u8) !void {
+    const oid = std.math.add(u32, @max(@as(u32, 4), cluster_catalog.high_water), 1) catch return error.DatabaseCapacity;
+    const id = try cluster_registry.reserve(name, oid, cluster_owner);
+    errdefer _ = cluster_registry.abortReservation(id) catch @panic("lost database reservation");
+    try cluster_catalog.reserve(oid);
+    const opened = try clusterStoreOpen(id, oid, name, true);
+    errdefer {
+        if (opened == &store) persistence.close() else cluster_slots[id.index].close();
+    }
+    try cluster_registry.stageStore(id, opened);
+    try cluster_catalog.publish(oid, cluster_owner, name);
+    cluster_registry.publish(id) catch @panic("durable database publication lost");
+}
+
+fn openCluster() !void {
+    var path_buffer: [4096]u8 = undefined;
+    const path = try sig.fmt.bufPrint(&path_buffer, "{s}.cluster", .{cluster_options.data});
+    cluster_registry = ClusterRegistry.init(&cluster_entries, &cluster_leases);
+    try cluster_catalog.open(path, cluster_options.create_data);
+    if (cluster_catalog.identity == null) {
+        if (!cluster_options.create_data) return error.InvalidDatabaseCatalog;
+        var identity: [16]u8 = undefined;
+        try entropy.fill(&identity);
+        try cluster_catalog.initializeIdentity(identity);
+    }
+    var previous: u32 = 0;
+    while (true) {
+        var next: ?*const ClusterCatalog.Entry = null;
+        for (&cluster_catalog.entries) |*entry| {
+            if (entry.oid > previous and (next == null or entry.oid < next.?.oid)) next = entry;
+        }
+        const entry = next orelse break;
+        if (entry.owner != cluster_owner) return error.InvalidDatabaseCatalog;
+        const id = try cluster_registry.reserve(entry.slice(), entry.oid, entry.owner);
+        try cluster_registry.stageStore(id, try clusterStoreOpen(id, entry.oid, entry.slice(), false));
+        try cluster_registry.publish(id);
+        previous = entry.oid;
+    }
+    cluster_registry.raiseOidHighWater(cluster_catalog.high_water);
+    if (cluster_registry.lookup(primary_database) == null) {
+        if (!cluster_options.create_data or previous != 0) return error.InvalidDatabaseCatalog;
+        try createClusterDatabase(primary_database);
+    }
+}
+
+fn clusterAcl(_: ?*anyopaque, principal: u32, metadata: ClusterRegistry.Metadata) bool {
+    return principal == metadata.owner;
+}
+
+fn databaseCatalogRow(_: ?*const anyopaque, index: usize) ?sql.DatabaseCatalogRow {
+    const entry = cluster_registry.metadataAt(index) orelse return null;
+    return .{ .oid = entry.oid, .owner = entry.owner, .name = entry.name };
+}
+
+fn clusterAdmit(context: *anyopaque, connection: *DB, request: pg.StartupAdmission) anyerror!void {
+    const client: *Client = @ptrCast(@alignCast(context));
+    if (cluster_catalog.failed) return error.WriterPoisoned;
+    if (!std.mem.eql(u8, request.user, cluster_options.auth_user)) return error.AdmissionDenied;
+    if (request.method == .trusted and !cluster_options.insecure_local) return error.AdmissionDenied;
+    const binding = try cluster_registry.attach(request.database, .{ .principal = cluster_owner, .allowed = &clusterAcl });
+    errdefer cluster_registry.release(binding.lease) catch @panic("lost provisional database lease");
+    const former = connection.store;
+    connection.store = binding.store;
+    errdefer connection.store = former;
+    var parameters = request.parameters();
+    while (try parameters.next()) |param| {
+        if (!std.mem.eql(u8, param.key, "database")) try connection.startupParameter(param.key, param.value);
+    }
+    try connection.startupParameter("database", request.database);
+    client.database_binding = binding;
+}
+
+fn clusterCommand(context: *anyopaque, connection: *DB, source: []const u8) anyerror!?[]const u8 {
+    const command = (try Raw.parseDatabaseCommand(source, .{})) orelse return null;
+    const client: *Client = @ptrCast(@alignCast(context));
+    const binding = client.database_binding orelse return error.AdmissionDenied;
+    if (connection.engine_session.values.role != 0) return error.AdmissionDenied;
+    if (connection.transactionStatus() != 'I') return error.ActiveSqlTransaction;
+    if (cluster_catalog.failed) return error.WriterPoisoned;
+    switch (command) {
+        .create => |name| {
+            try createClusterDatabase(name.slice());
+            return "CREATE DATABASE";
+        },
+        .drop => |drop| {
+            const target = cluster_registry.lookup(drop.name.slice()) orelse return if (drop.if_exists) "DROP DATABASE" else error.DatabaseNotFound;
+            if (std.mem.eql(u8, target.name, primary_database) or target.id.index == binding.database.index) return error.DatabaseBusy;
+            const slot = &cluster_slots[target.id.index];
+            if (slot.database.?.store.preparedCount() != 0) return error.DatabaseBusy;
+            try cluster_registry.beginDrop(target.id);
+            // On an uncertain sync outcome, keep the database fenced until
+            // restart resolves the durable tombstone.
+            try cluster_catalog.drop(target.oid);
+            _ = cluster_registry.finishDrop(target.id) catch @panic("durable database tombstone lost");
+            slot.close();
+            var path_buffer: [4096]u8 = undefined;
+            if (clusterWalPath(target.oid, &path_buffer)) |path| disk.remove(path) catch {} else |_| {}
+            return "DROP DATABASE";
+        },
+    }
+}
+
+fn configureStore(target: *Store, options: Options) void {
+    if (wall_clock.available) target.wall_clock = &wallClock;
+    target.monotonic_clock = &monotonicClock;
+    target.max_query_work = options.max_query_work;
+    target.prepared_limit = options.max_prepared_transactions;
+    target.interrupt_poll = if (parallel) &pollWorkerInterrupts else &pollInterrupts;
+    target.zone_provider = .{ .context = @ptrCast(&zones), .lookup = &Zones.lookup };
+    if (options.database_cluster) {
+        target.database.setDatabaseCatalog(.{ .capacity = cluster_capacity, .row = &databaseCatalogRow });
+    }
+}
+
 pub fn run(requested: Options) !void {
     var options = requested;
     if (options.auth_catalog_role and (options.insecure_local or options.memory or options.create_data or options.auth_verifier_file == null)) {
@@ -1118,6 +1320,7 @@ pub fn run(requested: Options) !void {
     options.workers = try chooseWorkers(options, &plan, observed);
     try validateWorkers(options);
     parallel = options.workers > 1;
+    cluster_options = options;
     selected_work_rows=options.work_rows;selected_read_refs=plan.refs;
     var worker_grant:?resource_budget.Token=null;
     if(parallel) worker_grant=try memory_ledger.acquire(options.workers*worker_budget_each);
@@ -1141,15 +1344,10 @@ pub fn run(requested: Options) !void {
     _ = try Raw.Result.rowBytes(options.result_rows);
     _ = try responseBytes(options.result_rows);
     selected_result_rows = options.result_rows;
-    if (wall_clock.available) store.wall_clock = &wallClock;
-    store.monotonic_clock = &monotonicClock;
-    store.max_query_work = options.max_query_work;
-    store.prepared_limit = options.max_prepared_transactions;
-    store.interrupt_poll = if (parallel) &pollWorkerInterrupts else &pollInterrupts;
     interrupt_max_clients = options.max_clients;
     zones.directory = options.timezone_dir;
     zones.in_use = &zoneInUse;
-    store.zone_provider = .{ .context = @ptrCast(&zones), .lookup = &Zones.lookup };
+    configureStore(&store, options);
     if (!options.insecure_local) {
         const verifier_path = options.auth_verifier_file orelse return error.AuthenticationRequired;
         if (options.protocol != .postgres or options.mysql_port != null or options.mssql_port != null) return error.AuthenticationUnsupportedForProtocol;
@@ -1168,8 +1366,12 @@ pub fn run(requested: Options) !void {
         verifier = try scram.Verifier.parse(options.auth_user, source[0..used]);
         std.crypto.secureZero(u8, &source);
     } else if (options.auth_verifier_file != null) return error.InvalidServerOptions;
-    if (!options.memory) try openData(options);
     defer persistence.close();
+    defer if (options.database_cluster) {
+        for (&cluster_slots) |*slot| slot.close();
+        cluster_catalog.close();
+    };
+    if (options.database_cluster) try openCluster() else if (!options.memory) try openData(options);
     if (bind_catalog_role and store.database.authenticatedRole(options.auth_user) == null) return error.AuthenticationFailed;
     try tcp.init();
     defer tcp.deinit();
@@ -1226,7 +1428,9 @@ pub fn run(requested: Options) !void {
         var woken: [capacity]usize = undefined;
         var woken_count: usize = 0;
         for (clients[0..options.max_clients], 0..) |*client, index| {
-            if (client.socket == tcp.invalid_socket or !client.blocked or !client.connection.wakeReady()) continue;
+            if (client.socket == tcp.invalid_socket or !client.blocked) continue;
+            if (options.database_cluster) client.connection.store.now_ns = now;
+            if (!client.connection.wakeReady()) continue;
             var position = woken_count;
             while (position != 0 and clients[woken[position - 1]].connection.waitStart() > client.connection.waitStart()) : (position -= 1) woken[position] = woken[position - 1];
             woken[position] = index;
@@ -1305,7 +1509,7 @@ pub fn run(requested: Options) !void {
 
 /// Offline backup validates/replays the existing source before publishing a copy.
 pub fn backup(options: Options, target: []const u8) !void {
-    if (options.memory) return error.InvalidServerOptions;
+    if (options.memory or options.database_cluster) return error.InvalidServerOptions;
     _ = try initializeMemory(options);
     var backing:owned_pages.Region=.{};
     try openStorage(options,&backing);

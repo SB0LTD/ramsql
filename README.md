@@ -118,6 +118,13 @@ above the number of unresolved prepares when reopening or backing up the WAL.
 Prepared DDL, serializable transactions and prepared-transaction catalog
 inspection remain outside this beta scope.
 
+Use `--database-cluster` to serve independent PostgreSQL databases. Start with
+`--create-data` and a new data path prefix, then connect to `dbname=postgres`
+with the configured SCRAM login. The mode supports `CREATE DATABASE`,
+`DROP DATABASE` and discovery through `pg_database`. Each database has its own
+WAL and storage budget. This beta mode supports four databases and one reactor.
+The single-WAL offline backup command is unavailable in cluster mode.
+
 All listeners bind to 127.0.0.1. TLS and channel binding are pending, and
 MySQL/TDS require explicit insecure-local mode. Checkpointing, WAL compaction,
 online backup, replication and upgrade migration remain production blockers.
