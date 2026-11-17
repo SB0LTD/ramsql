@@ -60,11 +60,14 @@ capacity command without loading data. The public benchmark runner has less
 physical memory than either startup estimate. Multi-table 100M qualification
 still requires actual SQL loads, concurrent reads/writes and durable recovery.
 
-The two completed typed ROLLUP trial pairs measured roughly 30–34× the
-RAMSQL control's throughput for the original segment/discount query. The
-third pair hit the runner's memory budget. Retry on matched packed-bank builds
-to obtain a complete score. Keep the gate open for the unchanged mixed workload.
-[Incomplete ROLLUP campaign](https://github.com/benor1470/dbMeter/actions/runs/44117394260)
+The earlier dense-storage ROLLUP campaign stopped during the third pair when
+the runner hit its memory budget. The packed retry completed all three pairs
+with identical compiler, capacity options and original data. Throughput for
+the segment/discount query improved 50.8–68.1× at one client and 42.2–43.8× at
+eight versus the packed RAMSQL control. The full mixed workload improved
+27.3–30.2×. The reference-engine results above still determine qualification.
+[Incomplete dense campaign](https://github.com/benor1470/dbMeter/actions/runs/44117394260) ·
+[Completed packed comparison](https://github.com/benor1470/dbMeter/actions/runs/44125997780)
 
 The full-sales fact schema needs seven integral cells and one date per row.
 The dense MVCC layout reserves nine full-width cells in the widened build.
