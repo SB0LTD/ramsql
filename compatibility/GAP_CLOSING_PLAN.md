@@ -903,10 +903,14 @@ PostgreSQL, with deliberately malformed rows and interrupted transfers.
 
 ### P04 — Prove real application, driver and tool compatibility
 
-**Status:** Unverified beyond the selected independent-driver tests. **Owner:** RAMSQL integration/qualification.
+**Status:** Partial. **Owner:** RAMSQL integration/qualification.
 
-One client library succeeding does not prove psql, pg_dump, pg_restore, pgbench,
-connection poolers or framework migrations work.
+The 18.3 `psql` client read a real table on the two-worker beta.3 Windows
+build. Its `\d` discovery command failed on catalog SQL that uses
+`OPERATOR(pg_catalog.~)` and `pg_table_is_visible`. Native `pg_dump --schema-only`
+failed during startup at `pg_catalog.set_config('search_path', '', false)`.
+Qualified built-in resolution and empty search-path semantics both need
+qualification before dump and restore can pass.
 
 - [ ] Add versioned suites for libpq/psycopg, JDBC, Npgsql, Go and Node clients as required by the compatibility contract.
 - [ ] Run representative ORM and migration workflows against identical schemas/data on both engines.
@@ -936,10 +940,18 @@ specific compatible path, not general upgrade compatibility.
 
 ### D02 — Crash-safe checkpoints and WAL rotation
 
-**Status:** Missing. **Owner:** ZPM reusable checkpoint/log primitives; RAMSQL orchestration.
+**Status:** Primitives in qualification. **Owner:** ZPM reusable checkpoint/log
+primitives; RAMSQL orchestration.
 
 The WAL grows with all historical changes, and restart replays that history.
 Deleted historical states can still require capacity during replay.
+
+An allocator-free log primitive validates a complete anchor frame and requires
+the caller to verify its snapshot binding before replaying a contiguous suffix.
+A separate writer-lock contract holds database ownership across two WAL
+generations and atomic pointer publication. Product recovery still opens the
+existing WAL format. [Anchor PR](https://github.com/SB0LTD/zpm/pull/219) ·
+[Writer-lock tests](https://github.com/SB0LTD/zpm/actions/runs/44191670373)
 
 - [ ] Write a complete validated snapshot with a durable sequence anchor.
 - [ ] Publish it atomically, persist directory changes, then retire only log segments the checkpoint safely covers.
