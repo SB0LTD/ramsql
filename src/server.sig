@@ -352,14 +352,29 @@ const Client = struct {
         const statement_us=wallClock();
         context.session=self.connection.detachedReadSession(&self.connection.execution,statement_us);
         context.dialect=.postgres;
+        const snapshot: Raw.Snapshot = .{.csn=store.database.csn};
+        var prepared_primary_key = false;
+        if (comptime @hasDecl(PG, "detachedPrimaryKey") and @hasDecl(Raw.ReadContext, "preparePrimaryKey")) {
+            // A failed hint must not spend a second parse budget on queries
+            // running under an explicit work limit. The normal lane owns them.
+            if (store.max_query_work == 0) if (session.detachedPrimaryKey(input)) |key| {
+                const data_type: ?sql.DataType = switch (key.oid) {
+                    20 => .integer,
+                    21 => .smallint,
+                    23 => .integer32,
+                    else => null,
+                };
+                if (data_type) |ty| prepared_primary_key = context.preparePrimaryKey(&store.database,key.source,snapshot,ty) catch false;
+            };
+        }
         var prepared=true;
-        if(source) |text| context.prepare(&store.database,text,.{.csn=store.database.csn}) catch |err| switch(err) {
+        if (!prepared_primary_key) if(source) |text| context.prepare(&store.database,text,snapshot) catch |err| switch(err) {
             error.QueryCanceled,error.QueryWorkLimit=>{prepared=false;},
             else=>return false,
         };
         // Dynamic named-zone resolution retains the existing serialized cache
         // ownership. Typed temporal values use the immutable session zone.
-        if(source!=null and prepared and context.needsZoneResolver()) return false;
+        if(source!=null and prepared and !prepared_primary_key and context.needsZoneResolver()) return false;
         self.connection.read_context=context;self.connection.running_statement=true;
         defer {self.connection.read_context=null;self.connection.running_statement=false;self.read_deadline=null;}
         const output=self.output[self.output_len..];

@@ -249,6 +249,35 @@ def connection(server, **options):
         pg.close()
 
 
+def test_parameterized_primary_key(server):
+    statement = b"lookup\0"
+    portal = b"\0"
+    query = b"SELECT label FROM prepared_rows WHERE id=$1\0"
+
+    def select(pg, value, expected, binary=False):
+        formats = struct.pack("!HHH", 1, int(binary), 1)
+        value_length = U32.pack(0xffffffff if value is None else len(value))
+        bind = packet(b"B", portal + statement + formats + value_length + (value or b"") + b"\0\0")
+        execute = packet(b"E", portal + U32.pack(0))
+        pg.sock.sendall(bind + execute + packet(b"S"))
+        messages = pg.ready()
+        check(not errors(messages), f"prepared PK lookup failed: {errors(messages)!r}")
+        check(rows(messages) == expected, f"prepared PK lookup returned {rows(messages)!r}")
+        check([tag for tag, _ in messages] == [b"2"] + [b"D"] * len(expected) + [b"C", b"Z"])
+
+    with connection(server) as reader, connection(server) as writer:
+        writer.ok("CREATE TABLE prepared_rows (id BIGINT PRIMARY KEY, label TEXT)")
+        writer.ok("INSERT INTO prepared_rows VALUES (-9,'before'),(7,'other')")
+        reader.sock.sendall(packet(b"P", statement + query + struct.pack("!HI", 1, 20)) + packet(b"S"))
+        check([tag for tag, _ in reader.ready()] == [b"1", b"Z"])
+        select(reader, struct.pack("!q", -9), [["before"]], binary=True)
+        select(reader, b"+7", [["other"]])
+        select(reader, None, [])
+        writer.ok("UPDATE prepared_rows SET label='after' WHERE id=-9")
+        select(reader, b"-9", [["after"]])
+        writer.ok("DROP TABLE prepared_rows")
+
+
 def live_probe(server, timeout=3):
     """Allow asynchronous disconnect processing, with a hard recovery deadline."""
     deadline = time.monotonic() + timeout
@@ -652,7 +681,7 @@ def main():
     binary = args.binary.resolve(strict=True)
     started = time.monotonic()
     with Server(binary) as server:
-        for test in (test_crud_shared, test_fragmented_and_coalesced, test_ssl_negotiation,
+        for test in (test_crud_shared, test_parameterized_primary_key, test_fragmented_and_coalesced, test_ssl_negotiation,
                      test_half_close_and_partial_reads,
                      test_protocol_errors, test_fatal_frames, test_truncated_disconnect,
                      test_transactions_and_disconnect, test_slow_reader_fairness, test_pool_exhaustion):
