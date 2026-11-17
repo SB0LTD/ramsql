@@ -4,11 +4,11 @@
 //! stable storage. WAL remains authoritative; no unsafe checkpoint/truncate
 //! compaction is used.
 //!
-//! Payload kinds: 3 is the versioned change record (always written). Legacy
+//! Payload kinds: 3 is the committed change record, 4 is two-phase state. Legacy
 //! SQL-text kinds are replayed with the alpha grammar only: kind 2 for
 //! PostgreSQL 32-bit INTEGER configurations, kind 1 for 64-bit ones. Exactly one
 //! legacy kind is accepted per configuration, and a legacy record after any
-//! kind-3 record fails closed. Every legacy record replays in one MVCC
+//! versioned record fails closed. Every legacy record replays in one MVCC
 //! transaction that publishes only when all its statements succeed; no
 //! database copy is used.
 const disk = @import("db_file");
@@ -21,14 +21,17 @@ pub const change_kind: u16 = 3;
 pub fn Persistence(comptime Raw: type, comptime Store: type) type {
     return struct {
         const Self = @This();
+        const prepare_kind = Raw.PreparedWal.wal_kind;
         const legacy_kind: u16 = if (@hasDecl(Raw, "integer_type") and Raw.integer_type == .integer32) 2 else 1;
-        pub const accepted_kinds: u32 = (@as(u32, 1) << legacy_kind) | (@as(u32, 1) << change_kind);
+        pub const accepted_kinds: u32 = (@as(u32, 1) << legacy_kind) | (@as(u32, 1) << change_kind) | (@as(u32, 1) << prepare_kind);
         file: disk.File = .{},
         store: ?*Store = null,
         replay_result: Raw.Result = .{},
         legacy_rows: [if (Raw.Result.external_rows) 1 else 0]Raw.Row = undefined,
         /// Bounded overlay that validates each whole change record first.
         replay_scratch: Raw.ReplayScratch = .{},
+        recovery_payload: []u8 = &.{},
+        pending_frames: [Store.prepared_capacity]?log.Frame = @splat(null),
         /// WAL sequence of the last durable record (the commit order).
         sequence: u64 = 0,
         max_batch_bytes: usize = 0,
@@ -52,41 +55,52 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
         }
 
         fn initImpl(self: *Self, path: []const u8, store: *Store, recovery_buffer: []u8, existing: bool) !log.Recovery {
-            if (self.active or self.store != null or store.commit_fn != null) return error.PersistenceAlreadyOpen;
-            if (store.database.csn != 0 or store.database.tableCount() != 0) return error.PersistenceRequiresEmptyStore;
+            if (self.active or self.store != null or store.commit_fn != null or store.prepare_fn != null) return error.PersistenceAlreadyOpen;
+            if (store.database.csn != 0 or store.database.tableCount() != 0 or store.preparedCount() != 0) return error.PersistenceRequiresEmptyStore;
             if (recovery_buffer.len == 0) return error.InvalidWorkspace;
             if (comptime Raw.Result.external_rows) try self.replay_result.bindMemory(std.mem.asBytes(&self.legacy_rows), 1);
             store.durability_required = true;
             store.storage_failed = true;
             self.file = if (existing) try disk.File.openExisting(path) else try disk.File.open(path);
             self.store = store;
+            self.recovery_payload = recovery_buffer;
+            self.pending_frames = @splat(null);
             self.max_batch_bytes = recovery_buffer.len;
             self.seen_change_record = false;
             self.sequence = 0;
             errdefer {
                 self.file.close();
                 self.store = null;
+                self.recovery_payload = &.{};
             }
-            const recovery = try log.recoverKinds(&self.file, recovery_buffer, self, Self.replay, accepted_kinds);
+            const recovery = try log.recoverFramesWithFinish(&self.file, recovery_buffer, self, Self.replay, Self.finishRecovery, accepted_kinds);
             self.sequence = recovery.sequence;
+            self.recovery_payload = &.{};
             store.encode_buffer = recovery_buffer;
             store.commit_ctx = self;
             store.commit_fn = &Self.commit;
+            store.prepare_fn = &Self.commitPrepared;
             store.storage_failed = false;
             self.active = true;
             return recovery;
         }
 
-        fn replay(self: *Self, kind: u16, sequence: u64, payload: []const u8) !void {
+        fn replay(self: *Self, frame: log.Frame, payload: []const u8) !void {
             const store = self.store orelse return error.PersistenceClosed;
-            if (kind == change_kind) {
+            if (frame.kind == change_kind) {
                 // Validated as a whole before anything applies; no copy needed.
                 try store.database.applyChangeRecord(payload, &self.replay_scratch);
                 self.seen_change_record = true;
-                self.sequence = sequence;
+                self.sequence = frame.sequence;
                 return;
             }
-            if (kind != legacy_kind or self.seen_change_record) return error.UnsupportedLogVersion;
+            if (frame.kind == prepare_kind) {
+                try self.replayPrepared(store, frame, payload);
+                self.seen_change_record = true;
+                self.sequence = frame.sequence;
+                return;
+            }
+            if (frame.kind != legacy_kind or self.seen_change_record) return error.UnsupportedLogVersion;
             // Check the complete length framing BEFORE applying anything;
             // malformed tails must not publish even their first valid statement.
             var iterator: batches.BatchIterator = .{ .bytes = payload };
@@ -102,18 +116,69 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
                 try database.statement(slot, statement, &self.replay_result, .{ .mode = .legacy_alpha });
             }
             database.publishCommit(slot);
-            self.sequence = sequence;
+            self.sequence = frame.sequence;
+        }
+
+        fn replayPrepared(self: *Self, store: *Store, frame: log.Frame, payload: []const u8) !void {
+            switch (try Raw.PreparedWal.decode(payload)) {
+                .prepare => |prepared| {
+                    const index = try store.rememberPrepared(prepared, frame.sequence);
+                    self.pending_frames[index] = frame;
+                },
+                .decision => |decision| {
+                    const index = try store.recoveredDecisionIndex(decision);
+                    // The decision is decoded by value before reusing scratch.
+                    if (decision.commit) try self.restorePending(store, index);
+                    try store.resolveRecoveredPrepared(index, decision.commit);
+                    self.pending_frames[index] = null;
+                },
+            }
+        }
+
+        fn restorePending(self: *Self, store: *Store, index: usize) !void {
+            const frame = self.pending_frames[index] orelse return error.InvalidChangeRecord;
+            const payload = try log.readFrame(&self.file, self.recovery_payload, frame);
+            switch (try Raw.PreparedWal.decode(payload)) {
+                .prepare => |prepared| try store.restorePreparedEntry(index, prepared),
+                .decision => return error.InvalidChangeRecord,
+            }
+        }
+
+        fn finishRecovery(self: *Self) !void {
+            const store = self.store orelse return error.PersistenceClosed;
+            if (store.preparedCount() > store.prepared_limit) return error.TransactionCapacity;
+            while (true) {
+                var first: ?usize = null;
+                for (self.pending_frames, 0..) |maybe_frame, index| {
+                    const frame = maybe_frame orelse continue;
+                    if (first == null or frame.sequence < self.pending_frames[first.?].?.sequence) first = index;
+                }
+                const index = first orelse break;
+                try self.restorePending(store, index);
+                self.pending_frames[index] = null;
+            }
         }
 
         fn commit(context: ?*anyopaque, payload: []const u8) anyerror!void {
             const self: *Self = @ptrCast(@alignCast(context orelse return error.PersistenceClosed));
+            _ = Raw.changeRecordOps(payload) catch return error.InvalidCommitBatch;
+            _ = try self.appendRecord(change_kind, payload);
+        }
+
+        fn commitPrepared(context: ?*anyopaque, payload: []const u8) anyerror!u64 {
+            const self: *Self = @ptrCast(@alignCast(context orelse return error.PersistenceClosed));
+            _ = Raw.PreparedWal.decode(payload) catch return error.InvalidCommitBatch;
+            return self.appendRecord(prepare_kind, payload);
+        }
+
+        fn appendRecord(self: *Self, kind: u16, payload: []const u8) !u64 {
             if (self.store == null) return error.PersistenceClosed;
             if (!self.active or self.file.poisoned) return error.StorageUnavailable;
             if (self.sequence == 0xffffffffffffffff) return error.GenerationExhausted;
             if (payload.len > self.max_batch_bytes) return error.TransactionLogCapacity;
-            _ = Raw.changeRecordOps(payload) catch return error.InvalidCommitBatch;
-            try log.appendKind(&self.file, self.sequence + 1, payload, change_kind);
+            try log.appendKind(&self.file, self.sequence + 1, payload, kind);
             self.sequence += 1;
+            return self.sequence;
         }
 
         /// Detaches the hook before releasing the writer lock. The store remains
@@ -122,6 +187,7 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
             if (self.store) |store| {
                 if (store.commit_ctx == @as(?*anyopaque, @ptrCast(self))) {
                     store.commit_fn = null;
+                    store.prepare_fn = null;
                     store.commit_ctx = null;
                     store.encode_buffer = &.{};
                     store.storage_failed = true;

@@ -56,6 +56,9 @@ pub const Options = struct {
     idle_ms: u32 = 30000,
     /// Execution checkpoints per statement; zero disables the work limit.
     max_query_work: u64 = 0,
+    /// Zero disables PostgreSQL prepared transactions. A positive limit
+    /// reserves at least one ordinary transaction slot for other work.
+    max_prepared_transactions: usize = 0,
     /// Runtime storage budget, independent of result/query workspace sizes.
     storage_rows: usize = profile.rows,
     storage_versions: ?usize = null,
@@ -909,6 +912,7 @@ const StoragePlan = struct {
 };
 
 fn storagePlan(options: Options) !StoragePlan {
+   if (options.max_prepared_transactions >= Store.prepared_capacity or (options.memory and options.max_prepared_transactions != 0)) return error.InvalidServerOptions;
     if (!profile.integral_version_banks and options.table_integral_words != null) return error.InvalidServerOptions;
     if (options.typed_bank_memory_profile and options.table_integral_words == null) return error.InvalidServerOptions;
     if (options.query_refs) |refs| {
@@ -1112,6 +1116,7 @@ pub fn run(options: Options) !void {
     if (wall_clock.available) store.wall_clock = &wallClock;
     store.monotonic_clock = &monotonicClock;
     store.max_query_work = options.max_query_work;
+    store.prepared_limit = options.max_prepared_transactions;
     store.interrupt_poll = if (parallel) &pollWorkerInterrupts else &pollInterrupts;
     interrupt_max_clients = options.max_clients;
     zones.directory = options.timezone_dir;
@@ -1281,6 +1286,7 @@ pub fn backup(options: Options, target: []const u8) !void {
     try workspace.reserve(&memory_ledger,(try storagePlan(options)).workspace_bytes);
     defer workspace.close() catch @panic("lost backup workspace ownership");
     try store.database.bindWorkspaceMemory(workspace.memory.bytes, options.work_rows);
+    store.prepared_limit = options.max_prepared_transactions;
     _ = try persistence.initExisting(options.data, &store, &recovery_buffer);
     defer persistence.close();
     try @import("backup.sig").create(&persistence.file, target, &recovery_buffer);
