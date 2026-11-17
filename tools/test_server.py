@@ -672,8 +672,8 @@ def test_running_query_controls(binary):
             pg.ok("SELECT value FROM budgeted WHERE id = 0", [["0"]])
 
 
-def test_read_cache(binary):
-    with Server(binary, extra_arguments=("--read-cache-bytes", "8388608")) as server:
+def test_read_cache(binary, read_cache_bytes=8388608):
+    with Server(binary, extra_arguments=("--read-cache-bytes", str(read_cache_bytes))) as server:
         with server.raw() as reader_socket, connection(server) as writer:
             reader = PG(reader_socket)
             startup = reader.startup()
@@ -704,6 +704,16 @@ def test_read_cache(binary):
             writer.ok("COMMIT")
             reader.ok(query, [["a", "34"], ["b", "20"]])
             reader.ok(query, [["a", "34"], ["b", "20"]])
+            moved = "UPDATE cached_sales SET id=9, category='b' WHERE id=1"
+            writer.ok("BEGIN", status=b"T")
+            writer.ok(moved, status=b"T")
+            reader.ok(query, [["a", "34"], ["b", "20"]])
+            writer.ok("ROLLBACK")
+            reader.ok(query, [["a", "34"], ["b", "20"]])
+            writer.ok(moved)
+            reader.ok(query, [["a", "4"], ["b", "50"]])
+            writer.ok("DELETE FROM cached_sales WHERE id=3")
+            reader.ok(query, [["a", "4"], ["b", "30"]])
             writer.ok("DROP TABLE cached_sales")
             expect_error(reader.query(query), "42P01")
             writer.ok("CREATE TABLE cached_sales(id INT PRIMARY KEY, category TEXT, amount BIGINT)")
