@@ -14,6 +14,7 @@ def main():
     default_binary = Path(__file__).resolve().parents[1] / "sig-out" / "bin"
     default_binary /= "ramsql.exe" if os.name == "nt" else "ramsql"
     parser.add_argument("--binary", type=Path, default=default_binary)
+    parser.add_argument("--expect-integral-version-banks", action="store_true")
     args = parser.parse_args()
     binary = args.binary.resolve()
 
@@ -46,6 +47,31 @@ def main():
     assert caps['tls'] is False and caps['bind'] == '127.0.0.1'
     assert caps['sql_execution_workers']==1 and caps['exclusive_sql_workers']==1
     assert caps['parallel_simple_reads'] is False
+    assert caps['integral_version_banks'] is args.expect_integral_version_banks, caps
+    slots = caps['tables']
+    assert caps['table_integral_words'] == [0] * slots, caps
+    capacity_args = ['--rows', '1024', '--versions', '3072']
+    def integral_args(words):
+        return ['--table-integral-words', ','.join(map(str, words))]
+    compact = [1] + [0] * (slots - 1)
+    candidate = run(['--capabilities', *capacity_args, *integral_args(compact)])
+    if args.expect_integral_version_banks:
+        assert candidate.returncode == 0 and not candidate.stderr, candidate
+        parsed = json.loads(candidate.stdout)
+        assert parsed['table_integral_words'] == compact and parsed['integral_version_banks'] is True
+        assert parsed['table_rows'] == caps['table_rows'] and parsed['table_versions'] == caps['table_versions']
+        assert parsed['backing_bytes'] < caps['backing_bytes'], (parsed, caps)
+        zeros = run(['--capabilities', *capacity_args, *integral_args([0] * slots)])
+        assert zeros.returncode == 0 and json.loads(zeros.stdout) == caps, zeros
+    else:
+        assert candidate.returncode == 2 and b'InvalidServerOptions' in candidate.stderr, candidate
+    for invalid in ([0] * (slots - 1), [0] * (slots + 1), [-1] + compact[1:],
+                    [1 << 62] + compact[1:]):
+        for command in ('--capabilities', '--machine-capacity'):
+            rejected = run([command, *capacity_args, *integral_args(invalid)])
+            assert rejected.returncode in (1, 2) and not rejected.stdout, rejected
+            assert any(reason in rejected.stderr for reason in
+                       (b'InvalidServerOptions', b'InvalidParameterValue', b'InvalidCharacter', b'Overflow')), rejected
     with tempfile.TemporaryDirectory(prefix='ramsql-capabilities-') as directory:
         wal = Path(directory) / 'must-not-be-created.wal'
         inspected = subprocess.run([str(binary), '--capabilities', '--data', str(wal)],

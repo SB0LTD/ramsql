@@ -60,6 +60,7 @@ pub const Options = struct {
     storage_versions: ?usize = null,
     table_rows: ?[profile.tables]usize = null,
     table_versions: ?[profile.tables]usize = null,
+    table_integral_words: ?[profile.tables]usize = null,
     work_rows: usize = profile.work_rows,
     result_rows: usize = profile.result_rows,
     memory_budget: ?u64 = null,
@@ -72,7 +73,7 @@ pub const default_timezone_dir: ?[]const u8 = if (@import("builtin").os.tag == .
 // Integer 0/1 BOOLEAN assignment is per session: the ZPM MySQL/TDS sessions
 // set Store.Connection.dialect themselves; PostgreSQL keeps the default.
 // Every client plus two spare slots can hold a transaction at once.
-const config: sql.Config = .{
+const config: sql.Config = storageConfig(.{
     .external_storage = true,
     .external_workspace = true,
     .external_results = true,
@@ -117,7 +118,18 @@ const config: sql.Config = .{
     .triggers = 128,
     .rules = 32,
     .catalog_objects = 512,
-};
+});
+
+fn storageConfig(defaults: sql.Config) sql.Config {
+    if (comptime profile.integral_version_banks) {
+        var experimental = defaults;
+        experimental.split_external_versions = true;
+        experimental.integral_external_versions = true;
+        return experimental;
+    }
+    return defaults;
+}
+
 const Raw = sql.Database(config);
 const Store = stores.Store(Raw);
 const DB = Store.Connection;
@@ -855,6 +867,7 @@ fn runParallel(options: Options, listeners: []const tcp.Socket, protocols: []con
 }
 
 fn storagePlan(options: Options) !struct { max_rows: usize, versions: usize, budgets: [profile.tables]Raw.TableBudget, refs: usize, bytes: usize, workspace_bytes: usize, result_bytes: usize, response_bytes: usize } {
+    if (!profile.integral_version_banks and options.table_integral_words != null) return error.InvalidServerOptions;
     if (options.storage_rows == 0 or options.storage_rows > 0x3fffffff) return error.InvalidServerOptions;
     var budgets: [profile.tables]Raw.TableBudget = undefined;
     var max_rows: usize = 0; var max_versions: usize = 0;
@@ -864,6 +877,9 @@ fn storagePlan(options: Options) !struct { max_rows: usize, versions: usize, bud
         const versions = if (options.table_versions) |values| values[index] else options.storage_versions orelse if (rows == profile.rows) profile.versions else rows * 2;
         if (versions <= rows or versions > 0x7fffffff) return error.InvalidServerOptions;
         budget.* = .{ .rows=rows, .versions=versions };
+        if (comptime profile.integral_version_banks) {
+            if (options.table_integral_words) |words| budget.integral_row_words = words[index];
+        }
         max_rows=@max(max_rows,rows); max_versions=@max(max_versions,versions);
     }
     const ref_count = @max(max_rows * 4, Raw.queryReferenceCount(options.work_rows) catch return error.InvalidServerOptions);
@@ -896,10 +912,16 @@ pub fn describe(options: Options) !void {
         if (index!=0) try out.writeStreamingAll(.{},",");
         try out.writeStreamingAll(.{},try sig.fmt.bufPrint(&number,"{d}",.{budget.versions}));
     }
+    try out.writeStreamingAll(.{},"],\"table_integral_words\":[");
+    for (0..profile.tables) |index| {
+        if (index!=0) try out.writeStreamingAll(.{},",");
+        const words = if (options.table_integral_words) |values| values[index] else 0;
+        try out.writeStreamingAll(.{},try sig.fmt.bufPrint(&number,"{d}",.{words}));
+    }
     var policy_buffer:[384]u8=undefined;
     try out.writeStreamingAll(.{},try std.fmt.bufPrint(&policy_buffer,
-        "],\"server_region_budgeting\":true,\"memory_budget_bytes\":{?d},\"os_headroom_bytes\":{?d},\"read_context_payload_bytes_per_worker\":{d},\"parallel_extended_reads\":{s}}}\n",
-        .{options.memory_budget,options.os_headroom,read_payload[0],if(options.workers>1) "true" else "false"}));
+        "],\"integral_version_banks\":{s},\"server_region_budgeting\":true,\"memory_budget_bytes\":{?d},\"os_headroom_bytes\":{?d},\"read_context_payload_bytes_per_worker\":{d},\"parallel_extended_reads\":{s}}}\n",
+        .{if (profile.integral_version_banks) "true" else "false",options.memory_budget,options.os_headroom,read_payload[0],if(options.workers>1) "true" else "false"}));
 }
 
 pub fn describeMachine(options:Options) !void {

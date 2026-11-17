@@ -47,6 +47,32 @@ on cross targets; prepare the pinned SDK before building. macOS/native SB0 remai
 worker. More reactors increase socket throughput in one checked workload but
 also increase CPU/query; this is not a parallel-query executor.
 
+## Experimental integral version banks
+
+Build with `sig build -Dintegral-version-banks=true` to enable this storage
+profile. Pass `--table-integral-words n,n,...` with one value per compiled table
+slot. Zero selects a dense split payload. The list defaults to all zeros.
+Each positive value reserves that many 8-byte words per row version. The
+stock build rejects this option.
+
+Integral banks hold SMALLINT (2 bytes), INT and OID (4 bytes), DATE (4 bytes)
+and BIGINT (8 bytes). Add one bit per column for null state, round the bitmap
+up to whole bytes, then round the combined payload up to whole words. Other
+column types require a dense bank. CREATE chooses the first compatible free
+bank in slot order. Row, version, index, and query workspace budgets still
+apply separately. The compact scan sidecar is independent of this setting.
+
+Inspect `integral_version_banks`, `table_integral_words`, and `backing_bytes`
+with `--capabilities` before launching. Preserve the complete slot profile and
+creation order when reopening or backing up an experimental WAL. Physical bank
+placements are inferred from the logical WAL and the configured profile.
+
+A nonzero bank enables experimental DDL restrictions across the database.
+ALTER TABLE and CREATE INDEX through the table rewrite path are disabled.
+Overlapping CREATE or DROP transactions, and CREATE while a dropped bank is
+still pinned by a snapshot, fail with SQLSTATE 40001. These restrictions apply
+even to dense tables while integral banks are bound.
+
 ## Fixed protocol and input bounds
 
 | Resource | Bound |
