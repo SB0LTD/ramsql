@@ -126,7 +126,7 @@ def measure(psycopg, args, folder, name, memory, traced, writers, readers):
     if traced:
         prefix = (str(args.strace), "--seccomp-bpf", "--kill-on-exit", "-fqq", "-ttt", "-T", "-y", "-s", "0",
                   "-e", f"trace={','.join(TRACE_CALLS)}", "-P", str(wal), "-o", str(trace_path), "--")
-    options = ("--workers", str(args.workers), "--max-clients", str(writers + readers + 1),
+    options = ("--workers", str(args.workers), "--max-clients", str(max(args.workers, max(args.clients) + 1)),
                "--result-rows", str(ROWS))
     expected = [(key, key) for key in range(ROWS)]
     samples = {role: [] for role, count in ((WRITER, writers), (READER, readers)) if count}
@@ -143,6 +143,8 @@ def measure(psycopg, args, folder, name, memory, traced, writers, readers):
             for role, count in ((WRITER, writers), (READER, readers)):
                 for index in range(count):
                     client = connections.enter_context(psycopg.connect(**opened, prepare_threshold=None))
+                    require(execute(client, "SELECT id, value FROM profile_rows WHERE id = 256").fetchone() == (256, 256),
+                            "client warmup returned an unexpected row")
                     requests = args.operations // count + int(index < args.operations % count)
                     if role == WRITER:
                         expected[index] = (index, index + requests)

@@ -354,7 +354,8 @@ def running_ramsql(binary, legacy_cli=False, extra_arguments=(), *, data_path=No
             errors.append(line.rstrip())
 
     threading.Thread(target=read_output, daemon=True).start()
-    threading.Thread(target=read_errors, daemon=True).start()
+    error_reader = threading.Thread(target=read_errors, daemon=True)
+    error_reader.start()
     try:
         deadline = time.monotonic() + startup_timeout
         port = None
@@ -364,6 +365,7 @@ def running_ramsql(binary, legacy_cli=False, extra_arguments=(), *, data_path=No
             except queue.Empty:
                 raise RuntimeError(f"RAMSQL startup/recovery exceeded {startup_timeout}s: " + "; ".join(errors)) from None
             if line is None:
+                error_reader.join(timeout=1)
                 raise RuntimeError("RAMSQL exited before startup: " + "; ".join(errors))
             match = re.fullmatch(r"RAMSQL postgres 127\.0\.0\.1:(\d+)\s*", line)
             if match:
