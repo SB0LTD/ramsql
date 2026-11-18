@@ -73,6 +73,15 @@ catalog views, base tables, and materialized views remain available. The
 setting follows session and transaction scope. Foreign-table execution is
 outside the current SQL implementation.
 
+`pg_catalog.pg_settings` exposes the PostgreSQL 17-column read schema for
+`search_path`, `check_function_bodies`, `restrict_nonsystem_relation_kind`
+and the three `default_transaction_*` settings. Rows report the current
+connection value, the boot and reset values, and the effective configuration
+source. Store-owned settings and live transaction mode rows remain outside
+the view. Use regular `SET`, `RESET` or `set_config` to change values.
+Selecting every field requires a build with at least 17 projected columns.
+The current `EXPLAIN` syntax supports the explicit `(FORMAT JSON)` form.
+
 PG cancellation is tested. TDS ATTENTION acknowledges an idle protocol request;
 it is not a general asynchronous running-query cancellation implementation.
 
