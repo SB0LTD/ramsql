@@ -72,6 +72,7 @@ pub const Options = struct {
     table_versions: ?[profile.tables]usize = null,
     table_integral_words: ?[profile.tables]usize = null,
     typed_bank_memory_profile: bool = false,
+    packed_hash_load_75: bool = false,
     query_refs: ?usize = null,
     work_rows: usize = profile.work_rows,
     result_rows: usize = profile.result_rows,
@@ -979,7 +980,8 @@ fn storagePlan(options: Options) !StoragePlan {
         options.mysql_port != null or options.mssql_port != null or options.auth_catalog_role or options.auth_credentials_file != null)) return error.InvalidServerOptions;
     if (options.max_prepared_transactions >= Store.prepared_capacity or (options.memory and options.max_prepared_transactions != 0)) return error.InvalidServerOptions;
     if (!profile.integral_version_banks and options.table_integral_words != null) return error.InvalidServerOptions;
-    if (options.typed_bank_memory_profile and options.table_integral_words == null) return error.InvalidServerOptions;
+    if ((options.typed_bank_memory_profile or options.packed_hash_load_75) and options.table_integral_words == null)
+        return error.InvalidServerOptions;
     if (options.query_refs) |refs| {
         if (!options.typed_bank_memory_profile or refs == 0 or refs > 0x7fffffff) return error.InvalidServerOptions;
     }
@@ -998,6 +1000,7 @@ fn storagePlan(options: Options) !StoragePlan {
         }
         if (budget.integral_row_words != 0) {
             typed_banks = true;
+            budget.hash_load = if (options.packed_hash_load_75) .three_quarters else .half;
             if (options.typed_bank_memory_profile) {
                 budget.omit_compact_scan = true;
                 budget.secondary_hashes = 0;
@@ -1005,7 +1008,7 @@ fn storagePlan(options: Options) !StoragePlan {
         }
         max_rows=@max(max_rows,rows); max_versions=@max(max_versions,versions);
     }
-    if (options.typed_bank_memory_profile and !typed_banks) return error.InvalidServerOptions;
+    if ((options.typed_bank_memory_profile or options.packed_hash_load_75) and !typed_banks) return error.InvalidServerOptions;
     const workspace_refs = Raw.queryReferenceCount(options.work_rows) catch return error.InvalidServerOptions;
     const ref_count = if (options.typed_bank_memory_profile) options.query_refs orelse workspace_refs else @max(max_rows * 4, workspace_refs);
     return .{ .max_rows=max_rows, .versions = max_versions, .budgets=budgets, .refs = ref_count, .bytes = try Raw.backingBytesFor(budgets, ref_count),
@@ -1023,8 +1026,8 @@ fn readContextPayload(options: Options, plan: *const StoragePlan) !usize {
 fn writeStorageDetails(out: sig.io.File, options: Options, plan: *const StoragePlan, read_payload: usize) !void {
     var buffer: [512]u8 = undefined;
     try out.writeStreamingAll(.{}, try std.fmt.bufPrint(&buffer,
-        ",\"typed_bank_memory_profile\":{s},\"query_refs\":{d},\"query_reference_bytes\":{d},\"read_context_payload_bytes_per_worker\":{d},\"max_prepared_transactions\":{d},\"prepared_transactions_ceiling\":{d},\"database_cluster\":{s},\"cluster_database_ceiling\":{d},\"compact_version_stamps\":{s},\"storage_version_bytes\":{d},\"table_storage\":[",
-        .{ if (options.typed_bank_memory_profile) "true" else "false", plan.refs, plan.refs * @sizeOf(u32), read_payload, options.max_prepared_transactions, Store.prepared_capacity - 1, if (options.database_cluster) "true" else "false", cluster_capacity, if (profile.compact_version_stamps) "true" else "false", @sizeOf(Raw.StorageVersion) }));
+        ",\"typed_bank_memory_profile\":{s},\"query_refs\":{d},\"query_reference_bytes\":{d},\"read_context_payload_bytes_per_worker\":{d},\"max_prepared_transactions\":{d},\"prepared_transactions_ceiling\":{d},\"database_cluster\":{s},\"cluster_database_ceiling\":{d},\"compact_version_stamps\":{s},\"storage_version_bytes\":{d},\"packed_hash_load_percent\":{d},\"table_storage\":[",
+        .{ if (options.typed_bank_memory_profile) "true" else "false", plan.refs, plan.refs * @sizeOf(u32), read_payload, options.max_prepared_transactions, Store.prepared_capacity - 1, if (options.database_cluster) "true" else "false", cluster_capacity, if (profile.compact_version_stamps) "true" else "false", @sizeOf(Raw.StorageVersion), @as(u8, if (options.packed_hash_load_75) 75 else 50) }));
     for (plan.budgets, 0..) |budget, index| {
         if (index != 0) try out.writeStreamingAll(.{}, ",");
         const scan = config.compact_integral_scans and config.columns <= 64 and !budget.omit_compact_scan;
