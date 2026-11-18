@@ -1,8 +1,8 @@
-name: Native psql tooling qualification
+name: PostgreSQL recovery status and stock tooling qualification
 
 on:
   push:
-    branches: [ci/pg-relation-catalog-metadata-20261118]
+    branches: [ci/postgres-recovery-status-20261118]
 
 permissions:
   contents: read
@@ -45,7 +45,16 @@ jobs:
             sleep 1
           done
           docker exec tooling-native pg_isready -h 127.0.0.1 -U postgres
+          docker exec tooling-native psql -XqAt -U postgres -v ON_ERROR_STOP=1 \
+            -c 'SELECT pg_catalog.pg_is_in_recovery()' -c 'BEGIN READ ONLY' \
+            -c 'SELECT pg_catalog.pg_is_in_recovery()' -c 'ROLLBACK' | tee evidence/native-recovery.txt
+          diff -u <(printf 'f\nf\n') evidence/native-recovery.txt
           python tools/qualify_pg_tooling.py sig-out/bin/ramsql 2>&1 | tee evidence/check.log
+      - name: Verify durable startup state, replay and crash/restart
+        shell: bash
+        run: |
+          "$SIG" build test-persistence -Doptimize=ReleaseSafe -Dcolumns=16 -j1 2>&1 | tee evidence/replay.log
+          python tools/test_persistence.py 2>&1 | tee evidence/persistence-wire.log
       - name: Compare stock pg_dump and restore in both directions
         if: success() || failure()
         shell: bash
@@ -55,5 +64,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: native-psql-relation-metadata
+          name: recovery-status-and-stock-tooling
           path: evidence/
