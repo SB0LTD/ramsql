@@ -14,11 +14,36 @@
 const disk = @import("db_file");
 const log = @import("durable_log");
 const batches = @import("db_store");
+const snapshot = @import("snapshot_envelope");
+const manifest = @import("checkpoint_manifest");
 const std = @import("std");
 
 pub const change_kind: u16 = 3;
 const database_identity_kind: u16 = 8;
+pub const checkpoint_anchor_kind: u16 = 24;
 pub const DatabaseIdentity = struct { cluster: [16]u8, oid: u32 };
+
+pub const CheckpointPaths = struct {
+    writer_lock: []const u8,
+    selection: []const u8,
+    image: []const u8,
+    wal: []const u8,
+};
+
+const ImagePayload = struct {
+    file: *disk.File,
+    bytes: u64,
+
+    pub fn length(self: ImagePayload) !u64 {
+        return self.bytes;
+    }
+
+    pub fn readAt(self: ImagePayload, offset: u64, out: []u8) !usize {
+        if (offset >= self.bytes) return 0;
+        const count = @min(out.len, self.bytes - offset);
+        return self.file.readAt(snapshot.header_size + offset, out[0..count]);
+    }
+};
 
 pub fn Persistence(comptime Raw: type, comptime Store: type) type {
     return struct {
@@ -28,6 +53,7 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
         const legacy_kind: u16 = if (@hasDecl(Raw, "integer_type") and Raw.integer_type == .integer32) 2 else 1;
         pub const accepted_kinds: u32 = (@as(u32, 1) << legacy_kind) | (@as(u32, 1) << change_kind) | (@as(u32, 1) << prepare_kind);
         file: disk.File = .{},
+        writer_lock: disk.WriterLock = .{},
         store: ?*Store = null,
         replay_result: Raw.Result = .{},
         legacy_rows: [if (Raw.Result.external_rows) 1 else 0]Raw.Row = undefined,
@@ -63,10 +89,14 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
             return self.initImpl(path, store, recovery_buffer, if (create) .exclusive else .existing, identity);
         }
 
-        fn initImpl(self: *Self, path: []const u8, store: *Store, recovery_buffer: []u8, mode: OpenMode, identity: ?DatabaseIdentity) !log.Recovery {
+        fn requireFresh(self: *Self, store: *Store, recovery_buffer: []u8) !void {
             if (self.active or self.store != null or store.commit_fn != null or store.prepare_fn != null) return error.PersistenceAlreadyOpen;
             if (store.database.csn != 0 or store.database.tableCount() != 0 or store.preparedCount() != 0) return error.PersistenceRequiresEmptyStore;
             if (recovery_buffer.len == 0) return error.InvalidWorkspace;
+        }
+
+        fn initImpl(self: *Self, path: []const u8, store: *Store, recovery_buffer: []u8, mode: OpenMode, identity: ?DatabaseIdentity) !log.Recovery {
+            try self.requireFresh(store, recovery_buffer);
             if (comptime Raw.Result.external_rows) try self.replay_result.bindMemory(std.mem.asBytes(&self.legacy_rows), 1);
             store.durability_required = true;
             store.storage_failed = true;
@@ -97,15 +127,82 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
             }
             const kinds = accepted_kinds | if (identity != null) @as(u32, 1) << database_identity_kind else @as(u32, 0);
             const recovery = try log.recoverFramesWithFinish(&self.file, recovery_buffer, self, Self.replay, Self.finishRecovery, kinds);
+            self.attach(store, recovery_buffer, recovery, true);
+            return recovery;
+        }
+
+        const CheckpointReplay = struct {
+            persistence: *Self,
+            /// The anchor contains the complete canonical selection record.
+            anchor: [manifest.record_size]u8,
+
+            fn verify(self: *const CheckpointReplay, _: log.Frame, payload: []const u8) !void {
+                if (!std.mem.eql(u8, payload, &self.anchor)) return error.CheckpointAnchorMismatch;
+            }
+
+            fn apply(self: *CheckpointReplay, frame: log.Frame, payload: []const u8) !void {
+                return self.persistence.replay(frame, payload);
+            }
+        };
+
+        /// Internal startup composition. The expected identity comes from
+        /// trusted database configuration. All paths belong to the same
+        /// generation, and its WAL starts with this selection's anchor.
+        /// The caller supplies a fresh unpublished store and discards it on
+        /// any failure. The lock covers source verification through close.
+        pub fn initCheckpoint(self: *Self, paths: CheckpointPaths, identity: manifest.DatabaseIdentity, store: *Store, recovery_buffer: []u8) !log.Recovery {
+            try self.requireFresh(store, recovery_buffer);
+            if (store.database_oid != identity.oid or store.prepared_limit != 0) return error.InvalidCheckpointStore;
+            if (recovery_buffer.len < manifest.record_size) return error.InvalidWorkspace;
+            store.durability_required = true;
+            store.storage_failed = true;
+            try self.writer_lock.acquire(paths.writer_lock);
+            errdefer self.writer_lock.close();
+            var selection_file = try disk.File.openExisting(paths.selection);
+            defer selection_file.close();
+            const selection = try manifest.Selection.read(&selection_file, identity);
+            if (selection.anchor_offset != 0 or selection.anchor_kind != checkpoint_anchor_kind or
+                selection.anchor_length != manifest.record_size) return error.InvalidCheckpointAnchor;
+            var image = try disk.File.openExisting(paths.image);
+            defer image.close();
+            self.file = try disk.File.openExisting(paths.wal);
+            errdefer self.file.close();
+            const seal: snapshot.Seal = .{
+                .identity = .{
+                    .database_id = identity.database, .generation = selection.generation,
+                    .wal_sequence = selection.base_sequence, .sql_csn = selection.sql_csn,
+                },
+                .payload_bytes = selection.image_bytes, .digest = selection.image_digest,
+            };
+            try snapshot.verify(&image, recovery_buffer, seal);
+            const payload: ImagePayload = .{ .file = &image, .bytes = seal.payload_bytes };
+            try Raw.BaseSnapshot.restore(&store.database, payload, seal.identity.sql_csn, recovery_buffer, &self.replay_scratch);
+            self.store = store;
+            errdefer self.store = null;
+            self.max_batch_bytes = recovery_buffer.len;
+            self.expected_identity = null;
+            self.seen_identity = false;
+            self.seen_change_record = true;
+            self.sequence = selection.base_sequence;
+            var state: CheckpointReplay = .{ .persistence = self, .anchor = try selection.encode() };
+            const anchor: log.Frame = .{
+                .offset = selection.anchor_offset, .sequence = try selection.anchorSequence(),
+                .kind = selection.anchor_kind, .payload_len = selection.anchor_length,
+            };
+            const recovery = try log.recoverAfterFrame(&self.file, recovery_buffer, anchor, &state, CheckpointReplay.verify, CheckpointReplay.apply, null, @as(u32, 1) << change_kind);
+            self.attach(store, recovery_buffer, recovery, false);
+            return recovery;
+        }
+
+        fn attach(self: *Self, store: *Store, recovery_buffer: []u8, recovery: log.Recovery, allow_prepare: bool) void {
             self.sequence = recovery.sequence;
             self.recovery_payload = &.{};
             store.encode_buffer = recovery_buffer;
             store.commit_ctx = self;
             store.commit_fn = &Self.commit;
-            store.prepare_fn = &Self.commitPrepared;
+            store.prepare_fn = if (allow_prepare) &Self.commitPrepared else null;
             store.storage_failed = false;
             self.active = true;
-            return recovery;
         }
 
         fn replay(self: *Self, frame: log.Frame, payload: []const u8) !void {
@@ -227,6 +324,7 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
                 }
             }
             self.file.close();
+            self.writer_lock.close();
             self.store = null;
             self.active = false;
         }

@@ -72,6 +72,10 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     var durable_log_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
     const durable_log_path = try zpm.modulePath("src/db/durable_log.sig", &durable_log_buf);
     _ = try ctx.addModule("durable_log", durable_log_path);
+    var snapshot_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    const snapshot_path = try zpm.modulePath("src/db/snapshot_envelope.sig", &snapshot_buf);
+    var manifest_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    const manifest_path = try zpm.modulePath("src/db/checkpoint_manifest.sig", &manifest_buf);
     var db_file_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
     const db_file_path = try zpm.modulePath("src/platform/db_file.sig", &db_file_buf);
     _ = try ctx.addModule("db_file", db_file_path);
@@ -163,6 +167,8 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
             importEntry("scram", scram_path),
             importEntry("durable_log", durable_log_path),
             importEntry("db_file", db_file_path),
+            importEntry("snapshot_envelope", snapshot_path),
+            importEntry("checkpoint_manifest", manifest_path),
             importEntry("entropy", entropy_path),
             importEntry("wall_clock", wall_clock_path),
             importEntry("profile", profile_path),
@@ -198,6 +204,25 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     try ctx.addImport(persistence_module, "db_file", db_file_path);
     try ctx.addImport(persistence_module, "durable_log", durable_log_path);
     try ctx.addImport(persistence_module, "db_store", store_path);
+    try ctx.addImport(persistence_module, "snapshot_envelope", snapshot_path);
+    try ctx.addImport(persistence_module, "checkpoint_manifest", manifest_path);
+    const checkpoint_test = try ctx.addCompileStep(.{
+        .source_path = "tests/checkpoint_startup.sig",
+        .output_name = "contract-checkpoint-startup",
+        .cache_dir = ctx.cache_dir[0..ctx.cache_dir_len],
+        .optimize = ctx.optimize,
+        .target = null,
+        .imports = &.{
+            importEntry("sql", sql_path), importEntry("db_store", store_path),
+            importEntry("db_file", db_file_path), importEntry("durable_log", durable_log_path),
+            importEntry("snapshot_envelope", snapshot_path), importEntry("checkpoint_manifest", manifest_path),
+            importEntry("persistence", "src/persistence.sig"),
+        },
+        .compiler_path = "",
+    });
+    const test_checkpoint = try ctx.addStep("test-checkpoint-startup", "contract-checkpoint-startup", &runBinary);
+    try ctx.addDependency(test_checkpoint, checkpoint_test);
+    try ctx.addDependency(test_step, test_checkpoint);
     const backup_module = try ctx.addModule("backup", "src/backup.sig");
     try ctx.addImport(backup_module, "db_file", db_file_path);
     const backup_test = try ctx.addCompileStep(.{
