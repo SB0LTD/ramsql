@@ -133,6 +133,10 @@ def assert_database(server, expected):
     pg = server.connect()
     try:
         pg.ok("SELECT * FROM durable ORDER BY id", expected)
+        pg.ok("SELECT pg_catalog.pg_is_in_recovery()", [["f"]])
+        pg.ok("BEGIN READ ONLY", status=b"T")
+        pg.ok("SELECT pg_catalog.pg_is_in_recovery()", [["f"]], status=b"T")
+        pg.ok("ROLLBACK")
     finally:
         pg.close()
 

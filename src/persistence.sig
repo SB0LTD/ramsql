@@ -88,6 +88,7 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
                 self.store = null;
                 self.recovery_payload = &.{};
             }
+            store.database.setStartupRecovery(true);
             if (mode == .exclusive) {
                 const created = identity orelse return error.InvalidDatabaseIdentity;
                 var payload: [20]u8 = undefined;
@@ -105,6 +106,7 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
             store.prepare_fn = &Self.commitPrepared;
             store.storage_failed = false;
             self.active = true;
+            store.database.setStartupRecovery(false);
             return recovery;
         }
 
