@@ -8,6 +8,18 @@ from test_server import Server
 IMAGE = "postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba"
 EVIDENCE = Path("evidence")
 SETUP = "CREATE TABLE tooling(id INT PRIMARY KEY, label TEXT)"
+INDEX_SETUP = (
+    'CREATE TABLE "Case Table" ("Select" INT PRIMARY KEY, qty INT, label TEXT)',
+    'CREATE INDEX "ix Weird" ON "Case Table" (qty DESC NULLS LAST) INCLUDE (label) WHERE qty > 1',
+)
+INDEX_SQL = """
+SELECT i.relname, x.indisprimary, x.indisvalid, x.indisclustered, x.indisreplident,
+       pg_catalog.pg_get_indexdef(i.oid), pg_catalog.pg_get_indexdef(i.oid, 0, true),
+       pg_catalog.pg_get_indexdef(i.oid, 1, true), pg_catalog.pg_get_indexdef(i.oid, 2, true),
+       pg_catalog.pg_get_indexdef(i.oid, -1, true)
+FROM pg_catalog.pg_class i JOIN pg_catalog.pg_index x ON i.oid = x.indexrelid
+WHERE x.indrelid = '"Case Table"'::regclass ORDER BY i.relname
+"""
 
 
 def psql(container_args, connection, label, *args):
@@ -25,6 +37,20 @@ def describe_queries(result):
 def check(result):
     if result.returncode:
         raise AssertionError(result.stderr)
+
+
+def index_definitions(client, connection, label):
+    for ordinal, statement in enumerate(INDEX_SETUP):
+        check(psql(client, connection, f"{label}-index-setup-{ordinal}", "-c", statement))
+    result = psql(client, connection, f"{label}-index-definitions", "-At", "-c", INDEX_SQL)
+    check(result)
+    assert len(result.stdout.splitlines()) == 2, result.stdout
+    invalid = psql(client, connection, f"{label}-index-invalid", "-At", "-c",
+                   "SELECT pg_catalog.pg_get_indexdef(0), pg_catalog.pg_get_indexdef(NULL), "
+                   "pg_catalog.pg_get_indexdef(0, 0, true)")
+    check(invalid)
+    assert invalid.stdout == "||\n", invalid.stdout
+    return result.stdout
 
 
 def main():
@@ -48,6 +74,7 @@ def main():
     native_attributes = psql(native, native_conn, "native-attributes", "-At", "-c", attribute_sql)
     check(native_attributes)
     assert native_attributes.stdout == "id|integer||t|||\nlabel|text||f|||\n", native_attributes.stdout
+    native_indexes = index_definitions(native, native_conn, "native")
     Server.test_workers = 2
     with Server(Path(sys.argv[1]).resolve()) as server:
         client = ["docker", "run", "--rm", "--network", "host", IMAGE]
@@ -69,11 +96,14 @@ def main():
         actual_attributes = psql(client, conn, "ramsql-attributes", "-At", "-c", actual_attribute_sql)
         check(actual_attributes)
         assert actual_attributes.stdout == native_attributes.stdout, (native_attributes.stdout, actual_attributes.stdout)
+        actual_indexes = index_definitions(client, conn, "ramsql")
+        assert actual_indexes == native_indexes, (native_indexes, actual_indexes)
         (EVIDENCE / "relation-metadata.sql").write_text(actual_relation_sql + "\n")
         (EVIDENCE / "column-metadata.sql").write_text(actual_attribute_sql + "\n")
         print("PASS native psql 18.3 discovery SQL on both engines")
         print("PASS native psql 18.3 relation-metadata SQL and values on both engines")
         print("PASS native psql 18.3 column-metadata SQL and values on both engines")
+        print("PASS quoted primary and partial covering index definitions and missing OIDs on both engines")
         print(f"psql describe exit status: native={native_describe.returncode} RAMSQL={actual.returncode}")
         print(actual.stderr, end="")
         if not actual.returncode:
