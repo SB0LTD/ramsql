@@ -1,0 +1,123 @@
+name: Native PostgreSQL XML input mode qualification
+
+on:
+  push:
+    branches: [ci/pg-xmloption-20261118]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  timeout:
+    name: Native XML input mode
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04]
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PRODUCT_REVISION: a970c04f021c546b6c05e2e105b6a769c9242f98
+      PRODUCT_SHA256: c6b11db29227fd6cf4bb38dd9b76c5bb8ad0020eabb45190dd5edace08d47ce8
+      ZPM_REVISION: dff9a56caff0bc79f077e1c67ba83930ec27428d
+      ZPM_SHA256: 313b02d56a9ae9643f3fdb462445cf1546e098174c5aad16cf13c391f104f716
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PRODUCT_REVISION }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify exact source, dependency and native SDK
+        run: |
+          if ((git rev-parse HEAD) -ne $env:PRODUCT_REVISION) { throw 'Unexpected RAMSQL source revision' }
+          $null = New-Item -Type Directory -Force evidence,sig-out
+          $env:PRODUCT_REVISION > evidence/product-revision.txt
+          $env:ZPM_REVISION > evidence/zpm-revision.txt
+          function Verify-Archive($url, $wanted, $path) {
+            Invoke-WebRequest -Uri $url -OutFile $path
+            $actual = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne $wanted) { throw "Archive digest mismatch for $url" }
+          }
+          Verify-Archive "https://github.com/SB0LTD/ramsql/archive/$env:PRODUCT_REVISION.tar.gz" $env:PRODUCT_SHA256 (Join-Path $env:RUNNER_TEMP 'product.tar.gz')
+          $zpmUrl = "https://github.com/SB0LTD/zpm/archive/$env:ZPM_REVISION.tar.gz"
+          $zon = Get-Content build.sig.zon -Raw
+          if (-not $zon.Contains($zpmUrl) -or -not $zon.Contains($env:ZPM_SHA256)) { throw 'Unexpected ZPM dependency pin' }
+          Verify-Archive $zpmUrl $env:ZPM_SHA256 (Join-Path $env:RUNNER_TEMP 'zpm.tar.gz')
+          python tools/release_matrix.py --compiler-host "$env:RUNNER_OS/$env:RUNNER_ARCH" > evidence/compiler-release.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $pin = Get-Content evidence/compiler-release.json -Raw | ConvertFrom-Json
+          $archive = Join-Path $env:RUNNER_TEMP $pin.asset
+          $destination = (New-Item -Type Directory (Join-Path $env:RUNNER_TEMP 'sig-toolchain')).FullName
+          Verify-Archive "https://github.com/SB0LTD/sig/releases/download/$($pin.tag)/$($pin.asset)" $pin.sha256 $archive
+          if ($env:RUNNER_OS -eq 'Windows') {
+            Expand-Archive -LiteralPath $archive -DestinationPath $destination
+            $name = 'sig.exe'
+          } else {
+            tar -xf $archive -C $destination
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            $name = 'sig'
+          }
+          $compiler = @(Get-ChildItem $destination -Recurse -File |
+            Where-Object { $_.Name -ceq $name -and $_.Directory.Name -ceq 'bin' })
+          if ($compiler.Length -ne 1) { throw 'Expected one native Sig compiler' }
+          $library = Join-Path $compiler[0].Directory.Parent.FullName 'lib'
+          "SIG=$($compiler[0].FullName)" >> $env:GITHUB_ENV
+          "SIG_LIB_DIR=$library" >> $env:GITHUB_ENV
+          & $compiler[0].FullName version | Tee-Object evidence/sig-version.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Prepare the pinned runtime
+        run: |
+          python tools/prepare_sig_runtime.py --installed-lib $env:SIG_LIB_DIR `
+            --output (Join-Path $env:RUNNER_TEMP 'runtime') --github-env $env:GITHUB_ENV
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build exact ReleaseSafe server
+        run: |
+          $options = @('-Doptimize=ReleaseSafe', '-Dcolumns=16')
+          if ($env:RUNNER_OS -eq 'macOS') { $options += '-Dlink-libc=true' }
+          & $env:SIG build @options 2>&1 | Tee-Object evidence/build.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $binary = if ($env:RUNNER_OS -eq 'Windows') { 'sig-out/bin/ramsql.exe' } else { 'sig-out/bin/ramsql' }
+          (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLowerInvariant() > evidence/binary-sha256.txt
+      - name: Verify exact XML conversion and session settings in ZPM
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          core="$RUNNER_TEMP/zpm-source"
+          mkdir "$core"
+          tar -xf "$RUNNER_TEMP/zpm.tar.gz" -C "$core" --strip-components=1
+          "$SIG" build-exe --Sig-lib-dir "$SIG_LIB_DIR" -OReleaseSafe --dep sql --dep db_store \
+            "-Mroot=$core/tests/test_db_store.sig" "-Msql=$core/src/core/sql.sig" "-Mdb_store=$core/src/db/store.sig" \
+            "-femit-bin=$RUNNER_TEMP/test-db-store"
+          "$RUNNER_TEMP/test-db-store" 2>&1 | tee evidence/zpm-store.txt
+          grep -Eq 'store: [0-9]+ assertions passed' evidence/zpm-store.txt
+      - name: Compare the live Linux server against native PostgreSQL 18.3
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          image=postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba
+          echo "$image" > evidence/reference-image.txt
+          name=xmloption-oracle
+          docker run --detach --rm --name "$name" -e POSTGRES_HOST_AUTH_METHOD=trust --publish '127.0.0.1::5432' "$image"
+          trap 'docker stop "$name" >/dev/null' EXIT
+          for attempt in $(seq 1 60); do
+            if docker exec "$name" pg_isready -h 127.0.0.1 -U postgres; then break; fi
+            sleep 1
+          done
+          docker exec "$name" pg_isready -h 127.0.0.1 -U postgres
+          docker exec "$name" postgres --version | tee evidence/reference-version.txt
+          port=$(docker port "$name" 5432/tcp | cut -d: -f2)
+          python tools/test_pg_xmloption.py --binary sig-out/bin/ramsql --reference-port "$port" \
+            --report evidence/native-xmloption.json | tee evidence/native-wire.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pg-xmloption-${{ matrix.os }}
+          path: evidence/
+          if-no-files-found: error
