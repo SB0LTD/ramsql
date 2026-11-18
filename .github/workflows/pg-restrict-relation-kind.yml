@@ -21,10 +21,10 @@ jobs:
       run:
         shell: pwsh
     env:
-      PRODUCT_REVISION: a33694fdbb0d7ff718ae009942d2ab8f751c8935
-      PRODUCT_SHA256: 6b29fbaba15b3f6fa927039d377d96288def01969366c076fd8bb7d8c6931f1e
-      ZPM_REVISION: e438bd44cf19bddadb4b83879b80e2877fc3d9db
-      ZPM_SHA256: b1b8faec856ff0374fda052d7aefeb6b8dc71d454eaa773c598545bd81203c59
+      PRODUCT_REVISION: 613efef1576bf763603f650bf0e192d1ec577e04
+      PRODUCT_SHA256: dde6d3cbbab5f10a9ddc342bec7831f5e673406bcd518fef98ef3fecb46164d4
+      ZPM_REVISION: 54e0662c07e683e0afbc5c15e84751aaaa92cd3d
+      ZPM_SHA256: 2f9de921a9501e20ed3553b9798d894cccda0f861c5d7cfc57e53c364aa23f02
     steps:
       - uses: actions/checkout@v4
         with:
@@ -96,6 +96,11 @@ jobs:
             "-femit-bin=$RUNNER_TEMP/test-db-store"
           "$RUNNER_TEMP/test-db-store" 2>&1 | tee evidence/zpm-store.txt
           grep -Eq 'store: [0-9]+ assertions passed' evidence/zpm-store.txt
+          "$SIG" build-exe --Sig-lib-dir "$SIG_LIB_DIR" -OReleaseSafe --dep sql --dep db_store \
+            "-Mroot=$core/tests/test_db_pg_settings.sig" "-Msql=$core/src/core/sql.sig" "-Mdb_store=$core/src/db/store.sig" \
+            "-femit-bin=$RUNNER_TEMP/test-pg-settings"
+          "$RUNNER_TEMP/test-pg-settings" 2>&1 | tee evidence/zpm-pg-settings.txt
+          grep -Fq 'pg_settings: columns, sources, setter and session isolation passed' evidence/zpm-pg-settings.txt
       - name: Compare the live Linux server against native PostgreSQL 18.3
         if: runner.os == 'Linux'
         shell: bash
@@ -113,7 +118,7 @@ jobs:
           docker exec "$name" pg_isready -h 127.0.0.1 -U postgres
           docker exec "$name" postgres --version | tee evidence/reference-version.txt
           port=$(docker port "$name" 5432/tcp | cut -d: -f2)
-          python tools/test_pg_relation_restriction.py --binary sig-out/bin/ramsql --reference-port "$port" \
+          python tools/test_pg_relation_restriction.py --binary sig-out/bin/ramsql --reference-port "$port" --settings-catalog \
             --report evidence/native-relation-restriction.json | tee evidence/native-wire.txt
       - uses: actions/upload-artifact@v4
         if: always()
