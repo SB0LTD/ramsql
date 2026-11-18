@@ -85,7 +85,7 @@ def row_policies(client, connection, label, policy_sql):
     assert result.stdout == expected, result.stdout
 
 
-def statistics(client, connection, label, statistics_sql):
+def statistics(client, connection, label, statistics_sql, relation_oid):
     empty = psql(client, connection, label + '-no-statistics', '-At', '-c', statistics_sql)
     check(empty)
     assert empty.stdout == '', empty.stdout
@@ -93,8 +93,17 @@ def statistics(client, connection, label, statistics_sql):
         check(psql(client, connection, f'{label}-statistics-{index}', '-c', definition))
     result = psql(client, connection, label + '-statistics', '-At', '-c', statistics_sql)
     check(result)
-    expected = 'analysis_data|tooling_stats|id, label|t|t|t|300\npublic|tooling_stats|id, label|t|f|t|\n'
-    assert result.stdout == expected, result.stdout
+    observed = []
+    object_ids = set()
+    relation = 'tooling' if label == 'native' else relation_oid
+    for line in result.stdout.splitlines():
+        object_id, relation_id, metadata = line.split('|', 2)
+        assert object_id.isdecimal() and int(object_id) > 0 and object_id not in object_ids, line
+        assert relation_id == relation, line
+        object_ids.add(object_id)
+        observed.append(metadata)
+    assert observed == ['analysis_data|tooling_stats|id, label|t|t|t|300',
+                        'public|tooling_stats|id, label|t|f|t|'], result.stdout
     check(psql(client, connection, label + '-drop-statistics', '-c',
                'DROP STATISTICS public.tooling_stats, analysis_data.tooling_stats'))
     after = psql(client, connection, label + '-after-drop-statistics', '-At', '-c', statistics_sql)
@@ -138,7 +147,7 @@ def main():
         assert result.stdout == '', result.stdout
     incoming_foreign_keys(native, native_conn, 'native', incoming_sql)
     row_policies(native, native_conn, 'native', policy_sql)
-    statistics(native, native_conn, 'native', stats_sql)
+    statistics(native, native_conn, 'native', stats_sql, native_rows.stdout.split('|', 1)[0])
     Server.test_workers = 2
     with Server(Path(sys.argv[1]).resolve()) as server:
         client = ["docker", "run", "--rm", "--network", "host", IMAGE]
@@ -176,7 +185,7 @@ def main():
         incoming_foreign_keys(client, conn, 'ramsql', incoming_sql.replace(f"'{old_oid}'", f"'{new_oid}'"))
         row_policies(client, conn, 'ramsql', policy_sql.replace(f"'{old_oid}'", f"'{new_oid}'"))
         ram_stats_sql = stats_sql.replace(f"'{old_oid}'", f"'{new_oid}'")
-        statistics(client, conn, 'ramsql', ram_stats_sql)
+        statistics(client, conn, 'ramsql', ram_stats_sql, new_oid)
         (EVIDENCE / "relation-metadata.sql").write_text(actual_relation_sql + "\n")
         (EVIDENCE / "column-metadata.sql").write_text(actual_attribute_sql + "\n")
         (EVIDENCE / "index-constraints.sql").write_text(ram_constraint_sql + "\n")
