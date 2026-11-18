@@ -38,9 +38,26 @@ region request for two narrow banks including client and reader space. The
 same workflow separately loaded 262,144 rows into each table, checked 16
 joined groups and 20 ordered rows, and matched the results after process
 termination and WAL replay. It verified the uncommitted update was absent.
-The two-100M load was withheld after its preflight failed. That load requires
-an adequately sized runner or a verified reduction in bank storage.
+The 50% hash-load profile failed its preflight for that two-100M load.
 [Two-table capacity and durability evidence](https://github.com/benor1470/dbMeter/actions/runs/44224156462)
+
+The experimental 75% hash-load profile subsequently loaded two real
+100,000,000-row tables on the public runner. Each table has an `INTEGER`
+primary key and a non-null `SMALLINT` payload. The peak planned server region
+fell from 15,597,510,656 to 13,450,027,008 bytes. The measured grant was
+14,519,883,264 bytes. After process termination the 6,411,200,215-byte WAL
+replayed in 231.086 seconds at 13,374,668,800 bytes peak RSS. Both runs
+matched 16 joined sum/count groups and 20 ordered results. Recovery excluded
+an uncommitted update. Two six-word banks still require 21,357,969,408 bytes
+of backing on this profile before execution overhead.
+[Exact two-100M proof](https://github.com/benor1470/dbMeter/actions/runs/44226187387)
+
+The accompanying three-pair prepared-key diagnostic used 720,000 sparse keys
+at two actual hash capacities for the same binary and dataset. Median rates
+changed by −2.15% at one client and +2.50% at eight. Median p99 changed by
+−0.29% and −6.96% respectively. The 75% density remains an explicit experimental
+choice. The original dbMeter and wider typed storage gates are tracked separately.
+[Prepared-key density A/B](https://github.com/benor1470/dbMeter/actions/runs/44226620416)
 
 ### Earlier dbMeter evidence
 

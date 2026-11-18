@@ -151,12 +151,13 @@ eight readers alone. The 51 durable reopen checks matched the acknowledged
 state. These results quantify the write-path investigation on this workload.
 [Exact durable write profile](https://github.com/SB0LTD/ramsql/actions/runs/44225804971)
 
-A separate PostgreSQL tooling build matches stock `psql \d` discovery through
-incoming and outgoing foreign-key metadata, including a real reference. The
-12-query stock program still stops at the policy query, which uses an array
-subquery. Extended statistics, publication, trigger and partition reporting
-also require independent checks.
-[PostgreSQL tooling comparison](https://github.com/SB0LTD/ramsql/actions/runs/44225975198)
+A separate PostgreSQL tooling build matches seven of the twelve queries
+issued by stock `psql \d`. This covers incoming and outgoing foreign-key
+metadata and real named-role and PUBLIC policies. The policy statement uses
+the allocator-free `ARRAY(SELECT …)` constructor. The next missing catalog
+is extended statistics. Publication, trigger and partition reporting also
+require independent checks.
+[PostgreSQL tooling comparison](https://github.com/SB0LTD/ramsql/actions/runs/44227485578)
 
 ## 17 November 2026 qualification checkpoint
 
