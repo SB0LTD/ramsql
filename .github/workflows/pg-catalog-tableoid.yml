@@ -1,8 +1,8 @@
-name: Native PostgreSQL private schema grants
+name: Native PostgreSQL schema CREATE and ownership
 
 on:
   push:
-    branches: [ci/pg-schema-usage-grants-20261118]
+    branches: [ci/pg-schema-create-authority-20261118]
   workflow_dispatch:
 
 permissions:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   catalogs:
-    name: Native durable namespace grants
+    name: Native durable namespace CREATE
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     strategy:
@@ -21,10 +21,10 @@ jobs:
       run:
         shell: pwsh
     env:
-      PRODUCT_REVISION: 6424940c45f56d1529a3531a8834234dfb4e792b
-      PRODUCT_SHA256: 6562d8f0a6dec9024e840a44dd5831b820c1c7f5d233c7f30397d20006797b9e
-      ZPM_REVISION: e93886bfdbbf63801ee1e24fde0c022af50876bf
-      ZPM_SHA256: cafe02cfaf98dbb99debe6967f6eb3ee4798612b425ee0b31e116d8e3d4456d9
+      PRODUCT_REVISION: 235e2951dea8417de89fb087e04df04827d01243
+      PRODUCT_SHA256: 0450b0497c3119053113ac5809be15eb14522b6eeb3f67fd4787c56cf2c52c64
+      ZPM_REVISION: 603fa6b23f27b99d4dab82e1a7357f0f4411cba8
+      ZPM_SHA256: 601b16e223b10366186f1d95d4c134b0c35e1321b1ee00e3a180a6fdd3d7fc15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -104,7 +104,7 @@ jobs:
           set -euo pipefail
           image=postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba
           echo "$image" > evidence/reference-image.txt
-          name=namespace-grants-oracle
+          name=namespace-create-oracle
           docker run --detach --rm --name "$name" -e POSTGRES_HOST_AUTH_METHOD=trust --publish '127.0.0.1::5432' "$image"
           trap 'docker stop "$name" >/dev/null' EXIT
           for attempt in $(seq 1 60); do
@@ -114,11 +114,11 @@ jobs:
           docker exec "$name" pg_isready -h 127.0.0.1 -U postgres
           docker exec "$name" postgres --version | tee evidence/reference-version.txt
           port=$(docker port "$name" 5432/tcp | cut -d: -f2)
-          python tools/test_pg_namespace_grants.py --binary sig-out/bin/ramsql --reference-port "$port" \
-            --report evidence/native-namespace-grants.json | tee evidence/native-wire.txt
+          python tools/test_pg_namespace_create.py --binary sig-out/bin/ramsql --reference-port "$port" \
+            --report evidence/native-namespace-create.json | tee evidence/native-wire.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: pg-namespace-grants-${{ matrix.os }}
+          name: pg-namespace-create-${{ matrix.os }}
           path: evidence/
           if-no-files-found: error
