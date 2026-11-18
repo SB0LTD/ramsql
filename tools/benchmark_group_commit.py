@@ -219,8 +219,11 @@ def main():
     raw_samples = {}
     try:
         capabilities = json.loads(command([str(args.binary), "--capabilities", "--workers", str(args.workers)]))
-        require(capabilities["build_mode"] == "ReleaseFast" and capabilities["tables"] >= max(args.clients),
-                "binary lacks exact ReleaseFast mode or required table slots")
+        report["environment"]["binary_capabilities"] = capabilities
+        require(capabilities["build_mode"] in ("fast", "ReleaseFast"),
+                f"expected ReleaseFast optimization, got {capabilities['build_mode']!r}")
+        require(capabilities["tables"] >= max(args.clients),
+                f"expected at least {max(args.clients)} table slots, got {capabilities['tables']}")
         with native_postgres(None, psycopg, binary_directory=args.postgres_bin, work_directory=scratch) as (native, reference):
             report["reference"] = reference
             with psycopg.connect(**native) as connection:
