@@ -15,9 +15,10 @@ raw grammar returns `0A000` before running any command.
 `PREPARE TRANSACTION` in a batch requires an explicit transaction block.
 
 Extended Parse/Bind/Execute groups retain implicit writes until Sync or a
-successful simple Query boundary on the same connection. Flush delivers
-responses while the transaction stays open. Extended COPY FROM and COPY TO
-run as portals and share this transaction boundary.
+successful multi-command simple Query completes on the same connection.
+Flush and a single ordinary simple Query leave the transaction open.
+Extended COPY FROM and COPY TO run as portals and share the same transaction
+boundary.
 
 ## Installation and startup
 

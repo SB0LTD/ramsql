@@ -80,15 +80,17 @@ def probe(port):
         synchronize(writer)
         completed.append('copy-out-results')
 
-        # A simple COPY can also finish transactions started by an Execute.
+        # A single simple COPY participates in an unsynchronized Execute group.
         extended(writer, 'INSERT INTO copy_group VALUES (10)', b'INSERT 0 1')
         writer.sock.sendall(query_packet(source))
         assert writer.message()[0] == b'G'
         writer.sock.sendall(packet(b'd', b'11\n') + packet(b'c'))
         consume(writer, b'COPY 1')
-        assert writer.message() == (b'Z', b'I')
+        assert writer.message() == (b'Z', b'T')
+        seen(1, 2, 3)
+        synchronize(writer)
         seen(1, 2, 3, 10, 11)
-        completed.append('simple-copy-finishes-extended-write')
+        completed.append('simple-copy-in-unsynchronized-extended-group')
 
         extended(writer, 'INSERT INTO copy_group VALUES (12)', b'INSERT 0 1')
         writer.sock.sendall(query_packet(source))

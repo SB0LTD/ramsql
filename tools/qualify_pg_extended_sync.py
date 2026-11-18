@@ -83,8 +83,10 @@ def probe(port):
 
         extended(writer, 'INSERT INTO sync_fixture VALUES (20)', b'INSERT 0 1')
         assert ids(observer) == [1, 4]
-        writer.ok('SELECT 20', [['20']])
+        writer.ok('SELECT 20', [['20']], status=b'T')
         result['after_single_simple_boundary'] = ids(observer)
+        synchronize(writer)
+        result['after_single_simple_and_sync'] = ids(observer)
 
         extended(writer, 'INSERT INTO sync_fixture VALUES (21)', b'INSERT 0 1')
         frames = writer.query('SELECT 21; INSERT INTO sync_fixture VALUES (22); SELECT 22')
@@ -116,7 +118,8 @@ EXPECTED = {
     'before_sync': [], 'after_sync': [1], 'after_group_error': [1],
     'after_malformed_sync': [1], 'after_valid_sync': [1], 'explicit_before_commit': [1],
     'explicit_after_commit': [1, 4], 'failed_begin_promotion': [1, 4],
-    'after_simple_error': [1, 4], 'after_single_simple_boundary': [1, 4, 20],
+    'after_simple_error': [1, 4], 'after_single_simple_boundary': [1, 4],
+    'after_single_simple_and_sync': [1, 4, 20],
     'after_simple_batch_boundary': [1, 4, 20, 21, 22],
     'after_cross_protocol_batch_error': [1, 4, 20, 21, 22],
     'after_cross_protocol_commit_and_error': [1, 4, 20, 21, 22, 25],
