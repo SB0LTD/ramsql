@@ -23,8 +23,8 @@ jobs:
     env:
       PRODUCT_REVISION: 6424940c45f56d1529a3531a8834234dfb4e792b
       PRODUCT_SHA256: 6562d8f0a6dec9024e840a44dd5831b820c1c7f5d233c7f30397d20006797b9e
-      ZPM_REVISION: 5ffc161b2944e92462dacdc2e599254ac12f2427
-      ZPM_SHA256: bc8bc5d4c6b958cb817c0ad20968e2d7229aab6ba58f0b8415be56997d98c8e6
+      ZPM_REVISION: dcba90763646f5dc512e45c987656dc742b8e10d
+      ZPM_SHA256: eda3e6b13b20c89a7d80eee4a5a0164132c274ce47888d1fc1df1c0b404a6bed
     steps:
       - uses: actions/checkout@v4
         with:
@@ -87,6 +87,7 @@ jobs:
           "$RUNNER_TEMP/test-sql-catalog-security" 2>&1 | tee evidence/zpm-catalog.txt
           grep -Eq 'catalog security: [0-9]+ assertions, [0-9]+ records replayed' evidence/zpm-catalog.txt
       - name: Compare typed namespace state against native PostgreSQL 18.3
+        if: always() && runner.os == 'Linux'
         shell: bash
         run: |
           set -euo pipefail
