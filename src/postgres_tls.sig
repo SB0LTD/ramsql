@@ -9,7 +9,7 @@ const record_plaintext_bytes = 16384;
 const max_leaf_bytes = 16384;
 const flight_bytes = max_leaf_bytes + 512;
 const cipher_output_bytes = @max(tls.record_capacity, flight_bytes + 512);
-const Identity = @TypeOf(@as(tls.Stream, undefined).handshake.identity.*);
+const Identity = @typeInfo(@typeInfo(@TypeOf(tls.Stream.init)).@"fn".params[0].type.?).pointer.child;
 
 pub const Credentials = struct {
     certificate: [max_leaf_bytes + 1]u8 = undefined,
@@ -57,7 +57,7 @@ pub const Slot = struct {
     }
 };
 
-const Phase = enum { ssl_request, ssl_response, handshake, open };
+const Phase = enum { ssl_request, gss_decline, ssl_response, handshake, open };
 
 pub const Transport = struct {
     stream: tls.Stream,
@@ -65,6 +65,7 @@ pub const Transport = struct {
     phase: Phase = .ssl_request,
     prefix: [8]u8 = undefined,
     prefix_used: usize = 0,
+    gss_declined: bool = false,
     plain_start: usize = 0,
     plain_end: usize = 0,
     peer_closed: bool = false,
@@ -76,12 +77,12 @@ pub const Transport = struct {
     }
 
     pub fn canRead(self: *const Transport) bool {
-        return self.phase != .ssl_response and !self.peer_closed and !self.stream.failed and
+        return self.phase != .ssl_response and self.phase != .gss_decline and !self.peer_closed and !self.stream.failed and
             self.plain_start == self.plain_end and self.stream.output().len == 0;
     }
 
     pub fn needsWrite(self: *const Transport) bool {
-        return self.phase == .ssl_response or self.stream.output().len != 0;
+        return self.phase == .ssl_response or self.phase == .gss_decline or self.stream.output().len != 0;
     }
 
     pub fn receive(self: *Transport, socket: tcp.Socket) !bool {
@@ -95,6 +96,10 @@ pub const Transport = struct {
             if (self.prefix_used == self.prefix.len) {
                 switch (pg.classifyStartup(&self.prefix)) {
                     .ssl_request => self.phase = .ssl_response,
+                    .gss_request => {
+                        if (self.gss_declined) return error.TlsRequired;
+                        self.phase = .gss_decline;
+                    },
                     else => return error.TlsRequired,
                 }
             }
@@ -106,7 +111,7 @@ pub const Transport = struct {
     /// slot, so no borrowed stream data survives a later TLS mutation.
     pub fn pull(self: *Transport, destination: []u8) !usize {
         self.more = false;
-        if (self.phase == .ssl_request or self.phase == .ssl_response or self.peer_closed) return 0;
+        if (self.phase == .ssl_request or self.phase == .ssl_response or self.phase == .gss_decline or self.peer_closed) return 0;
         var written: usize = 0;
         for (0..32) |_| {
             if (self.plain_start != self.plain_end) {
@@ -148,10 +153,17 @@ pub const Transport = struct {
     /// output has drained. The caller may then retire exactly accepted bytes.
     pub fn flush(self: *Transport, socket: tcp.Socket, output: []const u8, closing: bool) !Flush {
         var result: Flush = .{};
-        if (self.phase == .ssl_response) {
-            const count = try tcp.send(socket, "S") orelse return result;
+        if (self.phase == .ssl_response or self.phase == .gss_decline) {
+            const accepting_ssl = self.phase == .ssl_response;
+            const count = try tcp.send(socket, if (accepting_ssl) "S" else "N") orelse return result;
             if (count != 1) return error.SendFailed;
-            self.phase = .handshake;
+            if (accepting_ssl) {
+                self.phase = .handshake;
+            } else {
+                self.phase = .ssl_request;
+                self.gss_declined = true;
+                self.prefix_used = 0;
+            }
             result.sent = true;
             return result;
         }

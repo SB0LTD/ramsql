@@ -481,7 +481,7 @@ const Client = struct {
         if (self.transport) |transport| {
             if (transport.peer_closed) {
                 if (self.blocked) { self.close(); return false; }
-                self.closing = true;
+                if (frames < 32 or self.input_len == 0) self.closing = true;
             }
         }
         self.deliverNotifications();

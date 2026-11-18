@@ -19,6 +19,7 @@ from test_auth import make_verifier
 from test_persistence import DurableServer
 
 SSL_REQUEST = bytes.fromhex("0000000804d2162f")
+GSS_REQUEST = bytes.fromhex("0000000804d21630")
 STARTUP_BODY = struct.pack("!I", 196608) + b"user\0ramsql\0database\0ramsql\0\0"
 STARTUP = struct.pack("!I", 4 + len(STARTUP_BODY)) + STARTUP_BODY
 
@@ -62,10 +63,13 @@ def expect_close(port, request):
         assert response == b"", response
 
 
-def fragmented_ssl_request(port, ca):
+def fragmented_ssl_request(port, ca, gss_first=False):
     context = ssl.create_default_context(cafile=str(ca))
     context.minimum_version = ssl.TLSVersion.TLSv1_3
     with socket.create_connection(("127.0.0.1", port), timeout=5) as raw:
+        if gss_first:
+            raw.sendall(GSS_REQUEST)
+            assert raw.recv(1) == b"N"
         raw.sendall(SSL_REQUEST[:3])
         raw.sendall(SSL_REQUEST[3:])
         assert raw.recv(1) == b"S"
@@ -124,7 +128,19 @@ def main():
         expect_close(port, bytes.fromhex("0000001004d2162e0000000100000000"))
         expect_close(port, bytes.fromhex("1603010003010000"))
         fragmented_ssl_request(port, ca)
+        fragmented_ssl_request(port, ca, gss_first=True)
+        for forbidden in (STARTUP, GSS_REQUEST):
+            with socket.create_connection(("127.0.0.1", port), timeout=5) as raw:
+                raw.sendall(GSS_REQUEST)
+                assert raw.recv(1) == b"N"
+                raw.sendall(forbidden)
+                try:
+                    observed = raw.recv(1)
+                except ConnectionResetError:
+                    observed = b""
+                assert observed == b"", observed
         checks.append("ssl_request_required_and_fragmented")
+        checks.append("gss_refusal_requires_ssl_and_cannot_repeat")
         rejected(port, password, "certificate", host="wrong.example")
         rejected(port, "wrong", "auth")
         checks.append("verify_full_hostname_and_scram")
