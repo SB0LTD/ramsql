@@ -551,6 +551,16 @@ def test_transactions_and_disconnect(server):
         first.ok("INSERT INTO txn VALUES (3)", status=b"T")
         first.ok("COMMIT")
         second.ok("SELECT * FROM txn ORDER BY id", [["1"], ["3"]])
+        first.ok("BEGIN", status=b"T")
+        first.ok("SET LOCAL default_transaction_isolation = 'repeatable read'", status=b"T")
+        first.ok("LISTEN commit_owner", status=b"T")
+        second.ok("SHOW default_transaction_isolation", [["read committed"]])
+        first.ok("COMMIT")
+        first.ok("SHOW default_transaction_isolation", [["read committed"]])
+        second.ok("NOTIFY commit_owner, 'finished'")
+        reply = first.ok("SELECT 1", [["1"]])
+        delivered = [body[4:].split(b"\0") for tag, body in reply if tag == b"A"]
+        check(delivered == [[b"commit_owner", b"finished", b""]], "COMMIT lost the owning client's LISTEN registration")
     abandoned = PG(server.raw())
     try:
         abandoned.startup()
