@@ -1045,8 +1045,8 @@ fn readContextPayload(options: Options, plan: *const StoragePlan) !usize {
 fn writeStorageDetails(out: sig.io.File, options: Options, plan: *const StoragePlan, read_payload: usize) !void {
     var buffer: [512]u8 = undefined;
     try out.writeStreamingAll(.{}, try std.fmt.bufPrint(&buffer,
-        ",\"typed_bank_memory_profile\":{s},\"query_refs\":{d},\"query_reference_bytes\":{d},\"read_context_payload_bytes_per_worker\":{d},\"max_prepared_transactions\":{d},\"prepared_transactions_ceiling\":{d},\"database_cluster\":{s},\"cluster_database_ceiling\":{d},\"compact_version_stamps\":{s},\"storage_version_bytes\":{d},\"packed_hash_load_percent\":{d},\"table_storage\":[",
-        .{ if (options.typed_bank_memory_profile) "true" else "false", plan.refs, plan.refs * @sizeOf(u32), read_payload, options.max_prepared_transactions, Store.prepared_capacity - 1, if (options.database_cluster) "true" else "false", cluster_capacity, if (profile.compact_version_stamps) "true" else "false", @sizeOf(Raw.StorageVersion), @as(u8, if (options.packed_hash_load_75) 75 else 50) }));
+        ",\"typed_bank_memory_profile\":{s},\"query_refs\":{d},\"query_reference_bytes\":{d},\"read_context_payload_bytes_per_worker\":{d},\"max_prepared_transactions\":{d},\"prepared_transactions_ceiling\":{d},\"database_cluster\":{s},\"cluster_database_ceiling\":{d},\"compact_version_stamps\":{s},\"storage_version_bytes\":{d},\"row_slot_bytes\":{d},\"dense_version_payload_bytes\":{d},\"packed_hash_load_percent\":{d},\"table_storage\":[",
+        .{ if (options.typed_bank_memory_profile) "true" else "false", plan.refs, plan.refs * @sizeOf(u32), read_payload, options.max_prepared_transactions, Store.prepared_capacity - 1, if (options.database_cluster) "true" else "false", cluster_capacity, if (profile.compact_version_stamps) "true" else "false", @sizeOf(Raw.StorageVersion), @sizeOf(Raw.StorageRowSlot), @sizeOf(Raw.StorageVersionRow), @as(u8, if (options.packed_hash_load_75) 75 else 50) }));
     for (plan.budgets, 0..) |budget, index| {
         if (index != 0) try out.writeStreamingAll(.{}, ",");
         const scan = config.compact_integral_scans and config.columns <= 64 and !budget.omit_compact_scan;
@@ -1061,9 +1061,9 @@ fn storageCharges(options: Options, plan: *const StoragePlan, worker_bytes: u64)
     return machine_capacity.startupCharges(&.{plan.bytes, plan.workspace_bytes, options.max_clients * @sizeOf(Client)}, worker_bytes);
 }
 
-/// Bound the existing lazily mapped arenas and fixed hosted state for expanded
+/// Bound the existing lazily mapped arenas and fixed hosted state for active
 /// admission. The conservative static allowance can include resident pages.
-fn expandedClientCharge(options: Options, plan: *const StoragePlan, startup: machine_capacity.StartupCharges) !u64 {
+fn activeAdmissionCharge(options: Options, plan: *const StoragePlan, startup: machine_capacity.StartupCharges) !u64 {
     const client = try machine_capacity.startupCharges(&.{ plan.result_bytes, plan.response_bytes }, 0);
     const client_total = try std.math.mul(u64, client.rounded, options.max_clients);
     const worker_total = if (options.workers <= 1) 0 else blk: {
@@ -1151,13 +1151,11 @@ pub fn describeMachine(requested:Options) !void {
     const out = sig.io.File.stdout();
     try out.writeStreamingAll(.{}, machine[0..machine.len - 2]);
     try out.writeStreamingAll(.{}, memory);
-    if (options.max_clients > standard_capacity) {
-        const charge = try expandedClientCharge(options, &plan, startup);
-        var expanded: [192]u8 = undefined;
-        try out.writeStreamingAll(.{}, try std.fmt.bufPrint(&expanded,
-            ",\"expanded_client_peak_bytes\":{d},\"expanded_client_peak_fits\":{s},\"transaction_slots\":{d}",
-            .{ charge, if (charge <= observed.new_region_bytes) "true" else "false", profile.transactions }));
-    }
+    const charge = try activeAdmissionCharge(options, &plan, startup);
+    var admission: [192]u8 = undefined;
+    try out.writeStreamingAll(.{}, try std.fmt.bufPrint(&admission,
+        ",\"active_admission_bytes\":{d},\"active_admission_fits\":{s},\"transaction_slots\":{d}",
+        .{ charge, if (charge <= observed.new_region_bytes) "true" else "false", profile.transactions }));
     try writeStorageDetails(out, options, &plan, read_payload);
 }
 /// Absolute spelling of a data path for operator messages; the file need not
@@ -1465,7 +1463,7 @@ pub fn run(requested: Options) !void {
     if (options.max_clients > standard_capacity) {
         const worker_bytes = if (options.workers > 1) options.workers * worker_budget_each else 0;
         const startup = try storageCharges(options, &plan, worker_bytes);
-        if (try expandedClientCharge(options, &plan, startup) > observed.new_region_bytes) return error.BudgetExceeded;
+        if (try activeAdmissionCharge(options, &plan, startup) > observed.new_region_bytes) return error.BudgetExceeded;
     }
     parallel = options.workers > 1;
     cluster_options = options;

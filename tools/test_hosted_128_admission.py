@@ -53,8 +53,8 @@ def run_wire(binary, workers):
     caps = read_plan(binary, "--capabilities", flags)
     assert caps["compiled_clients"] == CLIENTS and caps["clients"] == CLIENTS
     assert plan["transaction_slots"] == 130 and plan["read_workers"] == workers
-    assert plan["expanded_client_peak_fits"] and plan["startup_fits"]
-    assert plan["startup_region_bytes"] < plan["expanded_client_peak_bytes"] <= plan["new_region_bytes"]
+    assert plan["active_admission_fits"] and plan["startup_fits"]
+    assert plan["startup_region_bytes"] < plan["active_admission_bytes"] <= plan["new_region_bytes"]
 
     with Server(binary, max_clients=CLIENTS, idle_ms=120_000,
                 extra_arguments=(*PROFILE, "--workers", str(workers))) as server, ExitStack() as owners:
@@ -152,9 +152,9 @@ def main():
     reject(binary, "--machine-capacity", ("--max-clients", "129"), "InvalidServerOptions")
     low_memory = (*invalid, "--workers", "1")
     plan = read_plan(binary, "--machine-capacity", low_memory)
-    cropped = (*low_memory, "--memory-budget", str(plan["expanded_client_peak_bytes"] - 1))
+    cropped = (*low_memory, "--memory-budget", str(plan["active_admission_bytes"] - 1))
     refused = read_plan(binary, "--machine-capacity", cropped)
-    assert refused["startup_fits"] and not refused["expanded_client_peak_fits"], refused
+    assert refused["startup_fits"] and not refused["active_admission_fits"], refused
     reject(binary, "--serve", (*cropped, "--memory", "--insecure-local", "--port", "0"), "BudgetExceeded")
     native_workers = default["native_workers_available"]
     report = {"suite": "hosted_128_admission", "passed": False, "profiles": [],
