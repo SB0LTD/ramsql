@@ -51,10 +51,10 @@ jobs:
       - name: Run CLI and one- and four-worker wire cases
         shell: pwsh
         run: |
-          python tools/test_cli.py --binary $env:PUBLISHED_BINARY | Tee-Object evidence/cli.log
+          python tools/test_cli.py --binary $env:PUBLISHED_BINARY --expect-integral-version-banks | Tee-Object evidence/cli.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           foreach ($workers in @(1, 4)) {
-            python tools/test_server.py --binary $env:PUBLISHED_BINARY --workers $workers | Tee-Object "evidence/wire-$workers.json"
+            python tools/test_server.py --binary $env:PUBLISHED_BINARY --workers $workers --integral-version-banks | Tee-Object "evidence/wire-$workers.json"
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
       - name: Run independent drivers and PostgreSQL authentication
@@ -69,7 +69,7 @@ jobs:
       - name: Test durable commits and process recovery on the packaged server
         shell: pwsh
         run: |
-          python tools/test_persistence.py --binary $env:PUBLISHED_BINARY --cycles 5 | Tee-Object evidence/persistence.json
+          python tools/test_persistence.py --binary $env:PUBLISHED_BINARY --cycles 5 --integral-prepared | Tee-Object evidence/persistence.json
           exit $LASTEXITCODE
       - uses: actions/upload-artifact@v4
         if: always()
