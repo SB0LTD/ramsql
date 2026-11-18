@@ -36,6 +36,7 @@ const machine_capacity = @import("capacity.sig");
 const database_registry = @import("database_registry");
 const database_catalog = @import("database_catalog.sig");
 const disk = @import("db_file");
+const durable_log = @import("durable_log");
 
 pub const Protocol = enum { postgres, mysql, mssql };
 pub const table_capacity = profile.tables;
@@ -65,6 +66,8 @@ pub const Options = struct {
     /// Zero disables PostgreSQL prepared transactions. A positive limit
     /// reserves at least one ordinary transaction slot for other work.
     max_prepared_transactions: usize = 0,
+    /// Experimental rendezvous window for simple explicit PostgreSQL COMMIT.
+    group_commit_wait_ms: u32 = 0,
     /// Runtime storage budget, independent of result/query workspace sizes.
     storage_rows: usize = profile.rows,
     storage_versions: ?usize = null,
@@ -178,6 +181,7 @@ const input_capacity = 65536;
 const output_capacity = @max(PG.responseCapacity(), @max(MySQL.responseCapacity(), TDS.responseCapacity())) + 32768;
 const Session = union(Protocol) { postgres: PG, mysql: MySQL, mssql: TDS };
 const Reply = struct { consumed: usize, written: usize, close: bool, blocked: bool, cancel: ?pg.Cancel = null };
+const GroupCommitOutcome = union(enum) { durable, failed: anyerror };
 // One execution context per reactor, reused only by its owning native thread.
 // Results remain client-owned; the complete codec call ends before reuse.
 const Reader=struct {
@@ -237,6 +241,12 @@ const Client = struct {
     touched: i64 = 0,
     /// A statement of this client is parked on a lock.
     blocked: bool = false,
+    /// Only this client's reactor touches the buffered frame and deadline.
+    waiting_commit: bool = false,
+    commit_deadline: i64 = 0,
+    /// Access these shared handoff fields under store_mutex.
+    commit_cancelled: bool = false,
+    commit_outcome: ?GroupCommitOutcome = null,
     cancel_secret: u32 = 0,
     /// notification_sequence when this idle client last drained NOTIFY.
     notify_seen: u64 = 0,
@@ -263,7 +273,12 @@ const Client = struct {
         const active = self.state.load(.acquire) == 2;
         if (active) lockStore();
         self.cancel_key.store(0, .release);
-        if (active) self.connection.disconnect();
+        if (active) {
+            if (pending_group_commit == self) pending_group_commit = null;
+            self.connection.disconnect();
+        }
+        self.waiting_commit = false;
+        self.commit_outcome = null;
         if (self.database_binding) |binding| {
             cluster_registry.release(binding.lease) catch @panic("lost database lease");
             self.database_binding = null;
@@ -294,7 +309,7 @@ const Client = struct {
                 cancelBackend(key); self.consume(16); self.closing = true; return;
             }
         }
-        if(try self.dispatchRead()) return;
+        if (!self.waiting_commit and try self.dispatchRead()) return;
         lockStore();
         defer unlockStore();
         if (parallel) {
@@ -311,7 +326,11 @@ const Client = struct {
         const input = self.input[self.input_start..][0..self.input_len];
         const output = self.output[self.output_len..];
         self.connection.store.now_ns = sig.os.clockMonotonicNs();
-        const reply: Reply = switch (self.session) {
+        const grouped = if (group_commit_wait_ms != 0 and self.protocol == .postgres and self.output_len == 0)
+            try self.dispatchGroupCommit(input, output)
+        else null;
+        if (self.waiting_commit) return;
+        const reply: Reply = grouped orelse switch (self.session) {
             .postgres => |*session| blk: {
                 const r = try session.handle(&self.connection, input, output);
                 break :blk .{ .consumed = r.consumed, .written = r.written, .close = r.close, .blocked = r.blocked, .cancel = r.cancel };
@@ -340,6 +359,83 @@ const Client = struct {
         } else if (self.input_len == self.input.len) return error.RequestTooLarge;
         self.output_len += reply.written;
         self.closing = reply.close;
+    }
+
+    fn completeGroupCommit(self: *Client, input: []const u8, output: []u8, outcome: GroupCommitOutcome) !Reply {
+        const err: ?anyerror = switch (outcome) { .durable => null, .failed => |failure| failure };
+        const reply = try self.session.postgres.completeScheduledCommit(&self.connection, input, output, err);
+        return .{ .consumed = reply.consumed, .written = reply.written, .blocked = reply.blocked, .close = reply.close };
+    }
+
+    /// Only the serialized store owner may select a partner, update either
+    /// transaction, or publish an outcome. The partner's input/output always
+    /// remain with its own reactor through the later completion pass.
+    fn dispatchGroupCommit(self: *Client, input: []const u8, output: []u8) !?Reply {
+        const now = monotonicClock();
+        if (self.waiting_commit) {
+            self.cancelQueuedCommit();
+            if (self.commit_outcome) |outcome| {
+                self.commit_outcome = null;
+                self.waiting_commit = false;
+                return try self.completeGroupCommit(input, output, outcome);
+            }
+            if (now < self.commit_deadline) return null;
+            if (pending_group_commit == self) pending_group_commit = null;
+            self.waiting_commit = false;
+            return null; // The same original frame proceeds through ordinary dispatch.
+        }
+        const frame = self.session.postgres.scheduledCommitCandidate(input) orelse return null;
+        if (frame != input.len) return null;
+        const table = self.connection.ordinaryBatchCommitTable() orelse return null;
+        if (pending_group_commit) |first| {
+            pollWorkerInterrupts(first, first.connection.id);
+            first.cancelQueuedCommit();
+            if (pending_group_commit != null) {
+                if (now >= first.commit_deadline or
+                    (first.connection.ordinaryBatchCommitTable() orelse return null) == table) return null;
+                var tables: [2]u32 = undefined;
+                var payloads: [2][]const u8 = undefined;
+                const scratch: Store.CommitBatchWorkspace = .{
+                    .table_oids = &tables,
+                    .payloads = &payloads,
+                    .encoded = group_commit_scratch[0..group_commit_encode_bytes],
+                };
+                const stable = persistence.commitOrdinaryBatch(&.{ &first.connection, &self.connection }, scratch,
+                    group_commit_scratch[group_commit_encode_bytes..]) catch |err| {
+                    // Preflight errors retain both live owners for the usual
+                    // COMMIT path. A failed write already ended both slots.
+                    if (self.connection.transactionStatus() != 'I' or first.connection.transactionStatus() != 'I') return null;
+                    pending_group_commit = null;
+                    first.commit_outcome = .{ .failed = err };
+                    return try self.completeGroupCommit(input, output, .{ .failed = err });
+                };
+                if (!stable) return null;
+                pending_group_commit = null;
+                first.commit_outcome = .durable;
+                return try self.completeGroupCommit(input, output, .durable);
+            }
+        }
+        self.waiting_commit = true;
+        self.commit_cancelled = false;
+        self.commit_deadline = now + @as(i64, group_commit_wait_ms) * 1000000;
+        pending_group_commit = self;
+        return null;
+    }
+
+    /// Cancellation polling can mark this request with just store_mutex.
+    /// Only the full write gate may roll back the transaction and its locks.
+    fn cancelQueuedCommit(self: *Client) void {
+        if (pending_group_commit != self or !self.commit_cancelled) return;
+        pending_group_commit = null;
+        self.connection.failTransaction();
+        self.commit_outcome = .{ .failed = error.QueryCanceled };
+    }
+
+    fn commitPollTimeout(self: *const Client, now: i64, timeout: u32) u32 {
+        if (!self.waiting_commit) return timeout;
+        const remaining = self.commit_deadline - now;
+        if (remaining <= 0) return 0;
+        return @intCast(@min(timeout, @divFloor(remaining + 999999, 1000000)));
     }
 
     fn pollRead(raw:?*anyopaque) Raw.SqlError!void {
@@ -494,13 +590,18 @@ var selected_result_rows: usize = profile.result_rows;
 var selected_work_rows:usize=profile.work_rows;
 var selected_read_refs:usize=0;
 var parallel = false;
+const group_commit_encode_bytes = 64 * 1024;
+const group_commit_bytes = 2 * group_commit_encode_bytes + 2 * durable_log.overhead;
+var group_commit_scratch: []u8 = &.{};
+var group_commit_wait_ms: u32 = 0;
+var pending_group_commit: ?*Client = null;
 var store_mutex: threads.Mutex = .{};
 var data_gate:threads.RwLock=.{};
 fn lockStore() void { if (parallel) {data_gate.lockWrite();store_mutex.lock();} }
 fn unlockStore() void { if (parallel) {store_mutex.unlock();data_gate.unlockWrite();} }
 var memory_mutex:threads.Mutex=.{};
 var memory_ledger:resource_budget.Ledger=.{};
-var memory_slots:[capacity*2+max_reactors*2+4]resource_budget.Slot=undefined;
+var memory_slots:[capacity*2+max_reactors*2+5]resource_budget.Slot=undefined;
 var memory_hard:?u64=null;
 var memory_headroom:?u64=null;
 var memory_refresh_at:i64=0;
@@ -546,7 +647,11 @@ fn clientMemoryAvailable() bool {
 fn pollWorkerInterrupts(context: ?*anyopaque, _: u64) void {
     const client: *Client = @ptrCast(@alignCast(context.?));
     const requested = client.cancel_request.swap(0, .acq_rel);
-    if (requested != 0 and requested == client.cancel_key.load(.acquire)) client.connection.requestCancel();
+    if (requested != 0 and requested == client.cancel_key.load(.acquire)) {
+        if (pending_group_commit == client) {
+            client.commit_cancelled = true;
+        } else client.connection.requestCancel();
+    }
 }
 
 fn responseBytes(rows: usize) !usize {
@@ -769,6 +874,10 @@ fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial:
     client.reader=if(parallel) &reactors[slot % reactor_count].reader else null;client.read_deadline=null;
     client.output = &.{};
     client.blocked = false;
+    client.waiting_commit = false;
+    client.commit_deadline = 0;
+    client.commit_cancelled = false;
+    client.commit_outcome = null;
     client.connection = .{ .store = &store, .id = next_id };
     next_id +%= 1;
     if (next_id == 0) next_id = 1;
@@ -842,6 +951,9 @@ fn validateWorkers(options: Options) !void {
     if (options.workers == 0 or options.workers > max_reactors or options.workers > options.max_clients) return error.InvalidServerOptions;
     if (options.database_cluster and options.workers != 1) return error.InvalidServerOptions;
     if (options.workers > 1 and !threads.available) return error.WorkersUnsupportedOnPlatform;
+    if (options.group_commit_wait_ms != 0 and (options.group_commit_wait_ms > 50 or options.workers < 2 or
+        options.memory or options.database_cluster or options.protocol != .postgres or
+        options.mysql_port != null or options.mssql_port != null)) return error.InvalidServerOptions;
 }
 
 const Reactor = struct {
@@ -869,6 +981,7 @@ const Reactor = struct {
             var writable: [capacity]bool = @splat(false);
             var active: usize = 0;
             var buffered = false;
+            var poll_ms: u32 = 10;
             const now = sig.os.clockMonotonicNs();
             // Shared store state, timers and cancellation are read only while
             // holding the same mutex used for execution and disconnection.
@@ -902,10 +1015,11 @@ const Reactor = struct {
             while (slot < clients.len) : (slot += reactor_count) {
                 const client = &clients[slot];
                 if (client.state.load(.acquire) != 2) continue;
-                if (client.blocked) client.touched = now;
+                if (client.blocked or client.waiting_commit) client.touched = now;
                 if (now-client.touched >= @as(i64,self.idle_ms)*1000000) { client.close(); continue; }
                 if (client.serve()) buffered = true;
                 if (client.state.load(.acquire) != 2) continue;
+                if (client.waiting_commit) poll_ms = client.commitPollTimeout(monotonicClock(), poll_ms);
                 sockets[slot] = client.socket;
                 readable[slot] = client.output_len == 0 and client.input_len < client.input.len;
                 writable[slot] = client.output_len != 0;
@@ -914,7 +1028,7 @@ const Reactor = struct {
             if (active == 0) { self.reader.close();self.signal.wait(epoch, 100); continue; }
             // Finite poll bounds new admission, cancellation and shutdown
             // latency without introducing a second socket wakeup protocol.
-            _ = try tcp.waitMasked(tcp.invalid_socket, &sockets, &readable, &writable, if (buffered) 0 else 10);
+            _ = try tcp.waitMasked(tcp.invalid_socket, &sockets, &readable, &writable, if (buffered) 0 else poll_ms);
             slot = self.index;
             while (slot < clients.len) : (slot += reactor_count) {
                 const client = &clients[slot];
@@ -1036,7 +1150,9 @@ fn writeStorageDetails(out: sig.io.File, options: Options, plan: *const StorageP
 }
 
 fn storageCharges(options: Options, plan: *const StoragePlan, worker_bytes: u64) !machine_capacity.StartupCharges {
-    return machine_capacity.startupCharges(&.{plan.bytes, plan.workspace_bytes, options.max_clients * @sizeOf(Client)}, worker_bytes);
+    const regions = [_]usize{ plan.bytes, plan.workspace_bytes, options.max_clients * @sizeOf(Client), group_commit_bytes };
+    const count: usize = if (options.group_commit_wait_ms == 0) 3 else 4;
+    return machine_capacity.startupCharges(regions[0..count], worker_bytes);
 }
 
 fn chooseWorkers(options: Options, plan: *const StoragePlan, observed: machine_capacity.Sample) !usize {
@@ -1420,6 +1536,18 @@ pub fn run(requested: Options) !void {
     var worker_grant:?resource_budget.Token=null;
     if(parallel) worker_grant=try memory_ledger.acquire(options.workers*worker_budget_each);
     defer if(worker_grant) |grant| memory_ledger.release(grant) catch @panic("lost worker stack grant");
+    var batch_memory: owned_pages.Region = .{};
+    defer {
+        pending_group_commit = null;
+        group_commit_wait_ms = 0;
+        group_commit_scratch = &.{};
+        batch_memory.close() catch @panic("lost group commit workspace ownership");
+    }
+    if (options.group_commit_wait_ms != 0) {
+        try batch_memory.reserve(&memory_ledger, group_commit_bytes);
+        group_commit_scratch = batch_memory.memory.bytes;
+        group_commit_wait_ms = options.group_commit_wait_ms;
+    }
     var client_memory:owned_pages.Region=.{};
     try client_memory.reserve(&memory_ledger,options.max_clients * @sizeOf(Client));
     defer client_memory.close() catch @panic("lost client metadata ownership");

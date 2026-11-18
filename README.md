@@ -234,6 +234,12 @@ high-cardinality groups retain their existing bounded paths; physical SQL storag
 is still inline. Neither this test nor the packed-column tests demonstrate a
 100M-row SQL server or a PostgreSQL/IRDB win.
 
+### Experimental PostgreSQL commit rendezvous
+
+Set `--group-commit-wait-ms N` on a durable PostgreSQL server with at least two workers to give eligible explicit `COMMIT` requests a short window to find a partner. The window defaults to zero and accepts up to 50 milliseconds. The scheduler considers two simple-query commits on distinct committed base tables. A request that cannot join a group follows the ordinary commit path.
+
+The option reserves two 64 KiB scratch areas plus WAL framing and native page rounding through the server's machine memory budget. A group writes independent WAL records, synchronizes the file once and then completes each transaction and its wire response. The store stays exclusively owned during the flush, so the window covers partner selection and storage or lock waits can still add latency. A cancellation or disconnect handled before selection can withdraw a waiting transaction. After selection, the durable result can survive a lost client connection.
+
 ## Inspect capacity before loading
 
 Allocator-free means explicit owned storage, not unlimited RAM. **Stored rows
