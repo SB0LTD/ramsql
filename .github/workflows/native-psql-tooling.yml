@@ -46,6 +46,12 @@ jobs:
           done
           docker exec tooling-native pg_isready -h 127.0.0.1 -U postgres
           python tools/qualify_pg_tooling.py sig-out/bin/ramsql 2>&1 | tee evidence/check.log
+      - name: Compare stock pg_dump and restore in both directions
+        if: success() || failure()
+        shell: bash
+        run: |
+          test -x sig-out/bin/ramsql
+          python tools/qualify_pg_dump.py sig-out/bin/ramsql 2>&1 | tee evidence/dump-check.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
