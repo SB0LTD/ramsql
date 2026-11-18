@@ -1086,7 +1086,7 @@ const Reactor = struct {
                                 const output = client.output[client.output_sent..client.output_len];
                                 if (!client.closing and !self.receive_eof[slot] and client.input_len == 0) {
                                     client.compactInput();
-                                    try queue.sendAndReceive(tx, slot, client.socket, output, client.input);
+                                    try queue.sendAndReceive(tx, slot, client.socket, output, &client.input);
                                     self.linked_output[slot] = true;
                                 } else {
                                     try queue.send(tx, client.socket, output);
