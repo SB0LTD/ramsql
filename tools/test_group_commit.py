@@ -115,6 +115,8 @@ def exercise(args, name, expected_syncs, action, *, delay=False, failure=False, 
         assert "EIO" in calls[0] and "INJECTED" in calls[0], calls
     else:
         assert all("= 0" in line for line in calls), calls
+    if delay:
+        assert "(DELAYED)" in calls[0] and float(calls[0].rsplit("<", 1)[1].rstrip(">")) >= 0.24, calls
     replay(args.binary, wal, *expected)
     return {"case": name, "wal_fsyncs": len(calls), "trace_sha256": hashlib.sha256(trace.read_bytes()).hexdigest(),
             "process_crash_replay_checked": True}
