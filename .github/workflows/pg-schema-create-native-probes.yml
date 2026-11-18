@@ -1,0 +1,56 @@
+name: Native PostgreSQL schema CREATE probes
+on:
+  push:
+    branches: [ci/pg-schema-create-native-probes-20261118]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  oracle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Probe PostgreSQL 18.3 creation and lookup privileges
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir evidence
+          image=postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba
+          echo "$image" > evidence/reference-image.txt
+          docker run --detach --name oracle -e POSTGRES_HOST_AUTH_METHOD=trust "$image"
+          trap 'docker rm --force --volumes oracle >/dev/null' EXIT
+          for attempt in $(seq 1 60); do
+            if docker exec oracle pg_isready -U postgres; then break; fi
+            sleep 1
+          done
+          docker exec oracle postgres --version | tee evidence/reference-version.txt
+          docker exec -i oracle psql -U postgres -XAtq -v ON_ERROR_STOP=1 <<'SQL' 2>&1 | tee evidence/native-create.txt
+          CREATE ROLE create_owner;
+          CREATE SCHEMA create_scope AUTHORIZATION create_owner;
+          SET ROLE create_owner;
+          SELECT 'before=' || nspacl::text FROM pg_namespace WHERE nspname='create_scope';
+          REVOKE USAGE ON SCHEMA create_scope FROM CURRENT_ROLE;
+          SELECT 'after=' || nspacl::text FROM pg_namespace WHERE nspname='create_scope';
+          \set ON_ERROR_STOP off
+          CREATE TABLE create_scope.plain (id int);
+          \echo plain :SQLSTATE
+          CREATE TABLE create_scope.pk (id int PRIMARY KEY);
+          \echo pk :SQLSTATE
+          CREATE TABLE create_scope.uni (id int UNIQUE);
+          \echo unique :SQLSTATE
+          CREATE TABLE create_scope.nn (id int NOT NULL);
+          \echo notnull :SQLSTATE
+          CREATE TABLE IF NOT EXISTS create_scope.plain (id int PRIMARY KEY);
+          \echo existing_if_pk :SQLSTATE
+          CREATE TABLE IF NOT EXISTS create_scope.plain (id int);
+          \echo existing_if_plain :SQLSTATE
+          GRANT USAGE ON SCHEMA create_scope TO CURRENT_ROLE;
+          \echo restore_usage :SQLSTATE
+          CREATE TABLE create_scope.pk (id int PRIMARY KEY);
+          \echo restored_pk :SQLSTATE
+          SQL
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-create-probe
+          path: evidence/
