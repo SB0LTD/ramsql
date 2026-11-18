@@ -2,7 +2,7 @@ name: PostgreSQL extended transaction qualification
 
 on:
   push:
-    branches: [ci/postgres-extended-sync-transaction-20261118]
+    branches: [ci/postgres-extended-copy-20261118]
 
 permissions:
   contents: read
@@ -49,6 +49,8 @@ jobs:
           endpoint=$(docker port extended-native 5432/tcp)
           python tools/qualify_pg_extended_sync.py --binary sig-out/bin/ramsql \
             --postgres-port "${endpoint##*:}" --report evidence/extended-sync.json
+          python tools/qualify_pg_extended_copy.py --binary sig-out/bin/ramsql \
+            --postgres-port "${endpoint##*:}" --report evidence/extended-copy.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
