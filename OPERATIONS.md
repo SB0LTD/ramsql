@@ -61,6 +61,12 @@ input checks a pending expiration when input resumes. The extended protocol
 currently publishes autocommit at Execute. A shared implicit transaction
 across Parse, Bind, Execute and Sync requires separate compatibility work.
 
+PostgreSQL `xmloption` controls parsing of text into XML, including COPY input.
+The default `content` accepts well-formed XML fragments. `document` requires
+a single XML document. `SET XML OPTION` provides the SQL syntax for selecting
+either mode. An explicit `XMLPARSE(CONTENT ...)` or `XMLPARSE(DOCUMENT ...)`
+uses the mode named by that expression.
+
 PG cancellation is tested. TDS ATTENTION acknowledges an idle protocol request;
 it is not a general asynchronous running-query cancellation implementation.
 
