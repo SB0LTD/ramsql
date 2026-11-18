@@ -21,10 +21,9 @@ EXPECTED_DATA = '11|south|4\n12|north|4\n'
 
 
 def execute(client, tool, label, arguments, data=None):
-    result = subprocess.run([*client, tool, *arguments], input=data, capture_output=True,
-                            text=True, timeout=90)
-    (EVIDENCE / f'{label}.out').write_text(result.stdout)
-    (EVIDENCE / f'{label}.err').write_text(result.stderr)
+    result = subprocess.run([*client, tool, *arguments], input=data, capture_output=True, timeout=90)
+    (EVIDENCE / f'{label}.out').write_bytes(result.stdout)
+    (EVIDENCE / f'{label}.err').write_bytes(result.stderr)
     return result
 
 
@@ -40,12 +39,30 @@ def require_data(client, connection, label):
     assert result.stdout == EXPECTED_DATA, result.stdout
 
 
+def require_constraints(client, connection, label):
+    failures = (
+        ('parent-primary', "INSERT INTO dump_fixture.parent VALUES (1, 'duplicate')", '23505'),
+        ('child-primary', 'INSERT INTO dump_fixture.child VALUES (11,2,4)', '23505'),
+        ('child-foreign', 'INSERT INTO dump_fixture.child VALUES (13,99,4)', '23503'),
+        ('child-check', 'INSERT INTO dump_fixture.child VALUES (13,1,0)', '23514'),
+        ('child-not-null', 'INSERT INTO dump_fixture.child VALUES (13,1,NULL)', '23502'),
+    )
+    for name, statement, state in failures:
+        result = psql(client, connection, f'{label}-{name}', '-v', 'VERBOSITY=verbose', '-c', statement)
+        assert result.returncode != 0 and f'ERROR:  {state}:' in result.stderr, result.stderr
+    default = psql(client, connection, f'{label}-child-default', '-qAt', '-c',
+                   'BEGIN; INSERT INTO dump_fixture.child (id,parent_id) VALUES (13,1) RETURNING count; ROLLBACK;')
+    check(default)
+    assert default.stdout == '4\n', default.stdout
+    require_data(client, connection, f'{label}-after-constraints')
+
+
 def dump(client, connection, label):
     result = execute(client, 'pg_dump', label, [*connection, '--schema=dump_fixture',
                      '--no-owner', '--no-privileges', '--verbose'])
     check(result)
-    assert 'COPY dump_fixture.child' in result.stdout, result.stdout
-    assert 'FOREIGN KEY (parent_id)' in result.stdout, result.stdout
+    assert b'COPY dump_fixture.child' in result.stdout, result.stdout
+    assert b'FOREIGN KEY (parent_id)' in result.stdout, result.stdout
     return result.stdout
 
 
@@ -53,6 +70,7 @@ def restore(client, connection, label, data):
     result = execute(client, 'psql', label, ['-X', '-v', 'ON_ERROR_STOP=1', *connection], data)
     check(result)
     require_data(client, connection, label)
+    require_constraints(client, connection, label)
 
 
 def main():
