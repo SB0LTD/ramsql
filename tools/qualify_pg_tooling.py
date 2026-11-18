@@ -21,6 +21,11 @@ TOOLING_STATISTICS = (
     'CREATE STATISTICS analysis_data.tooling_stats ON label, id FROM tooling',
     'ALTER STATISTICS analysis_data.tooling_stats SET STATISTICS 300',
 )
+TOOLING_PUBLICATIONS = (
+    'CREATE PUBLICATION tooling_all FOR ALL TABLES',
+    'CREATE PUBLICATION tooling_schema FOR TABLES IN SCHEMA public',
+    'CREATE PUBLICATION tooling_table FOR TABLE ONLY tooling',
+)
 INDEX_SETUP = (
     'CREATE TABLE "Case Table" ("Select" INT PRIMARY KEY, qty INT, label TEXT)',
     'CREATE INDEX "ix Weird" ON "Case Table" (qty DESC NULLS LAST) INCLUDE (label) WHERE qty > 1',
@@ -111,6 +116,22 @@ def statistics(client, connection, label, statistics_sql, relation_oid):
     assert after.stdout == '', after.stdout
 
 
+def publications(client, connection, label, publication_sql):
+    empty = psql(client, connection, label + '-no-publications', '-At', '-c', publication_sql)
+    check(empty)
+    assert empty.stdout == '', empty.stdout
+    for index, definition in enumerate(TOOLING_PUBLICATIONS):
+        check(psql(client, connection, f'{label}-publication-{index}', '-c', definition))
+    result = psql(client, connection, label + '-publications', '-At', '-c', publication_sql)
+    check(result)
+    assert result.stdout == 'tooling_all||\ntooling_schema||\ntooling_table||\n', result.stdout
+    check(psql(client, connection, label + '-drop-publications', '-c',
+               'DROP PUBLICATION tooling_all, tooling_schema, tooling_table'))
+    after = psql(client, connection, label + '-after-drop-publications', '-At', '-c', publication_sql)
+    check(after)
+    assert after.stdout == '', after.stdout
+
+
 def main():
     native = ["docker", "exec", "tooling-native"]
     native_conn = ["-U", "postgres", "-d", "postgres"]
@@ -119,7 +140,7 @@ def main():
     check(psql(native, native_conn, "native-tooling-index", "-c", TOOLING_INDEX))
     native_describe = psql(native, native_conn, "native-describe", "-E", "-c", r"\d tooling")
     check(native_describe)
-    lookup, relation_sql, attribute_sql, constraint_indexes_sql, outgoing_sql, incoming_sql, policy_sql, stats_sql, *_ = describe_queries(native_describe)
+    lookup, relation_sql, attribute_sql, constraint_indexes_sql, outgoing_sql, incoming_sql, policy_sql, stats_sql, publication_sql, *_ = describe_queries(native_describe)
     assert "pg_table_is_visible" in lookup and "OPERATOR(pg_catalog.~)" in lookup and "COLLATE pg_catalog.default" in lookup
     assert "pg_catalog.pg_am" in relation_sql and "::pg_catalog.regtype::pg_catalog.text" in relation_sql
     assert "pg_catalog.pg_attribute" in attribute_sql and "pg_catalog.pg_collation" in attribute_sql
@@ -127,6 +148,7 @@ def main():
     assert "pg_catalog.pg_partition_ancestors" in incoming_sql
     assert "pg_catalog.pg_policy" in policy_sql and "array(select rolname" in policy_sql
     assert "pg_catalog.pg_statistic_ext" in stats_sql and "any(stxkind)" in stats_sql
+    assert "pg_catalog.pg_publication_rel" in publication_sql and "pg_catalog.pg_publication_namespace" in publication_sql
     (EVIDENCE / "discovery.sql").write_text(lookup + "\n")
     native_rows = psql(native, native_conn, "native-discovery", "-At", "-c", lookup)
     check(native_rows)
@@ -148,6 +170,7 @@ def main():
     incoming_foreign_keys(native, native_conn, 'native', incoming_sql)
     row_policies(native, native_conn, 'native', policy_sql)
     statistics(native, native_conn, 'native', stats_sql, native_rows.stdout.split('|', 1)[0])
+    publications(native, native_conn, 'native', publication_sql)
     Server.test_workers = 2
     with Server(Path(sys.argv[1]).resolve()) as server:
         client = ["docker", "run", "--rm", "--network", "host", IMAGE]
@@ -176,7 +199,7 @@ def main():
         actual_constraints = psql(client, conn, "ramsql-index-constraints", "-At", "-c", ram_constraint_sql)
         check(actual_constraints)
         assert actual_constraints.stdout == native_constraints.stdout, (native_constraints.stdout, actual_constraints.stdout)
-        assert len(describe_queries(actual)) >= 9 or actual.returncode == 0, actual.stderr
+        assert len(describe_queries(actual)) >= 9, actual.stderr
         for label, source in (('outgoing', outgoing_sql), ('incoming', incoming_sql)):
             rebound = source.replace(f"'{old_oid}'", f"'{new_oid}'")
             empty = psql(client, conn, f'ramsql-no-{label}', '-At', '-c', rebound)
@@ -186,10 +209,14 @@ def main():
         row_policies(client, conn, 'ramsql', policy_sql.replace(f"'{old_oid}'", f"'{new_oid}'"))
         ram_stats_sql = stats_sql.replace(f"'{old_oid}'", f"'{new_oid}'")
         statistics(client, conn, 'ramsql', ram_stats_sql, new_oid)
+        ram_publication_sql = publication_sql.replace(f"'{old_oid}'", f"'{new_oid}'")
+        publications(client, conn, 'ramsql', ram_publication_sql)
+        assert len(describe_queries(actual)) >= 10 or actual.returncode == 0, actual.stderr
         (EVIDENCE / "relation-metadata.sql").write_text(actual_relation_sql + "\n")
         (EVIDENCE / "column-metadata.sql").write_text(actual_attribute_sql + "\n")
         (EVIDENCE / "index-constraints.sql").write_text(ram_constraint_sql + "\n")
         (EVIDENCE / "extended-statistics.sql").write_text(ram_stats_sql + "\n")
+        (EVIDENCE / "publications.sql").write_text(ram_publication_sql + "\n")
         print("PASS native psql 18.3 discovery SQL on both engines")
         print("PASS native psql 18.3 relation-metadata SQL and values on both engines")
         print("PASS native psql 18.3 column-metadata SQL and values on both engines")
@@ -198,6 +225,7 @@ def main():
         print("PASS stock psql incoming and outgoing foreign-key discovery on both engines")
         print("PASS stock psql named-role and PUBLIC row-policy discovery on both engines")
         print("PASS stock psql extended statistics discovery before creation and after drop on both engines")
+        print("PASS stock psql explicit table, schema and all-table publication discovery on both engines")
         print(f"psql describe exit status: native={native_describe.returncode} RAMSQL={actual.returncode}")
         print(actual.stderr, end="")
         if not actual.returncode:
