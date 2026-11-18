@@ -104,21 +104,34 @@ def scenarios(port, workers):
     return out
 
 
-def pressure(port):
-    commands = 68
+def pressure(port, *, idle_timeout=False):
+    commands = 192 if idle_timeout else 68
     row_count = 350
     query = f"SELECT repeat('x', 96) FROM generate_series(1,{row_count});"
     with session(port) as client:
+        if idle_timeout:
+            client.ok('SET idle_in_transaction_session_timeout = 1000')
+            client.ok('BEGIN', status=b'T')
         client.sock.sendall(query_packet(query * commands) + query_packet('SELECT 999'))
-        for _ in range(commands):
+        for index in range(commands):
             assert client.message()[0] == b'T'
+            if idle_timeout and index == 0:
+                # Keep the active frame over the former idle deadline while output is backed up.
+                time.sleep(1.25)
             for _ in range(row_count):
                 data_row = client.message()
                 assert rows([data_row]) == [['x' * 96]]
             assert client.message() == (b'C', f'SELECT {row_count}\0'.encode())
-        assert client.message() == (b'Z', b'I')
-        assert rows(client.ready()) == [['999']]
-    return {'commands': commands, 'data_rows': commands * row_count, 'queued_next_frame_intact': True}
+        status = b'T' if idle_timeout else b'I'
+        assert client.message() == (b'Z', status)
+        next_frame = client.ready()
+        assert rows(next_frame) == [['999']] and next_frame[-1] == (b'Z', status)
+        if idle_timeout:
+            kind, payload = client.message()
+            assert kind == b'E', (kind, payload)
+            assert errors([(kind, payload)])[0]['C'] == '25P03'
+    return {'commands': commands, 'data_rows': commands * row_count, 'queued_next_frame_intact': True,
+            'idle_expired_after_ready': idle_timeout}
 
 
 def parked(port, workers, native=False):
@@ -238,9 +251,10 @@ def main():
             lock_test = parked(candidate.port, workers)
             assert all(lock_test[name] == expected for name, expected in native_park.items())
             pressure_test = pressure(candidate.port)
+            idle_pressure = pressure(candidate.port, idle_timeout=True)
         evidence['modes'].append({'workers': workers, 'ordinary': actual, 'native_copy': copy_native,
                                   'candidate_copy': copy_test, 'lock_wait_and_disconnect': lock_test,
-                                  'pressure': pressure_test, 'durability': durable(binary, args.report.parent, workers)})
+                                  'pressure': pressure_test, 'active_batch_idle_timeout': idle_pressure, 'durability': durable(binary, args.report.parent, workers)})
     args.report.write_text(json.dumps(evidence, indent=2) + '\n')
     print(f'PASS {sum(len(case["ordinary"]) for case in evidence["modes"])} frame differentials, wraparound I/O, COPY scope and blocked continuation')
 

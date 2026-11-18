@@ -294,6 +294,8 @@ const Client = struct {
         // Like PostgreSQL, a COPY socket read defers ordinary transaction
         // timeout delivery until input or a parked COPY row resumes.
         const transaction = if (self.session.postgres.waitingForCopyInput()) null else self.connection.transactionDeadline();
+        // A simple Query still running against socket backpressure is active.
+        if (self.session.postgres.continuingSimpleQuery()) return transaction;
         const idle = self.idle_transaction_deadline orelse return transaction;
         return if (transaction) |at| @min(at, idle) else idle;
     }
