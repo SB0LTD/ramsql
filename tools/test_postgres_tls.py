@@ -187,7 +187,8 @@ def main():
     evidence = dict(source=subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
                     binary_sha256=hashlib.sha256(binary.read_bytes()).hexdigest(),
                     psql=subprocess.check_output(["psql", "--version"], text=True).strip(),
-                    libpq=psycopg.pq.version(), workers=args.workers, checks=[])
+                    libpq=psycopg.pq.version(), workers=args.workers, checks=[],
+                    observed_slot_retirement_retries=0)
     def record(check):
         evidence["checks"].append(check)
         args.report.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
@@ -196,6 +197,22 @@ def main():
         return dict(host="localhost", hostaddr="127.0.0.1", port=port, user="ramsql", dbname="ramsql",
                     sslmode="verify-full", sslrootcert=str(ca), gssencmode="disable",
                     channel_binding="require", connect_timeout=5) | overrides
+
+    def connect_after_retirement(server, *, autocommit=False):
+        # PQfinish() closes the client side before the worker has necessarily
+        # retired its slot. Under temporary saturation the server deliberately
+        # closes a new TLS request without an error frame. Observe that exact
+        # transition with a short deadline, retaining diagnostics for failures.
+        deadline = time.monotonic() + 0.5
+        while True:
+            try:
+                return psycopg.connect(password=password, autocommit=autocommit, **settings(server.port))
+            except psycopg.OperationalError as exc:
+                if (server.process.poll() is not None or time.monotonic() >= deadline or
+                    "server closed the connection unexpectedly" not in str(exc)):
+                    raise AssertionError(f"TLS slot did not become available; server errors: {list(server.errors)}") from exc
+                evidence["observed_slot_retirement_retries"] += 1
+                time.sleep(0.01)
 
     def psql(port, source, **overrides):
         command = ["psql", "-X", "-v", "ON_ERROR_STOP=1", "-w", "-qAt", "--dbname",
@@ -278,8 +295,7 @@ def main():
                 "(SELECT COUNT(*) FROM running_work b WHERE b.id < "
                 "(SELECT COUNT(*) FROM running_work c WHERE c.id < a.id)) < 0")
         with ExitStack() as stack:
-            sessions = [stack.enter_context(psycopg.connect(password=password, autocommit=True, **settings(port)))
-                        for _ in range(3)]
+            sessions = [stack.enter_context(connect_after_retirement(server, autocommit=True)) for _ in range(3)]
             idle_pid, = set(range(1, 5)) - {client.info.backend_pid for client in sessions}
             same_worker = [client for client in sessions
                            if (client.info.backend_pid - idle_pid) % args.workers == 0]
@@ -317,7 +333,7 @@ def main():
         record("unfinished_tls_admission_retires")
 
         with ExitStack() as stack:
-            sessions = [stack.enter_context(psycopg.connect(password=password, **settings(port))) for _ in range(4)]
+            sessions = [stack.enter_context(connect_after_retirement(server)) for _ in range(4)]
             pids = [session.info.backend_pid for session in sessions]
             assert len(set(pids)) == 4 and len({(pid - 1) % args.workers for pid in pids}) == args.workers, pids
             def query(session):
