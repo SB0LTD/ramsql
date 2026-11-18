@@ -1,0 +1,82 @@
+name: Qualify native PostgreSQL commit rendezvous
+
+on:
+  push:
+    branches: [ci/commit-worker-rendezvous-fenced-20261118]
+
+permissions:
+  contents: read
+
+jobs:
+  sockets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Verify candidate, dependency and compiler
+        run: |
+          set -euo pipefail
+          mkdir -p evidence "$RUNNER_TEMP/sig-sdk"
+          source=4ca73aae8bd5a66e33162c0bfe53076ef80fe4f3
+          git diff --exit-code "$source" -- src build.sig.zon tools/test_group_commit.py
+          git rev-parse HEAD "$source" > evidence/source.log
+          zpm=b1ed4719db663a173603ca280ccf232a2224c908
+          digest=6418f4d146b8ef86329b2c735e066ceb2b2a985fa6b2a5ef33c48f1ed5f77599
+          grep -F "$zpm.tar.gz" build.sig.zon
+          grep -F "$digest" build.sig.zon
+          curl --fail --location --silent --show-error "https://github.com/SB0LTD/zpm/archive/$zpm.tar.gz" -o "$RUNNER_TEMP/zpm.tar.gz"
+          printf '%s  %s\n' "$digest" "$RUNNER_TEMP/zpm.tar.gz" | sha256sum -c - | tee evidence/zpm.log
+          tag=sig-0.6.5-zig0.17.0.3c72687
+          archive="$RUNNER_TEMP/$tag-x86_64-linux.tar.xz"
+          curl --fail --location --silent --show-error \
+            "https://github.com/SB0LTD/sig/releases/download/$tag/$(basename "$archive")" -o "$archive"
+          printf '%s  %s\n' 179094228e2e6b0db3a5a1e01a8a57e8e91db6aa3b5ca80094ca22d870cc373a "$archive" \
+            | sha256sum -c - | tee evidence/sdk.log
+          tar -xJf "$archive" -C "$RUNNER_TEMP/sig-sdk"
+          compiler="$(find "$RUNNER_TEMP/sig-sdk" -type f -path '*/bin/sig' -print -quit)"
+          test -x "$compiler"
+          sha256sum "$compiler" >> evidence/sdk.log
+          "$compiler" version | tee -a evidence/sdk.log
+          echo "SIG=$compiler" >> "$GITHUB_ENV"
+          echo "SIG_LIB_DIR=$(dirname "$(dirname "$compiler")")/lib" >> "$GITHUB_ENV"
+          if ! command -v strace >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install --no-install-recommends -y strace
+          fi
+          strace --version > evidence/strace.log
+      - name: Build the exact ReleaseSafe binary
+        run: |
+          set -euo pipefail
+          "$SIG" build -Doptimize=ReleaseSafe -j2 --Sig-lib-dir "$SIG_LIB_DIR" 2>&1 | tee evidence/build.log
+          sha256sum sig-out/bin/ramsql | tee evidence/binary-sha256.log
+      - name: Assert native grouped flush, error and connection lifecycle
+        run: |
+          set -euo pipefail
+          python3 tools/test_group_commit.py --binary sig-out/bin/ramsql --strace "$(command -v strace)" \
+            --work-dir "$RUNNER_TEMP/group-commit-databases" --output evidence/sockets 2>&1 | tee evidence/sockets.log
+      - name: Exercise ordinary PostgreSQL wire and durability
+        run: |
+          set -euo pipefail
+          python3 tools/test_server.py --binary sig-out/bin/ramsql --workers 2 2>&1 | tee evidence/ordinary-wire.log
+          python3 tools/test_persistence.py --binary sig-out/bin/ramsql 2>&1 | tee evidence/ordinary-persistence.log
+      - name: Qualify the scheduled response codec against exact ZPM
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/zpm-source"
+          tar -xzf "$RUNNER_TEMP/zpm.tar.gz" -C "$RUNNER_TEMP/zpm-source" --strip-components=1
+          zpm="$RUNNER_TEMP/zpm-source"
+          "$SIG" build-exe -OReleaseSafe --Sig-lib-dir "$SIG_LIB_DIR" "-femit-bin=$RUNNER_TEMP/postgres-contract" \
+            --dep sql --dep postgres --dep scram --dep db_store "-Mroot=$zpm/tests/test_postgres.sig" \
+            --dep sql --dep scram "-Mpostgres=$zpm/src/db/postgres.sig" "-Msql=$zpm/src/core/sql.sig" \
+            "-Mscram=$zpm/src/db/scram.sig" "-Mdb_store=$zpm/src/db/store.sig" 2>&1 | tee evidence/codec-build.log
+          "$RUNNER_TEMP/postgres-contract" 2>&1 | tee evidence/codec-contract.log
+          grep -F '{"suite":"postgres","pass":true' evidence/codec-contract.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: group-commit-rendezvous
+          path: evidence/
+          if-no-files-found: error
