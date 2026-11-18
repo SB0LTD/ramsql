@@ -39,13 +39,21 @@ jobs:
           "$SIG" build -Doptimize=ReleaseSafe -Dcolumns=16 2>&1 | tee evidence/build.log
           sha256sum sig-out/bin/ramsql | tee evidence/ramsql.sha256
           image=postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba
-          docker run --detach --name tooling-native -e POSTGRES_HOST_AUTH_METHOD=trust "$image"
+          docker run --detach --name tooling-native --publish 127.0.0.1::5432 \
+            -e POSTGRES_HOST_AUTH_METHOD=trust "$image"
           for attempt in $(seq 1 60); do
             if docker exec tooling-native pg_isready -h 127.0.0.1 -U postgres; then break; fi
             sleep 1
           done
           docker exec tooling-native pg_isready -h 127.0.0.1 -U postgres
           python tools/qualify_pg_tooling.py sig-out/bin/ramsql 2>&1 | tee evidence/check.log
+      - name: Compare row-security settings with PostgreSQL 18.3
+        shell: bash
+        run: |
+          python -m pip install 'psycopg[binary]==3.3.2'
+          endpoint=$(docker port tooling-native 5432/tcp)
+          python tools/qualify_pg_row_security.py --binary sig-out/bin/ramsql \
+            --postgres-port "${endpoint##*:}" --report evidence/row-security.json
       - name: Compare stock pg_dump and restore in both directions
         if: success() || failure()
         shell: bash
