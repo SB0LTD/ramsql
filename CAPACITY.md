@@ -19,7 +19,7 @@ query planner, RSS forecast or admission guarantee for every SQL statement.
 | Identifier bytes | 63 | Fixed server policy |
 | Client slots | 16 | Runtime `--max-clients` 1..60; build `-Dclients` changes the default |
 | Transaction slots | 62 | Maximum hosted clients + 2 |
-| Socket reactors | 1 | Experimental `--workers` 1..16 on Windows/no-libc Linux; <= clients; shared SQL remains serialized |
+| Socket reactors | Automatic for PostgreSQL | `--workers auto\|N`, at most the runtime connection ceiling on supported Windows and no-libc Linux builds. PostgreSQL read sessions can overlap, and writes share one execution lane. |
 | Changes per transaction | 4,096 | Build `-Dtx-writes`; version/mark/catalog entries also consume budget |
 | Encoded change/recovery bytes | 1 MiB | Build `-Dtransaction-bytes`; minimum 65,540 |
 | Explicit row locks, server-wide | 256 | Build `-Drow-locks`; 8 SHARE holders per row remain fixed |
@@ -41,11 +41,35 @@ Other SQL Config fields can be selected by embedded callers; editing a library
 Config is not a runtime tuning mechanism for a published server binary.
 
 `native_workers_available` reports the exact binary's native thread support.
-Release builds use pinned Sig build support to honor explicit no-libc cross
-targets and portable CPU baselines. The unpatched 0.6.4 runner can force libc
-on cross targets; prepare the pinned SDK before building. macOS/native SB0 remain one
-worker. More reactors increase socket throughput in one checked workload but
+Release builds use pinned Sig 0.6.5 build support to honor explicit no-libc
+cross targets and portable CPU baselines. macOS/native SB0 remain one worker. More reactors increase socket throughput in one checked workload but
 also increase CPU/query; this is not a parallel-query executor.
+
+## Experimental integral version banks
+
+Build with `sig build -Dintegral-version-banks=true` to enable this storage
+profile. Pass `--table-integral-words n,n,...` with one value per compiled table
+slot. Zero selects a dense split payload. The list defaults to all zeros.
+Each positive value reserves that many 8-byte words per row version. The
+stock build rejects this option.
+
+Integral banks hold SMALLINT (2 bytes), INT and OID (4 bytes), DATE (4 bytes)
+and BIGINT (8 bytes). Add one bit per column for null state, round the bitmap
+up to whole bytes, then round the combined payload up to whole words. Other
+column types require a dense bank. CREATE chooses the first compatible free
+bank in slot order. Row, version, index, and query workspace budgets still
+apply separately. The compact scan sidecar is independent of this setting.
+
+Inspect `integral_version_banks`, `table_integral_words`, and `backing_bytes`
+with `--capabilities` before launching. Preserve the complete slot profile and
+creation order when reopening or backing up an experimental WAL. Physical bank
+placements are inferred from the logical WAL and the configured profile.
+
+A nonzero bank enables experimental DDL restrictions across the database.
+ALTER TABLE and CREATE INDEX through the table rewrite path are disabled.
+Overlapping CREATE or DROP transactions, and CREATE while a dropped bank is
+still pinned by a snapshot, fail with SQLSTATE 40001. These restrictions apply
+even to dense tables while integral banks are bound.
 
 ## Fixed protocol and input bounds
 

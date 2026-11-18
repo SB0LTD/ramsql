@@ -38,6 +38,7 @@ jobs:
       hosted_matrix: ${{ steps.meta.outputs.hosted_matrix }}
       native_matrix: ${{ steps.meta.outputs.native_matrix }}
       native_sig_revision: ${{ steps.meta.outputs.native_sig_revision }}
+      native_sig_bootstrap: ${{ steps.meta.outputs.native_sig_bootstrap }}
       version: ${{ steps.meta.outputs.version }}
       tag: ${{ steps.meta.outputs.tag }}
       prerelease: ${{ steps.publication.outputs.prerelease }}
@@ -163,7 +164,7 @@ jobs:
           args=()
           # An explicit target selects the portable CPU baseline, never the
           # build runner's native ISA. Pinned build support honors no-libc.
-          args+=(-Dtarget="$TARGET_TRIPLE")
+          args+=(-Dtarget="$TARGET_TRIPLE" -Dintegral-version-banks=true)
           if [[ "$TARGET_SLUG" == *-linux || "$TARGET_SLUG" == *-windows ]]; then
             args+=(-Dlink-libc=false)
           fi
@@ -193,9 +194,9 @@ jobs:
     timeout-minutes: 45
     env:
       NATIVE_SIG_REVISION: ${{ needs.metadata.outputs.native_sig_revision }}
-      SIG_RELEASE_TAG: ${{ needs.metadata.outputs.sig_tag }}
-      SIG_RELEASE_ASSET: ${{ needs.metadata.outputs.sig_asset }}
-      SIG_RELEASE_SHA256: ${{ needs.metadata.outputs.sig_sha256 }}
+      SIG_RELEASE_TAG: ${{ fromJSON(needs.metadata.outputs.native_sig_bootstrap).tag }}
+      SIG_RELEASE_ASSET: ${{ fromJSON(needs.metadata.outputs.native_sig_bootstrap).asset }}
+      SIG_RELEASE_SHA256: ${{ fromJSON(needs.metadata.outputs.native_sig_bootstrap).sha256 }}
       SOURCE_REVISION: ${{ needs.metadata.outputs.revision }}
       SOURCE_DATE_EPOCH: ${{ needs.metadata.outputs.epoch }}
     steps:
@@ -267,7 +268,7 @@ jobs:
           import hashlib, json, os, subprocess, sys
           from pathlib import Path
           sys.path.insert(0, 'tools')
-          from package_release import published_toolchain
+          from package_release import native_bootstrap_toolchain
           root = Path(os.environ['RUNNER_TEMP']) / 'native-toolchain'
           compiler = root / 'bin/sig'
           revision = os.environ['NATIVE_SIG_REVISION']
@@ -275,7 +276,7 @@ jobs:
                     'source_repository': 'https://github.com/SB0LTD/sig', 'source_revision': revision,
                     'library_revision': revision, 'compiler_sha256': hashlib.sha256(compiler.read_bytes()).hexdigest(),
                     'compiler_version': subprocess.check_output([str(compiler), 'version'], text=True).strip(),
-                    'bootstrap': published_toolchain(), 'llvm_backend': False,
+                    'bootstrap': native_bootstrap_toolchain(), 'llvm_backend': False,
                     'build_command': 'ci/build-sb0-codegen.sh BOOTSTRAP OUTPUT CACHE',
                     'database_codegen_qemu': 'passed'}
           (root / 'toolchain.json').write_text(json.dumps(record, indent=2) + '\n', encoding='utf-8')
@@ -366,17 +367,20 @@ jobs:
       - name: Install independent database clients
         run: python -m pip install -r tools/requirements-test.txt
       - name: Test command line and bounded SQL streams
-        run: python tools/test_cli.py
+        run: python tools/test_cli.py --expect-integral-version-banks
       - name: Test native machine planning and PostgreSQL memory admission
         run: python tools/test_machine_capacity.py
       - name: Test TCP framing, fairness and lifecycle
-        run: python tools/test_server.py
+        run: python tools/test_server.py --integral-version-banks
       - name: Test PostgreSQL, MySQL and SQL Server client interoperability
         run: python tools/test_clients.py
       - name: Test authenticated PostgreSQL access
         run: python tools/test_auth.py
       - name: Test synchronous durability, corruption and crash recovery
-        run: python tools/test_persistence.py
+        run: python tools/test_persistence.py --integral-prepared
+
+      - name: Test durable PostgreSQL database isolation on the exact artifact
+        run: python tools/test_database_cluster.py
 
       - name: Require runtime row capacity and durable restore beyond the inline profile
         run: python tools/test_capacity.py
@@ -393,7 +397,7 @@ jobs:
         run: |
           python tools/package_release.py runtime-report --verification .sig-cache/verified-artifact.json `
             --report "runtime-evidence/runtime-$env:TARGET_SLUG.json" `
-            --tests tools/test_cli.py tools/test_server.py tools/test_clients.py tools/test_auth.py tools/test_persistence.py tools/test_capacity.py tools/test_beta.py tools/test_reviewer_runtime.py tools/test_workers.py tools/test_machine_capacity.py tools/test_streamed_joins.py
+            --tests tools/test_cli.py tools/test_server.py tools/test_clients.py tools/test_auth.py tools/test_persistence.py tools/test_capacity.py tools/test_beta.py tools/test_reviewer_runtime.py tools/test_workers.py tools/test_machine_capacity.py tools/test_streamed_joins.py tools/test_database_cluster.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         with:

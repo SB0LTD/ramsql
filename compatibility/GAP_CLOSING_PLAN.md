@@ -1161,12 +1161,17 @@ channel binding; malformed handshakes fail safely and cannot starve other sessio
 
 ### A02 — Roles, permissions and database isolation
 
-**Status:** Partial. **Owner:** ZPM roles/catalog/authorization; RAMSQL provisioning policy.
+**Status:** Partial. **Owner:** ZPM roles/catalog/authorization and RAMSQL provisioning policy.
 
 Beta.3 has an opt-in PostgreSQL SCRAM catalog credential file, role grants and
-durable database-level admission. The audited cluster mode has four databases
-on one reactor with one configured login. Wider multi-user cluster routing,
-application privilege workflows and MySQL/TDS authorization remain open.
+durable database-level admission. Catalog login checks the SCRAM-verified
+username against the recovered role catalog before the session becomes ready.
+Live WAL tests with one and two workers exercise prepared reads under
+row-level security, denied writes and role escalation, and startup rejection
+for a NOLOGIN role. The audited cluster mode has four databases on one reactor
+with one configured login. Multi-user cluster routing, application privilege
+workflows, complete metadata and COPY privileges, and MySQL/TDS authorization
+remain open.
 
 - [ ] Add role/database/schema ownership, grants/revokes, membership and required row-level/security-definer behavior.
 - [ ] Enforce privileges at binding/execution and metadata discovery, including prepared statements and COPY.

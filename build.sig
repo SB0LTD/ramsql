@@ -64,6 +64,8 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     const tds_path = try zpm.modulePath("src/db/tds.sig", &tds_buf);
     const tcp_path = try zpm.modulePath("src/platform/tcp_server.sig", &tcp_buf);
     const store_path = try zpm.modulePath("src/db/store.sig", &store_buf);
+    var registry_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    const registry_path = try zpm.modulePath("src/db/database_registry.sig", &registry_buf);
     var scram_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
     const scram_path = try zpm.modulePath("src/db/scram.sig", &scram_buf);
     _ = try ctx.addModule("scram", scram_path);
@@ -124,12 +126,13 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     const work_rows = ctx.option(usize, "work-rows", "Query workspace rows for sorts, groups, joins and CTEs (2 x 8 cells each)") orelse rows;
     const summary_groups = ctx.option(usize, "summary-groups", "Optional exact committed groups per supported column (0 disables group synopses; SQL falls back beyond budget)") orelse 64;
     const compact_integral_scans = ctx.option(bool, "compact-integral-scans", "Maintain caller-backed committed integer columns for analytical scans") orelse true;
+    const integral_version_banks = ctx.option(bool, "integral-version-banks", "Enable experimental per-table integral version storage") orelse false;
     if (clients == 0 or clients > 60 or rows == 0 or tables == 0 or text_bytes == 0 or text_bytes > 65535 or transaction_bytes < 65540 or tx_writes == 0 or versions <= rows or timezones == 0 or timezones > 256 or work_rows == 0) return error.BufferTooSmall;
     if (columns == 0 or columns > 255 or result_rows == 0 or row_locks == 0 or predicates == 0 or expr_nodes == 0 or relations == 0) return error.BufferTooSmall;
     var profile_buf: [2048]u8 = undefined;
     const profile = try std.fmt.bufPrint(&profile_buf, "pub const clients={d}; pub const rows={d}; pub const tables={d}; pub const text_bytes={d}; pub const transaction_bytes={d}; pub const tx_writes={d}; pub const versions={d}; pub const transactions={d}; pub const timezones={d}; pub const work_rows={d}; pub const summary_groups={d}; pub const compact_integral_scans={s};\n", .{ clients, rows, tables, text_bytes, transaction_bytes, tx_writes, versions, 62, timezones, work_rows, summary_groups, if(compact_integral_scans) "true" else "false" });
     var extra_buf: [512]u8 = undefined;
-    const extra = try std.fmt.bufPrint(&extra_buf, "pub const columns={d}; pub const result_rows={d}; pub const row_locks={d}; pub const predicates={d}; pub const expr_nodes={d}; pub const relations={d};\n", .{ columns, result_rows, row_locks, predicates, expr_nodes, relations });
+    const extra = try std.fmt.bufPrint(&extra_buf, "pub const columns={d}; pub const result_rows={d}; pub const row_locks={d}; pub const predicates={d}; pub const expr_nodes={d}; pub const relations={d}; pub const integral_version_banks={s};\n", .{ columns, result_rows, row_locks, predicates, expr_nodes, relations, if (integral_version_banks) "true" else "false" });
     @memcpy(profile_buf[profile.len..][0..extra.len], extra);
     const full_profile = profile_buf[0..profile.len + extra.len];
     var profile_path_buf: [256]u8 = undefined;
@@ -156,6 +159,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
             importEntry("tds", tds_path),
             importEntry("tcp_server", tcp_path),
             importEntry("db_store", store_path),
+            importEntry("database_registry", registry_path),
             importEntry("scram", scram_path),
             importEntry("durable_log", durable_log_path),
             importEntry("db_file", db_file_path),

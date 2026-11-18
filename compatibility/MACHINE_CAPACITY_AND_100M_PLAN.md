@@ -335,6 +335,30 @@ their behavior or physical-column sizes to the release's inline SQL layout.
 
 ## Compact storage first
 
+### First actual 100M-row CI gate
+
+Build the experimental product and run the existing wire-load contract on a
+public hosted Linux runner. A prior public sample provided 14,347,884,288
+new-region bytes from 16,760,344,576 bytes of physical RAM. Capture the live
+sample because the runnable grant depends on other processes and headroom.
+
+```sh
+sig build -Doptimize=ReleaseSafe -Dintegral-version-banks=true
+python tools/test_cli.py --expect-integral-version-banks
+python -m pip install -r tools/requirements-test.txt
+python tools/test_large_runtime.py --typed-bank-memory-profile --rows 100000000 \
+  --memory-budget 14347884288 --report evidence/typed-bank-100m.json
+```
+
+This first gate uses a single two-word integer fact table, a small spare MVCC
+budget and one server worker. It loads every row via real PostgreSQL COPY, then
+checks counts, sums, bounds, selective grouping, sampled primary-key probes and
+duplicate rejection against independent formulas. Preserve the artifact's hash,
+sampled capacity and process memory observations. Surface a refused grant,
+timeout or failed query as a failed run. Qualify durable replay, wider schemas,
+concurrent workers and multi-table analytic benchmarks in their own runs.
+
+
 Reusable typed column/page primitives belong in ZPM. Fixed-width values use
 their physical widths and separate null bitmaps; an integer must not reserve a
 128-byte text payload. Variable values use caller-backed segmented byte storage

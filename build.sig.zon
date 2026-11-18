@@ -1,11 +1,11 @@
 .{
     .name = .@"ramsql",
-    .version = "0.3.0-beta.2",
+    .version = "0.3.0-beta.3",
     .fingerprint = 0x0,
     .dependencies = .{
         .zpm = .{
-            .url = "https://github.com/SB0LTD/zpm/archive/e61811cc1d498e9434114f547164524d3986f36f.tar.gz",
-            .hash = "baae1393757f02ec287081f4e155c9f081ebfe2a31a87e99f9df2945dc4f8f79",
+            .url = "https://github.com/SB0LTD/zpm/archive/2906651c06d2e97ad1e97e721a5f6c6d7b75090d.tar.gz",
+            .hash = "e3707feb433f90264075ef9ae5feee76dae614b3d2618b1bfdac6c287aae359c",
         },
     },
     .paths = .{

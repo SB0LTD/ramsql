@@ -7,7 +7,7 @@ multiple dialects. Its engine, shared transactions, persistence and wire codecs
 are real implementations. There is no SQLite backend, database subprocess,
 query-result mock, heap allocator or garbage collector in the runtime.
 
-**0.3.0-beta.2 is for controlled beta testing, benchmarking and review. It is not
+**0.3.0-beta.3 is for controlled beta testing, benchmarking and review. It is not
 a production PostgreSQL drop-in replacement.** PostgreSQL is the default protocol
 and semantic reference. MySQL and SQL Server/TDS are experimental adapters over
 the shared SQL subset. Supporting all common SQL dialects is the
@@ -15,8 +15,9 @@ the shared SQL subset. Supporting all common SQL dialects is the
 
 ## Quick start
 
-Development after beta.2 adds native machine planning and shared byte admission;
-these commands are not present in the published beta.2 binaries:
+The [beta.3 prerelease](https://github.com/SB0LTD/ramsql/releases/tag/ci-v0.3.0-beta.3-run.44202780430.1)
+includes machine planning and shared memory-budget admission. Inspect the
+machine budget before opening a listener.
 
 ```sh
 ./ramsql --machine-capacity
@@ -25,10 +26,15 @@ these commands are not present in the published beta.2 binaries:
 
 The report shows available physical/commit/address-space memory, observed CPU
 constraints, headroom and proposed storage/execution shares. It creates no WAL
-or listener. The same options apply to `--serve`; the server charges storage,
-workspace, client buffers and worker stack allowances to one shared byte ledger.
-It refreshes observations at admission, stops new grants under pressure and
-keeps live data/buffers owned. PostgreSQL startup returns `53200` when the memory
+or listener. `startup_region_bytes` includes page-rounded storage, query workspace
+and client metadata, plus any reactor stack allowance charged at startup.
+`startup_fits` compares that charge with the sampled `new_region_bytes` available
+to `--serve`. `legacy_startup_bytes` retains the previous unrounded estimate.
+`pressure` indicates existing process commitment above the planner budget.
+The shared byte ledger charges client result and response buffers when clients
+connect and worker read contexts when first used. The server refreshes its
+observations at admission, stops new grants under pressure and keeps live data
+and buffers owned. PostgreSQL startup returns `53200` when the memory
 budget cannot admit another client, and `53300` for the configured connection
 limit. Failed page commitments return their grants.
 
@@ -37,9 +43,8 @@ CPU sets and immediate job limits, and a macOS free/file-cache memory estimate.
 Legacy/hybrid cgroup-v1 and native SB0 resource probing are not implemented;
 hidden ancestor constraints and some OS scheduling partitions remain observation
 gaps. The report exposes coverage instead of inventing unrestricted resources.
-Machine admission does not yet replace explicit SQL row/schema capacities;
-`elastic_sql_storage` remains false. Development builds also support concurrent
-PostgreSQL simple and extended autocommit read queries with multiple workers, as described below.
+SQL row and schema capacities remain explicit. On supported hosted systems,
+multiple workers can serve concurrent PostgreSQL simple and extended autocommit reads.
 
 Download your platform archive from [Releases](https://github.com/SB0LTD/ramsql/releases),
 check it against the release's `SHA256SUMS.txt` and extract it. Packages include
@@ -105,10 +110,45 @@ Recovery validates the WAL before listening. Commits flush synchronously before
 publication/acknowledgement; complete corruption fails closed. A failed write
 or flush disables writes until recovery.
 
-There is **no TLS, channel binding or role authorization**. All listeners bind
-to 127.0.0.1; do not expose them through public forwarding. MySQL/TDS require
-explicit insecure-local mode. Checkpointing, WAL compaction, online backup,
-replication and general upgrade migration remain production blockers.
+For PostgreSQL transaction coordinators, start durable mode with
+`--max-prepared-transactions N` to enable `PREPARE TRANSACTION`,
+`COMMIT PREPARED` and `ROLLBACK PREPARED` for permanent-table DML. The default
+is zero. Prepared changes and locks survive a restart. Keep the limit at or
+above the number of unresolved prepares when reopening or backing up the WAL.
+Prepared DDL, serializable transactions and prepared-transaction catalog
+inspection remain outside this beta scope.
+
+Use `--database-cluster` to serve independent PostgreSQL databases. Start with
+`--create-data` and a new data path prefix, then connect to `dbname=postgres`
+with the configured SCRAM login. The mode supports `CREATE DATABASE`,
+`DROP DATABASE` and discovery through `pg_database`. Each database has its own
+WAL and storage budget. This beta mode supports four databases and one reactor.
+The single-WAL offline backup command is unavailable in cluster mode.
+[PostgreSQL cluster operations](POSTGRES_CLUSTER.md)
+
+All listeners bind to 127.0.0.1. TLS and channel binding are pending, and
+MySQL/TDS require explicit insecure-local mode. Checkpointing, WAL compaction,
+online backup, replication and upgrade migration remain production blockers.
+
+To run the PostgreSQL listener under a catalog role, create a `LOGIN` role and
+grant its privileges using the bootstrap connection. Stop the server, then
+restart it on the same WAL with `--auth-catalog-role`, the exact role name in
+`--auth-user`, and that user's SCRAM verifier in `--auth-verifier-file`.
+A user-created role must exist, allow login, and have no finite connection limit.
+The built-in `ramsql` role is also eligible and retains bootstrap privileges.
+For multiple roles, initialize the same WAL and create each login role using
+the bootstrap connection. Create a verifier for each role, then combine them:
+
+```sh
+python create_verifier.py --output roles.credentials \
+  --credential reporting reporting.verifier --credential ingest ingest.verifier
+./ramsql --data ramsql.wal --auth-credentials-file roles.credentials
+```
+
+The list uses exact role names and requires a common SCRAM salt length and
+iteration count. The helper generates a key in the credential file for stable
+failed-authentication challenges across restarts. Protect the whole file like
+the individual verifiers. Changes to the file take effect after restart.
 See [operations](OPERATIONS.md) for backup, restoration and failure handling.
 
 ## Client and SQL compatibility
@@ -145,15 +185,18 @@ before importing a schema; wire compatibility does not establish dialect parity.
 
 ## Concurrent clients
 
-The default uses one reactor. Windows and no-libc Linux builds offer experimental
-`--workers 4` socket reactors, for example:
+Eligible PostgreSQL listeners size their read-worker pool from the process's
+native CPU affinity or quota, the maximum admitted clients and the startup
+memory grant. The pool can grow to the configured connection ceiling. The estimate
+includes a stack, query scratch and one client response per selected worker.
+`--workers N` fixes the count for controlled deployments or benchmarks.
 
 ```sh
 ./ramsql --memory --insecure-local --max-clients 32 --workers 4
 ```
 
-Published beta.2 serializes SQL execution. In development builds, idle autocommit
-PostgreSQL simple and extended-protocol `SELECT`/`WITH` queries can execute concurrently using
+In beta.3, idle autocommit PostgreSQL simple and extended-protocol `SELECT`/`WITH`
+queries can execute concurrently using
 parser/execution storage owned per worker and results owned per client. Writes,
 transactions, COPY, suspended portals and dynamic time-zone resolution retain exclusive execution.
 A reader/writer gate prevents publication or reclamation while readers execute.
@@ -224,6 +267,26 @@ That profile is tested with a 12-column table, a 600-row result and 200-byte tex
 Inline cells, workspaces and per-client result/response buffers grow with the
 profile. Hosted connection admission currently has a 60-client ceiling.
 
+### Experimental typed bank memory profile
+
+Hosted release binaries include integral bank support. For a source build, use
+`-Dintegral-version-banks=true`. Set each typed slot's word width with
+`--table-integral-words`. Add `--typed-bank-memory-profile` to omit the
+committed column projection and secondary hash regions from those typed slots.
+Queries use exact committed summaries or ordinary MVCC execution. Materialized
+joins, sorts and other general execution can exhaust the supplied workspace.
+The profile derives its reference count from `--work-rows`. Set `--query-refs N`
+with the profile to choose an explicit positive reference budget.
+
+`--capabilities` and `--machine-capacity` show the effective `table_storage`,
+`query_refs`, backing bytes and lazy worker payload. `--machine-capacity` also
+shows the page-rounded startup charge and whether it fits the sampled grant.
+Compare these values with the same table, version, workspace and worker options
+planned for the actual run. The profile is experimental. Packed tables use
+restricted integral/DATE schemas and the current packed implementation gates
+ALTER-family operations. The [100M-row qualification plan](compatibility/MACHINE_CAPACITY_AND_100M_PLAN.md)
+tracks real load and query gates separately from capacity arithmetic.
+
 ## Measured performance
 
 The original reviewer suite is now available locally as sibling `dbMeter`, pinned
@@ -263,9 +326,10 @@ reduces median latency from 33.98 to 6.95 ms (4.89x) for a checked 100k-row
 three-table aggregate. A fresh [IRDB comparison](benchmarks/guarded-reference-20261027/README.md)
 and its [remaining cases](benchmarks/guarded-reference-remaining-20261027/README.md)
 pass correctness and the finite speed screen in all ten native API cases at
-100k rows. Both engines receive SQL strings in those earlier reports; use the
-dbMeter report above for actual JDBC prepared-query comparisons. These
-development changes are not in the published beta.2 artifacts.
+100k rows. Both engines receive SQL strings in those earlier reports. The
+dbMeter report above covers JDBC prepared-query comparisons, and the
+[qualification plan](compatibility/GAP_CLOSING_PLAN.md) tracks the current
+all-case gate and the exact configurations considered there.
 
 The [production workload report](benchmarks/production-20261026/REPORT.md)
 compares checked native SQL calls against IRDB 1.10.821 with shuffled keys,
@@ -290,7 +354,7 @@ See [reproduction commands](benchmarks/production-20261026/README.md) and
 
 ## Build, test and review
 
-Use the complete [Sig 0.6.4 toolchain](https://github.com/SB0LTD/sig/releases/tag/sig-0.6.4-zig0.17.0.90a898d).
+Use the complete [Sig 0.6.5 toolchain](https://github.com/SB0LTD/sig/releases/tag/sig-0.6.5-zig0.17.0.3c72687).
 `sig build` resolves ZPM through its immutable archive and SHA-256 pin.
 Prepare the pinned public runtime/build support from
 [`toolchains/sig-runtime.json`](toolchains/sig-runtime.json) first. This verifies
@@ -299,7 +363,7 @@ compiler/toolchain untouched. Only the selected library and build-support trees
 are extracted; compiler repository test fixtures are not package dependencies.
 
 ```sh
-python tools/prepare_sig_runtime.py --installed-lib /path/to/sig-0.6.4/lib \
+python tools/prepare_sig_runtime.py --installed-lib /path/to/sig-0.6.5/lib \
   --output .sig-cache/prepared-sdk
 export SIG_LIB_DIR="$PWD/.sig-cache/prepared-sdk/lib"
 ```

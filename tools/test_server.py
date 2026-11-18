@@ -16,6 +16,7 @@ import re
 import socket
 import struct
 import subprocess
+from tempfile import TemporaryDirectory
 import threading
 import time
 
@@ -61,7 +62,7 @@ class Server:
         self.process = subprocess.Popen(
             [str(self.binary), "--serve", "--memory", "--insecure-local", "--protocol", "postgres", "--port", "0",
              "--idle-ms", str(self.idle_ms), "--max-clients", str(self.max_clients),
-             *(["--workers", str(min(self.test_workers,self.max_clients))] if self.test_workers > 1 else []),
+             "--workers", str(min(self.test_workers,self.max_clients)),
              *(["--max-query-work", str(self.max_query_work)] if self.max_query_work else []), *self.extra_arguments],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1,
         )
@@ -247,6 +248,130 @@ def connection(server, **options):
         yield pg
     finally:
         pg.close()
+
+
+def test_parameterized_primary_key(server):
+    statement = b"lookup\0"
+    portal = b"\0"
+    query = b"SELECT label FROM prepared_rows WHERE id=$1\0"
+
+    def select(pg, value, expected, binary=False):
+        formats = struct.pack("!HHH", 1, int(binary), 1)
+        value_length = U32.pack(0xffffffff if value is None else len(value))
+        bind = packet(b"B", portal + statement + formats + value_length + (value or b"") + b"\0\0")
+        execute = packet(b"E", portal + U32.pack(0))
+        pg.sock.sendall(bind + execute + packet(b"S"))
+        messages = pg.ready()
+        check(not errors(messages), f"prepared PK lookup failed: {errors(messages)!r}")
+        check(rows(messages) == expected, f"prepared PK lookup returned {rows(messages)!r}")
+        check([tag for tag, _ in messages] == [b"2"] + [b"D"] * len(expected) + [b"C", b"Z"])
+
+    with connection(server) as reader, connection(server) as writer:
+        writer.ok("CREATE TABLE prepared_rows (id BIGINT PRIMARY KEY, label TEXT)")
+        writer.ok("INSERT INTO prepared_rows VALUES (-9,'before'),(7,'other')")
+        reader.sock.sendall(packet(b"P", statement + query + struct.pack("!HI", 1, 20)) + packet(b"S"))
+        check([tag for tag, _ in reader.ready()] == [b"1", b"Z"])
+        select(reader, struct.pack("!q", -9), [["before"]], binary=True)
+        select(reader, b"+7", [["other"]])
+        select(reader, None, [])
+        writer.ok("UPDATE prepared_rows SET label='after' WHERE id=-9")
+        select(reader, b"-9", [["after"]])
+        writer.ok("DROP TABLE prepared_rows")
+
+
+def test_catalog_read_routing(server):
+    with connection(server) as pg:
+        pg.ok("CREATE TABLE wire_catalog (id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY)")
+        pg.ok("SELECT 'wire_catalog'::regclass::text, to_regclass('wire_missing') IS NULL",
+              [["wire_catalog", "t"]])
+        pg.ok("SELECT pg_get_serial_sequence('wire_catalog','id')", [["public.wire_catalog_id_seq"]])
+        expect_error(pg.query("SELECT 'wire_missing'::regclass"), "42P01")
+        pg.ok("CREATE VIEW wire_catalog_view AS SELECT 'wire_catalog'::regclass::text AS relation")
+        statement = b"catalog\0"
+        query = b"SELECT relation FROM wire_catalog_view WHERE relation=$1\0"
+        parse = packet(b"P", statement + query + struct.pack("!HI", 1, 0))
+        argument = b"wire_catalog"
+        bind = packet(b"B", b"\0" + statement + struct.pack("!HHI", 0, 1, len(argument)) + argument + b"\0\0")
+        describe = packet(b"D", b"P\0")
+        execute = packet(b"E", b"\0" + U32.pack(0))
+        pg.sock.sendall(parse + bind + describe + execute + packet(b"S"))
+        messages = pg.ready()
+        check(not errors(messages), f"prepared catalog lookup failed: {errors(messages)!r}")
+        check([tag for tag, _ in messages] == [b"1", b"2", b"T", b"D", b"C", b"Z"])
+        check(rows(messages) == [["wire_catalog"]])
+        pg.ok("DROP VIEW wire_catalog_view")
+        pg.ok("DROP TABLE wire_catalog")
+
+
+def test_temporal_read_routing(binary):
+    facts = json.loads(subprocess.check_output([str(binary), "--capabilities"]))
+    workers = "2" if facts["native_workers_available"] else "1"
+    with TemporaryDirectory() as zone_directory:
+        # TZif v2 with one fixed UTC+02 type and no transitions.
+        block = struct.pack("!4sc15x6I", b"TZif", b"2", 0, 0, 0, 0, 1, 4)
+        block += struct.pack("!iBB", 7200, 0, 0) + b"TST\0"
+        zone = Path(zone_directory, "Wire", "Plus2")
+        zone.parent.mkdir()
+        zone.write_bytes(block * 2 + b"\nTST-2\n")
+        with Server(binary, extra_arguments=("--workers", workers, "--timezone-dir", zone_directory)) as server:
+            with connection(server) as pg:
+                pg.ok("CREATE TABLE zone_input (id INT PRIMARY KEY, v VARCHAR, a TEXT[], r TEXT, t TIMESTAMP)")
+                pg.ok(
+                    "INSERT INTO zone_input VALUES (1, '2000-01-15 12:00:00 Wire/Plus2', "
+                    "ARRAY['2000-01-15 12:00:00 Wire/Plus2'::text], "
+                    "'[\"2000-01-15 12:00:00 Wire/Plus2\",\"2000-01-15 13:00:00 Wire/Plus2\")', "
+                    "'2000-01-15 12:00:00')"
+                )
+                for statement in (
+                    "SELECT v::timestamptz FROM zone_input",
+                    "SELECT (a::timestamptz[])[1] FROM zone_input",
+                    "SELECT lower(r::tstzrange) FROM zone_input",
+                    "SELECT v FROM JSON_TABLE('\"2000-01-15 12:00:00 Wire/Plus2\"', '$' "
+                    "COLUMNS(v TIMESTAMPTZ PATH '$')) AS jt",
+                ):
+                    pg.ok(statement, [["2000-01-15 10:00:00+00"]])
+                pg.ok("SELECT v::timetz FROM zone_input", [["12:00:00+02"]])
+                pg.ok("SELECT t::timestamptz FROM zone_input", [["2000-01-15 12:00:00+00"]])
+
+
+def test_detached_relation_locks(server):
+    import select
+
+    query = "SELECT id FROM wire_lock ORDER BY id"
+
+    def queue(pg, sql):
+        pg.sock.sendall(query_packet(sql))
+        check(not select.select([pg.sock], [], [], 0.15)[0], f"{sql!r} bypassed a table lock")
+
+    with connection(server) as holder, connection(server) as ddl, connection(server) as reader:
+        holder.ok("CREATE TABLE wire_lock (id BIGINT PRIMARY KEY)")
+        holder.ok("INSERT INTO wire_lock VALUES (7)")
+        holder.ok("BEGIN", status=b"T")
+        holder.ok(query, [["7"]], status=b"T")
+        ddl.ok("BEGIN", status=b"T")
+        queue(ddl, "DROP TABLE wire_lock")
+        queue(reader, query)
+        holder.ok("COMMIT")
+        dropped = ddl.ready()
+        check(not errors(dropped) and dropped[-1] == (b"Z", b"T"))
+        check(not select.select([reader.sock], [], [], 0.15)[0], "reader passed an uncommitted DROP")
+        ddl.ok("ROLLBACK")
+        restored = reader.ready()
+        check(not errors(restored) and rows(restored) == [["7"]])
+
+        statement = b"read_locked\0"
+        source = b"SELECT id FROM wire_lock WHERE id=$1\0"
+        reader.sock.sendall(packet(b"P", statement + source + struct.pack("!HI", 1, 20)) + packet(b"S"))
+        check([tag for tag, _ in reader.ready()] == [b"1", b"Z"])
+        ddl.ok("BEGIN", status=b"T")
+        ddl.ok("DROP TABLE wire_lock", status=b"T")
+        bind = packet(b"B", b"\0" + statement + struct.pack("!HHI", 0, 1, 1) + b"7\0\0")
+        reader.sock.sendall(bind + packet(b"E", b"\0" + U32.pack(0)) + packet(b"S"))
+        check(reader.message()[0] == b"2", "bind did not complete")
+        check(not reader.buffer and not select.select([reader.sock], [], [], 0.15)[0], "prepared read bypassed DROP")
+        ddl.ok("COMMIT")
+        expect_error(reader.ready(), "42P01")
+        reader.ok("SELECT 1", [["1"]])
 
 
 def live_probe(server, timeout=3):
@@ -478,7 +603,11 @@ def test_pool_exhaustion(server):
         # sessions or accepting a connection it cannot service.
         overflow = PG(server.raw())
         try:
-            overflow.sock.sendall(startup_packet())
+            ssl = struct.pack("!II", 8, 80877103)
+            gss = struct.pack("!II", 8, 80877104)
+            overflow.sock.sendall(ssl[:5])
+            overflow.sock.sendall(ssl[5:] + gss + startup_packet())
+            check(overflow.exact(2) == b"NN", "pool overflow must refuse SSL and GSS before reading startup")
             tag, body = overflow.message()
             check(tag == b"E", "pool overflow must return a PostgreSQL error")
             expect_error([(tag,body)], "53300")
@@ -611,18 +740,49 @@ def test_running_query_controls(binary):
             pg.ok("SELECT value FROM budgeted WHERE id = 0", [["0"]])
 
 
+def test_integral_version_banks(binary):
+    inspected = subprocess.run([str(binary), "--capabilities"], check=True, capture_output=True, timeout=15)
+    capabilities = json.loads(inspected.stdout)
+    slots = capabilities["tables"]
+    check(capabilities["integral_version_banks"] and slots >= 4, "requires an integral-bank build with at least four slots")
+    options = (
+        "--table-integral-words", ",".join(["6"] + ["0"] * (slots - 1)),
+        "--table-rows", ",".join(["1"] + ["4"] * (slots - 1)),
+        "--table-versions", ",".join(["3"] + ["8"] * (slots - 1)),
+    )
+    with Server(binary, extra_arguments=options) as server:
+        with connection(server) as first, connection(server) as second:
+            first.ok("CREATE TABLE labels (id INT PRIMARY KEY, label TEXT)")
+            first.ok("INSERT INTO labels VALUES (1,'blue'), (2,'green')")
+            first.ok("CREATE TABLE facts (id INT PRIMARY KEY, day DATE, qty SMALLINT, amount BIGINT)")
+            first.ok("INSERT INTO facts VALUES (1,DATE '2024-02-29',NULL,9223372036854775807)")
+            expect_error(first.query("INSERT INTO facts VALUES (2,NULL,-3,1)"), "54000")
+            second.ok("SELECT day,qty,amount FROM facts", [["2024-02-29",None,"9223372036854775807"]])
+            first.ok("UPDATE facts SET qty=-32768, day=NULL WHERE id=1")
+            second.ok("SELECT day,qty,amount FROM facts", [[None,"-32768","9223372036854775807"]])
+            expect_error(first.query("ALTER TABLE facts ADD COLUMN extra INT"), "0A000")
+            first.ok("BEGIN", status=b"T")
+            first.ok("CREATE TABLE pending (id INT)", status=b"T")
+            expect_error(second.query("CREATE TABLE concurrent (id INT)"), "40001")
+            first.ok("ROLLBACK")
+            second.ok("CREATE TABLE concurrent (id INT)")
+            second.ok("SELECT COUNT(*) FROM labels", [["2"]])
+
+
 def main():
     global cases
     parser = argparse.ArgumentParser(description=__doc__)
     default = Path(__file__).resolve().parents[1] / "sig-out" / "bin" / ("ramsql.exe" if os.name == "nt" else "ramsql")
     parser.add_argument("--binary", type=Path, default=default)
     parser.add_argument("--workers", type=int, default=1)
+    parser.add_argument("--integral-version-banks", action="store_true")
     args = parser.parse_args()
     Server.test_workers = args.workers
     binary = args.binary.resolve(strict=True)
     started = time.monotonic()
     with Server(binary) as server:
-        for test in (test_crud_shared, test_fragmented_and_coalesced, test_ssl_negotiation,
+        for test in (test_crud_shared, test_parameterized_primary_key, test_catalog_read_routing, test_detached_relation_locks,
+                     test_fragmented_and_coalesced, test_ssl_negotiation,
                      test_half_close_and_partial_reads,
                      test_protocol_errors, test_fatal_frames, test_truncated_disconnect,
                      test_transactions_and_disconnect, test_slow_reader_fairness, test_pool_exhaustion):
@@ -631,8 +791,13 @@ def main():
             cases += 1
     test_idle_expiry(binary)
     cases += 1
+    test_temporal_read_routing(binary)
+    cases += 1
     test_running_query_controls(binary)
     cases += 1
+    if args.integral_version_banks:
+        test_integral_version_banks(binary)
+        cases += 1
     print(json.dumps({"suite": "server", "pass": True, "cases": cases,
                       "assertions": assertions, "seconds": round(time.monotonic() - started, 3)}))
 
