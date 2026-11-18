@@ -44,6 +44,8 @@ def probe(port, user, database):
         sql(pg, "SET client_min_messages = 'error'")
         assert scalar(pg, "SELECT current_setting('client_min_messages')") == "error"
         assert warnings(sql(pg, "COMMIT")) == []
+        assert warnings(sql(pg, "ROLLBACK")) == []
+        assert scalar(pg, show) == "error"
         assert warnings(sql(witness, "COMMIT")) == [NO_TRANSACTION]
         sql(pg, "SELECT 1/0", error=b"22012")
         sql(pg, "SET client_min_messages = 'fatal'", error=b"22023")
