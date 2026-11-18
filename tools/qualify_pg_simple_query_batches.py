@@ -118,6 +118,7 @@ def pressure(port, *, idle_timeout=False):
             if idle_timeout and index == 0:
                 # Keep the active frame over the former idle deadline while output is backed up.
                 time.sleep(1.25)
+                client.sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024 * 1024)
             for _ in range(row_count):
                 data_row = client.message()
                 assert rows([data_row]) == [['x' * 96]]
