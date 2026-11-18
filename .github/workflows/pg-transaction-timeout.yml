@@ -21,10 +21,10 @@ jobs:
       run:
         shell: pwsh
     env:
-      PRODUCT_REVISION: 97c762ceec4e9c146f7e88460d4e6abb5197c653
-      PRODUCT_SHA256: bdd7e3ce25dcdb6ed6870b8b53160a5ad098298e62fd9d26056b3d073f5a9760
-      ZPM_REVISION: f59639de4beef7710b9d2c913d3e5e2051924449
-      ZPM_SHA256: 800126f6f458a1b74c183f5234f3cd668a79c9498e0bf9680cc511acbdd816d9
+      PRODUCT_REVISION: f10e8c0b3dae578671499f564b58ca677dfbadc6
+      PRODUCT_SHA256: 052e83fdb97bdfd78cb2cc0eab610e1b0481c26f86303daad334682428cb5ed1
+      ZPM_REVISION: 75e25b14a3470b8dbe7ae8b1d4c2d39ee98744d1
+      ZPM_SHA256: 3e63fb5a3db9d8916ad516d5a9f9fc3e4ab8bafd9fcc9c53a5af4b26fcc7e94c
     steps:
       - uses: actions/checkout@v4
         with:
@@ -115,12 +115,16 @@ jobs:
           port=$(docker port "$name" 5432/tcp | cut -d: -f2)
           python tools/test_pg_transaction_timeout.py --binary sig-out/bin/ramsql --reference-port "$port" \
             --report evidence/native-transaction-timeout.json | tee evidence/native-wire.txt
+          python tools/test_pg_idle_transaction.py --binary sig-out/bin/ramsql --reference-port "$port" \
+            --report evidence/native-idle-transaction-timeout.json | tee evidence/native-idle-wire.txt
       - name: Test the live Windows and macOS servers
         if: runner.os != 'Linux'
         run: |
           $binary = if ($env:RUNNER_OS -eq 'Windows') { 'sig-out/bin/ramsql.exe' } else { 'sig-out/bin/ramsql' }
           [int[]]$workers = if ($env:RUNNER_OS -eq 'macOS') { @(1) } else { @(1, 4) }
           python tools/test_pg_transaction_timeout.py --binary $binary --workers @workers --report evidence/native-transaction-timeout.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/test_pg_idle_transaction.py --binary $binary --workers @workers --report evidence/native-idle-transaction-timeout.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         if: always()
