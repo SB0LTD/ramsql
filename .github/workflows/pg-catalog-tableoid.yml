@@ -1,8 +1,8 @@
-name: Native PostgreSQL catalog tableoid qualification
+name: Native PostgreSQL private namespace usage
 
 on:
   push:
-    branches: [ci/pg-catalog-tableoid-20261118]
+    branches: [ci/pg-private-namespace-usage-20261118]
   workflow_dispatch:
 
 permissions:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   catalogs:
-    name: Native catalog tableoid
+    name: Native durable namespace usage
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     strategy:
@@ -21,10 +21,10 @@ jobs:
       run:
         shell: pwsh
     env:
-      PRODUCT_REVISION: 5d7d7d5aab640381468ee83f6a90ae37f82897b5
-      PRODUCT_SHA256: a0e72a1c61d9c317214d3ebae1c00c97287558f96f2e6f6257ad8332bb8bc5bc
-      ZPM_REVISION: 78745d6b1bde00e2e32459f5f1e8a6d44ef9babf
-      ZPM_SHA256: 7ca14878008abfccfe9c4aadc1646c3112eff04be68e53e5407555199916985f
+      PRODUCT_REVISION: 3d33de28aebec6d32c7cba58d2331c947b7182c9
+      PRODUCT_SHA256: 9f7bf2a0720226a9bf3ff8a804997d55253bd8529abdc0c09d4f769b727eec18
+      ZPM_REVISION: c7ea650727f7ce369cb693082ce50c571b56311f
+      ZPM_SHA256: 3d716d99e3a94b27b0921878a969d12a060b5eeac36fa1ac34d7282a46143f10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -104,7 +104,7 @@ jobs:
           set -euo pipefail
           image=postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba
           echo "$image" > evidence/reference-image.txt
-          name=catalog-tableoid-oracle
+          name=namespace-usage-oracle
           docker run --detach --rm --name "$name" -e POSTGRES_HOST_AUTH_METHOD=trust --publish '127.0.0.1::5432' "$image"
           trap 'docker stop "$name" >/dev/null' EXIT
           for attempt in $(seq 1 60); do
@@ -114,11 +114,11 @@ jobs:
           docker exec "$name" pg_isready -h 127.0.0.1 -U postgres
           docker exec "$name" postgres --version | tee evidence/reference-version.txt
           port=$(docker port "$name" 5432/tcp | cut -d: -f2)
-          python tools/test_pg_catalog_tableoid.py --binary sig-out/bin/ramsql --reference-port "$port" \
-            --report evidence/native-catalog-tableoid.json | tee evidence/native-wire.txt
+          python tools/test_pg_namespace_usage.py --binary sig-out/bin/ramsql --reference-port "$port" \
+            --report evidence/native-namespace-usage.json | tee evidence/native-wire.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: pg-catalog-tableoid-${{ matrix.os }}
+          name: pg-namespace-usage-${{ matrix.os }}
           path: evidence/
           if-no-files-found: error
