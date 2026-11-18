@@ -977,15 +977,17 @@ PostgreSQL, with deliberately malformed rows and interrupted transfers.
 
 The 18.3 `psql` client read a real table on the two-worker beta.3 Windows
 build. A subsequent Windows candidate with `-Dcolumns=16` matched its first
-two `\d` queries, including the exact 15-column metadata projection. A
+three `\d` queries, including the exact 15-column relation projection and the
+column query that correlates `pg_attribute`, `pg_type` and `pg_collation`. A
 separate native differential matched eight relation rows covering a table,
 indexes, sequence, partition, view and materialized view. The stock width is
-eight. `\d` still needs column, index and constraint discovery at the stock
-profile. Constraint identities must remain stable across typed WAL replay and
+eight. The next `\d` query needs `pg_constraint`, index definitions and
+constraint definitions. Constraint identities must remain stable across typed WAL replay and
 support the foreign-key and index references used by tooling. Native
 `pg_dump --schema-only` still requires empty search-path and catalog behavior.
 [Qualified discovery](https://github.com/SB0LTD/zpm/pull/229) ·
-[Relation metadata comparison](https://github.com/SB0LTD/ramsql/actions/runs/44213692080)
+[Relation and column metadata](https://github.com/SB0LTD/zpm/pull/234) ·
+[Native metadata comparison](https://github.com/SB0LTD/ramsql/actions/runs/44215906350)
 
 - [ ] Add versioned suites for libpq/psycopg, JDBC, Npgsql, Go and Node clients as required by the compatibility contract.
 - [ ] Run representative ORM and migration workflows against identical schemas/data on both engines.
