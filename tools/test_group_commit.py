@@ -116,6 +116,26 @@ def wake_observed(trace):
     return bool(descriptors & ready)
 
 
+def wal_sync_results(trace, wal):
+    # Wake traces also observe the startup directory flush. Count completed
+    # calls for the exact WAL, even if another worker interrupts the log line.
+    pending = set()
+    complete = []
+    for line in trace.splitlines():
+        if "fsync(" in line and f"<{wal}>" in line:
+            if " = " in line:
+                complete.append(line)
+            else:
+                pending.add(line.split(maxsplit=1)[0])
+        elif "fsync resumed>" in line:
+            thread = line.split(maxsplit=1)[0]
+            if thread in pending:
+                pending.remove(thread)
+                complete.append(line)
+    assert not pending, f"unresolved native WAL fsync in trace: {pending!r}"
+    return complete
+
+
 def exercise(args, name, expected_syncs, action, *, delay=False, failure=False, window=WINDOW_MS, trace_wake=False):
     folder = args.output / name
     folder.mkdir()
@@ -127,7 +147,7 @@ def exercise(args, name, expected_syncs, action, *, delay=False, failure=False, 
     with TracedServer(args.binary, wal, args.strace, trace, window=window, inject=injected, trace_wake=trace_wake) as server:
         expected = action(server)
     text = trace.read_text()
-    calls = [line for line in text.splitlines() if " = " in line and ("fsync(" in line or "fsync resumed>" in line)]
+    calls = wal_sync_results(text, wal)
     assert len(calls) == expected_syncs, (name, calls)
     if failure:
         assert "EIO" in calls[0] and "INJECTED" in calls[0], calls
