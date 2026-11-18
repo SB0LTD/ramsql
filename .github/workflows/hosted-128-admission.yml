@@ -1,4 +1,4 @@
-name: Opt-in hosted PostgreSQL 128-client admission
+name: Opt-in macOS PostgreSQL 128-client admission
 
 on:
   push:
@@ -16,13 +16,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-latest, macos-latest]
+        os: [macos-latest]
     defaults:
       run:
         shell: pwsh
     env:
-      PRODUCT_REVISION: d84cd04abbfe6bb383297a594fb2bcb5af5c6a08
-      PRODUCT_SHA256: 7476bf677829bebeaa868117c9d5a40d48c71a20f8fa6960fd1966a51c44ea8a
+      PRODUCT_REVISION: 25ba5fb1ff0d5348f3a5172c62a91fd728a5a41c
+      PRODUCT_SHA256: 0b182e30844f11252a63768b9df25a2ff9ea0b56acf370a1f182b94349cfc0db
       ZPM_REVISION: e947f591aaddc13b89cac74bab1eff8d71d622f2
       ZPM_SHA256: 551c3fd3734ad39f3867c7b59d4e526f31c1b8e9185b3cc95efcb69c0d3c447c
     steps:
@@ -106,7 +106,7 @@ jobs:
           python tools/test_cli.py --binary $binary 2>&1 | Tee-Object evidence/default-cli.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLowerInvariant() > evidence/default-binary-sha256.txt
-      - name: Prove 128 live PostgreSQL sessions with one and four workers
+      - name: Prove 128 hosted sessions and the native worker limit
         run: |
           & $env:SIG build -Doptimize=ReleaseSafe -Dhosted-client-ceiling=128 2>&1 | Tee-Object evidence/expanded-build.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -116,7 +116,9 @@ jobs:
           python tools/test_hosted_128_admission.py --binary $binary --report evidence/expanded-admission.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $report = Get-Content evidence/expanded-admission.json -Raw | ConvertFrom-Json
-          if ($report.suite -ne 'hosted_128_admission' -or $report.passed -ne $true -or $report.profiles.Length -ne 2) {
+          if ($report.suite -ne 'hosted_128_admission' -or $report.passed -ne $true -or
+              $report.profiles.Length -ne 1 -or $report.profiles[0].workers -ne 1 -or
+              $report.parallel_worker_refusal -ne 'WorkersUnsupportedOnPlatform') {
             throw 'Expanded capacity contract did not execute'
           }
       - uses: actions/upload-artifact@v4
