@@ -98,6 +98,13 @@ invalidate earlier results. Restricted roles, nondefault session settings,
 work limits and timeouts use ordinary query execution. A restart starts with
 an empty cache.
 
+A source build may opt into 32-byte external MVCC headers with
+`sig build -Dcompact-version-stamps=true`. The default build keeps its
+existing layout. In a build with `-Dintegral-version-banks=true`, the
+flag saves 16 bytes per provisioned version slot. The WAL format is
+shared between builds. Both `--capabilities` and `--machine-capacity`
+report the selected layout and the size of each provisioned version.
+
 ## Stop, backup, restore and upgrade
 
 There is no service-manager installer, graceful drain command or checkpoint
