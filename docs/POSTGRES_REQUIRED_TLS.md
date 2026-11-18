@@ -12,8 +12,10 @@ The listener accepts PostgreSQL SSLRequest before TLS 1.3. It may decline
 one GSS encryption request with `N` before SSLRequest. Plaintext startup,
 plaintext cancellation, repeated GSS requests and direct TLS are closed.
 Configure stock clients with `sslmode=verify-full`, the issuing CA,
-`gssencmode=disable`, and channel binding disabled for this SCRAM-only preview.
-Clients must trust the issuing CA and verify the configured hostname.
+`gssencmode=disable`, and `channel_binding=require` when supported. The server offers
+SCRAM-SHA-256-PLUS using the signature-hash digest of the exact leaf DER served
+by TLS. Authenticated TLS clients that disable channel binding can still use
+ordinary SCRAM-SHA-256. Clients must verify the configured hostname.
 
 TLS memory is reserved for the configured connection slots at startup and
 charged to the server region ledger. `--capabilities` shows the configured TLS

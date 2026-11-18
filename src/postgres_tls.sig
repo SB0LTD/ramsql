@@ -15,6 +15,8 @@ pub const Credentials = struct {
     certificate: [max_leaf_bytes + 1]u8 = undefined,
     chain: [1][]const u8 = undefined,
     identity: Identity = undefined,
+    endpoint_bytes: [64]u8 = undefined,
+    endpoint_len: usize = 0,
 
     pub fn load(self: *Credentials, certificate_path: []const u8, key_path: []const u8) !void {
         const length = try readFile(certificate_path, &self.certificate);
@@ -24,6 +26,11 @@ pub const Credentials = struct {
         if (try readFile(key_path, &key) != 32) return error.InvalidTlsPrivateKey;
         self.chain[0] = self.certificate[0..length];
         self.identity = try Identity.init(&self.chain, key[0..32]);
+        self.endpoint_len = (try tls.serverEndpointDigest(self.chain[0], &self.endpoint_bytes)).len;
+    }
+
+    pub fn endpoint(self: *const Credentials) []const u8 {
+        return self.endpoint_bytes[0..self.endpoint_len];
     }
 
     pub fn close(self: *Credentials) void {

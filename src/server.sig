@@ -456,7 +456,13 @@ const Client = struct {
             std.mem.copyForwards(u8, self.input[0..self.input_len], self.input[self.input_start..][0..self.input_len]);
             self.input_start = 0;
         }
+        const established = transport.established();
         self.input_len += try transport.pull(self.input[self.input_len..]);
+        if (!established and transport.established()) {
+            // The same leaf was sent by this completed TLS exchange. The
+            // PostgreSQL codec must see the binding before any startup bytes.
+            try self.session.postgres.configureChannelBinding(tls_credentials.endpoint(), false);
+        }
     }
 
     /// Dispatches at most 32 buffered packets, then flushes. Returns true
