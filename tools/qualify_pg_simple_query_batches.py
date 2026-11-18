@@ -1,6 +1,6 @@
 """Compare one PostgreSQL simple Query frame at a time with native PostgreSQL."""
 import argparse
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 import hashlib
 import json
 from pathlib import Path
@@ -13,14 +13,19 @@ from test_persistence import DurableServer
 
 @contextmanager
 def session(port):
-    sock = socket.create_connection(('127.0.0.1', port), 8)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 8192)
-    client = PG(sock)
+    # Negotiate TCP receive-window scaling before the handshake. A small
+    # post-connect window makes the later bulk drain dependent on tiny window
+    # updates and can outlast a valid idle-in-transaction deadline.
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 128 * 1024)
+        sock.settimeout(8)
+        sock.connect(('127.0.0.1', port))
+        client = PG(sock)
         client.startup()
         yield client
     finally:
-        client.close()
+        sock.close()
 
 
 def result(frames):
@@ -104,21 +109,33 @@ def scenarios(port, workers):
     return out
 
 
-def pressure(port, *, idle_timeout=False):
+def pressure(port, *, idle_timeout=False, native=False):
     commands = 192 if idle_timeout else 68
     row_count = 350
+    idle_seconds = 3
+    pause_seconds = idle_seconds + 0.25 if idle_timeout else 0
     query = f"SELECT repeat('x', 96) FROM generate_series(1,{row_count});"
-    with session(port) as client:
+    with session(port) as client, (session(port) if native and idle_timeout else nullcontext()) as observer:
         if idle_timeout:
-            client.ok('SET idle_in_transaction_session_timeout = 1000')
+            pid = int(rows(client.ok('SELECT pg_backend_pid()'))[0][0])
+            client.ok(f'SET idle_in_transaction_session_timeout = {idle_seconds * 1000}')
             client.ok('BEGIN', status=b'T')
         client.sock.sendall(query_packet(query * commands) + query_packet('SELECT 999'))
+        assert client.message()[0] == b'T'
+        if idle_timeout:
+            # More than 6 MiB of output exceeds the receive window and backs
+            # up the sender. The pause crosses an entire idle timeout while
+            # that Query is still active. Both engines must survive it.
+            time.sleep(pause_seconds)
+            if observer is not None:
+                observer.ok('SELECT pg_stat_clear_snapshot()')
+                state = rows(observer.ok(
+                    f'SELECT state, wait_event FROM pg_stat_activity WHERE pid={pid}'))
+                assert state == [['active', 'ClientWrite']], state
+        draining = time.monotonic()
         for index in range(commands):
-            assert client.message()[0] == b'T'
-            if idle_timeout and index == 0:
-                # Keep the active frame over the former idle deadline while output is backed up.
-                time.sleep(1.25)
-                client.sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024 * 1024)
+            if index != 0:
+                assert client.message()[0] == b'T'
             for _ in range(row_count):
                 data_row = client.message()
                 assert rows([data_row]) == [['x' * 96]]
@@ -127,12 +144,34 @@ def pressure(port, *, idle_timeout=False):
         assert client.message() == (b'Z', status)
         next_frame = client.ready()
         assert rows(next_frame) == [['999']] and next_frame[-1] == (b'Z', status)
+        ready_at = time.monotonic()
+        drain_seconds = ready_at - draining
         if idle_timeout:
+            # Output may finish before the client reads ReadyForQuery.
+            # Complete the drain well inside the new idle period.
+            assert drain_seconds < idle_seconds / 2, drain_seconds
             kind, payload = client.message()
             assert kind == b'E', (kind, payload)
-            assert errors([(kind, payload)])[0]['C'] == '25P03'
+            fatal, = errors([(kind, payload)])
+            assert fatal['C'] == '25P03' and fatal['V'] == 'FATAL', fatal
+            fatal_seconds = time.monotonic() - ready_at
+            assert idle_seconds - drain_seconds - 0.25 < fatal_seconds < idle_seconds + 2, fatal_seconds
+            try:
+                client.message()
+            except (EOFError, ConnectionResetError):
+                pass
+            else:
+                raise AssertionError('backend returned data after idle timeout FATAL')
+        else:
+            fatal_seconds = None
     return {'commands': commands, 'data_rows': commands * row_count, 'queued_next_frame_intact': True,
-            'idle_expired_after_ready': idle_timeout}
+            'idle_expired_after_ready': idle_timeout,
+            'observation': {'read_pause_seconds': pause_seconds, 'drain_seconds': drain_seconds,
+                            'fatal_after_ready_seconds': fatal_seconds}}
+
+
+def pressure_contract(report):
+    return {key: value for key, value in report.items() if key != 'observation'}
 
 
 def parked(port, workers, native=False):
@@ -339,6 +378,8 @@ def main():
         copy_native = copy_scope(args.postgres_port, workers)
         native_copy_out = copy_out_batch(args.postgres_port, workers)
         native_park = parked(args.postgres_port, workers, native=True)
+        native_pressure = pressure(args.postgres_port)
+        native_idle_pressure = pressure(args.postgres_port, idle_timeout=True, native=True)
         Server.test_workers = workers
         with Server(binary, max_clients=8, extra_arguments=('--work-rows', '1024', '--result-rows', '512')) as candidate:
             actual = scenarios(candidate.port, workers)
@@ -352,8 +393,11 @@ def main():
             assert all(lock_test[name] == expected for name, expected in native_park.items())
             pressure_test = pressure(candidate.port)
             idle_pressure = pressure(candidate.port, idle_timeout=True)
+            assert pressure_contract(pressure_test) == pressure_contract(native_pressure)
+            assert pressure_contract(idle_pressure) == pressure_contract(native_idle_pressure)
         evidence['modes'].append({'workers': workers, 'ordinary': actual, 'native_copy': copy_native,
                                   'candidate_copy': copy_test, 'copy_out_batch': actual_copy_out, 'lock_wait_and_disconnect': lock_test,
+                                  'native_pressure': native_pressure, 'native_active_batch_idle_timeout': native_idle_pressure,
                                   'pressure': pressure_test, 'active_batch_idle_timeout': idle_pressure, 'durability': durable(binary, args.report.parent, workers)})
     args.report.write_text(json.dumps(evidence, indent=2) + '\n')
     print(f'PASS {sum(len(case["ordinary"]) for case in evidence["modes"])} frame differentials, wraparound I/O, COPY scope and blocked continuation')
