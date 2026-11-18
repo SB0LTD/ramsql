@@ -172,6 +172,16 @@ def partitions(client, connection, label, children_sql, template_oid):
     assert children.stdout == expected, children.stdout
 
 
+def populated_describe(client, connection, label):
+    for index, definition in enumerate((*TOOLING_STATISTICS[1:], *TOOLING_PUBLICATIONS)):
+        check(psql(client, connection, f'{label}-describe-setup-{index}', '-c', definition))
+    result = psql(client, connection, label + '-describe-populated', '-E', '-c', r'\d tooling')
+    print(f'populated stock psql {label} completed {len(describe_queries(result))} catalog queries')
+    check(result)
+    for expected in ('Referenced by:', 'Policies', 'Statistics objects:', 'Publications:'):
+        assert expected in result.stdout, (expected, result.stdout)
+
+
 def main():
     native = ["docker", "exec", "tooling-native"]
     native_conn = ["-U", "postgres", "-d", "postgres"]
@@ -213,6 +223,7 @@ def main():
     statistics(native, native_conn, 'native', stats_sql, native_rows.stdout.split('|', 1)[0])
     partitions(native, native_conn, 'native', children_sql, native_rows.stdout.split('|', 1)[0])
     publications(native, native_conn, 'native', publication_sql)
+    populated_describe(native, native_conn, 'native')
     Server.test_workers = 2
     with Server(Path(sys.argv[1]).resolve()) as server:
         client = ["docker", "run", "--rm", "--network", "host", IMAGE]
@@ -276,6 +287,7 @@ def main():
             assert "tooling" in actual.stdout
             assert "integer" in actual.stdout
             assert "label" in actual.stdout
+        populated_describe(client, conn, 'ramsql')
 
 
 if __name__ == "__main__":
