@@ -21,10 +21,10 @@ jobs:
       run:
         shell: pwsh
     env:
-      PRODUCT_REVISION: 4aa6f37579a8c994fbd8f27bc4f1dbc85a010a1d
-      PRODUCT_SHA256: 33719f19f340bbf215bb8755726861d43198cca8d4fcbe7750f452f061b59d9f
-      ZPM_REVISION: c1365833812fa2438cc6faaa515f79a455f79fdc
-      ZPM_SHA256: 367d96123c469dd0a8fbfb5c25b6719a29efb6186418aa3b1fd456632c0b7981
+      PRODUCT_REVISION: 3bc076150454a23198d769a1d09363caf11cf608
+      PRODUCT_SHA256: c5304dfa1448e33382adf48bfd9f6a2bf84932fe6b1a9c283558eda45645d1aa
+      ZPM_REVISION: 92bc59f70c3f7aebb166d3cb6da6dcdd5b9ac27b
+      ZPM_SHA256: a6b59ea5a2aebb8e6f03f1b120dd9acad6fdec57d12e9ae24bbbb09725d85378
     steps:
       - uses: actions/checkout@v4
         with:
