@@ -32,7 +32,10 @@ def live(port, user, database):
     with connect(port, user, database) as owner, connect(port, user, database) as member, connect(port, user, database) as usage:
         sql(owner, "SET ROLE create_owner")
         sql(owner, "REVOKE USAGE ON SCHEMA create_scope FROM CURRENT_ROLE")
-        sql(owner, "CREATE TABLE create_scope.owner_data (id INT PRIMARY KEY)")
+        sql(owner, "CREATE TABLE create_scope.owner_data (id INT NOT NULL)")
+        sql(owner, "CREATE TABLE IF NOT EXISTS create_scope.owner_data (id INT PRIMARY KEY)")
+        sql(owner, "CREATE TABLE create_scope.denied_pk (id INT PRIMARY KEY)", error=b"42501")
+        sql(owner, "CREATE TABLE create_scope.denied_unique (id INT UNIQUE)", error=b"42501")
         sql(owner, OWNER_READ, error=b"42501")
         sql(owner, "GRANT USAGE ON SCHEMA create_scope TO CURRENT_ROLE")
         sql(owner, "INSERT INTO create_scope.owner_data VALUES (5)")
@@ -48,7 +51,7 @@ def live(port, user, database):
         sql(member, "INSERT INTO create_scope.member_data VALUES (9)")
         assert scalar(member, MEMBER_READ) == "9"
         sql(owner, MEMBER_READ, error=b"42501")
-    return {"owner_without_usage_read": "42501", "usage_only_create": "42501", "owner_value": "5", "member_value": "9"}
+    return {"owner_without_usage_read": "42501", "primary_without_usage": "42501", "unique_without_usage": "42501", "usage_only_create": "42501", "owner_value": "5", "member_value": "9"}
 
 
 def reopened(port, user, database):
