@@ -61,6 +61,11 @@ input checks a pending expiration when input resumes. The extended protocol
 currently publishes autocommit at Execute. A shared implicit transaction
 across Parse, Bind, Execute and Sync requires separate compatibility work.
 
+PostgreSQL `client_min_messages` defaults to `notice` and filters diagnostic
+messages on the current connection. A setting of `error` suppresses warnings
+such as `COMMIT` or `SET LOCAL` outside a transaction block. Errors, fatal
+responses and asynchronous `NOTIFY` messages can still reach the client.
+
 PG cancellation is tested. TDS ATTENTION acknowledges an idle protocol request;
 it is not a general asynchronous running-query cancellation implementation.
 
