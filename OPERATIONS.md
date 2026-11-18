@@ -66,6 +66,13 @@ messages on the current connection. A setting of `error` suppresses warnings
 such as `COMMIT` or `SET LOCAL` outside a transaction block. Errors, fatal
 responses and asynchronous `NOTIFY` messages can still reach the client.
 
+PostgreSQL `restrict_nonsystem_relation_kind` accepts `view` and
+`foreign-table` as a comma-separated list. The `view` restriction rejects
+opening a user view for query execution with SQLSTATE `55000`. Built-in
+catalog views, base tables, and materialized views remain available. The
+setting follows session and transaction scope. Foreign-table execution is
+outside the current SQL implementation.
+
 PG cancellation is tested. TDS ATTENTION acknowledges an idle protocol request;
 it is not a general asynchronous running-query cancellation implementation.
 
