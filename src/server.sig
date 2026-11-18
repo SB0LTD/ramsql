@@ -175,7 +175,8 @@ fn wallClock() ?i64 {
 const PG = pg.SessionWithAdmission(DB, true);
 const MySQL = mysql.Session(DB);
 const TDS = tds.Session(DB);
-const capacity = 60;
+const standard_capacity = 60;
+const capacity = profile.client_ceiling;
 const input_capacity = 65536;
 const output_capacity = @max(PG.responseCapacity(), @max(MySQL.responseCapacity(), TDS.responseCapacity())) + 32768;
 const Session = union(Protocol) { postgres: PG, mysql: MySQL, mssql: TDS };
@@ -902,6 +903,22 @@ fn validateWorkers(options: Options) !void {
     if (options.workers > 1 and !threads.available) return error.WorkersUnsupportedOnPlatform;
 }
 
+fn validateClientLimit(options: Options) !void {
+    if (options.max_clients == 0 or options.max_clients > capacity) return error.InvalidServerOptions;
+    if (options.max_clients <= standard_capacity) return;
+    const os = @import("builtin").os.tag;
+    if (os != .linux and os != .windows and os != .macos) return error.InvalidServerOptions;
+    if (options.protocol != .postgres or options.mysql_port != null or options.mssql_port != null or
+        options.database_cluster or options.max_prepared_transactions != 0) return error.InvalidServerOptions;
+}
+
+fn waitServer(listener: tcp.Socket, sockets: []const tcp.Socket, read: []bool, write: []bool, timeout_ms: u32) !bool {
+    if (comptime capacity <= standard_capacity) return tcp.waitMasked(listener, sockets, read, write, timeout_ms);
+    if (sockets.len <= tcp.max_clients) return tcp.waitMasked(listener, sockets, read, write, timeout_ms);
+    var scratch: [capacity + 3]tcp.WaitDescriptor = undefined;
+    return tcp.waitMaskedWithScratch(listener, sockets, read, write, timeout_ms, &scratch);
+}
+
 const Reactor = struct {
     thread: threads.Thread = .{},
     signal: threads.Signal = .{},
@@ -976,7 +993,8 @@ const Reactor = struct {
             if (active == 0) { self.reader.close();self.signal.wait(epoch, 100); continue; }
             // Finite poll bounds new admission, cancellation and shutdown
             // latency without introducing a second socket wakeup protocol.
-            _ = try tcp.waitMasked(tcp.invalid_socket, &sockets, &readable, &writable, if (buffered) 0 else poll_timeout_ms);
+            const poll_count = if (comptime capacity <= standard_capacity) capacity else clients.len;
+            _ = try waitServer(tcp.invalid_socket, sockets[0..poll_count], readable[0..poll_count], writable[0..poll_count], if (buffered) 0 else poll_timeout_ms);
             slot = self.index;
             while (slot < clients.len) : (slot += reactor_count) {
                 const client = &clients[slot];
@@ -1124,6 +1142,24 @@ fn storageCharges(options: Options, plan: *const StoragePlan, worker_bytes: u64)
     return machine_capacity.startupCharges(regions[0..if (plan.read_cache.bytes == 0) 3 else 4], worker_bytes);
 }
 
+/// Bound the existing lazily mapped arenas and fixed hosted state for expanded
+/// admission. The conservative static allowance can include resident pages.
+fn expandedClientCharge(options: Options, plan: *const StoragePlan, startup: machine_capacity.StartupCharges) !u64 {
+    const client = try machine_capacity.startupCharges(&.{ plan.result_bytes, plan.response_bytes }, 0);
+    const client_total = try std.math.mul(u64, client.rounded, options.max_clients);
+    const worker_total = if (options.workers <= 1) 0 else blk: {
+        const scratch = try Raw.ReadContext.backingBytesFor(options.work_rows, plan.refs);
+        const worker = try machine_capacity.startupCharges(&.{ @sizeOf(Raw.ReadContext), scratch }, 0);
+        break :blk try std.math.mul(u64, worker.rounded, options.workers);
+    };
+    const fixed = try machine_capacity.startupCharges(&.{
+        @sizeOf(Store), @sizeOf(Persistence), @sizeOf(@TypeOf(recovery_buffer)), @sizeOf(@TypeOf(overflow_cancels)),
+        @sizeOf(@TypeOf(reactors)), @sizeOf(@TypeOf(memory_slots)),
+    }, 0);
+    const live_regions = try std.math.add(u64, client_total, worker_total);
+    return std.math.add(u64, try std.math.add(u64, startup.rounded, fixed.rounded), live_regions);
+}
+
 fn chooseWorkers(options: Options, plan: *const StoragePlan, observed: machine_capacity.Sample) !usize {
     if (options.workers != 0) return options.workers;
     if (!threads.available or options.protocol != .postgres or options.database_cluster) return 1;
@@ -1139,7 +1175,8 @@ fn chooseWorkers(options: Options, plan: *const StoragePlan, observed: machine_c
 
 pub fn describe(requested: Options) !void {
     var options = requested;
-    if (options.max_clients == 0 or options.max_clients > capacity or options.idle_ms == 0) return error.InvalidServerOptions;
+    try validateClientLimit(options);
+    if (options.idle_ms == 0) return error.InvalidServerOptions;
     const plan = try storagePlan(options);
     if (options.workers == 0) options.workers = if (!threads.available or options.protocol != .postgres or options.max_clients == 1) 1
         else try chooseWorkers(options, &plan, try machine_capacity.sample(options.memory_budget, options.os_headroom, 0));
@@ -1179,7 +1216,7 @@ pub fn describe(requested: Options) !void {
 
 pub fn describeMachine(requested:Options) !void {
     var options = requested;
-    if(options.max_clients==0 or options.max_clients>capacity) return error.InvalidServerOptions;
+    try validateClientLimit(options);
     const plan=try storagePlan(options);
     const observed = try machine_capacity.sample(options.memory_budget, options.os_headroom, 0);
     options.workers = try chooseWorkers(options, &plan, observed);
@@ -1195,6 +1232,13 @@ pub fn describeMachine(requested:Options) !void {
     const out = sig.io.File.stdout();
     try out.writeStreamingAll(.{}, machine[0..machine.len - 2]);
     try out.writeStreamingAll(.{}, memory);
+    if (options.max_clients > standard_capacity) {
+        const charge = try expandedClientCharge(options, &plan, startup);
+        var expanded: [192]u8 = undefined;
+        try out.writeStreamingAll(.{}, try std.fmt.bufPrint(&expanded,
+            ",\"expanded_client_peak_bytes\":{d},\"expanded_client_peak_fits\":{s},\"transaction_slots\":{d}",
+            .{ charge, if (charge <= observed.new_region_bytes) "true" else "false", profile.transactions }));
+    }
     try writeStorageDetails(out, options, &plan, read_payload);
 }
 /// Absolute spelling of a data path for operator messages; the file need not
@@ -1492,12 +1536,18 @@ pub fn run(requested: Options) !void {
     bind_catalog_role = options.auth_catalog_role or options.auth_credentials_file != null;
     if (bind_catalog_role and (options.insecure_local or options.memory or options.create_data or
         (options.auth_verifier_file == null and options.auth_credentials_file == null))) return error.InvalidServerOptions;
-    if (options.max_clients == 0 or options.max_clients > capacity or options.idle_ms == 0) return error.InvalidServerOptions;
+    try validateClientLimit(options);
+    if (options.idle_ms == 0) return error.InvalidServerOptions;
     if (options.workers != 0) try validateWorkers(options);
     const plan = try storagePlan(options);
     const observed = try initializeMemory(options);
     options.workers = try chooseWorkers(options, &plan, observed);
     try validateWorkers(options);
+    if (options.max_clients > standard_capacity) {
+        const worker_bytes = if (options.workers > 1) options.workers * worker_budget_each else 0;
+        const startup = try storageCharges(options, &plan, worker_bytes);
+        if (try expandedClientCharge(options, &plan, startup) > observed.new_region_bytes) return error.BudgetExceeded;
+    }
     parallel = options.workers > 1;
     cluster_options = options;
     defer clearAuthentication();
@@ -1634,9 +1684,10 @@ pub fn run(requested: Options) !void {
             readable[index] = client.output_len == 0 and client.input_len < client.input.len;
             writable[index] = client.output_len != 0;
         }
+        const listener_offset = if (comptime capacity <= standard_capacity) capacity else options.max_clients;
         for (1..count) |index| {
-            sockets[capacity + index - 1] = listeners[index];
-            readable[capacity + index - 1] = true;
+            sockets[listener_offset + index - 1] = listeners[index];
+            readable[listener_offset + index - 1] = true;
         }
         // Poll timeout: the nearest session or parked statement deadline.
         var timeout: u32 = @min(options.idle_ms, 1000);
@@ -1653,8 +1704,9 @@ pub fn run(requested: Options) !void {
             const due = client.connection.nextDeadline() orelse continue;
             timeout = deadlinePollMs(poll_now, due, timeout);
         }
-        listener_ready[0] = try tcp.waitMasked(listeners[0], &sockets, &readable, &writable, if (buffered) 0 else timeout);
-        for (1..count) |index| listener_ready[index] = readable[capacity + index - 1];
+        const poll_count = if (comptime capacity <= standard_capacity) sockets.len else listener_offset + count - 1;
+        listener_ready[0] = try waitServer(listeners[0], sockets[0..poll_count], readable[0..poll_count], writable[0..poll_count], if (buffered) 0 else timeout);
+        for (1..count) |index| listener_ready[index] = readable[listener_offset + index - 1];
         for (clients[0..options.max_clients], 0..) |*client, index| {
             if (client.socket == tcp.invalid_socket) continue;
             if (writable[index]) {

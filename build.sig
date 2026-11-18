@@ -109,7 +109,8 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     const pg_module = try ctx.addModule("postgres", pg_path);
     try ctx.addImport(pg_module, "scram", scram_path);
     try ctx.addImport(pg_module, "sql", sql_path);
-    const clients = ctx.option(usize, "clients", "Default runtime connection budget (1..60)") orelse 16;
+    const client_ceiling = ctx.option(usize, "hosted-client-ceiling", "Experimental hosted PostgreSQL client ceiling (60 or 128)") orelse 60;
+    const clients = ctx.option(usize, "clients", "Default runtime connection budget (bounded by the compiled ceiling)") orelse 16;
     const rows = ctx.option(usize, "rows", "Rows per table") orelse 4096;
     const tables = ctx.option(usize, "tables", "Table capacity") orelse 8;
     const columns = ctx.option(usize, "columns", "Columns per table/result (1..255)") orelse 8;
@@ -127,10 +128,10 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     const summary_groups = ctx.option(usize, "summary-groups", "Optional exact committed groups per supported column (0 disables group synopses; SQL falls back beyond budget)") orelse 64;
     const compact_integral_scans = ctx.option(bool, "compact-integral-scans", "Maintain caller-backed committed integer columns for analytical scans") orelse true;
     const integral_version_banks = ctx.option(bool, "integral-version-banks", "Enable experimental per-table integral version storage") orelse false;
-    if (clients == 0 or clients > 60 or rows == 0 or tables == 0 or text_bytes == 0 or text_bytes > 65535 or transaction_bytes < 65540 or tx_writes == 0 or versions <= rows or timezones == 0 or timezones > 256 or work_rows == 0) return error.BufferTooSmall;
+    if ((client_ceiling != 60 and client_ceiling != 128) or clients == 0 or clients > client_ceiling or rows == 0 or tables == 0 or text_bytes == 0 or text_bytes > 65535 or transaction_bytes < 65540 or tx_writes == 0 or versions <= rows or timezones == 0 or timezones > 256 or work_rows == 0) return error.BufferTooSmall;
     if (columns == 0 or columns > 255 or result_rows == 0 or row_locks == 0 or predicates == 0 or expr_nodes == 0 or relations == 0) return error.BufferTooSmall;
     var profile_buf: [2048]u8 = undefined;
-    const profile = try std.fmt.bufPrint(&profile_buf, "pub const clients={d}; pub const rows={d}; pub const tables={d}; pub const text_bytes={d}; pub const transaction_bytes={d}; pub const tx_writes={d}; pub const versions={d}; pub const transactions={d}; pub const timezones={d}; pub const work_rows={d}; pub const summary_groups={d}; pub const compact_integral_scans={s};\n", .{ clients, rows, tables, text_bytes, transaction_bytes, tx_writes, versions, 62, timezones, work_rows, summary_groups, if(compact_integral_scans) "true" else "false" });
+    const profile = try std.fmt.bufPrint(&profile_buf, "pub const clients={d}; pub const client_ceiling={d}; pub const rows={d}; pub const tables={d}; pub const text_bytes={d}; pub const transaction_bytes={d}; pub const tx_writes={d}; pub const versions={d}; pub const transactions={d}; pub const timezones={d}; pub const work_rows={d}; pub const summary_groups={d}; pub const compact_integral_scans={s};\n", .{ clients, client_ceiling, rows, tables, text_bytes, transaction_bytes, tx_writes, versions, client_ceiling + 2, timezones, work_rows, summary_groups, if(compact_integral_scans) "true" else "false" });
     var extra_buf: [512]u8 = undefined;
     const extra = try std.fmt.bufPrint(&extra_buf, "pub const columns={d}; pub const result_rows={d}; pub const row_locks={d}; pub const predicates={d}; pub const expr_nodes={d}; pub const relations={d}; pub const integral_version_banks={s};\n", .{ columns, result_rows, row_locks, predicates, expr_nodes, relations, if (integral_version_banks) "true" else "false" });
     @memcpy(profile_buf[profile.len..][0..extra.len], extra);
