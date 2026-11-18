@@ -14,6 +14,7 @@ import socket
 import ssl
 import struct
 import subprocess
+from threading import Event
 import time
 
 import psycopg
@@ -268,6 +269,52 @@ def main():
                         blocker.execute("ROLLBACK")
             assert session.execute("SELECT 7").fetchone() == (7,)
         record("extended_prepared_sql_and_encrypted_libpq_cancel")
+
+        # Same bounded-memory CPU query used by the ordinary listener's
+        # interrupt contract. In the two-worker case the only free slot maps
+        # to the executing worker, so a handshake handed to that worker
+        # would be unable to cancel its running query.
+        slow = ("SELECT a.id FROM running_work a WHERE "
+                "(SELECT COUNT(*) FROM running_work b WHERE b.id < "
+                "(SELECT COUNT(*) FROM running_work c WHERE c.id < a.id)) < 0")
+        with ExitStack() as stack:
+            sessions = [stack.enter_context(psycopg.connect(password=password, autocommit=True, **settings(port)))
+                        for _ in range(3)]
+            idle_pid, = set(range(1, 5)) - {client.info.backend_pid for client in sessions}
+            same_worker = [client for client in sessions
+                           if (client.info.backend_pid - idle_pid) % args.workers == 0]
+            if args.workers == 2:
+                assert same_worker
+            victim = same_worker[0] if same_worker else sessions[0]
+            victim.execute("CREATE TABLE running_work (id INT PRIMARY KEY, value INT)")
+            for start in range(0, 256, 64):
+                values = ",".join(f"({index},{index})" for index in range(start, start + 64))
+                victim.execute("INSERT INTO running_work VALUES " + values)
+
+            submitted = Event()
+            def execute_slow():
+                submitted.set()
+                return victim.execute(slow).fetchall()
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                running = executor.submit(execute_slow)
+                assert submitted.wait(1)
+                time.sleep(0.035)
+                assert not running.done(), "the CPU cancellation query finished before the control handshake"
+                victim.cancel_safe(timeout=3)
+                try:
+                    running.result(timeout=5)
+                except psycopg.errors.QueryCanceled:
+                    pass
+                else:
+                    raise AssertionError("encrypted libpq cancellation did not interrupt CPU work")
+            assert victim.execute("SELECT COUNT(*) FROM running_work").fetchone() == (256,)
+        record("acceptor_encrypted_cancel_with_cpu_owner_busy")
+
+        with socket.create_connection(("127.0.0.1", port), timeout=3) as incomplete:
+            incomplete.sendall(SSL_REQUEST)
+            assert incomplete.recv(1) == b"S"
+            assert incomplete.recv(1) == b""
+        record("unfinished_tls_admission_retires")
 
         with ExitStack() as stack:
             sessions = [stack.enter_context(psycopg.connect(password=password, **settings(port))) for _ in range(4)]
