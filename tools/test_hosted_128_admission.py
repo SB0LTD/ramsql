@@ -156,19 +156,24 @@ def main():
     refused = read_plan(binary, "--machine-capacity", cropped)
     assert refused["startup_fits"] and not refused["expanded_client_peak_fits"], refused
     reject(binary, "--serve", (*cropped, "--memory", "--insecure-local", "--port", "0"), "BudgetExceeded")
-    report = {"suite": "hosted_128_admission", "passed": False, "profiles": []}
+    native_workers = default["native_workers_available"]
+    report = {"suite": "hosted_128_admission", "passed": False, "profiles": [],
+              "native_workers_available": native_workers}
     with binary.open("rb") as handle:
         report["binary_sha256"] = hashlib.file_digest(handle, "sha256").hexdigest()
     try:
-        for workers in (1, 4):
+        for workers in ((1, 4) if native_workers else (1,)):
             report["profiles"].append(run_wire(binary, workers))
+        if not native_workers:
+            reject(binary, "--machine-capacity", (*invalid, "--workers", "4"), "WorkersUnsupportedOnPlatform")
+            report["parallel_worker_refusal"] = "WorkersUnsupportedOnPlatform"
         report["passed"] = True
     except BaseException as error:
         report["error"] = f"{type(error).__name__}: {error}"
         raise
     finally:
         args.report.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-    print("Hosted PostgreSQL admitted 128 sessions/transactions with one and four workers")
+    print("Hosted PostgreSQL admitted 128 sessions/transactions on every available tested worker profile")
 
 
 if __name__ == "__main__":
