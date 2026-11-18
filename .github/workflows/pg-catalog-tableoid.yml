@@ -1,8 +1,8 @@
-name: Native schema ACL materialization contract
+name: Native PostgreSQL namespace dependency contract
 
 on:
   push:
-    branches: [ci/pg-schema-acl-materialization-20261118]
+    branches: [ci/schema-drop-dependency-visibility-20261118]
   workflow_dispatch:
 
 permissions:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   catalogs:
-    name: Native durable ACL materialization
+    name: Native durable namespace dependency
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     strategy:
@@ -23,8 +23,8 @@ jobs:
     env:
       PRODUCT_REVISION: 6424940c45f56d1529a3531a8834234dfb4e792b
       PRODUCT_SHA256: 6562d8f0a6dec9024e840a44dd5831b820c1c7f5d233c7f30397d20006797b9e
-      ZPM_REVISION: dcba90763646f5dc512e45c987656dc742b8e10d
-      ZPM_SHA256: eda3e6b13b20c89a7d80eee4a5a0164132c274ce47888d1fc1df1c0b404a6bed
+      ZPM_REVISION: 4b60cd41f6fa5d48d73d1c111665956dee456783
+      ZPM_SHA256: 977bee02aa9bf0f54e844558aa4a9de34f714ccf31bc231d7af56ba189b267d8
     steps:
       - uses: actions/checkout@v4
         with:
@@ -86,60 +86,83 @@ jobs:
             "-femit-bin=$RUNNER_TEMP/test-sql-catalog-security"
           "$RUNNER_TEMP/test-sql-catalog-security" 2>&1 | tee evidence/zpm-catalog.txt
           grep -Eq 'catalog security: [0-9]+ assertions, [0-9]+ records replayed' evidence/zpm-catalog.txt
-      - name: Compare typed namespace state against native PostgreSQL 18.3
+      - name: Verify PostgreSQL 18.3 namespace dependency oracle
         if: always() && runner.os == 'Linux'
         shell: bash
         run: |
           set -euo pipefail
           image=postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba
           echo "$image" > evidence/reference-image.txt
-          name=namespace-acl-materialization-oracle
-          docker run --detach --rm --name "$name" -e POSTGRES_HOST_AUTH_METHOD=trust "$image"
-          trap 'docker stop "$name" >/dev/null' EXIT
-          ready() {
-            for attempt in $(seq 1 60); do
-              if docker exec "$name" pg_isready -h 127.0.0.1 -U postgres; then return; fi
-              sleep 1
-            done
-            return 1
-          }
-          ready
+          name=namespace-dependencies-oracle
+          docker run --detach --name "$name" -e POSTGRES_HOST_AUTH_METHOD=trust "$image"
+          trap 'docker rm --force --volumes "$name" >/dev/null' EXIT
+          for attempt in $(seq 1 60); do
+            if docker exec "$name" pg_isready -h 127.0.0.1 -U postgres; then break; fi
+            sleep 1
+          done
+          docker exec "$name" pg_isready -h 127.0.0.1 -U postgres
           docker exec "$name" postgres --version | tee evidence/reference-version.txt
-          docker exec -i "$name" psql -U postgres -XAtq -v ON_ERROR_STOP=1 <<'SQL' > evidence/native-acl-state.txt
-          CREATE ROLE acl_guest;
-          CREATE SCHEMA acl_state;
-          CREATE TEMP VIEW materialized_acl AS
-              SELECT (nspacl IS NOT NULL)::int AS state
-              FROM pg_catalog.pg_namespace WHERE nspname='acl_state';
-          SELECT 'fresh=' || state FROM materialized_acl;
+          docker exec -i "$name" psql -U postgres -XAtq -v ON_ERROR_STOP=1 <<'SQL' > evidence/native-dependency.txt
+          CREATE TABLE anchor (id int);
+          INSERT INTO anchor VALUES (1);
+          CREATE SCHEMA view_space;
+          CREATE VIEW view_space.drop_view_probe AS SELECT id FROM anchor;
+          \set ON_ERROR_STOP off
+          DROP SCHEMA view_space;
+          \echo view_restrict :SQLSTATE
+          \set ON_ERROR_STOP on
+          CREATE MATERIALIZED VIEW view_space.drop_mat_probe AS SELECT id FROM anchor;
           BEGIN;
-          REVOKE USAGE ON SCHEMA acl_state FROM acl_guest;
-          SELECT 'own=' || state FROM materialized_acl;
-          \! psql -U postgres -XAtq -v ON_ERROR_STOP=1 -c "SELECT 'other=' || (nspacl IS NOT NULL)::int FROM pg_catalog.pg_namespace WHERE nspname='acl_state'"
+          DROP SCHEMA view_space CASCADE;
+          SELECT 'within_abort ' || count(*) FROM pg_namespace WHERE nspname='view_space';
           ROLLBACK;
-          SELECT 'rollback=' || state FROM materialized_acl;
-          REVOKE USAGE ON SCHEMA acl_state FROM acl_guest;
-          SELECT 'committed_noop=' || state FROM materialized_acl;
-          GRANT USAGE ON SCHEMA acl_state TO acl_guest;
-          REVOKE USAGE ON SCHEMA acl_state FROM acl_guest;
-          SELECT 'returned_default=' || (nspacl = acldefault('n', nspowner))::int
-              FROM pg_catalog.pg_namespace WHERE nspname='acl_state';
-          DROP ROLE acl_guest;
+          SELECT 'after_abort ' || count(*) FROM pg_class WHERE relname IN ('drop_view_probe','drop_mat_probe');
+          DROP SCHEMA view_space CASCADE;
+          SELECT 'after_cascade ' || count(*) FROM pg_class WHERE relname IN ('drop_view_probe','drop_mat_probe');
+
+          CREATE SCHEMA late_space;
+          BEGIN ISOLATION LEVEL REPEATABLE READ;
+          SELECT 'restrict_snapshot ' || count(*) FROM anchor;
+          \! psql -U postgres -XAtq -v ON_ERROR_STOP=1 -c 'CREATE TABLE late_space.new_table (id int)'
+          \set ON_ERROR_STOP off
+          DROP SCHEMA late_space;
+          \echo late_restrict :SQLSTATE
+          \set ON_ERROR_STOP on
+          ROLLBACK;
+
+          BEGIN ISOLATION LEVEL REPEATABLE READ;
+          SELECT 'cascade_snapshot ' || count(*) FROM anchor;
+          \! psql -U postgres -XAtq -v ON_ERROR_STOP=1 -c 'CREATE VIEW late_space.new_view AS SELECT id FROM anchor'
+          DROP SCHEMA late_space CASCADE;
+          COMMIT;
+          SELECT 'late_after_cascade ' || count(*) FROM pg_class WHERE relname IN ('new_table','new_view');
+
+          CREATE SCHEMA old_space;
+          BEGIN ISOLATION LEVEL REPEATABLE READ;
+          SELECT 'create_snapshot ' || count(*) FROM anchor;
+          \! psql -U postgres -XAtq -v ON_ERROR_STOP=1 -c 'DROP SCHEMA old_space'
+          \set ON_ERROR_STOP off
+          CREATE TABLE old_space.stranded (id int);
+          \echo stale_create :SQLSTATE
+          \set ON_ERROR_STOP on
+          ROLLBACK;
           SQL
-          docker restart "$name" >/dev/null
-          ready
-          docker exec -i "$name" psql -U postgres -XAtq -v ON_ERROR_STOP=1 <<'SQL' >> evidence/native-acl-state.txt
-          SELECT 'replayed=' || (nspacl IS NOT NULL)::int FROM pg_catalog.pg_namespace WHERE nspname='acl_state';
-          DROP SCHEMA acl_state;
-          CREATE SCHEMA acl_state;
-          SELECT 'recreated=' || (nspacl IS NOT NULL)::int FROM pg_catalog.pg_namespace WHERE nspname='acl_state';
-          SQL
-          sed -n 's/^acl state //p' evidence/zpm-catalog.txt > evidence/zpm-acl-state.txt
-          test "$(wc -l < evidence/native-acl-state.txt)" -eq 8
-          diff -u evidence/native-acl-state.txt evidence/zpm-acl-state.txt
+          cat > "$RUNNER_TEMP/native-expected.txt" <<'EOF'
+          view_restrict 2BP01
+          within_abort 0
+          after_abort 2
+          after_cascade 0
+          restrict_snapshot 1
+          late_restrict 2BP01
+          cascade_snapshot 1
+          late_after_cascade 0
+          create_snapshot 1
+          stale_create 3F000
+          EOF
+          diff -u "$RUNNER_TEMP/native-expected.txt" evidence/native-dependency.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: pg-schema-acl-materialization
+          name: pg-schema-dependency-visibility
           path: evidence/
           if-no-files-found: error
