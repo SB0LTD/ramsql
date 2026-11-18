@@ -107,7 +107,9 @@ def main():
                     binary_sha256=hashlib.sha256(binary.read_bytes()).hexdigest(),
                     psql=subprocess.check_output(["psql", "--version"], text=True).strip(),
                     libpq=psycopg.pq.version(), checks=[])
-    checks = evidence["checks"]
+    def record(check):
+        evidence["checks"].append(check)
+        args.report.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
 
     def settings(port, **overrides):
         return dict(host="localhost", hostaddr="127.0.0.1", port=port, user="ramsql", dbname="ramsql",
@@ -148,50 +150,57 @@ def main():
                 except ConnectionResetError:
                     observed = b""
                 assert observed == b"", observed
-        checks.append("ssl_request_required_and_fragmented")
-        checks.append("gss_refusal_requires_ssl_and_cannot_repeat")
+        record("ssl_request_required_and_fragmented")
+        record("gss_refusal_requires_ssl_and_cannot_repeat")
         rejected(port, password, "certificate", host="wrong.example")
         rejected(port, "wrong", "auth")
-        checks.append("verify_full_hostname_and_scram")
+        record("verify_full_hostname_and_scram")
 
         result = psql(port, "\\conninfo\nCREATE TABLE secure_data(id int PRIMARY KEY, v text);\n"
                            "COPY secure_data FROM STDIN;\n1\tfirst\n2\tsecond\n\\.\n"
                            "COPY (SELECT id,v FROM secure_data ORDER BY id) TO STDOUT;\n")
         assert "TLSv1.3" in result and result.endswith("1\tfirst\n2\tsecond\n"), result
-        checks.append("stock_psql_tls13_copy_both_directions")
+        record("stock_psql_tls13_copy_both_directions")
 
         with psycopg.connect(password=password, autocommit=True, **settings(port)) as session:
             for identifier, row in ((2, "second"), (1, "first")):
                 assert session.execute("SELECT v FROM secure_data WHERE id = %s", (identifier,),
                                        prepare=True).fetchone() == (row,)
-            with ThreadPoolExecutor(max_workers=1) as executor:
-                sleeping = executor.submit(session.execute, "SELECT pg_sleep(15)")
-                time.sleep(0.5)
-                session.cancel_safe(timeout=6)
-                try:
-                    sleeping.result(timeout=8)
-                except psycopg.errors.QueryCanceled:
-                    pass
-                else:
-                    raise AssertionError("encrypted libpq cancellation did not cancel the query")
+            with psycopg.connect(password=password, autocommit=True, **settings(port)) as blocker:
+                blocker.execute("BEGIN")
+                blocker.execute("UPDATE secure_data SET v = 'held' WHERE id = 1")
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    parked = executor.submit(session.execute, "UPDATE secure_data SET v = 'canceled' WHERE id = 1")
+                    try:
+                        time.sleep(0.5)
+                        assert not parked.done(), "the competing UPDATE did not wait"
+                        session.cancel_safe(timeout=6)
+                        try:
+                            parked.result(timeout=8)
+                        except psycopg.errors.QueryCanceled:
+                            pass
+                        else:
+                            raise AssertionError("encrypted libpq cancellation did not cancel the blocked UPDATE")
+                    finally:
+                        blocker.execute("ROLLBACK")
             assert session.execute("SELECT 7").fetchone() == (7,)
-        checks.append("extended_prepared_sql_and_encrypted_libpq_cancel")
+        record("extended_prepared_sql_and_encrypted_libpq_cancel")
 
         with ExitStack() as stack:
             for _ in range(4):
                 stack.enter_context(psycopg.connect(password=password, **settings(port)))
             expect_close(port, SSL_REQUEST)
-        checks.append("overload_closes_without_plaintext_response")
+        record("overload_closes_without_plaintext_response")
 
     evidence["wal_bytes"] = wal.stat().st_size
     assert evidence["wal_bytes"] > 0
     with TlsServer(binary, wal, **options) as reopened:
         assert psql(reopened.port, "SELECT id,v FROM secure_data ORDER BY id;\n") == "1|first\n2|second\n"
-    checks.append("durable_process_reopen")
+    record("durable_process_reopen")
     with DurableServer(binary, work / "plain.wal", create=True, cwd=work,
                        storage_options=("--workers", "1")) as plain:
         assert psql(plain.port, "SELECT 17;\n", sslmode="disable") == "17\n"
-    checks.append("existing_plaintext_listener_when_unconfigured")
+    record("existing_plaintext_listener_when_unconfigured")
     evidence["passed"] = True
     args.report.write_text(json.dumps(evidence, indent=2) + "\n")
     print(json.dumps(evidence))
