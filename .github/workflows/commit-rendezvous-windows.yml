@@ -1,0 +1,87 @@
+name: Qualify Windows commit rendezvous fallback
+
+on:
+  push:
+    branches: [ci/commit-rendezvous-wake-windows-20261118]
+
+permissions:
+  contents: read
+
+jobs:
+  fallback:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify immutable Windows toolchain and sources
+        shell: pwsh
+        run: |
+          $source = '2c254a2750af1c42b1ea767ce14b281364261b01'
+          git diff --exit-code $source -- src build.sig.zon tools/test_group_commit.py
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          New-Item -ItemType Directory evidence | Out-Null
+          git rev-parse HEAD $source | Set-Content -Encoding utf8 evidence/source.log
+          $zpm = 'c61826fe68829fabff93625f83ee5e903c62c366'
+          $zpmDigest = '556ae38967862c98f004ed431b6d771b3c4051dd6c9d8f80fabce58ce6d9b411'
+          $zpmArchive = Join-Path $env:RUNNER_TEMP 'zpm-source.tar.gz'
+          Invoke-WebRequest -Uri "https://github.com/SB0LTD/zpm/archive/$zpm.tar.gz" -OutFile $zpmArchive
+          if ((Get-FileHash -LiteralPath $zpmArchive -Algorithm SHA256).Hash -ne $zpmDigest) { throw 'ZPM checksum differs' }
+          $zpmDigest | Set-Content -Encoding utf8 evidence/zpm.log
+          $tag = 'sig-0.6.5-zig0.17.0.3c72687'
+          $archive = Join-Path $env:RUNNER_TEMP "$tag-x86_64-windows.zip"
+          Invoke-WebRequest -Uri "https://github.com/SB0LTD/sig/releases/download/$tag/$tag-x86_64-windows.zip" -OutFile $archive
+          $digest = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash
+          if ($digest -ne '291a3225ff33c32e8c479471c44be6db0d811d6023d759c64e0a7d5bf810576c') { throw 'Sig checksum differs' }
+          $sdk = Join-Path $env:RUNNER_TEMP 'sig-sdk'
+          Expand-Archive -LiteralPath $archive -DestinationPath $sdk
+          $compiler = @(Get-ChildItem -LiteralPath $sdk -Filter sig.exe -Recurse -File | Where-Object { $_.Directory.Name -eq 'bin' })
+          if ($compiler.Count -ne 1) { throw 'Expected one compiler executable' }
+          $exe = $compiler[0].FullName
+          $standard = Join-Path ($compiler[0].Directory.Parent.FullName) 'lib'
+          @($digest, (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash, (& $exe version)) | Set-Content -Encoding utf8 evidence/sdk.log
+          "SIG=$exe" >> $env:GITHUB_ENV
+          "SIG_LIB_DIR=$standard" >> $env:GITHUB_ENV
+      - name: Build the native ReleaseSafe product
+        shell: pwsh
+        run: |
+          & $env:SIG build -Doptimize=ReleaseSafe -j2 --Sig-lib-dir $env:SIG_LIB_DIR 2>&1 | Tee-Object -FilePath evidence/build.log
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          (Get-FileHash -LiteralPath sig-out/bin/ramsql.exe -Algorithm SHA256).Hash | Set-Content -Encoding utf8 evidence/binary-sha256.log
+      - name: Verify two workers, durable COMMIT replies and ordinary replay
+        shell: pwsh
+        run: |
+          @'
+          import json, os, sys
+          from pathlib import Path
+          sys.path.insert(0, 'tools')
+          from test_group_commit import paired, replay, seed
+          from test_persistence import DurableServer
+
+          binary = Path('sig-out/bin/ramsql.exe').resolve(strict=True)
+          folder = Path(os.environ['RUNNER_TEMP']) / 'windows-group-fallback'
+          folder.mkdir()
+          path = folder / 'transactions.wal'
+          options = ('--workers', '2', '--group-commit-wait-ms', '50')
+          seed(binary, path)
+          with DurableServer(binary, path, storage_options=options) as server:
+              values = paired(server)
+          replay(binary, path, *values)
+          print(json.dumps({'passed': True, 'workers': 2, 'transaction_responses': 2, 'replay_checked': True}))
+          '@ | python - 2>&1 | Tee-Object -FilePath evidence/fallback.log
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python tools/test_server.py --binary sig-out/bin/ramsql.exe --workers 2 2>&1 | Tee-Object -FilePath evidence/ordinary-wire.log
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: windows-commit-fallback
+          path: evidence/
+          if-no-files-found: error
