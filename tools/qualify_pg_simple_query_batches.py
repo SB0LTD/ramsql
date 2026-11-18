@@ -245,8 +245,19 @@ def copy_scope(port, workers):
         assert syntax['frames'] == 'EZ' and syntax['errors'] == ['42601'], syntax
         peer.ok(f'SELECT COUNT(*) FROM {table} WHERE id = 50', [['0']])
 
+        client.ok('SET idle_in_transaction_session_timeout = 600')
+        send(f"BEGIN; COPY {table} FROM STDIN; SELECT id FROM {table} WHERE id=60")
+        assert client.message() == (b'C', b'BEGIN\0')
+        expect_copy_in()
+        complete_copy(b'60\n')
+        idle = result(client.ready())
+        assert idle['status'] == 'T' and idle['rows'] == [['60']], idle
+        timeout_tag, timeout_response = client.message()
+        assert timeout_tag == b'E' and errors([(timeout_tag, timeout_response)])[0]['C'] == '25P03'
+        peer.ok(f'SELECT COUNT(*) FROM {table} WHERE id = 60', [['0']])
+
     return {'continued_twice': final_copy, 'copy_fail': failed, 'malformed_row': malformed,
-            'explicit_final_copy': explicit, 'raw_syntax_failure': syntax}
+            'explicit_final_copy': explicit, 'raw_syntax_failure': syntax, 'idle_armed_after_owned_tail': idle}
 
 
 def copy_out_batch(port, workers):

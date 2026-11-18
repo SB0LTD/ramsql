@@ -373,7 +373,7 @@ const Client = struct {
         };
         notification_sequence.store(store.database.notificationSequence(), .release);
         if (reply.consumed > self.input_len or reply.written > output.len) return error.InvalidReply;
-        if (self.protocol == .postgres and (reply.consumed != 0 or reply.blocked)) {
+        if (self.protocol == .postgres and (reply.consumed != 0 or reply.written != 0 or reply.blocked)) {
             const timeout = self.session.postgres.idleTransactionTimeout(&self.connection);
             self.idle_transaction_deadline = if (reply.close or timeout == 0) null else
                 monotonicClock() +| (@as(i64, timeout) * 1000000);
