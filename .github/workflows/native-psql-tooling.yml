@@ -2,7 +2,7 @@ name: Native psql tooling qualification
 
 on:
   push:
-    branches: [ci/pg-relation-catalog-metadata-20261118]
+    branches: [ci/pg-relation-catalog-metadata-20261118, ci/pg-migration-real-settings-20261118]
 
 permissions:
   contents: read
