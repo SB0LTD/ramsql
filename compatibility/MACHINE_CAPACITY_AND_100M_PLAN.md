@@ -180,6 +180,112 @@ failed writes leave data unchanged; compressed/dictionary and scalar paths agree
 measured bytes per row; schema-dependent preflight; real SQL load/recovery. A
 standalone packed-array benchmark is not evidence that the server uses it.
 
+## Opt-in hosted admission for wide schemas
+
+The experimental build combines caller-owned packed table banks, 32-byte
+external MVCC version headers, and a hosted PostgreSQL ceiling of 128 clients.
+The regular build ceiling remains 60. The runtime defaults to 16 admitted
+clients and a 50% maximum hash load. Use an explicit build profile and
+runtime flags to request the measured layout.
+
+```sh
+sig build -Doptimize=ReleaseSafe -Dintegral-version-banks=true -Dcompact-version-stamps=true -Dhosted-client-ceiling=128
+python tools/test_wider_admission.py --binary sig-out/bin/ramsql --report wider-native-plans.json
+```
+
+For a supported packed schema, count the bytes for all declared columns even
+when rows contain NULL. A version stores one bitmap bit per column and the
+fixed-width payload. Add `ceil(columns / 8)` bytes to each column's width,
+then round the total up to eight bytes. Packed SMALLINT needs two bytes,
+INTEGER, OID and DATE need four, and BIGINT needs eight. Declare the resulting
+number of words with `--table-integral-words`. A bank needs a dense payload
+when its schema contains TEXT or NUMERIC. Bank assignment is first-fit by
+schema capability, so put large compatible banks before small spare ones.
+The fixtures insert and read each actual schema before testing the adjacent
+smaller packed budget where applicable.
+
+A table's packed backing includes 16 bytes per row slot, the 32-byte header
+and requested payload per provisioned version, and two mandatory arrays of
+32-bit hash slots. Each array's slot count is the next power of two that admits
+its complete row or version budget at the chosen load. At 75%, the slot count
+must satisfy `slots / 2 + slots / 4 >= capacity` using integer division.
+`--typed-bank-memory-profile` omits packed banks' duplicate scan projections
+and optional secondary hashes. Dense banks in the same process still reserve
+their configured dense payload, scan projection and secondary hashes.
+
+For the eight-column ledger shape in the fixture the physical payload consumes
+six words. This command asks the native planner about one 100M-row ledger at
+128 active PostgreSQL clients with 1,024 result rows and 8,192 workspace rows.
+It opens no database or listeners.
+
+```sh
+sig-out/bin/ramsql --machine-capacity --max-clients 128 --workers 2 \
+  --table-rows 100000000,1,1,1,1,1,1,1 --table-versions 100065536,2,2,2,2,2,2,2 \
+  --table-integral-words 6,0,0,0,0,0,0,0 --typed-bank-memory-profile \
+  --packed-hash-load-75 --work-rows 8192 --result-rows 1024
+```
+
+Read `backing_bytes` for exact table and reference storage,
+`startup_region_bytes` for caller-owned startup regions and worker stack
+charges, and `active_admission_bytes` for the conservative full-admission
+bound. The latter adds independently rounded output and result regions for
+every client, context metadata and execution regions for each parallel read
+worker, and a fixed engine and admission queue allowance. The fixed allowance
+can include pages already counted as resident. Compare the requested bound to
+`new_region_bytes` in the same native observation. The program enforces the
+full bound before listening above 60 clients. Memory pressure after startup
+can still reduce future grants. A fixed 65,536 version reserve is a test shape.
+Size actual version headroom by write concurrency and the lifetime of pinned
+snapshots.
+
+Expanded admission currently covers a plain hosted PostgreSQL listener with
+zero prepared transactions. Hosted Windows and no-libc Linux passed the 128
+session contract with one and four workers. macOS passed at one worker and
+explicitly refuses parallel workers. SB0 keeps its existing native listener
+capacity. [Windows and Linux runs](https://github.com/SB0LTD/ramsql/actions/runs/44228649454),
+[macOS run](https://github.com/SB0LTD/ramsql/actions/runs/44231434730).
+
+Two actual 100M-row tables using one packed word each passed the separate
+synchronous WAL and abrupt-restart run. All 16 join-and-sum groups and 20
+ordered-range results matched independently checked values before and after
+restart. The 75% profile reduced the planned active regions from
+15,597,510,656 to 13,450,027,008 bytes. Recovery read the same 6,411,200,215-byte
+WAL after the first process had exited. Recovery took 231.086 seconds on that
+runner and peaked at 13,374,668,800 bytes of resident memory. The wider
+admission matrix below is an independent capacity check. [Durable two-table run](https://github.com/benor1470/dbMeter/actions/runs/44226187387).
+
+### Verified native admission matrix
+
+The public Ubuntu runner granted 14,305,768,448–14,307,988,480 bytes across
+33 capacity probes. All figures below are active admission bytes for 100M
+rows per listed table, with two workers, 8,192 workspace rows, 1,024 result
+rows and 100,065,536 versions per table. The CI fixture also ran all five
+schemas over PostgreSQL with small real tables and checked that an undersized
+packed bank preserved atomicity when the table fell back to a one-row dense
+bank. It repeated the 128-session contract on the combined binary.
+[Native plans and SQL evidence](https://github.com/SB0LTD/ramsql/actions/runs/44232687102).
+
+| Tables at 100M rows each | Packed words per table | 4 clients | 60 clients | 128 clients | Fits sampled grant |
+| --- | ---: | ---: | ---: | ---: | --- |
+| One narrow INT/SMALLINT table | 1 | 6,798,659,584 | 7,136,940,032 | 7,547,711,488 | All three |
+| Two narrow tables | 1 each | 13,475,020,800 | 13,813,301,248 | 14,224,072,704 | All three |
+| One six-INT fact table | 4 | 9,200,234,496 | 9,538,514,944 | 9,949,286,400 | All three |
+| Two six-INT fact tables | 4 each | 18,278,166,528 | 18,616,446,976 | 19,027,218,432 | None |
+| One eight-column INT/DATE ledger | 6 | 10,801,283,072 | 11,139,563,520 | 11,550,334,976 | All three |
+| Two INT/DATE ledgers | 6 each | 21,480,263,680 | 21,818,544,128 | 22,229,315,584 | None |
+| One eight-BIGINT table | 9 | 13,202,853,888 | 13,541,134,336 | 13,951,905,792 | All three |
+| Two eight-BIGINT tables | 9 each | 26,283,409,408 | 26,621,689,856 | 27,032,461,312 | None |
+| One TEXT/NUMERIC invoice table | Dense | 134,342,340,608 | 134,680,621,056 | 135,091,392,512 | None |
+| Two TEXT/NUMERIC invoice tables | Dense | 268,562,386,944 | 268,900,667,392 | 269,311,438,848 | None |
+| One ledger and one invoice table | 6 and dense | 145,021,325,312 | 145,359,605,760 | 145,770,377,216 | None |
+
+The 128-client two-narrow-table plan fit by about 82 MB on this runner. The
+real durable two-table test used four clients and its own exact binary.
+An admitted byte plan establishes backing and response headroom for the
+declared profile. Wider 100M loads, two large dense banks, sustained write
+churn, and simultaneous 128-client operation at 200M live rows require
+separate qualification.
+
 ## Bounded execution and parallel reads
 
 Development progress: [ZPM #38](https://github.com/SB0LTD/zpm/pull/38)
@@ -226,7 +332,8 @@ and supplied IRDB client hashes and preserve its original SQL/CSV expectations.
 The [reviewer report](../benchmarks/dbmeter-reviewer-20261027/REPORT.md) retains
 failures and native-platform comparisons. Do not conflate these results with the
 native API tier below. The full 5M-row analytic suite, stock-profile capacity,
-100M-row multi-table storage and universal/significant wins remain open targets.
+wider multi-table 100M execution and significant wins across the benchmark
+matrix remain open targets.
 
 The fresh [guarded-input reference run](../benchmarks/guarded-reference-20261027/README.md)
 and [remaining cases](../benchmarks/guarded-reference-remaining-20261027/README.md)
