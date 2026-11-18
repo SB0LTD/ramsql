@@ -976,11 +976,16 @@ PostgreSQL, with deliberately malformed rows and interrupted transfers.
 **Status:** Partial. **Owner:** RAMSQL integration/qualification.
 
 The 18.3 `psql` client read a real table on the two-worker beta.3 Windows
-build. Its `\d` discovery command failed on catalog SQL that uses
-`OPERATOR(pg_catalog.~)` and `pg_table_is_visible`. Native `pg_dump --schema-only`
-failed during startup at `pg_catalog.set_config('search_path', '', false)`.
-Qualified built-in resolution and empty search-path semantics both need
-qualification before dump and restore can pass.
+build. A subsequent Windows candidate with `-Dcolumns=16` matched its first
+two `\d` queries, including the exact 15-column metadata projection. A
+separate native differential matched eight relation rows covering a table,
+indexes, sequence, partition, view and materialized view. The stock width is
+eight. `\d` still needs column, index and constraint discovery at the stock
+profile. Constraint identities must remain stable across typed WAL replay and
+support the foreign-key and index references used by tooling. Native
+`pg_dump --schema-only` still requires empty search-path and catalog behavior.
+[Qualified discovery](https://github.com/SB0LTD/zpm/pull/229) ·
+[Relation metadata comparison](https://github.com/SB0LTD/ramsql/actions/runs/44213692080)
 
 - [ ] Add versioned suites for libpq/psycopg, JDBC, Npgsql, Go and Node clients as required by the compatibility contract.
 - [ ] Run representative ORM and migration workflows against identical schemas/data on both engines.
@@ -1022,6 +1027,16 @@ A separate writer-lock contract holds database ownership across two WAL
 generations and atomic pointer publication. Product recovery still opens the
 existing WAL format. [Anchor PR](https://github.com/SB0LTD/zpm/pull/219) ·
 [Writer-lock tests](https://github.com/SB0LTD/zpm/actions/runs/44191670373)
+
+The streaming envelope binds length, database and generation identity, WAL
+sequence and SQL commit number to a BLAKE3 seal. The one-table logical image
+restores committed OIDs, RowIDs, allocation counters and SQL commit number
+from dense or packed storage. A normal WAL update/delete/insert suffix
+continued after both restores on Windows and Linux. Expand the codec to
+multiple tables and the full catalog, then prove generation publication and
+retirement under injected failures.
+[Snapshot envelope](https://github.com/SB0LTD/zpm/pull/230) ·
+[Single-table image and suffix](https://github.com/SB0LTD/zpm/pull/232)
 
 - [ ] Write a complete validated snapshot with a durable sequence anchor.
 - [ ] Publish it atomically, persist directory changes, then retire only log segments the checkpoint safely covers.
@@ -1082,10 +1097,15 @@ promises. Do not imply PostgreSQL physical replication compatibility automatical
 
 ### A01 — TLS and channel binding
 
-**Status:** Missing. **Owner:** ZPM reusable TLS/transport; RAMSQL certificate and listener policy.
+**Status:** Server transport primitives in qualification. **Owner:** ZPM reusable TLS/transport; RAMSQL certificate and listener policy.
 
 Hosted listeners currently bind loopback and PostgreSQL clients use sslmode=disable.
 SCRAM authenticates credentials but does not encrypt query text or result data.
+The private pure-Sig TLS 1.3 exchange matched RFC test vectors and completed a
+certificate- and hostname-verified OpenSSL session on Windows and Linux. The
+listener still needs the record channel, handshake admission, encrypted cancel
+and SCRAM channel binding before exposing a TLS endpoint.
+[Server exchange draft](https://github.com/SB0LTD/zpm/pull/228)
 
 - [ ] Implement a tested native TLS server transport with certificate/key loading and safe lifecycle handling.
 - [ ] Add PostgreSQL SSL negotiation and required SCRAM channel binding; integrate MySQL/TDS TLS negotiation separately.
@@ -1097,10 +1117,12 @@ channel binding; malformed handshakes fail safely and cannot starve other sessio
 
 ### A02 — Roles, permissions and database isolation
 
-**Status:** Missing beyond a configured PostgreSQL login. **Owner:** ZPM roles/catalog/authorization; RAMSQL provisioning policy.
+**Status:** Partial. **Owner:** ZPM roles/catalog/authorization; RAMSQL provisioning policy.
 
-One accepted username/verifier is not a multi-user authorization system. Users
-need ownership and permissions enforced for reads, writes, schemas and administration.
+Beta.3 has an opt-in PostgreSQL SCRAM catalog credential file, role grants and
+durable database-level admission. The audited cluster mode has four databases
+on one reactor with one configured login. Wider multi-user cluster routing,
+application privilege workflows and MySQL/TDS authorization remain open.
 
 - [ ] Add role/database/schema ownership, grants/revokes, membership and required row-level/security-definer behavior.
 - [ ] Enforce privileges at binding/execution and metadata discovery, including prepared statements and COPY.
