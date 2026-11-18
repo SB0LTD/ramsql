@@ -5,6 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 import socket
+import time
 
 from test_server import PG, Server, errors, packet, query_packet, rows
 
@@ -109,23 +110,38 @@ def pressure(port):
     return {'commands': commands, 'data_rows': commands * row_count, 'queued_next_frame_intact': True}
 
 
-def parked(port, workers, check_disconnect=False):
+def parked(port, workers, native=False):
     target = f'batch_locked_{workers}'
     audit = f'batch_commits_{workers}'
     with session(port) as client, session(port) as peer:
         client.ok(f'CREATE TABLE {target} (id INTEGER PRIMARY KEY, v INTEGER)')
         client.ok(f'CREATE TABLE {audit} (id INTEGER PRIMARY KEY)')
         client.ok(f'INSERT INTO {target} VALUES (1,10)')
+        pid = int(rows(client.ok('SELECT pg_backend_pid()'))[0][0])
         peer.ok('BEGIN', status=b'T')
         peer.ok(f'LOCK TABLE {target} IN ACCESS EXCLUSIVE MODE', status=b'T')
         client.sock.sendall(query_packet(f'INSERT INTO {audit} VALUES (8); UPDATE {target} SET v=20 WHERE id=1; SELECT v FROM {target};'))
-        assert client.message() == (b'C', b'INSERT 0 1\0')
+        first = []
+        if native:
+            # Native PostgreSQL can buffer the first CommandComplete until
+            # the lock is released. Observe its actual backend wait instead.
+            deadline = time.monotonic() + 5
+            while True:
+                peer.ok('SELECT pg_stat_clear_snapshot()', status=b'T')
+                wait = rows(peer.ok(f'SELECT wait_event_type FROM pg_stat_activity WHERE pid={pid}', status=b'T'))
+                if wait == [['Lock']]:
+                    break
+                assert time.monotonic() < deadline, wait
+                time.sleep(0.005)
+        else:
+            first.append(client.message())
+            assert first == [(b'C', b'INSERT 0 1\0')]
         peer.ok(f'SELECT COUNT(*) FROM {audit}', [['0']], status=b'T')
         peer.ok('COMMIT')
-        final = result(client.ready())
-        assert final['frames'] == 'CTDCZ' and final['rows'] == [['20']], final
+        final = result(first + client.ready())
+        assert final['frames'] == 'CCTDCZ' and final['rows'] == [['20']], final
         peer.ok(f'SELECT id FROM {audit}', [['8']])
-        if not check_disconnect:
+        if native:
             return {'resumed_once': True, 'invisible_until_commit': True}
 
         peer.ok('BEGIN', status=b'T')
@@ -179,14 +195,14 @@ def main():
     for workers in (1, 4):
         native = scenarios(args.postgres_port, workers)
         copy_native = copy_scope(args.postgres_port, workers, True)
-        native_park = parked(args.postgres_port, workers)
+        native_park = parked(args.postgres_port, workers, native=True)
         Server.test_workers = workers
         with Server(binary, max_clients=8, extra_arguments=('--work-rows', '1024', '--result-rows', '512')) as candidate:
             actual = scenarios(candidate.port, workers)
             for name, expected in native.items():
                 assert actual[name] == expected, (workers, name, actual[name], expected)
             copy_test = copy_scope(candidate.port, workers, False)
-            lock_test = parked(candidate.port, workers, check_disconnect=True)
+            lock_test = parked(candidate.port, workers)
             assert all(lock_test[name] == expected for name, expected in native_park.items())
             pressure_test = pressure(candidate.port)
         evidence['modes'].append({'workers': workers, 'ordinary': actual, 'native_copy': copy_native,
