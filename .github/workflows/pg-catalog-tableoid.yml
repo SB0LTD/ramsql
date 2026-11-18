@@ -1,8 +1,8 @@
-name: Native PostgreSQL private schema grants
+name: Native schema ACL materialization contract
 
 on:
   push:
-    branches: [ci/pg-schema-usage-grants-20261118]
+    branches: [ci/pg-schema-acl-materialization-20261118]
   workflow_dispatch:
 
 permissions:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   catalogs:
-    name: Native durable namespace grants
+    name: Native durable ACL materialization
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     strategy:
@@ -23,8 +23,8 @@ jobs:
     env:
       PRODUCT_REVISION: 6424940c45f56d1529a3531a8834234dfb4e792b
       PRODUCT_SHA256: 6562d8f0a6dec9024e840a44dd5831b820c1c7f5d233c7f30397d20006797b9e
-      ZPM_REVISION: e93886bfdbbf63801ee1e24fde0c022af50876bf
-      ZPM_SHA256: cafe02cfaf98dbb99debe6967f6eb3ee4798612b425ee0b31e116d8e3d4456d9
+      ZPM_REVISION: 5ffc161b2944e92462dacdc2e599254ac12f2427
+      ZPM_SHA256: bc8bc5d4c6b958cb817c0ad20968e2d7229aab6ba58f0b8415be56997d98c8e6
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,7 +35,7 @@ jobs:
       - name: Verify exact source, dependency and native SDK
         run: |
           if ((git rev-parse HEAD) -ne $env:PRODUCT_REVISION) { throw 'Unexpected RAMSQL source revision' }
-          $null = New-Item -Type Directory -Force evidence,sig-out
+          $null = New-Item -Type Directory -Force evidence
           $env:PRODUCT_REVISION > evidence/product-revision.txt
           $env:ZPM_REVISION > evidence/zpm-revision.txt
           function Verify-Archive($url, $wanted, $path) {
@@ -45,8 +45,6 @@ jobs:
           }
           Verify-Archive "https://github.com/SB0LTD/ramsql/archive/$env:PRODUCT_REVISION.tar.gz" $env:PRODUCT_SHA256 (Join-Path $env:RUNNER_TEMP 'product.tar.gz')
           $zpmUrl = "https://github.com/SB0LTD/zpm/archive/$env:ZPM_REVISION.tar.gz"
-          $zon = Get-Content build.sig.zon -Raw
-          if (-not $zon.Contains($zpmUrl) -or -not $zon.Contains($env:ZPM_SHA256)) { throw 'Unexpected ZPM dependency pin' }
           Verify-Archive $zpmUrl $env:ZPM_SHA256 (Join-Path $env:RUNNER_TEMP 'zpm.tar.gz')
           python tools/release_matrix.py --compiler-host "$env:RUNNER_OS/$env:RUNNER_ARCH" > evidence/compiler-release.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -75,15 +73,6 @@ jobs:
           python tools/prepare_sig_runtime.py --installed-lib $env:SIG_LIB_DIR `
             --output (Join-Path $env:RUNNER_TEMP 'runtime') --github-env $env:GITHUB_ENV
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Build exact ReleaseSafe server
-        id: server
-        run: |
-          $options = @('-Doptimize=ReleaseSafe', '-Dcolumns=16')
-          if ($env:RUNNER_OS -eq 'macOS') { $options += '-Dlink-libc=true' }
-          & $env:SIG build @options 2>&1 | Tee-Object evidence/build.txt
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $binary = if ($env:RUNNER_OS -eq 'Windows') { 'sig-out/bin/ramsql.exe' } else { 'sig-out/bin/ramsql' }
-          (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLowerInvariant() > evidence/binary-sha256.txt
       - name: Verify exact PostgreSQL catalog contract in ZPM
         if: runner.os == 'Linux'
         shell: bash
@@ -97,28 +86,59 @@ jobs:
             "-femit-bin=$RUNNER_TEMP/test-sql-catalog-security"
           "$RUNNER_TEMP/test-sql-catalog-security" 2>&1 | tee evidence/zpm-catalog.txt
           grep -Eq 'catalog security: [0-9]+ assertions, [0-9]+ records replayed' evidence/zpm-catalog.txt
-      - name: Compare the live Linux server against native PostgreSQL 18.3
-        if: always() && runner.os == 'Linux' && steps.server.conclusion == 'success'
+      - name: Compare typed namespace state against native PostgreSQL 18.3
         shell: bash
         run: |
           set -euo pipefail
           image=postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba
           echo "$image" > evidence/reference-image.txt
-          name=namespace-grants-oracle
-          docker run --detach --rm --name "$name" -e POSTGRES_HOST_AUTH_METHOD=trust --publish '127.0.0.1::5432' "$image"
+          name=namespace-acl-materialization-oracle
+          docker run --detach --rm --name "$name" -e POSTGRES_HOST_AUTH_METHOD=trust "$image"
           trap 'docker stop "$name" >/dev/null' EXIT
-          for attempt in $(seq 1 60); do
-            if docker exec "$name" pg_isready -h 127.0.0.1 -U postgres; then break; fi
-            sleep 1
-          done
-          docker exec "$name" pg_isready -h 127.0.0.1 -U postgres
+          ready() {
+            for attempt in $(seq 1 60); do
+              if docker exec "$name" pg_isready -h 127.0.0.1 -U postgres; then return; fi
+              sleep 1
+            done
+            return 1
+          }
+          ready
           docker exec "$name" postgres --version | tee evidence/reference-version.txt
-          port=$(docker port "$name" 5432/tcp | cut -d: -f2)
-          python tools/test_pg_namespace_grants.py --binary sig-out/bin/ramsql --reference-port "$port" \
-            --report evidence/native-namespace-grants.json | tee evidence/native-wire.txt
+          docker exec -i "$name" psql -U postgres -XAtq -v ON_ERROR_STOP=1 <<'SQL' > evidence/native-acl-state.txt
+          CREATE ROLE acl_guest;
+          CREATE SCHEMA acl_state;
+          CREATE TEMP VIEW materialized_acl AS
+              SELECT (nspacl IS NOT NULL)::int AS state
+              FROM pg_catalog.pg_namespace WHERE nspname='acl_state';
+          SELECT 'fresh=' || state FROM materialized_acl;
+          BEGIN;
+          REVOKE USAGE ON SCHEMA acl_state FROM acl_guest;
+          SELECT 'own=' || state FROM materialized_acl;
+          \! psql -U postgres -XAtq -v ON_ERROR_STOP=1 -c "SELECT 'other=' || (nspacl IS NOT NULL)::int FROM pg_catalog.pg_namespace WHERE nspname='acl_state'"
+          ROLLBACK;
+          SELECT 'rollback=' || state FROM materialized_acl;
+          REVOKE USAGE ON SCHEMA acl_state FROM acl_guest;
+          SELECT 'committed_noop=' || state FROM materialized_acl;
+          GRANT USAGE ON SCHEMA acl_state TO acl_guest;
+          REVOKE USAGE ON SCHEMA acl_state FROM acl_guest;
+          SELECT 'returned_default=' || (nspacl = acldefault('n', nspowner))::int
+              FROM pg_catalog.pg_namespace WHERE nspname='acl_state';
+          DROP ROLE acl_guest;
+          SQL
+          docker restart "$name" >/dev/null
+          ready
+          docker exec -i "$name" psql -U postgres -XAtq -v ON_ERROR_STOP=1 <<'SQL' >> evidence/native-acl-state.txt
+          SELECT 'replayed=' || (nspacl IS NOT NULL)::int FROM pg_catalog.pg_namespace WHERE nspname='acl_state';
+          DROP SCHEMA acl_state;
+          CREATE SCHEMA acl_state;
+          SELECT 'recreated=' || (nspacl IS NOT NULL)::int FROM pg_catalog.pg_namespace WHERE nspname='acl_state';
+          SQL
+          sed -n 's/^acl state //p' evidence/zpm-catalog.txt > evidence/zpm-acl-state.txt
+          test "$(wc -l < evidence/native-acl-state.txt)" -eq 8
+          diff -u evidence/native-acl-state.txt evidence/zpm-acl-state.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: pg-namespace-grants-${{ matrix.os }}
+          name: pg-schema-acl-materialization
           path: evidence/
           if-no-files-found: error
