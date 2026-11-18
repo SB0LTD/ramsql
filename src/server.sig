@@ -361,6 +361,19 @@ const Client = struct {
         }
         const required=try session.requiredCapacity();
         if(self.output.len-self.output_len<required) return false;
+        // Idle Bind, Close and Flush touch only this connection and codec.
+        // Sync also stays local because detachedReadEligible excludes listeners.
+        // Use the canonical handler for validation and error recovery, without
+        // reserving a reader or waiting for the database gate.
+        if (candidate == .metadata) {
+            switch (input[0]) {
+                'B', 'C', 'H', 'S' => {
+                    try self.handleDetachedFrame(session, input);
+                    return true;
+                },
+                else => {},
+            }
+        }
         const reader=self.reader orelse return false;
         if(reader.context==null and monotonicClock()<reader.retry_at) return false;
         reader.provision() catch {reader.retry_at=monotonicClock()+1000000000;return false;};
@@ -402,12 +415,16 @@ const Client = struct {
         if(source!=null and prepared and !prepared_primary_key and context.needsZoneResolver()) return false;
         self.connection.read_context=context;self.connection.running_statement=true;
         defer {self.connection.read_context=null;self.connection.running_statement=false;self.read_deadline=null;}
+        try self.handleDetachedFrame(session, input);
+        return true;
+    }
+
+    fn handleDetachedFrame(self: *Client, session: *PG, input: []const u8) !void {
         const output=self.output[self.output_len..];
         const reply=try session.handle(&self.connection,input,output);
         if(reply.consumed>self.input_len or reply.written>output.len or reply.blocked or reply.cancel!=null) return error.InvalidReply;
         if(reply.consumed!=0) self.consume(reply.consumed) else if(self.input_len==self.input.len) return error.RequestTooLarge;
         self.output_len+=reply.written;self.closing=reply.close;
-        return true;
     }
 
     fn consume(self: *Client, count: usize) void {

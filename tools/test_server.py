@@ -279,6 +279,34 @@ def test_parameterized_primary_key(server):
         writer.ok("DROP TABLE prepared_rows")
 
 
+def test_idle_extended_metadata(server):
+    statement = b"metadata_statement\0"
+    portal = b"metadata_portal\0"
+    parse = packet(b"P", statement + b"SELECT $1::BIGINT\0" + struct.pack("!HI", 1, 20))
+    bind = packet(b"B", portal + statement + struct.pack("!HHI", 0, 1, 2) + b"42\0\0")
+    close = packet(b"C", b"P" + portal)
+    flush = packet(b"H")
+    sync = packet(b"S")
+    with connection(server) as pg:
+        pg.sock.sendall(parse + bind + close + flush + sync)
+        check(pg.ready() == [(b"1", b""), (b"2", b""), (b"3", b""), (b"Z", b"I")])
+        pg.sock.sendall(bind + bind + flush + sync)
+        duplicate = pg.ready()
+        expect_error(duplicate, "42P03")
+        check([tag for tag, _ in duplicate] == [b"2", b"E", b"Z"])
+        pg.sock.sendall(bind + packet(b"E", portal + U32.pack(0)) + sync)
+        selected = pg.ready()
+        check([tag for tag, _ in selected] == [b"2", b"D", b"C", b"Z"])
+        check(rows(selected) == [["42"]])
+        pg.ok("BEGIN", status=b"T")
+        missing = packet(b"B", portal + b"missing_statement\0")
+        pg.sock.sendall(missing + sync)
+        failed = pg.ready()
+        expect_error(failed, "26000")
+        check(failed[-1] == (b"Z", b"E"))
+        pg.ok("ROLLBACK")
+
+
 def test_catalog_read_routing(server):
     with connection(server) as pg:
         pg.ok("CREATE TABLE wire_catalog (id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY)")
@@ -840,7 +868,8 @@ def main():
     binary = args.binary.resolve(strict=True)
     started = time.monotonic()
     with Server(binary) as server:
-        for test in (test_crud_shared, test_parameterized_primary_key, test_catalog_read_routing, test_detached_relation_locks,
+        for test in (test_crud_shared, test_parameterized_primary_key, test_idle_extended_metadata,
+                     test_catalog_read_routing, test_detached_relation_locks,
                      test_fragmented_and_coalesced, test_ssl_negotiation,
                      test_half_close_and_partial_reads,
                      test_protocol_errors, test_fatal_frames, test_truncated_disconnect,
