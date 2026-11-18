@@ -32,8 +32,15 @@ database grant before client workspaces and operating-system headroom. With
 32-byte version headers, a one-word payload and the existing two power-of-two
 u32 hash arrays, the two banks require at least 15,494,967,376 bytes. The
 measured database grant was about 14.35 GB. This estimate is specific to the
-current bank representation and the tested runner. The full multi-table proof
-requires an adequately sized runner or a verified reduction in bank storage.
+current bank representation and the tested runner. A dedicated preflight
+measured a 14,148,532,736-byte grant and a 15,597,510,656-byte peak server
+region request for two narrow banks including client and reader space. The
+same workflow separately loaded 262,144 rows into each table, checked 16
+joined groups and 20 ordered rows, and matched the results after process
+termination and WAL replay. It verified the uncommitted update was absent.
+The two-100M load was withheld after its preflight failed. That load requires
+an adequately sized runner or a verified reduction in bank storage.
+[Two-table capacity and durability evidence](https://github.com/benor1470/dbMeter/actions/runs/44224156462)
 
 ### Earlier dbMeter evidence
 

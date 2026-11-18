@@ -139,6 +139,25 @@ lifetime. Its effect on original JDBC throughput remains to be measured.
 [CPU profile](https://github.com/benor1470/dbMeter/actions/runs/44217950460) ·
 [Linux transport contracts](https://github.com/SB0LTD/zpm/actions/runs/44220775588)
 
+The exact published x86-64 Linux binary ran a separate durability profile on
+512 rows with one primary key and one integer payload. Each writer repeatedly
+updated its own row. In three 512-operation trials per phase, median durable
+throughput was 2,782, 3,569, 3,507 and 3,517 updates/s at one, four, eight and
+sixteen writers. The corresponding memory rates were 8,385, 7,637, 6,287 and
+6,547. Separate tracing observed 10,752 `fsync` calls for 10,752 commits and
+median flush durations of 213–224 µs. At eight writers plus eight readers,
+median read p95 was 5.329 ms durable, 4.692 ms in memory and 2.447 ms with
+eight readers alone. The 51 durable reopen checks matched the acknowledged
+state. These results quantify the write-path investigation on this workload.
+[Exact durable write profile](https://github.com/SB0LTD/ramsql/actions/runs/44225804971)
+
+A separate PostgreSQL tooling build matches stock `psql \d` discovery through
+incoming and outgoing foreign-key metadata, including a real reference. The
+12-query stock program still stops at the policy query, which uses an array
+subquery. Extended statistics, publication, trigger and partition reporting
+also require independent checks.
+[PostgreSQL tooling comparison](https://github.com/SB0LTD/ramsql/actions/runs/44225975198)
+
 ## 17 November 2026 qualification checkpoint
 
 The combined RAMSQL candidate `b90354c8911b22a340fb68d15383205cd2ccf4b5`, with
