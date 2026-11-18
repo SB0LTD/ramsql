@@ -18,8 +18,13 @@ the lock queue when an AccessExclusive owner or waiter is present. The Windows
 build matched all 46 native PostgreSQL 18.3 durable isolation schedules and
 passed 17 two-worker wire cases with 4,539 assertions. The test covers waiting
 behind queued DDL, rollback restoring visibility and prepared reads returning
-`42P01` after committed DROP. [Table-lock change](https://github.com/SB0LTD/zpm/pull/223) ·
-[Replacement release matrix](https://github.com/SB0LTD/ramsql/actions/runs/44202780430)
+`42P01` after committed DROP. The same revision matched all 118 native
+inventory and 331 durable SCRAM semantic cases. Its exact native SB0X and SB0K
+images passed 874 and 860 assertions. The Linux 100M fixture again recovered
+the exact 6.77 GB WAL and reproduced every result in 140.389 seconds.
+[Table-lock change](https://github.com/SB0LTD/zpm/pull/223) ·
+[Replacement release matrix](https://github.com/SB0LTD/ramsql/actions/runs/44202780430) ·
+[100M fixture](https://github.com/benor1470/dbMeter/actions/runs/44203961680)
 
 RAMSQL `0af167b420edd605597bf5bb7c25dc0fc9483136` with ZPM
 `aa0250509ebb1befb9d9864bd98581f7e695f970` matched all 118 original wire
@@ -63,14 +68,35 @@ With a 256 MiB request for the opt-in result cache, a separate same-binary A/B
 passed the original 5M-row sales correctness checks in both modes. The repeated
 read-only full sales mix moved from 52.45 to 17,936.73 queries/s at one client
 and from 138.01 to 17,633.45 queries/s at eight. Eight-client p99 moved from
-174.079 ms to 8.575 ms. Cross-engine performance under that exact configured
-profile requires its own full campaign, including the original key cases.
-[Paired cache benchmark](https://github.com/benor1470/dbMeter/actions/runs/44188527666)
+174.079 ms to 8.575 ms. The subsequent all-engine campaign on `75becd84`
+passed every original correctness and capacity check and led median throughput
+in 15 of 16 cases. It cleared all performance criteria in ten cases. Four
+prepared primary-key cases and the million-row filter and Top-N with one
+client missed the gate. These results use the explicit cache budget and the
+original repeated, read-only sales scenarios.
+[Paired cache benchmark](https://github.com/benor1470/dbMeter/actions/runs/44188527666) ·
+[All-engine cache comparison](https://github.com/benor1470/dbMeter/actions/runs/44196542437)
 
 One-pass shared-storage range validation improved prepared point lookups in
 each of 24 original JDBC trials across 100K and 1M rows. Paired throughput
 gains were 6.7–9.1% at one client and 15.1–16.5% at eight. Median p99 improved
 in all four cases. [Lookup A/B](https://github.com/benor1470/dbMeter/actions/runs/44192112939)
+
+Rejecting disjoint address ranges before individual buffer comparisons
+improved median prepared PK throughput another 4.3–6.0% across those four
+cases. Scanning only the surviving projection lanes for sparse conjunctions
+increased the million-row filter from 745.77 to 982.23 queries/s at one client
+and from 2,070.53 to 2,622.45 at eight. Median p99 fell from 1.71 to 1.30 ms
+and from 6.85 to 5.82 ms. Every paired trial improved throughput.
+[Address-range A/B](https://github.com/benor1470/dbMeter/actions/runs/44202984568) ·
+[Sparse filter A/B](https://github.com/benor1470/dbMeter/actions/runs/44205131087)
+
+The committed integral projection moved the unchanged million-row Top-N
+query from 24.45 to 631.81 queries/s at one client, with median p99 falling
+from 46.59 to 1.81 ms. The same-runner A/B exercised both RAMSQL builds
+with identical data, correctness checks and capacity. The combined build is
+being qualified separately. [Top-N A/B](https://github.com/benor1470/dbMeter/actions/runs/44203326892) ·
+[Executor change](https://github.com/SB0LTD/zpm/pull/227)
 
 ## 17 November 2026 qualification checkpoint
 
