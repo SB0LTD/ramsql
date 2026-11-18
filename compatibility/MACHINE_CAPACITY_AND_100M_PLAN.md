@@ -27,6 +27,14 @@ and explicit headroom together before raising it. Admission at multiple
 [Compact header evidence](https://github.com/benor1470/dbMeter/actions/runs/44186893882) ·
 [Compact header draft](https://github.com/SB0LTD/zpm/pull/221)
 
+Even two narrow packed 100M-row tables exceed the public runner's measured
+database grant before client workspaces and operating-system headroom. With
+32-byte version headers, a one-word payload and the existing two power-of-two
+u32 hash arrays, the two banks require at least 15,494,967,376 bytes. The
+measured database grant was about 14.35 GB. This estimate is specific to the
+current bank representation and the tested runner. The full multi-table proof
+requires an adequately sized runner or a verified reduction in bank storage.
+
 ### Earlier dbMeter evidence
 
 The original dbMeter workload passed 38 result checks each for RAMSQL,

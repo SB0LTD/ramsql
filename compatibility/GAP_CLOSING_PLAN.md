@@ -2,6 +2,19 @@
 
 ## 18 November 2026 qualification checkpoint
 
+Beta.3 prerelease `ci-v0.3.0-beta.3-run.44202780430.1` published automatically
+after the complete matrix passed. The source tree matches RAMSQL main merge
+`3d1b5a0e58c4b3e5a2b60f0c1e768d960f3e5726`. All 29 release assets were
+downloaded and the 28 listed checksums recomputed. The bundle includes six
+hosted Linux, macOS and Windows artifacts and actual SB0X and SB0K boot images.
+The exact packaged Linux binary passed the four PostgreSQL 16 and 18 suites
+in memory and durable SCRAM modes. The separate release smoke test found a
+1.44× single-client point-read lead against durable PostgreSQL and a 0.73×
+relative insert rate. The package is available for beta testing. The production
+gate and the formal dbMeter performance gate remain open.
+[Beta.3 downloads](https://github.com/SB0LTD/ramsql/releases/tag/ci-v0.3.0-beta.3-run.44202780430.1) ·
+[Exact release evidence](https://github.com/SB0LTD/ramsql/actions/runs/44202780430)
+
 The consolidated `1b1a3e747dc4fb1c093ee93911ce453a380c33d8` revision matched all
 118 native inventory programs again and all 331 PostgreSQL 18.3 durable SCRAM
 cases. The Windows packed build passed 16 two-worker wire cases, 8,598
