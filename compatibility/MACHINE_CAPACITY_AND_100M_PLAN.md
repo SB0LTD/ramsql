@@ -337,7 +337,7 @@ The current Sig POSIX thread adapter allocates its launch arguments through
 `std.heap.c_allocator` before `pthread_create`. Wiring `pthread_create` directly
 with a caller-owned stack would still leave the thread control block in a
 separate opaque mapping managed by Apple's libpthread. The current worker
-layer requires control over the storage used to launch workers.
+layer excludes the libc pthread lifecycle.
 [ZPM worker implementation](https://github.com/SB0LTD/zpm/blob/e892c3b0/src/platform/worker_thread.sig),
 [Apple libpthread allocation path](https://github.com/apple-oss-distributions/libpthread/blob/main/src/pthread.c#L548-L644).
 
@@ -345,12 +345,21 @@ Apple's public Mach thread primitive can start a raw thread, while the workers
 need valid LibSystem thread state for sockets and error handling. Libpthread
 initializes that state through its own startup and lifecycle machinery. Apple
 provides a public address-based wait interface, which solves the sleeping and
-wake-up part of the worker runtime. A bounded multi-core design within the
-current allocation policy would use separately launched read-only processes
-with caller-sized mappings and a publication protocol. It needs cancellation,
-snapshot ownership and memory-budget proofs before product adoption.
+wake-up part of a native thread runtime.
 [Apple libpthread startup](https://github.com/apple-oss-distributions/libpthread/blob/main/src/pthread.c#L1417-L1486),
 [Apple address wait API](https://developer.apple.com/documentation/os/os_sync_wait_on_address).
+
+A multi-core design within the current policy can use read-only processes
+launched with `posix_spawn` through the existing LibSystem link. The public
+API accepts a caller-owned argument vector and permits null file actions and
+attributes. Each reader would map shared snapshot data read-only and resolve
+offsets in its own address space. The coordinator keeps WAL and transaction
+publication ownership. Admission charges the physical snapshot pages once,
+then charges each reader's stack, query workspace and bounded IPC buffers.
+An initial contract needs simultaneous readers, commit visibility, cancellation
+and failed-child cleanup before any product integration.
+[Apple process launch](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/posix_spawn.2.html),
+[Apple shared mappings](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/mmap.2.html).
 
 These changes are outside the published beta.2 dependency pin. Do not attribute
 their behavior or physical-column sizes to the release's inline SQL layout.
