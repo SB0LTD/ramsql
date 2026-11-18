@@ -124,7 +124,10 @@ def measure(psycopg, args, folder, name, memory, traced, writers, readers):
     trace_path = data_dir / "wal.trace"
     prefix = ()
     if traced:
-        prefix = (str(args.strace), "--seccomp-bpf", "--kill-on-exit", "-fqq", "-ttt", "-T", "-y", "-s", "0",
+        # Keep the tracee as the subprocess's direct child so shutdown waits
+        # for the actual WAL owner before the recovery pass can begin.
+        prefix = (str(args.strace), "--daemonize=grandchild", "--seccomp-bpf", "--kill-on-exit",
+                  "-fqq", "-ttt", "-T", "-y", "-s", "0",
                   "-e", f"trace={','.join(TRACE_CALLS)}", "-P", str(wal), "-o", str(trace_path), "--")
     options = ("--workers", str(args.workers), "--max-clients", str(max(args.workers, max(args.clients) + 1)),
                "--result-rows", str(ROWS))
@@ -164,10 +167,6 @@ def measure(psycopg, args, folder, name, memory, traced, writers, readers):
             require(last_sequence(wal.read_bytes()) - beginning_sequence == (args.operations if writers else 0),
                     "unexpected WAL sequence growth")
             require((wal_growth > 0) == (writers > 0), "WAL grew without a write or write produced no WAL")
-    if wal:
-        with running_ramsql(args.binary, data_path=wal, extra_arguments=options) as reopened:
-            with psycopg.connect(**reopened, prepare_threshold=None) as connection:
-                validate_rows(connection, expected)
     result = {"storage": "memory" if memory else "synchronous_wal", "traced": traced,
               "writers": writers, "readers": readers, "phase_elapsed_ns": elapsed,
               "latency_ns": {role: distribution([duration for _, duration in timings])
@@ -180,6 +179,10 @@ def measure(psycopg, args, folder, name, memory, traced, writers, readers):
         calls = parse_trace(raw.decode().splitlines(), wal, began, ended)
         result["trace"] = trace_summary(calls, args.operations, wal_growth, samples, ended - began - elapsed)
         result["trace"].update({"file": compressed.name, "sha256": sha256(compressed)})
+    if wal:
+        with running_ramsql(args.binary, data_path=wal, extra_arguments=options) as reopened:
+            with psycopg.connect(**reopened, prepare_threshold=None) as connection:
+                validate_rows(connection, expected)
     return result
 
 
