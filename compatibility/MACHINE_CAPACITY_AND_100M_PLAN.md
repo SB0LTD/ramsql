@@ -8,6 +8,59 @@ constant or a larger executable does not satisfy this requirement.
 
 ## Current evidence and blockers
 
+The 18 November Linux qualification on RAMSQL `da0b68f1` used one real
+100M-row, six-column integral fact table and two dimension tables. It recovered
+the 6,771,074,198-byte synchronous WAL after process termination in 140.389
+seconds with peak RSS 13,383,847,936 bytes. After replay it reproduced all
+91 full and three selective groups, 20 ordered rows and concurrent key probes.
+The uncommitted update was absent. Data other than the packed integral fact
+schema and multiple fact tables at this scale remain unqualified.
+[Exact durable run](https://github.com/benor1470/dbMeter/actions/runs/44203961680)
+
+An isolated 32-byte MVCC experiment reduced peak resident memory by
+1,601,085,600 bytes at this scale. The measured images ran on distinct hosted
+runners, so their wall-clock recovery figures do not establish a layout speedup.
+The runtime connection ceiling is still 60. Evaluate caller-owned poll capacity,
+per-client result and response page grants, available transaction workspaces
+and explicit headroom together before raising it. Admission at multiple
+100M-row tables needs a separate dataset and enough measured effective memory.
+[Compact header evidence](https://github.com/benor1470/dbMeter/actions/runs/44186893882) ·
+[Compact header draft](https://github.com/SB0LTD/zpm/pull/221)
+
+Even two narrow packed 100M-row tables exceed the public runner's measured
+database grant before client workspaces and operating-system headroom. With
+32-byte version headers, a one-word payload and the existing two power-of-two
+u32 hash arrays, the two banks require at least 15,494,967,376 bytes. The
+measured database grant was about 14.35 GB. This estimate is specific to the
+current bank representation and the tested runner. A dedicated preflight
+measured a 14,148,532,736-byte grant and a 15,597,510,656-byte peak server
+region request for two narrow banks including client and reader space. The
+same workflow separately loaded 262,144 rows into each table, checked 16
+joined groups and 20 ordered rows, and matched the results after process
+termination and WAL replay. It verified the uncommitted update was absent.
+The 50% hash-load profile failed its preflight for that two-100M load.
+[Two-table capacity and durability evidence](https://github.com/benor1470/dbMeter/actions/runs/44224156462)
+
+The experimental 75% hash-load profile subsequently loaded two real
+100,000,000-row tables on the public runner. Each table has an `INTEGER`
+primary key and a non-null `SMALLINT` payload. The peak planned server region
+fell from 15,597,510,656 to 13,450,027,008 bytes. The measured grant was
+14,519,883,264 bytes. After process termination the 6,411,200,215-byte WAL
+replayed in 231.086 seconds at 13,374,668,800 bytes peak RSS. Both runs
+matched 16 joined sum/count groups and 20 ordered results. Recovery excluded
+an uncommitted update. Two six-word banks still require 21,357,969,408 bytes
+of backing on this profile before execution overhead.
+[Exact two-100M proof](https://github.com/benor1470/dbMeter/actions/runs/44226187387)
+
+The accompanying three-pair prepared-key diagnostic used 720,000 sparse keys
+at two actual hash capacities for the same binary and dataset. Median rates
+changed by −2.15% at one client and +2.50% at eight. Median p99 changed by
+−0.29% and −6.96% respectively. The 75% density remains an explicit experimental
+choice. The original dbMeter and wider typed storage gates are tracked separately.
+[Prepared-key density A/B](https://github.com/benor1470/dbMeter/actions/runs/44226620416)
+
+### Earlier dbMeter evidence
+
 The original dbMeter workload passed 38 result checks each for RAMSQL,
 PostgreSQL and IRDB in [CI run 44103107594](https://github.com/benor1470/dbMeter/actions/runs/44103107594).
 That includes all seven full sales checks on the six-table dataset with five
@@ -26,8 +79,174 @@ retains three 60-second trials per case, result and capacity checks, and raw
 latency data. Keep the performance gate open until the repeated rate and tail
 latency requirements pass on every original case.
 
+The full-duration mixed workload measured 1.38 and 3.21 queries/s for RAMSQL
+and 56.26 and 77.02 for IRDB, respectively at one and eight clients. The same
+runner comparison for the date-formatting optimization improved the original
+region/month query 4.77× at one client and 5.13× at eight versus the RAMSQL
+control. Those runs used the original SQL and expected results.
+[Full-duration comparison](https://github.com/benor1470/dbMeter/actions/runs/44104864502) ·
+[Date optimization](https://github.com/benor1470/dbMeter/actions/runs/44111073448)
+
+The five-million-row packed-bank experiment passed all 114 original result
+checks across the three engines and all six capacity probes. RAMSQL's
+reported startup reservation fell from 11,587,103,312 to 1,982,847,056 bytes
+with the same executable and capacity profile, an 82.9% reduction. The
+experiment changes the six-word payload for the integral and date sales fact
+table. This measures planned startup bytes. The opt-in layout still needs
+heterogeneous schema, DDL, replay, reclamation and multi-table 100M-row tests.
+[Packed-bank CI evidence](https://github.com/benor1470/dbMeter/actions/runs/44121640322)
+
+The combined packed and typed-analytics build passed the original full and
+subset correctness and capacity checks. On the full five-million-row mixed
+workload it measured 52.86 queries/s at one client and 116.87 at eight. IRDB
+measured 62.94 and 88.38 respectively. The full case remains below the 2×
+threshold and the one-client result remains below IRDB. The full run used four
+logical CPUs and 16.76 GB of physical RAM. The server ran with four workers,
+explicit budgets and the six-word fact bank. [Matched full-sales CI](https://github.com/benor1470/dbMeter/actions/runs/44125997780)
+
+The completed campaign passed the original correctness and capacity checks in
+size-scaling, full sales and subset sales. Six of the 12 scored size-scaling
+cases passed the strict advantage criteria. Top-N throughput across 100k and
+1M rows measured 2.60–7.69× the fastest reference. The 100k filters measured
+3.15–5.23×. The 1M filters measured 1.16–1.93× and all four primary-key
+cases remained below PostgreSQL in this campaign. The full and subset mixed
+suites also failed the advantage threshold. [Complete dbMeter decision](https://github.com/benor1470/dbMeter/actions/runs/44125997780)
+
+The packed Windows planner estimates 27.29 GB of startup reservations for one
+100M-row fact table plus the small dimension tables, and 52.64 GB for two such
+fact tables under the same sizing assumptions. Both use six-word integral
+payloads, 65,536 spare versions per fact table, 65,536 workspace rows, 2,048
+result rows, eight workers and 12 clients. These estimates come from the
+capacity command without loading data. The public benchmark runner has less
+physical memory than either startup estimate. Multi-table 100M qualification
+still requires actual SQL loads, concurrent reads/writes and durable recovery.
+
+One 100M-row fact bank reserves about 9.61 GB for version metadata and the
+six-word typed payload, 7.70 GB for the duplicate committed scan projection,
+and 4.29 GB for four secondary hashes. Scoped core contracts now validate
+omitting the scan projection and admitting fewer secondary hashes per table.
+A logical index with no hash storage enforces uniqueness through an exact
+MVCC scan in the supported layout. Omitted committed projections fall back to
+existing execution paths and retain their workspace requirements. The shared
+query references and lazy worker workspaces are the next significant
+reservations to account for in a live 100M run.
+
+The opt-in typed-bank memory profile brings the page-rounded startup
+reservation to 10,176,737,280 bytes for one 100M-row two-word fact table with
+one worker. A six-word profile with eight workers reports 13,704,036,352
+startup bytes. Both are capacity-only results and exclude lazy per-connection
+and read-context allocations. The same executable passed a real 10,000-row
+COPY, grouping and key-lookup check under the opt-in profile.
+
+The exact ReleaseSafe Linux artifact then loaded **100,000,000 rows** through
+PostgreSQL COPY. SQL checked count, sum, min and max, selective grouping,
+1,024 primary-key lookups and three duplicate-key errors. Load and checks took
+201.371 seconds. Peak and final RSS were 10,171,846,656 bytes. The runner had
+16,758,390,784 physical bytes and sampled a 14,343,235,328-byte grant. This run
+used one worker and a two-column fact table in memory mode. Wide joined
+workloads, multiple 100M-row tables, durability and comparative performance
+remain separate qualification targets.
+[Verified 100M-row CI](https://github.com/benor1470/dbMeter/actions/runs/44152396601)
+
+A subsequent run loaded 100M six-column facts, 963 products and 116 stores.
+The three-table aggregate matched all 91 full groups over 85,226,703 joined
+rows and all three selective groups over 92,896 joined rows. Two concurrent
+sessions also passed 512 fact lookups, 1,024 dimension lookups and two missing
+key checks. The run charged 13,392,289,792 startup bytes and peaked at
+13,380,136,960 resident bytes. The ordered three-way range projection returned
+`54000` with only 128 qualifying keys. [100M joined correctness](https://github.com/benor1470/dbMeter/actions/runs/44156569523)
+
+The joined executor follow-up returns all 20 expected ordered rows from the
+last 128 keys with the same 100M-row fixture and memory budget. It also repeats
+the 91 full and three selective aggregate groups and concurrent point reads.
+The exact Linux artifact peaked at 13,379,989,504 bytes of RSS. The follow-up
+ran in memory mode. [100M ordered join qualification](https://github.com/benor1470/dbMeter/actions/runs/44159748217)
+
+The subsequent synchronous-WAL run loaded and checked the same 100M facts,
+recorded a 6,771,074,198-byte WAL, and killed the process with an uncommitted
+update still private to its writer. The server exceeded the 900-second
+restart deadline. Replay validation was scanning all committed rows for each
+change record to count the current relation. That count is already maintained
+by the committed summary. The 262,144-row durable control passed the same
+restart and verification protocol. [Initial durable 100M run](https://github.com/benor1470/dbMeter/actions/runs/44161735950)
+
+The synchronous-WAL rerun on RAMSQL `aebb257599da2325849c1975573b9d303b88ecc0`
+and ZPM `ae23be238fa7a1696b36b1d472cddef364d49a16` loaded the same 100M
+six-column facts, 963 products and 116 stores. After an abrupt process kill,
+the server reopened the 6,771,074,198-byte WAL and accepted connections in
+**132.213 seconds**. The uncommitted update was absent. Both before and after
+recovery, the fixture matched all 91 full groups, three selective groups,
+20 ordered rows from the last 128 fact keys, and both concurrent point-read
+probes. [Verified durable 100M run](https://github.com/benor1470/dbMeter/actions/runs/44168220455)
+
+Peak RSS was 13,380,149,248 bytes before restart and 13,380,636,672 bytes
+after recovery. The two-worker profile charged 13,392,289,792 startup bytes
+against a 14,347,884,288-byte process budget. Replay uses the committed row
+count when its summary is valid for the replay horizon and agrees with
+occupied row slots. It scans committed versions when those checks fail.
+The 953-assertion change-record contract covers mixed INSERT, UPDATE, DELETE
+and TRUNCATE, invalid or stale summaries, and a deleted slot retained by a
+pinned snapshot. [Replay validation change](https://github.com/SB0LTD/zpm/pull/216)
+
+The Linux run used ReleaseSafe, `-Dintegral-version-banks=true` and the
+opt-in typed bank memory profile. The fact bank held 100,065,536 version
+slots. The query limits were 8,192 workspace rows, 262,144 query references
+and 1,024 result rows. The 262,144-row control recovered in 0.254 seconds.
+Qualification remains open for multiple 100M-row tables, wider schemas,
+concurrent durable writes and cross-engine performance. [Exact workflow](https://github.com/benor1470/dbMeter/blob/7db332bd483641b474418e2121d75879fd140074/.github/workflows/typed-bank-100m-star.yml)
+
+The follow-up on RAMSQL `b90354c8911b22a340fb68d15383205cd2ccf4b5` with
+ZPM `7c56722bb354e1e44d418c6351edc08ee4539218` repeated the unchanged
+durable fixture. Recovery took **141.301 seconds** after abrupt termination
+with the same 6,771,074,198-byte WAL. Peak RSS was 13,381,877,760 bytes
+before restart and 13,382,922,240 bytes after it. All grouped results, the
+20 ordered rows, concurrent probes and rollback visibility matched.
+[Combined candidate 100M recovery](https://github.com/benor1470/dbMeter/actions/runs/44175057270)
+
+Linux binary SHA-256 `8253ab22d3d2aa459d442c26b4c1527183d0ef8798764df8ce24d36141aca774`.
+Evidence ZIP SHA-256 `c32d79a68a34ecf69f62fe259c69bc244ccb3b8c5daaec284b81582adc9439aa`.
+
+The earlier dense-storage ROLLUP campaign stopped during the third pair when
+the runner hit its memory budget. The packed retry completed all three pairs
+with identical compiler, capacity options and original data. Throughput for
+the segment/discount query improved 50.8–68.1× at one client and 42.2–43.8× at
+eight versus the packed RAMSQL control. The full mixed workload improved
+27.3–30.2×. The reference-engine results above still determine qualification.
+[Incomplete dense campaign](https://github.com/benor1470/dbMeter/actions/runs/44117394260) ·
+[Completed packed comparison](https://github.com/benor1470/dbMeter/actions/runs/44125997780)
+
+The separate opt-in cache comparison completed all three original trial pairs
+using the same packed executable and unchanged data. With warm repeated reads,
+the full mix reached 18,528.72 queries/s at one client and 17,213.43 at eight,
+compared with 41.99 and 94.40 with its cache disabled. The all-engine campaign
+uses the uncached profile. [Same-executable cache CI](https://github.com/benor1470/dbMeter/actions/runs/44129733754)
+
+The prepared primary-key fast path improved original JDBC throughput by
+12.9–13.9% at one client and 18.8–20.0% at eight across paired 100k- and
+1M-row fixtures. At 1M rows, p99 improved from 78 to 70 microseconds at one
+client and from 267 to 229 at eight. Both binaries passed all original checks
+in the comparison. [Prepared primary-key CI](https://github.com/benor1470/dbMeter/actions/runs/44135273175)
+
+Changing exact DISTINCT membership to idempotent bitmap writes and a final
+population count improved category ranking 3.8% at one client and 1.2% at
+eight by median throughput. The mixed workload showed less than 0.5% change
+at either client count. [Exact DISTINCT CI](https://github.com/benor1470/dbMeter/actions/runs/44134658004)
+
+A bounded integer accumulator improved the original region/month report from
+22.17 to 24.28 queries/s at one client and 48.80 to 55.63 at eight versus the
+packed RAMSQL control. The corresponding p99 moved from 49.663 to 45.567 ms
+and from 255.999 to 215.039 ms. All three pairs improved for this query and
+passed the unchanged correctness checks. [Bounded accumulator CI](https://github.com/benor1470/dbMeter/actions/runs/44139628227)
+
+Skipping NULL flags and sharing group counts when committed summaries prove
+all inputs are present improved median Q1 throughput a further 17.0% at one
+client and 26.3% at eight versus the bounded-accumulator executable. In the
+same paired run, the mixed workload improved 10.3% and 11.8%. All 24 timed
+windows and the original correctness checks passed. These are paired RAMSQL
+build comparisons. [Shared count CI](https://github.com/benor1470/dbMeter/actions/runs/44147408025)
+
 The full-sales fact schema needs seven integral cells and one date per row.
-Each MVCC version currently reserves nine full-width cells in the widened build.
+The dense MVCC layout reserves nine full-width cells in the widened build.
 Compact typed MVCC payloads are the storage priority. Establish that inserts,
 updates, ordered and unique indexes, chained snapshots, reclamation and logical
 WAL replay agree with dense storage before using a compact layout in the server.

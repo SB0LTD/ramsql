@@ -1,5 +1,396 @@
 # RAMSQL gap-closing plan
 
+## 18 November 2026 qualification checkpoint
+
+Beta.3 prerelease `ci-v0.3.0-beta.3-run.44202780430.1` published automatically
+after the complete matrix passed. The source tree matches RAMSQL main merge
+`3d1b5a0e58c4b3e5a2b60f0c1e768d960f3e5726`. All 29 release assets were
+downloaded and the 28 listed checksums recomputed. The bundle includes six
+hosted Linux, macOS and Windows artifacts and actual SB0X and SB0K boot images.
+The exact packaged Linux binary passed the four PostgreSQL 16 and 18 suites
+in memory and durable SCRAM modes. The separate release smoke test found a
+1.44× single-client point-read lead against durable PostgreSQL and a 0.73×
+relative insert rate. The package is available for beta testing. The production
+gate and the formal dbMeter performance gate remain open.
+[Beta.3 downloads](https://github.com/SB0LTD/ramsql/releases/tag/ci-v0.3.0-beta.3-run.44202780430.1) ·
+[Exact release evidence](https://github.com/SB0LTD/ramsql/actions/runs/44202780430)
+
+The consolidated `1b1a3e747dc4fb1c093ee93911ce453a380c33d8` revision matched all
+118 native inventory programs again and all 331 PostgreSQL 18.3 durable SCRAM
+cases. The Windows packed build passed 16 two-worker wire cases, 8,598
+authentication assertions and 83 persistence cases. The Linux build recovered
+the same 100M-row fixture from its 6.77 GB synchronous WAL in 139.066 seconds.
+It reproduced the original results before and after restart and held peak RSS
+to 13.384 GB during recovery. [SQL Server evidence](https://github.com/benor1470/dbMeter/actions/runs/44196211165) ·
+[100M evidence](https://github.com/benor1470/dbMeter/actions/runs/44196210578) ·
+[Consolidated matrix](https://github.com/SB0LTD/ramsql/actions/runs/44195561261)
+
+Hosted isolation exposed two reads that bypassed the lock for an uncommitted
+DROP TABLE. `da0b68f1cf3cd6f64d2de2464f9d645b68fb1c31` routes reads through
+the lock queue when an AccessExclusive owner or waiter is present. The Windows
+build matched all 46 native PostgreSQL 18.3 durable isolation schedules and
+passed 17 two-worker wire cases with 4,539 assertions. The test covers waiting
+behind queued DDL, rollback restoring visibility and prepared reads returning
+`42P01` after committed DROP. The same revision matched all 118 native
+inventory and 331 durable SCRAM semantic cases. Its exact native SB0X and SB0K
+images passed 874 and 860 assertions. The Linux 100M fixture again recovered
+the exact 6.77 GB WAL and reproduced every result in 140.389 seconds.
+[Table-lock change](https://github.com/SB0LTD/zpm/pull/223) ·
+[Replacement release matrix](https://github.com/SB0LTD/ramsql/actions/runs/44202780430) ·
+[100M fixture](https://github.com/benor1470/dbMeter/actions/runs/44203961680)
+
+RAMSQL `0af167b420edd605597bf5bb7c25dc0fc9483136` with ZPM
+`aa0250509ebb1befb9d9864bd98581f7e695f970` matched all 118 original wire
+inventory programs. PostgreSQL 18.3 matched all 106 with durable cluster mode
+and prepared transactions enabled. MySQL Community 8.4.13 and SQL Server 2022
+CU28 matched all six programs each. Windows x64 was used for PostgreSQL and
+MySQL and Linux x64 for SQL Server. [Release candidate](https://github.com/SB0LTD/ramsql/pull/70) ·
+[Native SQL Server comparison](https://github.com/benor1470/dbMeter/actions/runs/44185665967)
+
+The Linux x64 build of that revision also recovered a 6,771,074,198-byte
+synchronous WAL in 114.628 seconds after the process was killed. The fixture
+contains 100M six-column integral fact rows and two dimension tables. Recovery
+verified full and selective grouped three-way joins, ordered results, concurrent
+key probes and the absence of an uncommitted update.
+[100M recovery](https://github.com/benor1470/dbMeter/actions/runs/44185666188)
+
+The separate PostgreSQL 18 durable SCRAM suite matched 327 of 331 cases on that
+revision. Four `regclass` catalog cases failed when admitted to a detached
+reader. The replacement `5a51a6e1f5304a4c6228210d7538440d77f177df` routes
+statements that need catalog and session hooks to the owning session. Its
+Windows build matched all 331 unchanged cases against native PostgreSQL 18.3
+with durable SCRAM on RAMSQL and immediate-mode reference restarts. It passed
+15 two-worker packed-enabled wire cases with 4,286 assertions. In a separate
+full CI run, an old workspace contract still expected optimized projected joins
+to fail. The corrected contract verifies eight surviving rows and retains
+the workspace-exhaustion check on the general outer-join path. The latest
+combined revision `1b1a3e747dc4fb1c093ee93911ce453a380c33d8` includes that fix,
+the temporal resolver routing and cluster-wide prepared-transaction semantics.
+[Failing qualification](https://github.com/SB0LTD/ramsql/actions/runs/44185459464) ·
+[Combined release matrix](https://github.com/SB0LTD/ramsql/actions/runs/44195561261)
+
+The original full and subset sales mixes both matched their correctness and
+capacity gates on `0af167b`. RAMSQL reached 1.75× and 1.70× IRDB throughput
+at eight clients and was slightly slower at one. The completed campaign passed
+six of sixteen performance cases. An independent same-binary helper comparison lost
+throughput in every Q3 trial with a dedicated fourth CPU and one query helper.
+[Sales suites](https://github.com/benor1470/dbMeter/actions/runs/44187617545) ·
+[Query helper comparison](https://github.com/benor1470/dbMeter/actions/runs/44187730700)
+
+With a 256 MiB request for the opt-in result cache, a separate same-binary A/B
+passed the original 5M-row sales correctness checks in both modes. The repeated
+read-only full sales mix moved from 52.45 to 17,936.73 queries/s at one client
+and from 138.01 to 17,633.45 queries/s at eight. Eight-client p99 moved from
+174.079 ms to 8.575 ms. The subsequent all-engine campaign on `75becd84`
+passed every original correctness and capacity check and led median throughput
+in 15 of 16 cases. It cleared all performance criteria in ten cases. Four
+prepared primary-key cases and the million-row filter and Top-N with one
+client missed the gate. These results use the explicit cache budget and the
+original repeated, read-only sales scenarios.
+[Paired cache benchmark](https://github.com/benor1470/dbMeter/actions/runs/44188527666) ·
+[All-engine cache comparison](https://github.com/benor1470/dbMeter/actions/runs/44196542437)
+
+One-pass shared-storage range validation improved prepared point lookups in
+each of 24 original JDBC trials across 100K and 1M rows. Paired throughput
+gains were 6.7–9.1% at one client and 15.1–16.5% at eight. Median p99 improved
+in all four cases. [Lookup A/B](https://github.com/benor1470/dbMeter/actions/runs/44192112939)
+
+Rejecting disjoint address ranges before individual buffer comparisons
+improved median prepared PK throughput another 4.3–6.0% across those four
+cases. Scanning only the surviving projection lanes for sparse conjunctions
+increased the million-row filter from 745.77 to 982.23 queries/s at one client
+and from 2,070.53 to 2,622.45 at eight. Median p99 fell from 1.71 to 1.30 ms
+and from 6.85 to 5.82 ms. Every paired trial improved throughput.
+[Address-range A/B](https://github.com/benor1470/dbMeter/actions/runs/44202984568) ·
+[Sparse filter A/B](https://github.com/benor1470/dbMeter/actions/runs/44205131087)
+
+The committed integral projection moved the unchanged million-row Top-N
+query from 24.45 to 631.81 queries/s at one client, with median p99 falling
+from 46.59 to 1.81 ms. The same-runner A/B exercised both RAMSQL builds
+with identical data, correctness checks and capacity.
+[Top-N A/B](https://github.com/benor1470/dbMeter/actions/runs/44203326892) ·
+[Executor change](https://github.com/SB0LTD/zpm/pull/227)
+
+The combined exact build `bbaca185a88e250f8be7d3b97bdbbc87ab499032` with the
+explicit 256 MiB cache budget passed all original result and capacity checks
+and produced 144 valid timing reports. It led median throughput on all 16
+cases and met the full rate, trial separation and p99 criteria on 11. The
+four prepared primary-key cases ran at 1.11× to 1.53× PostgreSQL throughput.
+The million-row single-client filter ran at 1.23× IRDB throughput. The two
+eight-client primary-key cases also merit tail-latency work, especially the
+100K case at 94 µs p99 versus PostgreSQL's 62 µs. All four Top-N cases cleared
+the gate at 22.81× to 31.45× the faster reference. The repeated read-only
+sales workloads cleared their gates. The dbMeter workflow and README claim
+remain gated on a passing all-case run.
+[Combined full-duration campaign](https://github.com/benor1470/dbMeter/actions/runs/44211327722)
+
+An isolated medium-result cache with the same requested budget raised the
+original million-row filter from 1,027 to 9,136 queries/s at one client and
+from 2,746 to 17,122 at eight in a paired test. Median p99 fell from 1,231
+to 149 µs and 5,439 to 1,903 µs respectively. This path serves repeated
+eligible reads after observing the result size and invalidates on relevant
+writes. It still needs all-engine qualification. A separate sampling run of
+the exact combined build found that the active single-client server thread
+spent about 64% of its recorded CPU time in the kernel. `poll` and `sendto`
+were the largest inclusive syscall stacks. The Linux completion experiment
+now has native contracts for partial sends, EOF, cancellation and buffer
+lifetime. Its effect on original JDBC throughput remains to be measured.
+[Filter A/B](https://github.com/benor1470/dbMeter/actions/runs/44217568675) ·
+[CPU profile](https://github.com/benor1470/dbMeter/actions/runs/44217950460) ·
+[Linux transport contracts](https://github.com/SB0LTD/zpm/actions/runs/44220775588)
+
+The exact published x86-64 Linux binary ran a separate durability profile on
+512 rows with one primary key and one integer payload. Each writer repeatedly
+updated its own row. In three 512-operation trials per phase, median durable
+throughput was 2,782, 3,569, 3,507 and 3,517 updates/s at one, four, eight and
+sixteen writers. The corresponding memory rates were 8,385, 7,637, 6,287 and
+6,547. Separate tracing observed 10,752 `fsync` calls for 10,752 commits and
+median flush durations of 213–224 µs. At eight writers plus eight readers,
+median read p95 was 5.329 ms durable, 4.692 ms in memory and 2.447 ms with
+eight readers alone. The 51 durable reopen checks matched the acknowledged
+state. These results quantify the write-path investigation on this workload.
+[Exact durable write profile](https://github.com/SB0LTD/ramsql/actions/runs/44225804971)
+
+A separate PostgreSQL tooling build matches seven of the twelve queries
+issued by stock `psql \d`. This covers incoming and outgoing foreign-key
+metadata and real named-role and PUBLIC policies. The policy statement uses
+the allocator-free `ARRAY(SELECT …)` constructor. The next missing catalog
+is extended statistics. Publication, trigger and partition reporting also
+require independent checks.
+[PostgreSQL tooling comparison](https://github.com/SB0LTD/ramsql/actions/runs/44227485578)
+
+## 17 November 2026 qualification checkpoint
+
+The combined RAMSQL candidate `b90354c8911b22a340fb68d15383205cd2ccf4b5`, with
+ZPM `7c56722bb354e1e44d418c6351edc08ee4539218`, matches **117 of 118** original
+inventory programs. PostgreSQL 18.3 matches 105 of 106 with prepared
+transactions enabled, including the complete original two-phase commit probe.
+`PG.DDL.DATABASE` is the remaining mismatch. Native MySQL 8.4.13 and SQL Server
+2022 CU28 each match all six cases.
+[Native SQL Server evidence](https://github.com/benor1470/dbMeter/actions/runs/44175056901)
+
+The Windows binary SHA-256 is
+`f8c9696f7e5173393ee194375f18163ea71160e22461de774b61cd9c97160f8e`.
+It passed 83 persistence cases and 3,372 assertions, including prepared
+update, delete, insert, lock and decision recovery on a lean packed table
+without a committed scan projection or secondary hashes. The Linux artifact
+recovered the 100M-row workload in 141.301 seconds. The dbMeter size-scaling
+comparison continues on this same revision.
+[100M recovery](https://github.com/benor1470/dbMeter/actions/runs/44175057270) ·
+[dbMeter qualification](https://github.com/benor1470/dbMeter/actions/runs/44175066222)
+
+Both original sales suites passed their live correctness and capacity checks.
+At one client, RAMSQL achieved 53.38 versus 56.40 queries per second on the
+full mix and 233.66 versus 243.85 on the subset, with IRDB leading both.
+At eight clients, RAMSQL achieved 134.76 versus 78.67 on the full mix
+and 581.58 versus 375.19 on the subset. These are 1.71× and 1.55× the fastest
+reference, respectively. Both suites remain below the required 2× throughput.
+[Same-run evidence](https://github.com/benor1470/dbMeter/actions/runs/44175066222)
+
+The separate Windows cluster candidate `bfb9db3a205455e003b4121766d02970b9744fe8`
+matches all 106 original PostgreSQL 18.3 programs on durable storage with
+prepared transactions enabled. This includes CREATE DATABASE, discovery in
+`pg_database` and DROP DATABASE. Focused tests also verified SCRAM admission,
+independent tables, rejection of a mismatched WAL and interrupted database
+creation. Cluster mode admits four databases on one reactor with one
+configured login. Broader cluster service and the cross-engine audit for the
+integrated release remain open. [Cluster qualification](https://github.com/SB0LTD/ramsql/actions/runs/44180335244)
+
+### Published prerelease baseline
+
+The exact Windows x64 binary from the published CI prerelease passed 93 of 103
+executed probes against native PostgreSQL 18.3 and left 15 scopes unexecuted.
+The release also passed the platform matrix and the separate PostgreSQL 16 and
+18 suites in memory and durable SCRAM modes. [CI prerelease](https://github.com/SB0LTD/ramsql/releases/tag/ci-v0.3.0-beta.2-run.44099014318.1)
+
+The following seven probes agreed on result rows and types and differed in the
+PostgreSQL command-completion message.
+
+| Inventory probe | Expected completion observed on PostgreSQL |
+| --- | --- |
+| `PG.DDL.CREATE_VARIANTS` | `SELECT 4` for populated `CREATE TABLE AS` |
+| `PG.CONSTRAINT.DEFERRED` | `SET CONSTRAINTS` |
+| `PG.INDEX.SECONDARY` and `PG.INDEX.ADVANCED` | `CREATE INDEX` |
+| `PG.DML.MERGE` | `MERGE 3` |
+| `PG.VIEW.ORDINARY` | `CREATE VIEW` |
+| `PG.VIEW.MATERIALIZED` | `SELECT 2` for populated creation and `REFRESH MATERIALIZED VIEW` on refresh |
+
+`PG.TYPE.ENUM_DOMAIN_COMPOSITE` stopped at the first `CREATE TYPE ... AS ENUM`
+with SQLSTATE `42601`. Test enum, domain and composite definitions independently
+before extending the bundled probe. Qualify type OIDs, casts, comparison,
+validation, schema dependencies and WAL replay as each type family is added.
+
+Two newly executed probes found SQLSTATE `0A000` for `EXPLAIN (FORMAT JSON,
+ANALYZE)` and `COPY ... FORCE_QUOTE`. The first compares plan structure and
+observed final cardinality. The second compares the COPY output format and
+bytes. Scope work still covers database lifecycle, two-phase transactions and
+maintenance, plus six MySQL and six T-SQL probes requiring native oracle runs.
+Keep the production gate open until those scopes and the broader SQL, wire,
+recovery and application contracts have closing evidence.
+
+Inventory SHA-256 `1feee91259a68605cd6d50c3a1863b79f3882e0d5c424126912ba3036520f47c`.
+Expanded differential report SHA-256 `769d2d3a8bc6356168b9c0e4c70a3eae58eb683575a2257991dce17168ad50cc`.
+
+### Windows candidate with the eight wire fixes
+
+The ReleaseSafe candidate with ZPM `0e2b0a041bd4cc462e5d505d11c5ce2e44738296`
+passed **101 probes** on the same manifest and native PostgreSQL 18.3 server.
+The remaining executed failures were `PG.TYPE.ENUM_DOMAIN_COMPOSITE` and
+`PG.UTILITY.EXPLAIN`. All 15 previously unexecuted scopes remain open. The
+candidate also passed 3,944 wire assertions each at one and two workers,
+2,394 persistence assertions across 71 cases, 8,516 authentication assertions
+and the independent psycopg, PyMySQL and python-tds client suite.
+
+Candidate binary SHA-256 `5578075963b21dcc46dfb24ce85e480a4c1019ab44d0e128c4d090c8d6f1e54a`.
+Candidate differential report SHA-256 `13c894ffabe3cb5eb1b5d67fbad515467c8d2e16993da40da7a2c4ab8dd78ced`.
+[Command completion](https://github.com/SB0LTD/zpm/pull/199) ·
+[COPY FORCE_QUOTE](https://github.com/SB0LTD/zpm/pull/200)
+
+With simple SELECT JSON EXPLAIN added in ZPM `8a82fc7898dd0648413dbeac8ff51c30e0066351`,
+the same live audit passed **102 of 103 executed probes**. The remaining mismatch
+is the combined user-defined enum, domain and composite case. The 15 unexecuted
+scopes and broader EXPLAIN formats, options and plan types remain open. The
+earlier eight-fix binary separately matched all 37 compatibility probes in both
+memory and durable SCRAM modes with both servers using UTC defaults.
+
+EXPLAIN candidate binary SHA-256 `fea2f28e6ee0197be070d13fc47a10cb7f978a17e213d2f07788add3eaeaf71a`.
+EXPLAIN differential report SHA-256 `55e678cfaaf67d71a2483dde2d903834e90891e2601a915f5cd422d9f8e0562a`.
+[Simple SELECT EXPLAIN](https://github.com/SB0LTD/zpm/pull/203)
+
+The disposable cluster audit executed three additional PostgreSQL probes using
+unique database, schema and prepared-transaction names. PostgreSQL 18.3 used
+`max_prepared_transactions=8` for this run. The same binary matched 102 of 106
+PostgreSQL cases, with failures at `CREATE DATABASE`, `CREATE TYPE ... AS ENUM`,
+`PREPARE TRANSACTION` and `VACUUM`. The 12 native MySQL and T-SQL cases remain
+unexecuted. The audit now resolves dynamic wire type OIDs to schema, name and
+type kind while retaining the raw OIDs and other metadata.
+
+Expanded administrative audit SHA-256 `83fd508a7b64f2218c1d29fe0ee044efea3a1ed02b8639d1ff2733911defa279`.
+
+The separate named-relation `VACUUM` candidate passed 21,505 wire and store
+assertions. The new cases verify that real reclamation waits for a repeatable
+read snapshot to release old versions and creates no logical WAL record.
+This evidence covers the basic VACUUM command within the maintenance probe.
+[Named-relation VACUUM](https://github.com/SB0LTD/zpm/pull/205)
+
+The integer-domain candidate with ZPM `699753159d84fc33a4015e2e8a8ac8723b1dd6c7`
+matched 16 focused native wire probes and replayed a durable domain definition
+through an actual RAMSQL restart. It covers SMALLINT, INTEGER and BIGINT domains
+with bounded comparisons, optional NOT NULL and standalone casts. The bundled
+type case still requires enum and composite DDL and values. The full inventory
+counts above also held on this candidate. [Integer domain implementation](https://github.com/SB0LTD/zpm/pull/204)
+
+Focused integer-domain audit SHA-256 `0693e431a2e6cc3a5421232fb4d5aeb9b378ce9b76799a0edb3397e1e567fff5`.
+
+The integrated maintenance candidate, with ZPM `7f16e85e01b7e154fd5b8083ec7d6d2bb0fa953d`,
+matched **103 of 106** native PostgreSQL probes. The complete maintenance case
+passed. `ANALYZE` refreshes committed table summaries and preserves the prior
+summary on interruption. Only database lifecycle, user-defined enum and
+composite types, and two-phase commit fail in the PostgreSQL inventory.
+The candidate also passed the one- and two-worker wire suites, crash/backup
+suite, authentication checks, independent clients and machine admission tests.
+[RAMSQL qualification](https://github.com/SB0LTD/ramsql/pull/64) ·
+[Named-relation ANALYZE](https://github.com/SB0LTD/zpm/pull/206)
+
+Maintenance candidate binary SHA-256 `c90a4818940d26d7eeb0436d68505631426e33abf3331c2cb8f69bb572caa827`.
+Maintenance differential report SHA-256 `96616cc6c21b555b9e7622ad2392d2c2e8022aeff9837d4ae7ac49344980c027`.
+
+The same executable matched all 37 PostgreSQL probes in memory and durable
+SCRAM modes. It also matched 313 native PostgreSQL semantics cases, 46
+isolation schedules and 11 COPY cases in the memory profile. The explicit
+512-row control returned `54000` and left the table empty. The memory
+semantics run carried 18 explicit durable-restart skips.
+
+Native MySQL Community 8.4.13 executed the six unchanged MySQL inventory
+cases. RAMSQL passed every setup statement and rejected the first feature
+statement in each case with MySQL error 1064. The gaps cover backtick
+identifiers, unsigned BIGINT, AUTO_INCREMENT, REPLACE, comma LIMIT and
+native scalar functions. All six native SQL Server cases still require
+the reference-engine comparison.
+
+MySQL differential report SHA-256 `fe944d6f3d13073289e4410d54f212bef5f77678d4be1a98ccf1bc53b305a6a0`.
+
+The follow-up with native MySQL parsing passes the unchanged comma LIMIT case.
+The backtick query now returns the expected alias and row. Native MySQL reports
+the signed integer literal as LONGLONG and the candidate reports LONG. The
+strict comparator keeps that case open. [MySQL parser PR](https://github.com/SB0LTD/zpm/pull/207)
+
+The integrated enum and dialect candidate reached composite DDL in the grouped
+type probe, after native enum and integer domain creation. An independent
+PostgreSQL 18.3 probe matched enum labels and order, catalog ownership and OID
+links, and text and binary result metadata. The individual server identities
+and results survived restarts of both engines. The candidate's main PostgreSQL
+inventory still matches 103 of 106 cases.
+
+The python-tds client reproduced both expected candidate result sets for
+T-SQL bracket identifiers and `SELECT TOP`. The other four original T-SQL
+cases failed on feature SQL. The native SQL Server comparator supplies the
+reference results for a strict comparison. [T-SQL parser PR](https://github.com/SB0LTD/zpm/pull/208) ·
+[SQL Server comparison](https://github.com/SB0LTD/zpm/actions/runs/44146301734)
+
+Enum and dialect candidate binary SHA-256 `f89763b8d1e22ebc03d5c9a948c523a23deb0f89d95e402c6eedd035fca8385d`.
+Enum focused report SHA-256 `2766c75935007b9cac4968d154634420b5ad1491b50d760171e3c7a719bf6d56`.
+T-SQL candidate-only report SHA-256 `1dae63a9213c436f7eef6e609a1fb474ee44990135fd8e79d6b40a1de488df00`.
+
+The next exact build matched two of six native MySQL cases after fixing signed
+integer literal metadata. It also matched the supported PostgreSQL composite
+catalog fields, typmods, array and relation links, rollback and restart. The
+stock build rejected a ten-column projection with `54000`, and the extended
+catalog comparison found that `pg_class.reltype` is still unavailable. The
+combined PostgreSQL type case now reaches the composite value cast. An
+independent python-tds client verified native DATE results on protocol 7.4 and
+the existing text representation on 7.2.
+
+Composite catalog report SHA-256 `8cd14577a9fc8009502ffb1b9ef7641d6eb78f07148d3ad39e3563b5ea34050c`.
+Native MySQL report SHA-256 `f1a255e8e6605d82f617a803ac6e7f14724ee17017eb2958f6297182a4a06c00`.
+
+RAMSQL `f6c6867a1d776b96657c3ad3405b4927e48cfc9b` with ZPM
+`df5e8da5f85c1f4ff70dfec735e722cc3d625ac2` matches **104 of 106** original
+PostgreSQL cases. The exact composite projection matched native PostgreSQL
+text and binary wire results on both sides of a durable restart. The two
+remaining PostgreSQL cases start with database creation and prepared
+transaction lifecycle. Native MySQL matches three of six cases after `IFNULL`
+and `DATE_ADD` were added. Unsigned integers, AUTO_INCREMENT and REPLACE are
+the remaining native MySQL mismatches in this executable.
+
+Native SQL Server 2022 CU28 compared all six original T-SQL cases against
+the Linux artifact from the same source. Three produce the expected row
+values and fail on wire metadata. SQL Server reports the tested
+non-null INT result columns as fixed-length with nullable unset. Its unnamed
+function result columns have empty names. OUTPUT, APPLY and procedural SQL
+are rejected by the candidate. [Native SQL Server comparison](https://github.com/benor1470/dbMeter/actions/runs/44157665404)
+
+PostgreSQL inventory report SHA-256 `297ebd021df3147fd63bf77c0e4f320568fb484831bb6bc312b3d4c2f84a08cf`.
+Native MySQL report SHA-256 `7a2b058d7c418d2fbd0e675a46226d57ee72c09546b043c278bd7b323be908b2`.
+
+RAMSQL `13294c5246dce4ef6ab23af55c1679b7d189af42` with ZPM
+`5f674e9e561d208bed7f29338b462d257e482165` preserves the 104 PostgreSQL matches
+and reaches **4 of 6** MySQL and **3 of 6** strict SQL Server matches. The
+MySQL trace compares replacement counts, defaults, repeated keys, rollback,
+concurrent writers and WAL reopening with MySQL 8.4.13. Unsigned integers and
+AUTO_INCREMENT remain open. SQL Server's exact metadata and values match
+for IDENTIFIERS, TOP and FUNCTIONS. Its remaining inventory cases are OUTPUT,
+APPLY and procedural SQL. [Native SQL Server run](https://github.com/benor1470/dbMeter/actions/runs/44161329548)
+
+RAMSQL `1a8dbb6846a5eb1df1ab96f141184731af904332` with ZPM
+`e3b7c13c07fafe4a3951b581c3ce203b81281d9a` matches all six original native
+SQL Server smoke cases and all 24 setup observations. The added cases cover
+direct `OUTPUT` images, derived-query `CROSS APPLY` and batch-local `INT`
+declarations. Full procedural control flow, OUTPUT sinks, APPLY table-valued
+functions and additional wire behaviors remain in the broader dialect scope.
+[Strict SQL Server comparison](https://github.com/benor1470/dbMeter/actions/runs/44165836087)
+
+The combined RAMSQL `deb1ed41c32e65b7cdf2a86d9f2820569ed1e286` candidate with
+ZPM `f208559a76a2e03f026221ac86c929a00da57c32` matches **116 of 118** original
+programs across the three native reference engines. The two PostgreSQL cases
+still require database lifecycle and prepared transaction support. MySQL
+adds full-range `BIGINT UNSIGNED` storage and signed-primary-key
+`AUTO_INCREMENT` with mixed inserts, native insert IDs and rollback. Broader
+MySQL arithmetic, unsigned automatic counters, schema and wire behavior
+remain outside these probes. [Combined candidate](https://github.com/SB0LTD/ramsql/pull/69) · [Native SQL Server run](https://github.com/benor1470/dbMeter/actions/runs/44169351782)
+
+## Earlier checkpoints
+
 Reporting follow-up, 30 October 2026: the unchanged original dbMeter full 5M
 and subset suites now pass 7/7 correctness checks for RAMSQL, PostgreSQL and
 IRDB in [run 41024725859](https://github.com/benor1470/dbMeter/actions/runs/41024725859).
@@ -170,7 +561,8 @@ not treated as an automatic reduction of the user's target.
 
 ### C02 — Replace the small probe list with broad discovery
 
-**Status:** Unverified beyond the existing subset. **Owner:** RAMSQL tests.
+**Status:** Partial. The 118 original programs and 331-case differential suite
+have native evidence under the profiles above. **Owner:** RAMSQL tests.
 
 Passing today's probes could still leave most applications incompatible. The
 tests currently contain only one example of many large feature families.
@@ -188,26 +580,23 @@ cannot close C02 or the production compatibility gate.
 
 ### S01 — Replace dense database-shaped storage and transaction copies
 
-**Status:** Partial (flag F-S01). Stable rowids, row versions in a fixed per-table arena, a multi-entry PK index and reclamation are implemented, and per-connection database copies are gone (one shared store). There is still no variable-length value store or caller-owned pages: cells stay inline at `text_bytes` and the version arena is preallocated at 2 × rows. [Evidence](#gap-closing-run-evidence-24-october-2026).
-**Alpha.4 candidate progress:** optional external row/version/index buffers,
-runtime index masks/capacities and separately bound reference workspace now exist
-in ZPM. A compiled four-row inline profile passes a 100,000-row test. RAMSQL
-binds hosted OS page regions through `--rows` / `--versions`; a 2,048-row Windows
-WAL restart and offline restore pass. Recovery validates actual bound capacity and
-sizes its per-record overlay from the transaction write budget. These changes
-are under qualification; published alpha.3 is unchanged. Inline cell/text storage,
-equal per-table reservations and materialized results still block efficient scale.
-
+**Status:** Partial. Stable row IDs, version reclamation and caller-owned
+row, version, index and query backing serve one shared store. Hosted RAMSQL
+accepts per-table row and version budgets. The 100M fixture uses compact
+integral banks for its six-column fact table. General text values still occupy
+fixed-size cells, and table and session capacities are granted up front.
 **Owner:** ZPM storage/SQL/store; RAMSQL configures resource budgets.
 
-Per-connection database copies have been removed. Remaining storage uses fixed
-per-table row/version arrays and inline text capacity, making integer-heavy rows
-and large profiles expensive. Page-backed compact values and independently
-budgeted result/session workspaces remain the scale bottleneck.
+An isolated A/B verified that 32-byte version headers save 1,601,085,600 bytes
+of backing at 100M fact rows with the same durable correctness and WAL bytes
+as the 48-byte baseline. Each lane ran on its own CI host. The fixture verifies
+one large fact table, two small dimensions and two workers. Multiple 100M-row
+tables and wider variable-length data still need independent qualification.
+[48-byte and 32-byte runs](https://github.com/benor1470/dbMeter/actions/runs/44186893882)
 
-- [ ] Introduce caller-owned pages and compact typed values, with a bounded variable-length value store.
-- [ ] Give rows stable identities so compaction, indexes and versions do not depend on a row's current array position.
-- [ ] Store private transaction changes without copying the complete database.
+- [ ] Add a bounded variable-length value store and qualify mixed-width and text-heavy tables.
+- [ ] Adapt physical grants to observed demand and qualify multiple large tables per database.
+- [ ] Qualify physical compaction with stable row identities under active readers and writers.
 - [ ] Specify ownership, reuse, stale-reference protection, rollback and out-of-memory behavior before replacing the current representation.
 - [ ] Keep active data in RAM; persistence must not silently turn the design into an on-demand disk database.
 
@@ -217,12 +606,12 @@ within a configured RAM budget, with no runtime heap allocation or atomicity reg
 
 ### S02 — Add useful indexes and scalable execution algorithms
 
-**Status:** Partial (flag F-S02). The alpha.4 candidate adds stable bounded top-K selection for eligible column ORDER BY/LIMIT and direct cell comparisons. Merge sort and full lock-row behavior remain where pruning is ineligible. Only the PK hash index exists; secondary/ordered indexes, hash joins and streaming/vectorized aggregates remain open. **Owner:** ZPM SQL/planner/index packages.
-
-Only a single-column primary-key hash index exists. Other filters scan rows;
-sorting now uses stable merge sort, joins use nested loops and general queries
-materialize intermediate rows in a bounded workspace. Stable row identities and
-version reclamation replace the previous dense-row compaction model.
+**Status:** Partial. The 100M qualification exercises bounded top-K, ordered
+range access, typed dimension probes and streaming three-way grouped joins.
+Unsupported shapes take the general executor, where joins, sorts and grouping
+can still exhaust configured statement workspace. Index and fast-path coverage
+need broader SQL and concurrent-mutation comparisons.
+**Owner:** ZPM SQL/planner/index packages.
 
 - [ ] Add secondary, composite and ordered indexes, including uniqueness and NULL rules.
 - [ ] Introduce planning that chooses indexed lookup, range scan, scan, sort and join strategies from actual query requirements.
@@ -324,12 +713,55 @@ modes. Applications can request isolation levels, read-only transactions and
 other transaction characteristics.
 
 - [x] Implement SET TRANSACTION and default/session transaction characteristics with real state (ZPM #120).
-- [ ] Verify Repeatable Read and Serializable against PostgreSQL reference schedules. Both are implemented in ZPM #120; Serializable is relation-level SSI. Investigate two-phase/prepared transactions as a separate required capability.
+- [ ] Complete PostgreSQL Serializable qualification, including write-skew commit ordering. The latest memory candidate matches all 46 selected isolation schedules; the coarse Serializable conflict case above still needs its own closing evidence.
 - [ ] Cover transactional DDL, aborted commits, serialization retries and durability acknowledgements under concurrency.
 
 **Closed when:** each advertised mode has reference-tested semantics, including
 anomaly prevention and errors. Do not describe the present conservative snapshot
 mechanism as PostgreSQL Serializable or complete Repeatable Read.
+
+### T05 — Recoverable two-phase transactions
+
+**Status**
+
+Qualified on a separate Windows candidate for opt-in permanent-table DML.
+RAMSQL `20cd383b8d4ce30c0820ec105766ccda2630fd6f` pins ZPM
+`0c8a939559a077a35421875f09870229e45bb70d`. Enable a positive
+`--max-prepared-transactions` limit in durable mode. The default limit is
+zero. Reopen a WAL with unresolved work using a grant that covers every
+pending prepared transaction. ZPM owns the transaction state and record
+format. RAMSQL owns the WAL and startup recovery. [Exact RAMSQL candidate](https://github.com/SB0LTD/ramsql/commit/20cd383b8d4ce30c0820ec105766ccda2630fd6f) · [Exact ZPM implementation](https://github.com/SB0LTD/zpm/commit/0c8a939559a077a35421875f09870229e45bb70d)
+
+The unchanged PostgreSQL 18.3 inventory matched 105 of 106 executed cases
+on this candidate. `PG.TX.TWO_PHASE` matched the `PREPARE TRANSACTION` and
+`COMMIT PREPARED` tags, results and idle transaction status. The remaining
+executed mismatch was database creation. A separate Windows crash test
+verified prepared INSERT, UPDATE and DELETE, with an ordinary commit
+interleaved between prepare and resolution. It verified implicit and
+explicit row locks after restart, owner enforcement, rollback, rejection of
+a mismatched decision, and torn-decision recovery. The persistence suite
+passed 77 cases and 2,877 assertions. [Exact crash test](https://github.com/SB0LTD/ramsql/blob/20cd383b8d4ce30c0820ec105766ccda2630fd6f/tools/test_persistence.py)
+
+Windows binary SHA-256 `9c7763a195abb684a945be6f7ca7e35d6171a21076d44424e545c15e5989c511`.
+Native inventory report SHA-256 `51faf199ec315130028b28d4fb71d566f80f84d0977afe1b83d49313dc4d61e7`.
+
+- [x] Reserve a budgeted entry keyed by a case-sensitive GID, role OID and
+  store identity. Detach on successful prepare while retaining pending row
+  versions and locks.
+- [x] Flush prepare and resolution records before changing their visible state.
+  Recover unresolved DML and its locks before opening listeners, and check
+  each decision against its exact prepare record.
+- [x] Verify `COMMIT PREPARED` and `ROLLBACK PREPARED`, duplicate GIDs,
+  disconnect, owner authorization, lock conflicts and crash recovery for the
+  admitted DML scope.
+- [ ] Add `pg_prepared_xacts` inspection and qualify prepared DDL, deferred
+  constraint work, advisory locks, sequence changes and Serializable
+  transactions. Qualify the combined native inventory and supported release
+  matrix with two-phase commit enabled.
+
+**Closed when:** a write transaction can stay prepared across disconnect and
+process restart, then be resolved by an eligible connection with the same
+visibility, conflict and durability outcomes as the reference.
 
 ## 3. SQL, types and schema behavior
 
@@ -498,6 +930,24 @@ Changing columns or enforcing relationships requires real schema management.
 **Closed when:** representative migrations run forward/backward, concurrent DDL
 and queries behave correctly, and failure cannot leave half-applied schema/index state.
 
+#### Database lifecycle and isolation
+
+The PostgreSQL wire startup database currently supplies a session name within
+one shared store. `CREATE DATABASE` therefore requires a cluster registry and
+real routing before the inventory probe can pass.
+
+- [ ] Give each database an owned store and stable ID. After credential proof,
+  admission resolves the startup database, checks `CONNECT` and binds the
+  session before ReadyForQuery. Each worker uses the selected store for SQL,
+  cursors, notifications and lock waits.
+- [ ] Add database create/drop records and a database ID to per-store WAL
+  records. Recover the cluster registry and data together before accepting
+  clients. Keep the original single-database WAL readable and make any format
+  upgrade explicit. Use the same registry for `pg_database` and backups.
+- [ ] Implement ownership, transaction-block rejection, an initial template
+  policy and in-use checks for DROP. Cover identifier reuse, reconnect races,
+  cross-database isolation, prior data recovery and create/drop crash edges.
+
 ### Q12 — Names, text, encodings, collations and dialect separation
 
 **Status:** Partial (flag F-M). Quoted identifiers keep case; INTEGER is int4 on PostgreSQL sessions and boolean 0/1 assignment is a per-session MySQL/TDS rule, but the parser is shared by all listeners and collations/encodings are unchanged. **Owner:** ZPM SQL/types/codecs; RAMSQL selects session policy.
@@ -584,10 +1034,21 @@ PostgreSQL, with deliberately malformed rows and interrupted transfers.
 
 ### P04 — Prove real application, driver and tool compatibility
 
-**Status:** Unverified beyond the selected independent-driver tests. **Owner:** RAMSQL integration/qualification.
+**Status:** Partial. **Owner:** RAMSQL integration/qualification.
 
-One client library succeeding does not prove psql, pg_dump, pg_restore, pgbench,
-connection poolers or framework migrations work.
+The 18.3 `psql` client read a real table on the two-worker beta.3 Windows
+build. A subsequent Windows candidate with `-Dcolumns=16` matched its first
+three `\d` queries, including the exact 15-column relation projection and the
+column query that correlates `pg_attribute`, `pg_type` and `pg_collation`. A
+separate native differential matched eight relation rows covering a table,
+indexes, sequence, partition, view and materialized view. The stock width is
+eight. The next `\d` query needs `pg_constraint`, index definitions and
+constraint definitions. Constraint identities must remain stable across typed WAL replay and
+support the foreign-key and index references used by tooling. Native
+`pg_dump --schema-only` still requires empty search-path and catalog behavior.
+[Qualified discovery](https://github.com/SB0LTD/zpm/pull/229) ·
+[Relation and column metadata](https://github.com/SB0LTD/zpm/pull/234) ·
+[Native metadata comparison](https://github.com/SB0LTD/ramsql/actions/runs/44215906350)
 
 - [ ] Add versioned suites for libpq/psycopg, JDBC, Npgsql, Go and Node clients as required by the compatibility contract.
 - [ ] Run representative ORM and migration workflows against identical schemas/data on both engines.
@@ -617,10 +1078,28 @@ specific compatible path, not general upgrade compatibility.
 
 ### D02 — Crash-safe checkpoints and WAL rotation
 
-**Status:** Missing. **Owner:** ZPM reusable checkpoint/log primitives; RAMSQL orchestration.
+**Status:** Primitives in qualification. **Owner:** ZPM reusable checkpoint/log
+primitives; RAMSQL orchestration.
 
 The WAL grows with all historical changes, and restart replays that history.
 Deleted historical states can still require capacity during replay.
+
+An allocator-free log primitive validates a complete anchor frame and requires
+the caller to verify its snapshot binding before replaying a contiguous suffix.
+A separate writer-lock contract holds database ownership across two WAL
+generations and atomic pointer publication. Product recovery still opens the
+existing WAL format. [Anchor PR](https://github.com/SB0LTD/zpm/pull/219) ·
+[Writer-lock tests](https://github.com/SB0LTD/zpm/actions/runs/44191670373)
+
+The streaming envelope binds length, database and generation identity, WAL
+sequence and SQL commit number to a BLAKE3 seal. The one-table logical image
+restores committed OIDs, RowIDs, allocation counters and SQL commit number
+from dense or packed storage. A normal WAL update/delete/insert suffix
+continued after both restores on Windows and Linux. Expand the codec to
+multiple tables and the full catalog, then prove generation publication and
+retirement under injected failures.
+[Snapshot envelope](https://github.com/SB0LTD/zpm/pull/230) ·
+[Single-table image and suffix](https://github.com/SB0LTD/zpm/pull/232)
 
 - [ ] Write a complete validated snapshot with a durable sequence anchor.
 - [ ] Publish it atomically, persist directory changes, then retire only log segments the checkpoint safely covers.
@@ -681,10 +1160,16 @@ promises. Do not imply PostgreSQL physical replication compatibility automatical
 
 ### A01 — TLS and channel binding
 
-**Status:** Missing. **Owner:** ZPM reusable TLS/transport; RAMSQL certificate and listener policy.
+**Status:** Server transport primitives in qualification. **Owner:** ZPM reusable TLS/transport; RAMSQL certificate and listener policy.
 
 Hosted listeners currently bind loopback and PostgreSQL clients use sslmode=disable.
 SCRAM authenticates credentials but does not encrypt query text or result data.
+The private pure-Sig TLS 1.3 exchange matched RFC test vectors and completed a
+certificate- and hostname-verified OpenSSL session on Linux. The native TLS
+socket adapter has separate Windows loopback coverage. The listener still needs
+the record channel, handshake admission, encrypted cancel and SCRAM channel
+binding before exposing a TLS endpoint.
+[Server exchange draft](https://github.com/SB0LTD/zpm/pull/228)
 
 - [ ] Implement a tested native TLS server transport with certificate/key loading and safe lifecycle handling.
 - [ ] Add PostgreSQL SSL negotiation and required SCRAM channel binding; integrate MySQL/TDS TLS negotiation separately.
@@ -698,16 +1183,15 @@ channel binding; malformed handshakes fail safely and cannot starve other sessio
 
 **Status:** Partial. **Owner:** ZPM roles/catalog/authorization and RAMSQL provisioning policy.
 
-The opt-in PostgreSQL catalog login path checks the SCRAM-verified username
-against the recovered role catalog before the session becomes ready. Live
-tests on an existing WAL passed with one and two workers. They cover session
-identity, prepared reads under row-level security, denied writes and
-role escalation, and listener startup rejection for a NOLOGIN role.
-Multiple simultaneous credentials, database admission and privilege checks for
-every metadata and COPY path still need independent qualification.
-
-One accepted username/verifier is not a multi-user authorization system. Users
-need ownership and permissions enforced for reads, writes, schemas and administration.
+Beta.3 has an opt-in PostgreSQL SCRAM catalog credential file, role grants and
+durable database-level admission. Catalog login checks the SCRAM-verified
+username against the recovered role catalog before the session becomes ready.
+Live WAL tests with one and two workers exercise prepared reads under
+row-level security, denied writes and role escalation, and startup rejection
+for a NOLOGIN role. The audited cluster mode has four databases on one reactor
+with one configured login. Multi-user cluster routing, application privilege
+workflows, complete metadata and COPY privileges, and MySQL/TDS authorization
+remain open.
 
 - [ ] Add role/database/schema ownership, grants/revokes, membership and required row-level/security-definer behavior.
 - [ ] Enforce privileges at binding/execution and metadata discovery, including prepared statements and COPY.
@@ -889,10 +1373,13 @@ procedures on each supported deployment platform, without developer-only interve
 
 **Status:** Unproven. **Owner:** RAMSQL reproducible benchmarks; optimizations belong in the layer containing the measured cost.
 
-The current benchmark uses a 512-row subset, five workloads and 1/4 clients.
-Alpha.2's local recovery/validation was 27 ms versus alpha.1's 698 ms for the same
-2.17 MB WAL. Some write measurements improved; PostgreSQL still leads durable
-writes. These results do not demonstrate the requested overall efficiency target.
+The complete CI dbMeter campaign ran unchanged JDBC cases for 100K and 1M
+rows plus the original full and subset sales workloads. Correctness and capacity
+passed across all three engines. Six of twelve size cases passed the performance
+gate. Point lookups were close to the fastest reference, and the mixed sales
+workloads did not reach 2×. The separate 100M recovery fixture verifies correctness
+and resource use. It does not compare 100M throughput across engines.
+[Completed dbMeter campaign](https://github.com/benor1470/dbMeter/actions/runs/44159631870)
 
 - [ ] Define equivalent supported workloads and the native PostgreSQL deployment envelope to replace: data size, schema shape, connection count, transaction mix and storage.
 - [ ] Match query semantics, durability, authentication/encryption, hardware, storage and client method before comparing speed.

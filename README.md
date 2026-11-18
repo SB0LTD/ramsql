@@ -15,8 +15,9 @@ the shared SQL subset. Supporting all common SQL dialects is the
 
 ## Quick start
 
-Development after beta.2 adds native machine planning and shared byte admission;
-these commands are not present in the published beta.2 binaries:
+The [beta.3 prerelease](https://github.com/SB0LTD/ramsql/releases/tag/ci-v0.3.0-beta.3-run.44202780430.1)
+includes machine planning and shared memory-budget admission. Inspect the
+machine budget before opening a listener.
 
 ```sh
 ./ramsql --machine-capacity
@@ -42,9 +43,8 @@ CPU sets and immediate job limits, and a macOS free/file-cache memory estimate.
 Legacy/hybrid cgroup-v1 and native SB0 resource probing are not implemented;
 hidden ancestor constraints and some OS scheduling partitions remain observation
 gaps. The report exposes coverage instead of inventing unrestricted resources.
-Machine admission does not yet replace explicit SQL row/schema capacities;
-`elastic_sql_storage` remains false. Development builds also support concurrent
-PostgreSQL simple and extended autocommit read queries with multiple workers, as described below.
+SQL row and schema capacities remain explicit. On supported hosted systems,
+multiple workers can serve concurrent PostgreSQL simple and extended autocommit reads.
 
 Download your platform archive from [Releases](https://github.com/SB0LTD/ramsql/releases),
 check it against the release's `SHA256SUMS.txt` and extract it. Packages include
@@ -195,8 +195,8 @@ includes a stack, query scratch and one client response per selected worker.
 ./ramsql --memory --insecure-local --max-clients 32 --workers 4
 ```
 
-Published beta.2 serializes SQL execution. In development builds, idle autocommit
-PostgreSQL simple and extended-protocol `SELECT`/`WITH` queries can execute concurrently using
+In beta.3, idle autocommit PostgreSQL simple and extended-protocol `SELECT`/`WITH`
+queries can execute concurrently using
 parser/execution storage owned per worker and results owned per client. Writes,
 transactions, COPY, suspended portals and dynamic time-zone resolution retain exclusive execution.
 A reader/writer gate prevents publication or reclamation while readers execute.
@@ -326,9 +326,10 @@ reduces median latency from 33.98 to 6.95 ms (4.89x) for a checked 100k-row
 three-table aggregate. A fresh [IRDB comparison](benchmarks/guarded-reference-20261027/README.md)
 and its [remaining cases](benchmarks/guarded-reference-remaining-20261027/README.md)
 pass correctness and the finite speed screen in all ten native API cases at
-100k rows. Both engines receive SQL strings in those earlier reports; use the
-dbMeter report above for actual JDBC prepared-query comparisons. These
-development changes are not in the published beta.2 artifacts.
+100k rows. Both engines receive SQL strings in those earlier reports. The
+dbMeter report above covers JDBC prepared-query comparisons, and the
+[qualification plan](compatibility/GAP_CLOSING_PLAN.md) tracks the current
+all-case gate and the exact configurations considered there.
 
 The [production workload report](benchmarks/production-20261026/REPORT.md)
 compares checked native SQL calls against IRDB 1.10.821 with shuffled keys,
