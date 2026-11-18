@@ -21,10 +21,10 @@ jobs:
       run:
         shell: pwsh
     env:
-      PRODUCT_REVISION: 613efef1576bf763603f650bf0e192d1ec577e04
-      PRODUCT_SHA256: dde6d3cbbab5f10a9ddc342bec7831f5e673406bcd518fef98ef3fecb46164d4
-      ZPM_REVISION: 54e0662c07e683e0afbc5c15e84751aaaa92cd3d
-      ZPM_SHA256: 2f9de921a9501e20ed3553b9798d894cccda0f861c5d7cfc57e53c364aa23f02
+      PRODUCT_REVISION: 507b15ed7a554b31229972b32f9e9409736fe3cf
+      PRODUCT_SHA256: 0f9e13e207baf46b68d7d59687471aef602162e94ca9a2fa2ac5977ea194a6f9
+      ZPM_REVISION: ddadd523cb4fd631734f290c89fffbdb2c3e133c
+      ZPM_SHA256: f1940a41543879ebe10a00eea4967a0ef6cc2579e2b3c36dcd58808babc2b64f
     steps:
       - uses: actions/checkout@v4
         with:
@@ -76,6 +76,7 @@ jobs:
             --output (Join-Path $env:RUNNER_TEMP 'runtime') --github-env $env:GITHUB_ENV
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build exact ReleaseSafe server
+        id: server
         run: |
           $options = @('-Doptimize=ReleaseSafe', '-Dcolumns=16')
           if ($env:RUNNER_OS -eq 'macOS') { $options += '-Dlink-libc=true' }
@@ -102,7 +103,7 @@ jobs:
           "$RUNNER_TEMP/test-pg-settings" 2>&1 | tee evidence/zpm-pg-settings.txt
           grep -Fq 'pg_settings: columns, sources, setter and session isolation passed' evidence/zpm-pg-settings.txt
       - name: Compare the live Linux server against native PostgreSQL 18.3
-        if: runner.os == 'Linux'
+        if: always() && runner.os == 'Linux' && steps.server.conclusion == 'success'
         shell: bash
         run: |
           set -euo pipefail
