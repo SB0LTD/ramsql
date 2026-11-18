@@ -154,8 +154,8 @@ reference and Top-N ran 23.92–32.94× under the explicit 256 MiB cache budget.
 All four prepared primary-key cases missed the advantage target, at 0.98–1.28×
 the fastest reference. The full one-client sales case lacked successful
 execution of `q5_high_value_customers` in two PostgreSQL trials. The workflow
-retained the raw reports and left the case unscored. It did not authorize a
-dbMeter merge or a general RAMSQL speed claim.
+retained the raw reports, left the case unscored, and blocked the dbMeter
+merge and a general RAMSQL speed claim.
 [Full packed-cache qualification](https://github.com/benor1470/dbMeter/actions/runs/44231254167)
 
 The exact published x86-64 Linux binary ran a separate durability profile on
@@ -179,23 +179,36 @@ commits. Other statement paths still follow the ordinary commit route.
 The same-binary timing run halved the number of flushes at two clients while
 reducing throughput from 2,244 to 1,930 transactions/s. The four-client
 distinct-table lane rose from 2,380 to 2,681 transactions/s, short of its
-repeated advantage requirement. The waiting reactor needs a wakeup when its
-peer finishes the flush. Single-client and same-table regressions remain
-release blockers for enabling this setting by default.
+repeated advantage requirement. A later candidate woke the awaiting reactor
+on Linux and skipped the wait for lone or same-table writers. Its latency
+checks passed, while median distinct-table throughput at four and eight
+clients fell by about 8% and 2% against the same binary with grouping off.
+Windows passed the finite-poll fallback and replay tests. Both versions
+remain opt-in experiments.
 [Native socket and WAL proof](https://github.com/SB0LTD/ramsql/actions/runs/44233435009) ·
-[Matched durability timings](https://github.com/SB0LTD/ramsql/actions/runs/44235108533)
+[Initial durability timings](https://github.com/SB0LTD/ramsql/actions/runs/44235108533) ·
+[Linux wakeup and durability timings](https://github.com/SB0LTD/ramsql/actions/runs/44239121066) ·
+[Windows fallback](https://github.com/SB0LTD/ramsql/actions/runs/44240480201)
 
 A separate 16-column tooling build completed all twelve stock `psql \d`
 queries on a table with a real user trigger, incoming foreign key, policies,
 named statistics and publications. The standalone partition and trigger
 comparisons also matched native PostgreSQL 18.3 for their covered cases.
-The catalog build honors an empty search path and stock `pg_dump` now reaches
-`pg_is_in_recovery()`. The matching restore still needs the timeout work.
-In a separately qualified native server build, the stock restore passed
-`idle_in_transaction_session_timeout` and reached `transaction_timeout`.
-Nominal `regclass` wire output and broader migration fixtures remain open.
+The combined native Windows build honors empty search paths and reports its
+actual recovery state. Stock `pg_dump` reaches `extra_float_digits`.
+The unchanged native PostgreSQL dump reaches `client_min_messages` on
+restore after applying the routine-body and XML settings. Validation of
+routine-body settings across interleaved clients also found that ordinary
+COMMIT needed to install the owning session before finalizing `SET LOCAL`
+and `LISTEN`. The focused Windows Store contract passed 3,159 assertions
+with the fix. Both timeout suites match native PostgreSQL 18.3 with one and
+four workers. Extended-protocol autocommit still needs its transaction
+boundary at Sync. Nominal `regclass` wire output and a complete stock migration
+remain open.
 [Populated stock describe and export audit](https://github.com/SB0LTD/ramsql/actions/runs/44238734316) ·
-[Native idle transaction timeout qualification](https://github.com/SB0LTD/ramsql/actions/runs/44238347427)
+[Native idle transaction timeout qualification](https://github.com/SB0LTD/ramsql/actions/runs/44238347427) ·
+[Exact combined migration source](https://github.com/SB0LTD/ramsql/commit/a45febfbe08c6fa1214069edb62e4d6375fc215c) ·
+[COMMIT session fix](https://github.com/SB0LTD/zpm/pull/253)
 
 ## 17 November 2026 qualification checkpoint
 
