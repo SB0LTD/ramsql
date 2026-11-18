@@ -12,6 +12,7 @@ rejects the whole frame. A runtime error stops execution at that command and
 rolls back the current implicit segment. Earlier explicit commits persist.
 Send `COPY` in its own Query message. A batch containing `COPY` or unsupported
 raw grammar returns `0A000` before running any command.
+`PREPARE TRANSACTION` in a batch requires an explicit transaction block.
 
 ## Installation and startup
 

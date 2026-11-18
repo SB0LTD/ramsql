@@ -8,6 +8,7 @@ import socket
 import time
 
 from test_server import PG, Server, errors, packet, query_packet, rows
+from test_persistence import DurableServer
 
 
 @contextmanager
@@ -49,6 +50,11 @@ def scenarios(port, workers):
         query('empty_comments', '/* first; /* nested; */ */ ; -- tail;')
         query('cr_line_comments', 'SELECT 4; -- outside;\r SELECT 5;')
         query('only_one_command_with_empty_neighbors', '; SELECT 10;; -- tail;')
+        query('cursor_within_implicit_frame', 'DECLARE c CURSOR FOR SELECT 12; FETCH ALL FROM c;')
+        query('implicit_transaction_modes', 'SET TRANSACTION ISOLATION LEVEL REPEATABLE READ; SHOW transaction_isolation')
+        query('rejected_promotion_leaves_session_idle', 'SELECT 1; BEGIN ISOLATION LEVEL REPEATABLE READ; SHOW transaction_isolation')
+        prefix, suffix = 'SELECT 4; /*', '*/ SELECT 5;'
+        query('maximum_accepted_frame', prefix + ' ' * (65530 - len(prefix) - len(suffix)) + suffix)
         query('raw_parse_error_before_any_effect', f'INSERT INTO {table} VALUES(7); COMMIT; SELECT 1 +;')
         query('proof_of_no_raw_parse_effects', f'SELECT COUNT(*) FROM {table}', peer)
         query('implicit_failure', f'INSERT INTO {table} VALUES(1); SELECT 1/0; INSERT INTO {table} VALUES(2);')
@@ -74,6 +80,11 @@ def scenarios(port, workers):
 
     assert out['two_sets_of_rows']['frames'] == 'TDCTDCZ'
     assert out['empty_comments']['frames'] == 'IZ'
+    assert out['cursor_within_implicit_frame']['rows'] == [['12']]
+    assert out['implicit_transaction_modes']['rows'] == [['repeatable read']]
+    assert out['rejected_promotion_leaves_session_idle']['errors'] == ['25001']
+    assert out['rejected_promotion_leaves_session_idle']['status'] == 'I'
+    assert out['maximum_accepted_frame']['rows'] == [['4'], ['5']]
     assert out['raw_parse_error_before_any_effect']['frames'] == 'EZ'
     assert out['proof_of_no_raw_parse_effects']['rows'] == [['0']]
     assert out['implicit_failure']['errors'] == ['22012'] and out['implicit_failure_after']['rows'] == [['0']]
@@ -181,6 +192,28 @@ def copy_scope(port, workers, native):
     return {'native_interactive_tail': native, 'candidate_rejects_before_any_effect': not native}
 
 
+def durable(binary, evidence_dir, workers):
+    wal = (evidence_dir / f'qualified-batch-{workers}.wal').resolve()
+    assert not wal.exists(), wal
+    runtime = ('--workers', str(workers))
+    with DurableServer(binary, wal, create=True, storage_options=runtime) as server:
+        with session(server.port) as client:
+            client.ok('CREATE TABLE replay_batch (id INTEGER PRIMARY KEY)')
+            implicit = result(client.query('INSERT INTO replay_batch VALUES(1); INSERT INTO replay_batch VALUES(2)'))
+            assert implicit['frames'] == 'CCZ' and implicit['status'] == 'I', implicit
+            split = result(client.query('BEGIN; INSERT INTO replay_batch VALUES(3); COMMIT; INSERT INTO replay_batch VALUES(4); SELECT 1/0'))
+            assert split['errors'] == ['22012'] and split['status'] == 'I', split
+            open_block = result(client.query('BEGIN; INSERT INTO replay_batch VALUES(5)'))
+            assert open_block['status'] == 'T' and not open_block['errors'], open_block
+            server.crash()
+    with DurableServer(binary, wal, storage_options=runtime) as restarted:
+        with session(restarted.port) as client:
+            recovered = rows(client.ok('SELECT id FROM replay_batch ORDER BY id'))
+            assert recovered == [['1'], ['2'], ['3']], recovered
+    return {'recovered_values': recovered, 'wal_sha256': hashlib.sha256(wal.read_bytes()).hexdigest(),
+            'wal_bytes': wal.stat().st_size, 'killed_with_open_transaction': True}
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--binary', type=Path, required=True)
@@ -206,7 +239,8 @@ def main():
             assert all(lock_test[name] == expected for name, expected in native_park.items())
             pressure_test = pressure(candidate.port)
         evidence['modes'].append({'workers': workers, 'ordinary': actual, 'native_copy': copy_native,
-                                  'candidate_copy': copy_test, 'lock_wait_and_disconnect': lock_test, 'pressure': pressure_test})
+                                  'candidate_copy': copy_test, 'lock_wait_and_disconnect': lock_test,
+                                  'pressure': pressure_test, 'durability': durable(binary, args.report.parent, workers)})
     args.report.write_text(json.dumps(evidence, indent=2) + '\n')
     print(f'PASS {sum(len(case["ordinary"]) for case in evidence["modes"])} frame differentials, wraparound I/O, COPY scope and blocked continuation')
 
