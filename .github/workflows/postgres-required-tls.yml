@@ -6,17 +6,27 @@ permissions:
   contents: read
 jobs:
   stock-libpq:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x86_64
+            digest: 179094228e2e6b0db3a5a1e01a8a57e8e91db6aa3b5ca80094ca22d870cc373a
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+            digest: ef890f870f3215e60d25588742b74fa9d2808addbc0112b7c37818a73dfb0643
     steps:
       - uses: actions/checkout@v4
       - name: Install checksum-verified compiler
         shell: bash
         run: |
           tag=sig-0.6.5-zig0.17.0.3c72687
-          asset="$tag-x86_64-linux.tar.xz"
+          asset="$tag-${{ matrix.arch }}-linux.tar.xz"
           curl -fsSL --retry 3 "https://github.com/SB0LTD/sig/releases/download/$tag/$asset" -o "$RUNNER_TEMP/$asset"
-          echo "179094228e2e6b0db3a5a1e01a8a57e8e91db6aa3b5ca80094ca22d870cc373a  $RUNNER_TEMP/$asset" | sha256sum -c
+          echo "${{ matrix.digest }}  $RUNNER_TEMP/$asset" | sha256sum -c
           mkdir "$RUNNER_TEMP/sdk"
           tar -xf "$RUNNER_TEMP/$asset" -C "$RUNNER_TEMP/sdk"
           compiler=$(find "$RUNNER_TEMP/sdk" -type f -name sig -print -quit)
@@ -27,7 +37,7 @@ jobs:
       - name: Prepare runtime and stock libpq tools
         run: |
           python tools/prepare_sig_runtime.py --installed-lib "$SIG_LIB_DIR" --output "$RUNNER_TEMP/sig-runtime" --github-env "$GITHUB_ENV"
-          if ! command -v psql; then
+          if ! psql --version; then
             sudo apt-get update -q
             sudo apt-get install --no-install-recommends -y postgresql-client
           fi
@@ -44,5 +54,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: required-postgres-tls-evidence
+          name: required-postgres-tls-evidence-${{ matrix.arch }}
           path: evidence/
