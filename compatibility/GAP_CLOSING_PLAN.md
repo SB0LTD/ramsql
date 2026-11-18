@@ -2,6 +2,17 @@
 
 ## 18 November 2026 qualification checkpoint
 
+The COMMIT ownership fix is available in
+`ci-v0.3.0-beta.3-run.44252147423.1`. The prerelease passed all eight package
+targets, both native SB0 boot tests, and all four exact Linux PostgreSQL 16
+and 18 qualification lanes. An independent download matched all 29 public
+assets to the assembly archive and recomputed all 28 listed checksums. Main
+merge `b33762c6` differs from the release source only in two planning
+documents. The prerelease manifest has `production_ready: false`.
+[Current beta.3 downloads](https://github.com/SB0LTD/ramsql/releases/tag/ci-v0.3.0-beta.3-run.44252147423.1) ·
+[Release matrix](https://github.com/SB0LTD/ramsql/actions/runs/44252147423) ·
+[RAMSQL integration](https://github.com/SB0LTD/ramsql/pull/79)
+
 Beta.3 prerelease `ci-v0.3.0-beta.3-run.44202780430.1` published automatically
 after the complete matrix passed. The source tree matches RAMSQL main merge
 `3d1b5a0e58c4b3e5a2b60f0c1e768d960f3e5726`. All 29 release assets were
@@ -192,43 +203,40 @@ remain opt-in experiments.
 
 A separate 16-column tooling build completed all twelve stock `psql \d`
 queries on a table with a real user trigger, incoming foreign key, policies,
-named statistics and publications. The standalone partition and trigger
-comparisons also matched native PostgreSQL 18.3 for their covered cases.
-The combined Windows build passes the previously blocking empty search path,
-recovery status, float formatting, routine validation, XML and diagnostic
-settings in stock tooling. Export advances to `synchronize_seqscans`. The
-unchanged native dump gets through `row_security` and `CREATE SCHEMA`, then
-stops at `default_tablespace` in this binary. The isolated default-placement
-candidate passes its native comparison. Forty live row-security checks match
-PostgreSQL 18.3 with one and four workers, including prepared queries, COPY,
-rollback to a savepoint, `FORCE`, and `BYPASSRLS`.
-
-An ordinary COMMIT had to rebind the owning session before finalizing
-`SET LOCAL` and `LISTEN`. Its focused Windows Store contract passed 3,159
-assertions. A separate stock-client trace confirms that extended Execute
-publishes before Sync, retains earlier writes in a failed group, and retains
-writes when the client disconnects before Sync. PostgreSQL 18.3 rolls back
-groups that disconnect before Sync. Qualification must include commit failure at Sync,
-explicit transactions, server disconnect, and the exact original JDBC tests.
-
-Stock restore loads rows before `ALTER TABLE ONLY ... ADD CONSTRAINT ...
-PRIMARY KEY`. Today that operation returns `0A000`, leaving subsequent foreign
-keys without a referenced unique key. The candidate must allocate a real
-independent backing-index identity, reject duplicate and null rows while
-holding the DDL lock, and validate replay before publishing any new definition.
-The current WAL validation protects legacy tables with inline keys and rejects
-installing a key into a formerly keyless table. Preserve that protection until
-the new operation can validate base and in-record rows before apply.
-
-Both timeout suites match native PostgreSQL 18.3 with one and four workers.
-Nominal `regclass` wire output and a complete stock migration remain open.
+named statistics and publications. Forty live row-security observations
+matched PostgreSQL 18.3 with one and four workers, including prepared queries,
+COPY, savepoints, FORCE and BYPASSRLS. The native idle and transaction timeout
+fixtures also matched on one and four workers.
 [Populated stock describe](https://github.com/SB0LTD/ramsql/actions/runs/44238734316) ·
-[Stock export audit](https://github.com/SB0LTD/ramsql/actions/runs/44245522501) ·
 [Native idle timeout](https://github.com/SB0LTD/ramsql/actions/runs/44238347427) ·
-[Native transaction timeout](https://github.com/SB0LTD/ramsql/actions/runs/44240230736) ·
-[Default placement qualification](https://github.com/SB0LTD/zpm/actions/runs/44245406020) ·
-[Exact row-security candidate](https://github.com/SB0LTD/ramsql/commit/9799cc836c42b2184fb4fb388f495af0b30d15b2) ·
-[COMMIT session fix](https://github.com/SB0LTD/zpm/pull/253)
+[Native transaction timeout](https://github.com/SB0LTD/ramsql/actions/runs/44240230736)
+
+The unchanged PostgreSQL 18.3 plain dump restores the two-table fixture in
+RAMSQL in memory and with synchronous WAL at one and four workers. Both
+primary keys, the foreign key, the check constraint, the NOT NULL column and
+the omitted default behaved as expected after forced restart and WAL replay.
+The new late-key path covers a standalone single-column key on an ordinary
+table. General late keys and `pg_restore --single-transaction` remain open.
+
+Export with stock `pg_dump` passes live settings, the relation guard and
+extension and dependency discovery. Its first unhandled query reads
+`pg_namespace.nspowner`, `nspacl`, and `acldefault`. The captured PostgreSQL
+fixture emitted 67 statements. Export needs real schema privileges and ACL
+types, the later catalog projections, and a RAMSQL-to-PostgreSQL restore
+round trip before it meets the migration gate.
+[Stock restore and exact export failure](https://github.com/SB0LTD/ramsql/actions/runs/44255933360) ·
+[Integrated dependency and replay contracts](https://github.com/SB0LTD/zpm/actions/runs/44255868781)
+
+The extended Sync and COPY candidate passed 23,416 codec checks. Linux CI
+matched ten transaction and five COPY observations against native PostgreSQL
+18.3 in memory and synchronous WAL with one and four workers. Both durable
+processes were forced to stop and their WALs reopened. The separate simple
+query batch candidate matched 58 wire observations, streamed 23,800 rows and
+reopened its WAL. Its SB0X and SB0K images passed 913 and 899 boot assertions.
+Both candidates need joint qualification. COPY inside multi-command simple
+queries remains open.
+[Extended Sync and COPY evidence](https://github.com/SB0LTD/ramsql/actions/runs/44256400851) ·
+[Simple batches and native boots](https://github.com/SB0LTD/ramsql/actions/runs/44256475598)
 
 ## 17 November 2026 qualification checkpoint
 
