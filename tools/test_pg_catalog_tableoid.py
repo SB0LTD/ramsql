@@ -58,6 +58,8 @@ def probe(port, user, database):
         assert scalar(pg, "SELECT x.tableoid FROM pg_extension AS x(extension_id)") == catalog_oid
         assert row(pg, "SELECT n.tableoid, x.tableoid FROM pg_namespace n LEFT JOIN pg_extension x ON x.extnamespace=n.oid WHERE n.nspname='public'")[1] == ["2615", None]
         assert row(pg, "SELECT tableoid, count(*) FROM pg_extension GROUP BY tableoid ORDER BY tableoid")[1] == [catalog_oid, "1"]
+        assert scalar(pg, "SELECT tableoid FROM pg_extension WHERE tableoid=3079::oid") == catalog_oid
+        assert row(pg, "SELECT tableoid, count(tableoid) OVER () FROM pg_extension")[1] == [catalog_oid, "1"]
         assert [name for name, _ in row(pg, "SELECT x.* FROM pg_extension x")[0]] == [
             "oid", "extname", "extowner", "extnamespace", "extrelocatable", "extversion", "extconfig", "extcondition",
         ]
