@@ -1,8 +1,8 @@
-name: Linux PostgreSQL TCP completion correctness
+name: Linux PostgreSQL timed completion correctness
 
 on:
   push:
-    branches: [perf/linux-tcp-completions-20261118]
+    branches: [perf/linux-tcp-timed-enter-20261118]
 
 permissions:
   contents: read
