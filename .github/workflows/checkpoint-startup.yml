@@ -1,8 +1,8 @@
-name: Native RAMSQL checkpoint startup proof
+name: Native RAMSQL checkpoint generation recovery
 
 on:
   push:
-    branches: [ci/checkpoint-startup-composition-20261118]
+    branches: [ci/checkpoint-generation-path-20261118]
   workflow_dispatch:
 
 permissions:
@@ -21,8 +21,8 @@ jobs:
       run:
         shell: pwsh
     env:
-      PRODUCT_REVISION: 08af64dac0b3ce60a7aeaa501ba9de614b9ec2f1
-      PRODUCT_SHA256: 6f6d0968f20fa7ee871f2d2e87c83310d4c7b8fe945cf77d68f8bce1383a3e07
+      PRODUCT_REVISION: f7831a5500827fe57d4ff2ae2e07c4c4f1a122dc
+      PRODUCT_SHA256: c70a25456ab625577363ebccfd90831b73984f5015dc5eb4f1b85440334cc8a3
       ZPM_REVISION: 539da73f9815bcc14566f46a4911753092db795a
       ZPM_SHA256: 49813b7ef25903700b2ce7975481e9b61130382a64e4893ea3fadc86ccef5d74
     steps:
@@ -75,7 +75,7 @@ jobs:
           python tools/prepare_sig_runtime.py --installed-lib $env:SIG_LIB_DIR `
             --output (Join-Path $env:RUNNER_TEMP 'runtime') --github-env $env:GITHUB_ENV
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Reopen actual native checkpoint and verify durable suffix
+      - name: Verify two native checkpoint generations and durable suffixes
         run: |
           $options = @('-Doptimize=ReleaseSafe')
           if ($env:RUNNER_OS -eq 'macOS') { $options += '-Dlink-libc=true' }
@@ -84,7 +84,7 @@ jobs:
           $entry = @(Get-Content evidence/checkpoint-startup.txt | Where-Object { $_ -match '^\{"suite":"checkpoint_startup"' })
           if ($entry.Length -ne 1) { throw 'Checkpoint proof did not execute' }
           $report = $entry[0] | ConvertFrom-Json
-          if ($report.pass -ne $true -or $report.assertions -lt 12) { throw 'Incomplete native checkpoint proof' }
+          if ($report.pass -ne $true -or $report.assertions -lt 30) { throw 'Incomplete native checkpoint proof' }
           $entry[0] > evidence/checkpoint-startup.json
       - name: Retest ordinary persistence and backup
         run: |
