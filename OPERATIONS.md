@@ -57,7 +57,9 @@ The regular acceptor, startup, overflow cancellation and portable transaction,
 listener and parked-statement paths remain active. The runtime uses the portable
 poll path if the required io_uring operations or reactor rings cannot be opened.
 Capacity output includes the result of the optional kernel probe. When enabled,
-the server waits on ring completion descriptors and any portable socket fallbacks.
+the server combines submission and wait for ring-only periods when supported,
+with a 10 ms maintenance deadline. Mixed periods wait on ring descriptors and
+portable socket fallbacks together.
 It retires outstanding receive or send buffers before recycling an expired slot.
 
 ## Optional PostgreSQL read cache

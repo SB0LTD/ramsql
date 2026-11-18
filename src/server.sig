@@ -863,6 +863,7 @@ const Reactor = struct {
     index: usize = 0,
     idle_ms: u32 = 30000,
     completion: if (tcp_completion.available) ?CompletionQueue else void = if (tcp_completion.available) null else {},
+    try_timed_completion: bool = true,
     retiring: [capacity]bool = @splat(false),
     wait_socket: [capacity]bool = @splat(false),
 
@@ -943,6 +944,7 @@ const Reactor = struct {
             var readable: [capacity]bool = @splat(false);
             var writable: [capacity]bool = @splat(false);
             var active: usize = 0;
+            var portable_socket = false;
             var buffered = false;
             const now = sig.os.clockMonotonicNs();
             // Shared store state, timers and cancellation are read only while
@@ -1013,6 +1015,7 @@ const Reactor = struct {
                         client.flush() catch { client.close(); continue; };
                         if (client.state.load(.acquire) != 2) continue;
                         sockets[slot] = client.socket;
+                        portable_socket = true;
                         readable[slot] = client.output_len == 0 and client.input_len < client.input.len;
                         writable[slot] = client.output_len != 0;
                         active += 1;
@@ -1023,6 +1026,7 @@ const Reactor = struct {
                 if (client.serve(true)) buffered = true;
                 if (client.state.load(.acquire) != 2) continue;
                 sockets[slot] = client.socket;
+                portable_socket = true;
                 readable[slot] = client.output_len == 0 and client.input_len < client.input.len;
                 writable[slot] = client.output_len != 0;
                 active += 1;
@@ -1032,6 +1036,16 @@ const Reactor = struct {
             // latency without introducing a second socket wakeup protocol.
             var completion_fd = tcp.invalid_socket;
             if (comptime tcp_completion.available) if (self.completion) |*queue| {
+                if (self.try_timed_completion and !portable_socket and !buffered) {
+                    switch (try queue.submitAndWait(10 * 1000 * 1000)) {
+                        .ready => {
+                            try self.completionReady(queue);
+                            continue;
+                        },
+                        .yielded => continue,
+                        .unsupported => self.try_timed_completion = false,
+                    }
+                }
                 _ = try queue.submit();
                 completion_fd = queue.descriptor();
             };
