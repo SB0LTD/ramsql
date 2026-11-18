@@ -1,8 +1,8 @@
-name: Native RAMSQL checkpoint generation recovery
+name: Native RAMSQL checkpoint writer ownership
 
 on:
   push:
-    branches: [ci/checkpoint-generation-path-20261118]
+    branches: [ci/checkpoint-existing-writer-lock-20261118]
   workflow_dispatch:
 
 permissions:
@@ -21,10 +21,10 @@ jobs:
       run:
         shell: pwsh
     env:
-      PRODUCT_REVISION: f7831a5500827fe57d4ff2ae2e07c4c4f1a122dc
-      PRODUCT_SHA256: c70a25456ab625577363ebccfd90831b73984f5015dc5eb4f1b85440334cc8a3
-      ZPM_REVISION: 539da73f9815bcc14566f46a4911753092db795a
-      ZPM_SHA256: 49813b7ef25903700b2ce7975481e9b61130382a64e4893ea3fadc86ccef5d74
+      PRODUCT_REVISION: 4ffa1281453bfba4c5fbc1464277787678a75efa
+      PRODUCT_SHA256: 7d0e5d75ecfab28264997d8b791ab01b200b5d6c2298d273e942b857a060c908
+      ZPM_REVISION: 4052318058700dcffc79cfa10faf64da4df1b27a
+      ZPM_SHA256: 8f7cdab315d2ea4612718dba8d8807dbeb789b21ba9b9cea4a01fd7edea7b54e
     steps:
       - uses: actions/checkout@v4
         with:
@@ -75,6 +75,30 @@ jobs:
           python tools/prepare_sig_runtime.py --installed-lib $env:SIG_LIB_DIR `
             --output (Join-Path $env:RUNNER_TEMP 'runtime') --github-env $env:GITHUB_ENV
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run the pinned ZPM database-file contract
+        run: |
+          $source = (New-Item -Type Directory (Join-Path $env:RUNNER_TEMP 'zpm-source')).FullName
+          tar -xf (Join-Path $env:RUNNER_TEMP 'zpm.tar.gz') -C $source
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $evidence = (Resolve-Path evidence).Path
+          $name = if ($env:RUNNER_OS -eq 'Windows') { 'contract-db-file.exe' } else { 'contract-db-file' }
+          $contract = Join-Path $env:RUNNER_TEMP $name
+          $flags = @('-OReleaseSafe')
+          if ($env:RUNNER_OS -eq 'macOS') { $flags += '-lc' }
+          Push-Location (Join-Path $source "zpm-$env:ZPM_REVISION")
+          try {
+            $null = New-Item -Type Directory -Force sig-out
+            & $env:SIG build-exe --Sig-lib-dir $env:SIG_LIB_DIR @flags --dep durable_log --dep db_file '-Mroot=tests/test_db_file.sig' '-Mdurable_log=src/db/durable_log.sig' '-Mdb_file=src/platform/db_file.sig' "-femit-bin=$contract" 2>&1 | Tee-Object (Join-Path $evidence 'db-file-build.txt')
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            & $contract 2>&1 | Tee-Object (Join-Path $evidence 'db-file-result.txt')
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            $entry = @(Get-Content (Join-Path $evidence 'db-file-result.txt') | Where-Object { $_ -match '^\{"suite":"db_file"' })
+            if ($entry.Length -ne 1) { throw 'ZPM database-file proof did not execute' }
+            $report = $entry[0] | ConvertFrom-Json
+            if ($report.pass -ne $true -or $report.assertions -lt 30) { throw 'Incomplete database-file proof' }
+          } finally {
+            Pop-Location
+          }
       - name: Verify two native checkpoint generations and durable suffixes
         run: |
           $options = @('-Doptimize=ReleaseSafe')
@@ -84,7 +108,8 @@ jobs:
           $entry = @(Get-Content evidence/checkpoint-startup.txt | Where-Object { $_ -match '^\{"suite":"checkpoint_startup"' })
           if ($entry.Length -ne 1) { throw 'Checkpoint proof did not execute' }
           $report = $entry[0] | ConvertFrom-Json
-          if ($report.pass -ne $true -or $report.assertions -lt 30) { throw 'Incomplete native checkpoint proof' }
+          $assertions = if ($env:RUNNER_OS -eq 'Windows') { 39 } else { 42 }
+          if ($report.pass -ne $true -or $report.assertions -ne $assertions) { throw 'Incomplete native checkpoint proof' }
           $entry[0] > evidence/checkpoint-startup.json
       - name: Retest ordinary persistence and backup
         run: |
