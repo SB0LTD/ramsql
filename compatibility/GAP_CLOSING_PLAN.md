@@ -194,20 +194,40 @@ A separate 16-column tooling build completed all twelve stock `psql \d`
 queries on a table with a real user trigger, incoming foreign key, policies,
 named statistics and publications. The standalone partition and trigger
 comparisons also matched native PostgreSQL 18.3 for their covered cases.
-The combined native Windows build honors empty search paths and reports its
-actual recovery state. Stock `pg_dump` reaches `extra_float_digits`.
-The unchanged native PostgreSQL dump reaches `client_min_messages` on
-restore after applying the routine-body and XML settings. Validation of
-routine-body settings across interleaved clients also found that ordinary
-COMMIT needed to install the owning session before finalizing `SET LOCAL`
-and `LISTEN`. The focused Windows Store contract passed 3,159 assertions
-with the fix. Both timeout suites match native PostgreSQL 18.3 with one and
-four workers. Extended-protocol autocommit still needs its transaction
-boundary at Sync. Nominal `regclass` wire output and a complete stock migration
-remain open.
-[Populated stock describe and export audit](https://github.com/SB0LTD/ramsql/actions/runs/44238734316) ·
-[Native idle transaction timeout qualification](https://github.com/SB0LTD/ramsql/actions/runs/44238347427) ·
-[Exact combined migration source](https://github.com/SB0LTD/ramsql/commit/a45febfbe08c6fa1214069edb62e4d6375fc215c) ·
+The combined Windows build passes the previously blocking empty search path,
+recovery status, float formatting, routine validation, XML and diagnostic
+settings in stock tooling. Export advances to `synchronize_seqscans`. The
+unchanged native dump gets through `row_security` and `CREATE SCHEMA`, then
+stops at `default_tablespace` in this binary. The isolated default-placement
+candidate passes its native comparison. Forty live row-security checks match
+PostgreSQL 18.3 with one and four workers, including prepared queries, COPY,
+rollback to a savepoint, `FORCE`, and `BYPASSRLS`.
+
+An ordinary COMMIT had to rebind the owning session before finalizing
+`SET LOCAL` and `LISTEN`. Its focused Windows Store contract passed 3,159
+assertions. A separate stock-client trace confirms that extended Execute
+publishes before Sync, retains earlier writes in a failed group, and retains
+writes when the client disconnects before Sync. PostgreSQL 18.3 rolls back
+groups that disconnect before Sync. Qualification must include commit failure at Sync,
+explicit transactions, server disconnect, and the exact original JDBC tests.
+
+Stock restore loads rows before `ALTER TABLE ONLY ... ADD CONSTRAINT ...
+PRIMARY KEY`. Today that operation returns `0A000`, leaving subsequent foreign
+keys without a referenced unique key. The candidate must allocate a real
+independent backing-index identity, reject duplicate and null rows while
+holding the DDL lock, and validate replay before publishing any new definition.
+The current WAL validation protects legacy tables with inline keys and rejects
+installing a key into a formerly keyless table. Preserve that protection until
+the new operation can validate base and in-record rows before apply.
+
+Both timeout suites match native PostgreSQL 18.3 with one and four workers.
+Nominal `regclass` wire output and a complete stock migration remain open.
+[Populated stock describe](https://github.com/SB0LTD/ramsql/actions/runs/44238734316) ·
+[Stock export audit](https://github.com/SB0LTD/ramsql/actions/runs/44245522501) ·
+[Native idle timeout](https://github.com/SB0LTD/ramsql/actions/runs/44238347427) ·
+[Native transaction timeout](https://github.com/SB0LTD/ramsql/actions/runs/44240230736) ·
+[Default placement qualification](https://github.com/SB0LTD/zpm/actions/runs/44245406020) ·
+[Exact row-security candidate](https://github.com/SB0LTD/ramsql/commit/9799cc836c42b2184fb4fb388f495af0b30d15b2) ·
 [COMMIT session fix](https://github.com/SB0LTD/zpm/pull/253)
 
 ## 17 November 2026 qualification checkpoint
