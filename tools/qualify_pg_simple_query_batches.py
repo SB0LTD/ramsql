@@ -182,27 +182,71 @@ def parked(port, workers, native=False):
     return {'resumed_once': True, 'invisible_until_commit': True, 'disconnect_rolled_back': True}
 
 
-def copy_scope(port, workers, native):
+def copy_scope(port, workers):
     table = f'batch_copy_{workers}'
-    with session(port) as client:
-        client.ok(f'CREATE TABLE {table} (id INTEGER)')
-        source = f'INSERT INTO {table} VALUES (1); COPY {table} FROM STDIN; SELECT id FROM {table} ORDER BY id;'
-        if native:
+    with session(port) as client, session(port) as peer:
+        client.ok(f'CREATE TABLE {table} (id INTEGER PRIMARY KEY)')
+
+        def send(source):
             client.sock.sendall(query_packet(source))
-            assert client.message() == (b'C', b'INSERT 0 1\0')
-            assert client.message()[0] == b'G'
-            client.sock.sendall(packet(b'd', b'6\n') + packet(b'c'))
-            assert rows(client.ready()) == [['1'], ['6']]
-        else:
-            reply = result(client.query(source))
-            assert reply['frames'] == 'EZ' and reply['errors'] == ['0A000'], reply
-            client.ok(f'SELECT COUNT(*) FROM {table}', [['0']])
-            client.sock.sendall(query_packet(f'COPY {table} FROM STDIN'))
-            assert client.message()[0] == b'G'
-            client.sock.sendall(packet(b'd', b'6\n') + packet(b'c'))
-            assert result(client.ready())['completion'] == ['COPY 1']
-            client.ok(f'SELECT id FROM {table}', [['6']])
-    return {'native_interactive_tail': native, 'candidate_rejects_before_any_effect': not native}
+
+        def complete_copy(data, following=b''):
+            client.sock.sendall(packet(b'd', data) + packet(b'c') + following)
+
+        def expect_copy_in():
+            tag, body = client.message()
+            assert tag == b'G' and body == b'\0\0\1\0\0', (tag, body)
+
+        send(f"INSERT INTO {table} VALUES (1); COPY {table} FROM STDIN; SELECT SUM(id) FROM {table}; COPY {table} FROM STDIN; SELECT SUM(id) FROM {table}")
+        assert client.message() == (b'C', b'INSERT 0 1\0')
+        expect_copy_in()
+        peer.ok(f'SELECT COUNT(*) FROM {table}', [['0']])
+        client.sock.sendall(packet(b'd', b'4') + packet(b'd', b'\n') + packet(b'c'))
+        assert client.message() == (b'C', b'COPY 1\0')
+        first_result = [client.message() for _ in range(3)]
+        assert rows(first_result) == [['5']] and first_result[-1] == (b'C', b'SELECT 1\0')
+        expect_copy_in()
+        peer.ok(f'SELECT COUNT(*) FROM {table}', [['0']])
+        complete_copy(b'8\n', query_packet('SELECT 999'))
+        final_copy = result(client.ready())
+        assert final_copy['frames'] == 'CTDCZ' and final_copy['rows'] == [['13']], final_copy
+        assert rows(client.ready()) == [['999']]
+        peer.ok(f'SELECT id FROM {table} ORDER BY id', [['1'], ['4'], ['8']])
+
+        send(f"INSERT INTO {table} VALUES (20); COPY {table} FROM STDIN; INSERT INTO {table} VALUES (21)")
+        assert client.message() == (b'C', b'INSERT 0 1\0')
+        expect_copy_in()
+        client.sock.sendall(packet(b'f', b'reviewer stopped upload\0'))
+        failed = result(client.ready())
+        assert failed['errors'] == ['57014'] and failed['status'] == 'I', failed
+        peer.ok(f'SELECT COUNT(*) FROM {table} WHERE id >= 20', [['0']])
+
+        send(f"INSERT INTO {table} VALUES (30); COPY {table} FROM STDIN; INSERT INTO {table} VALUES (31)")
+        assert client.message() == (b'C', b'INSERT 0 1\0')
+        expect_copy_in()
+        complete_copy(b'invalid integer\n', query_packet('SELECT 123'))
+        malformed = result(client.ready())
+        assert malformed['errors'] == ['22P02'] and malformed['status'] == 'I', malformed
+        assert rows(client.ready()) == [['123']]
+        peer.ok(f'SELECT COUNT(*) FROM {table} WHERE id >= 30', [['0']])
+
+        send(f"BEGIN; INSERT INTO {table} VALUES (40); COPY {table} FROM STDIN")
+        assert client.message() == (b'C', b'BEGIN\0')
+        assert client.message() == (b'C', b'INSERT 0 1\0')
+        expect_copy_in()
+        complete_copy(b'41\n')
+        explicit = result(client.ready())
+        assert explicit['status'] == 'T' and explicit['completion'] == ['COPY 1'], explicit
+        peer.ok(f'SELECT COUNT(*) FROM {table} WHERE id >= 40', [['0']])
+        client.ok('COMMIT')
+        peer.ok(f'SELECT id FROM {table} WHERE id >= 40 ORDER BY id', [['40'], ['41']])
+
+        syntax = result(client.query(f"INSERT INTO {table} VALUES (50); COPY {table} FROM STDIN; SELECT 1 +"))
+        assert syntax['frames'] == 'EZ' and syntax['errors'] == ['42601'], syntax
+        peer.ok(f'SELECT COUNT(*) FROM {table} WHERE id = 50', [['0']])
+
+    return {'continued_twice': final_copy, 'copy_fail': failed, 'malformed_row': malformed,
+            'explicit_final_copy': explicit, 'raw_syntax_failure': syntax}
 
 
 def copy_out_batch(port, workers):
@@ -280,7 +324,7 @@ def main():
     evidence = {'reference_version': version, 'binary_sha256': hashlib.sha256(binary.read_bytes()).hexdigest(), 'modes': []}
     for workers in (1, 4):
         native = scenarios(args.postgres_port, workers)
-        copy_native = copy_scope(args.postgres_port, workers, True)
+        copy_native = copy_scope(args.postgres_port, workers)
         native_copy_out = copy_out_batch(args.postgres_port, workers)
         native_park = parked(args.postgres_port, workers, native=True)
         Server.test_workers = workers
@@ -288,7 +332,8 @@ def main():
             actual = scenarios(candidate.port, workers)
             for name, expected in native.items():
                 assert actual[name] == expected, (workers, name, actual[name], expected)
-            copy_test = copy_scope(candidate.port, workers, False)
+            copy_test = copy_scope(candidate.port, workers)
+            assert copy_test == copy_native, (workers, copy_test, copy_native)
             actual_copy_out = copy_out_batch(candidate.port, workers)
             assert actual_copy_out == native_copy_out, (workers, actual_copy_out, native_copy_out)
             lock_test = parked(candidate.port, workers)
