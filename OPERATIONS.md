@@ -4,6 +4,21 @@ This beta is for controlled evaluation on trusted loopback hosts. It has one
 reactor, one shared database, READ COMMITTED transactions and synchronous WAL.
 It is not a supported public service or replacement for all PostgreSQL tooling.
 
+PostgreSQL simple Query messages can carry multiple supported SQL commands.
+The server checks the entire frame before running its first command and
+streams one command's response at a time. Implicit segments commit at the end
+of the frame or at an explicit transaction boundary. A raw syntax error
+rejects the whole frame. A runtime error stops execution at that command and
+rolls back the current implicit segment. Earlier explicit commits persist.
+Send `COPY` in its own Query message. A batch containing `COPY` or unsupported
+raw grammar returns `0A000` before running any command.
+`PREPARE TRANSACTION` in a batch requires an explicit transaction block.
+
+Extended Parse/Bind/Execute groups retain implicit writes until Sync or a
+successful simple Query boundary on the same connection. Flush delivers
+responses while the transaction stays open. Extended COPY FROM and COPY TO
+run as portals and share this transaction boundary.
+
 ## Installation and startup
 
 Verify the release checksums and inspect `provenance.json`, `RELEASE.md` and

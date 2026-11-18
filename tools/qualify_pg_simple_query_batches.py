@@ -1,0 +1,249 @@
+"""Compare one PostgreSQL simple Query frame at a time with native PostgreSQL."""
+import argparse
+from contextlib import contextmanager
+import hashlib
+import json
+from pathlib import Path
+import socket
+import time
+
+from test_server import PG, Server, errors, packet, query_packet, rows
+from test_persistence import DurableServer
+
+
+@contextmanager
+def session(port):
+    sock = socket.create_connection(('127.0.0.1', port), 8)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 8192)
+    client = PG(sock)
+    try:
+        client.startup()
+        yield client
+    finally:
+        client.close()
+
+
+def result(frames):
+    notices = []
+    for tag, body in frames:
+        if tag == b'N':
+            notices.extend(field[1:].decode() for field in body.split(b'\0') if field[:1] == b'C')
+    return {
+        'frames': b''.join(tag for tag, _ in frames).decode(),
+        'status': frames[-1][1].decode(),
+        'completion': [body[:-1].decode() for tag, body in frames if tag == b'C'],
+        'rows': rows(frames),
+        'errors': [item['C'] for item in errors(frames)],
+        'notices': notices,
+    }
+
+
+def scenarios(port, workers):
+    table = f'batch_rows_{workers}'
+    out = {}
+    with session(port) as client, session(port) as peer:
+        def query(name, source, connection=client):
+            out[name] = result(connection.query(source))
+
+        client.ok(f'CREATE TABLE {table} (id INTEGER)')
+        query('two_sets_of_rows', "SELECT ';literal';; SELECT $$dollar;body$$;")
+        query('empty_comments', '/* first; /* nested; */ */ ; -- tail;')
+        query('cr_line_comments', 'SELECT 4; -- outside;\r SELECT 5;')
+        query('only_one_command_with_empty_neighbors', '; SELECT 10;; -- tail;')
+        query('cursor_within_implicit_frame', 'DECLARE c CURSOR FOR SELECT 12; FETCH ALL FROM c;')
+        query('implicit_transaction_modes', 'SET TRANSACTION ISOLATION LEVEL REPEATABLE READ; SHOW transaction_isolation')
+        query('rejected_promotion_leaves_session_idle', 'SELECT 1; BEGIN ISOLATION LEVEL REPEATABLE READ; SHOW transaction_isolation')
+        prefix, suffix = 'SELECT 4; /*', '*/ SELECT 5;'
+        query('maximum_accepted_frame', prefix + ' ' * (65530 - len(prefix) - len(suffix)) + suffix)
+        query('raw_parse_error_before_any_effect', f'INSERT INTO {table} VALUES(7); COMMIT; SELECT 1 +;')
+        query('proof_of_no_raw_parse_effects', f'SELECT COUNT(*) FROM {table}', peer)
+        query('implicit_failure', f'INSERT INTO {table} VALUES(1); SELECT 1/0; INSERT INTO {table} VALUES(2);')
+        query('implicit_failure_after', f'SELECT COUNT(*) FROM {table}', peer)
+        query('explicit_commit_boundary', f'BEGIN; INSERT INTO {table} VALUES(1); COMMIT; INSERT INTO {table} VALUES(2); SELECT 1/0')
+        query('explicit_commit_proof', f'SELECT id FROM {table} ORDER BY id', peer)
+        query('runtime_resolution_after_explicit_commit', f'BEGIN; INSERT INTO {table} VALUES(9); COMMIT; SELECT does_not_exist(1)')
+        query('runtime_resolution_did_not_undo_commit', f'SELECT id FROM {table} ORDER BY id', peer)
+        query('promote_implicit', f'INSERT INTO {table} VALUES(3); BEGIN; INSERT INTO {table} VALUES(4);')
+        query('peer_cannot_see_promoted_writes', f'SELECT id FROM {table} ORDER BY id', peer)
+        query('explicit_transaction_stops_before_rollback', 'SELECT 1/0; ROLLBACK;')
+        query('explicit_failed_state', 'SELECT 1')
+        query('explicit_recovery', 'ROLLBACK')
+        query('implicit_savepoint_prohibited', f'INSERT INTO {table} VALUES(5); SAVEPOINT blocked; SELECT 1;')
+        query('implicit_rollback_boundary', f'INSERT INTO {table} VALUES(6); ROLLBACK; INSERT INTO {table} VALUES(8)')
+        query('implicit_rollback_boundary_proof', f'SELECT id FROM {table} ORDER BY id', peer)
+        query('implicit_set_local', "SET application_name='batch_base'; SET LOCAL application_name='batch_local'; SELECT current_setting('application_name');")
+        query('implicit_set_local_expired', "SELECT current_setting('application_name')")
+        client.ok('BEGIN', status=b'T')
+        query('syntax_failure_fails_existing_block', f'INSERT INTO {table} VALUES(11); SELECT 2 +;')
+        query('existing_block_remains_failed', 'SELECT 1')
+        query('existing_block_rollback', 'ROLLBACK')
+
+    assert out['two_sets_of_rows']['frames'] == 'TDCTDCZ'
+    assert out['empty_comments']['frames'] == 'IZ'
+    assert out['cursor_within_implicit_frame']['rows'] == [['12']]
+    assert out['implicit_transaction_modes']['rows'] == [['repeatable read']]
+    assert out['rejected_promotion_leaves_session_idle']['errors'] == ['25001']
+    assert out['rejected_promotion_leaves_session_idle']['status'] == 'I'
+    assert out['maximum_accepted_frame']['rows'] == [['4'], ['5']]
+    assert out['raw_parse_error_before_any_effect']['frames'] == 'EZ'
+    assert out['proof_of_no_raw_parse_effects']['rows'] == [['0']]
+    assert out['implicit_failure']['errors'] == ['22012'] and out['implicit_failure_after']['rows'] == [['0']]
+    assert out['explicit_commit_proof']['rows'] == [['1']]
+    assert out['runtime_resolution_after_explicit_commit']['errors'] == ['42883']
+    assert out['runtime_resolution_did_not_undo_commit']['rows'] == [['1'], ['9']]
+    assert out['promote_implicit']['status'] == 'T'
+    assert out['peer_cannot_see_promoted_writes']['rows'] == [['1'], ['9']]
+    assert out['explicit_transaction_stops_before_rollback']['status'] == 'E'
+    assert out['explicit_failed_state']['errors'] == ['25P02']
+    assert out['implicit_savepoint_prohibited']['errors'] == ['25P01']
+    assert out['implicit_rollback_boundary']['notices'] == ['25P01']
+    assert out['implicit_rollback_boundary_proof']['rows'] == [['1'], ['8'], ['9']]
+    assert out['implicit_set_local']['rows'] == [['batch_local']]
+    assert out['implicit_set_local_expired']['rows'] == [['batch_base']]
+    assert out['syntax_failure_fails_existing_block']['status'] == 'E'
+    return out
+
+
+def pressure(port):
+    commands = 68
+    row_count = 350
+    query = f"SELECT repeat('x', 96) FROM generate_series(1,{row_count});"
+    with session(port) as client:
+        client.sock.sendall(query_packet(query * commands) + query_packet('SELECT 999'))
+        for _ in range(commands):
+            assert client.message()[0] == b'T'
+            for _ in range(row_count):
+                data_row = client.message()
+                assert rows([data_row]) == [['x' * 96]]
+            assert client.message() == (b'C', f'SELECT {row_count}\0'.encode())
+        assert client.message() == (b'Z', b'I')
+        assert rows(client.ready()) == [['999']]
+    return {'commands': commands, 'data_rows': commands * row_count, 'queued_next_frame_intact': True}
+
+
+def parked(port, workers, native=False):
+    target = f'batch_locked_{workers}'
+    audit = f'batch_commits_{workers}'
+    with session(port) as client, session(port) as peer:
+        client.ok(f'CREATE TABLE {target} (id INTEGER PRIMARY KEY, v INTEGER)')
+        client.ok(f'CREATE TABLE {audit} (id INTEGER PRIMARY KEY)')
+        client.ok(f'INSERT INTO {target} VALUES (1,10)')
+        pid = int(rows(client.ok('SELECT pg_backend_pid()'))[0][0])
+        peer.ok('BEGIN', status=b'T')
+        peer.ok(f'LOCK TABLE {target} IN ACCESS EXCLUSIVE MODE', status=b'T')
+        client.sock.sendall(query_packet(f'INSERT INTO {audit} VALUES (8); UPDATE {target} SET v=20 WHERE id=1; SELECT v FROM {target};'))
+        first = []
+        if native:
+            # Native PostgreSQL can buffer the first CommandComplete until
+            # the lock is released. Observe its actual backend wait instead.
+            deadline = time.monotonic() + 5
+            while True:
+                peer.ok('SELECT pg_stat_clear_snapshot()', status=b'T')
+                wait = rows(peer.ok(f'SELECT wait_event_type FROM pg_stat_activity WHERE pid={pid}', status=b'T'))
+                if wait == [['Lock']]:
+                    break
+                assert time.monotonic() < deadline, wait
+                time.sleep(0.005)
+        else:
+            first.append(client.message())
+            assert first == [(b'C', b'INSERT 0 1\0')]
+        peer.ok(f'SELECT COUNT(*) FROM {audit}', [['0']], status=b'T')
+        peer.ok('COMMIT')
+        final = result(first + client.ready())
+        assert final['frames'] == 'CCTDCZ' and final['rows'] == [['20']], final
+        peer.ok(f'SELECT id FROM {audit}', [['8']])
+        if native:
+            return {'resumed_once': True, 'invisible_until_commit': True}
+
+        peer.ok('BEGIN', status=b'T')
+        peer.ok(f'LOCK TABLE {target} IN ACCESS EXCLUSIVE MODE', status=b'T')
+        with session(port) as abandoning:
+            abandoning.sock.sendall(query_packet(f'INSERT INTO {audit} VALUES (80); UPDATE {target} SET v=99 WHERE id=1;'))
+            assert abandoning.message() == (b'C', b'INSERT 0 1\0')
+        # Acquire the abandoned key while the blocking relation lock still
+        # prevents the abandoned batch from committing its first command.
+        peer.ok(f'INSERT INTO {audit} VALUES (80)', status=b'T')
+        peer.ok('ROLLBACK')
+        peer.ok(f'SELECT id FROM {audit}', [['8']])
+        peer.ok(f'SELECT v FROM {target}', [['20']])
+    return {'resumed_once': True, 'invisible_until_commit': True, 'disconnect_rolled_back': True}
+
+
+def copy_scope(port, workers, native):
+    table = f'batch_copy_{workers}'
+    with session(port) as client:
+        client.ok(f'CREATE TABLE {table} (id INTEGER)')
+        source = f'INSERT INTO {table} VALUES (1); COPY {table} FROM STDIN; SELECT id FROM {table} ORDER BY id;'
+        if native:
+            client.sock.sendall(query_packet(source))
+            assert client.message() == (b'C', b'INSERT 0 1\0')
+            assert client.message()[0] == b'G'
+            client.sock.sendall(packet(b'd', b'6\n') + packet(b'c'))
+            assert rows(client.ready()) == [['1'], ['6']]
+        else:
+            reply = result(client.query(source))
+            assert reply['frames'] == 'EZ' and reply['errors'] == ['0A000'], reply
+            client.ok(f'SELECT COUNT(*) FROM {table}', [['0']])
+            client.sock.sendall(query_packet(f'COPY {table} FROM STDIN'))
+            assert client.message()[0] == b'G'
+            client.sock.sendall(packet(b'd', b'6\n') + packet(b'c'))
+            assert result(client.ready())['completion'] == ['COPY 1']
+            client.ok(f'SELECT id FROM {table}', [['6']])
+    return {'native_interactive_tail': native, 'candidate_rejects_before_any_effect': not native}
+
+
+def durable(binary, evidence_dir, workers):
+    wal = (evidence_dir / f'qualified-batch-{workers}.wal').resolve()
+    assert not wal.exists(), wal
+    runtime = ('--workers', str(workers))
+    with DurableServer(binary, wal, create=True, storage_options=runtime) as server:
+        with session(server.port) as client:
+            client.ok('CREATE TABLE replay_batch (id INTEGER PRIMARY KEY)')
+            implicit = result(client.query('INSERT INTO replay_batch VALUES(1); INSERT INTO replay_batch VALUES(2)'))
+            assert implicit['frames'] == 'CCZ' and implicit['status'] == 'I', implicit
+            split = result(client.query('BEGIN; INSERT INTO replay_batch VALUES(3); COMMIT; INSERT INTO replay_batch VALUES(4); SELECT 1/0'))
+            assert split['errors'] == ['22012'] and split['status'] == 'I', split
+            open_block = result(client.query('BEGIN; INSERT INTO replay_batch VALUES(5)'))
+            assert open_block['status'] == 'T' and not open_block['errors'], open_block
+            server.crash()
+    with DurableServer(binary, wal, storage_options=runtime) as restarted:
+        with session(restarted.port) as client:
+            recovered = rows(client.ok('SELECT id FROM replay_batch ORDER BY id'))
+            assert recovered == [['1'], ['2'], ['3']], recovered
+    return {'recovered_values': recovered, 'wal_sha256': hashlib.sha256(wal.read_bytes()).hexdigest(),
+            'wal_bytes': wal.stat().st_size, 'killed_with_open_transaction': True}
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--binary', type=Path, required=True)
+    parser.add_argument('--postgres-port', type=int, required=True)
+    parser.add_argument('--report', type=Path, required=True)
+    args = parser.parse_args()
+    binary = args.binary.resolve()
+    with session(args.postgres_port) as oracle:
+        version = rows(oracle.query('SHOW server_version'))[0][0]
+    assert version.startswith('18.3'), version
+    evidence = {'reference_version': version, 'binary_sha256': hashlib.sha256(binary.read_bytes()).hexdigest(), 'modes': []}
+    for workers in (1, 4):
+        native = scenarios(args.postgres_port, workers)
+        copy_native = copy_scope(args.postgres_port, workers, True)
+        native_park = parked(args.postgres_port, workers, native=True)
+        Server.test_workers = workers
+        with Server(binary, max_clients=8, extra_arguments=('--work-rows', '1024', '--result-rows', '512')) as candidate:
+            actual = scenarios(candidate.port, workers)
+            for name, expected in native.items():
+                assert actual[name] == expected, (workers, name, actual[name], expected)
+            copy_test = copy_scope(candidate.port, workers, False)
+            lock_test = parked(candidate.port, workers)
+            assert all(lock_test[name] == expected for name, expected in native_park.items())
+            pressure_test = pressure(candidate.port)
+        evidence['modes'].append({'workers': workers, 'ordinary': actual, 'native_copy': copy_native,
+                                  'candidate_copy': copy_test, 'lock_wait_and_disconnect': lock_test,
+                                  'pressure': pressure_test, 'durability': durable(binary, args.report.parent, workers)})
+    args.report.write_text(json.dumps(evidence, indent=2) + '\n')
+    print(f'PASS {sum(len(case["ordinary"]) for case in evidence["modes"])} frame differentials, wraparound I/O, COPY scope and blocked continuation')
+
+
+if __name__ == '__main__':
+    main()

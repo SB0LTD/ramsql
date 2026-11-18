@@ -1,0 +1,128 @@
+name: Native PostgreSQL simple and extended protocol qualification
+
+on:
+  push:
+    branches: [ci/postgres-protocol-batches-20261118]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  simple-query-batches:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prepare verified Sig toolchain
+        shell: bash
+        run: |
+          read -r tag asset digest < <(python tools/release_matrix.py --compiler-host Linux/X64 |
+            python -c 'import json,sys; x=json.load(sys.stdin); print(x["tag"],x["asset"],x["sha256"])')
+          curl -fsSL --retry 3 "https://github.com/SB0LTD/sig/releases/download/$tag/$asset" -o "$RUNNER_TEMP/$asset"
+          echo "$digest  $RUNNER_TEMP/$asset" | sha256sum -c
+          mkdir "$RUNNER_TEMP/sig"
+          tar -xf "$RUNNER_TEMP/$asset" -C "$RUNNER_TEMP/sig"
+          binary=$(find "$RUNNER_TEMP/sig" -type f -name sig | head -n 1)
+          standard=$(find "$RUNNER_TEMP/sig" -type f -path '*/lib/std/std.sig' | head -n 1)
+          test -x "$binary"
+          test -f "$standard"
+          printf 'SIG=%s\n' "$binary" >> "$GITHUB_ENV"
+          python tools/prepare_sig_runtime.py --installed-lib "${standard%/std/std.sig}" \
+            --output "$RUNNER_TEMP/sig-runtime" --github-env "$GITHUB_ENV"
+      - name: Build and qualify exact product against native PostgreSQL 18.3
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir evidence
+          git rev-parse HEAD >evidence/product-revision.txt
+          cp build.sig.zon evidence/build.sig.zon
+          "$SIG" build -Doptimize=ReleaseSafe -Dcolumns=16 -j1 2>&1 | tee evidence/build.log
+          sha256sum sig-out/bin/ramsql | tee evidence/ramsql.sha256
+          image=postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba
+          docker run --detach --name simple-query-native --publish 127.0.0.1::5432 \
+            -e POSTGRES_USER=ramsql -e POSTGRES_DB=ramsql -e POSTGRES_HOST_AUTH_METHOD=trust "$image"
+          for attempt in $(seq 1 60); do
+            if docker exec simple-query-native pg_isready -h 127.0.0.1 -U ramsql; then break; fi
+            sleep 1
+          done
+          docker exec simple-query-native pg_isready -h 127.0.0.1 -U ramsql
+          endpoint=$(docker port simple-query-native 5432/tcp)
+          python tools/qualify_pg_simple_query_batches.py --binary sig-out/bin/ramsql \
+            --postgres-port "${endpoint##*:}" --report evidence/simple-query-batches.json
+          python -m pip install 'psycopg[binary]==3.3.2'
+          python tools/qualify_pg_extended_sync.py --binary sig-out/bin/ramsql \
+            --postgres-port "${endpoint##*:}" --report evidence/extended-sync.json
+          python tools/qualify_pg_extended_copy.py --binary sig-out/bin/ramsql \
+            --postgres-port "${endpoint##*:}" --report evidence/extended-copy.json
+      - name: Check ordinary one-statement wire routes
+        shell: bash
+        run: |
+          set -o pipefail
+          python tools/test_server.py --binary sig-out/bin/ramsql --workers 4 | tee evidence/ordinary-server.json
+          python tools/test_persistence.py --binary sig-out/bin/ramsql | tee evidence/ordinary-persistence.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-simple-query-batch-evidence
+          path: evidence/
+
+  sb0-streams:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify the native compiler from the qualified prerelease matrix
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/native-toolchain.zip"
+          compiler="$RUNNER_TEMP/native-toolchain"
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/14396214752/zip" > "$archive"
+          printf '%s  %s\n' 0afed326c24077f05efcf2b9ca94cc9f6474b3982167f7a6845f6474a2b4c582 "$archive" | sha256sum --check --strict -
+          unzip -q "$archive" -d "$compiler"
+          python - "$compiler" <<'PY'
+          import hashlib, json, sys
+          from pathlib import Path
+          sys.path.insert(0, 'tools')
+          from release_matrix import NATIVE_SIG_REVISION
+          root = Path(sys.argv[1])
+          record = json.loads((root / 'toolchain.json').read_text())
+          assert record['source_revision'] == record['library_revision'] == NATIVE_SIG_REVISION
+          assert record['database_codegen_qemu'] == 'passed'
+          assert hashlib.sha256((root / 'bin/sig').read_bytes()).hexdigest() == record['compiler_sha256']
+          PY
+          chmod +x "$compiler/bin/sig"
+          printf 'SIG=%s\nSIG_LIB_DIR=%s\n' "$compiler/bin/sig" "$compiler/lib" >> "$GITHUB_ENV"
+      - name: Boot and exercise the real SB0X channel and SB0K UART
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v qemu-system-aarch64 >/dev/null; then
+            if [[ -f /etc/apt/apt-mirrors.txt ]]; then
+              sudo sed -i -E 's|https?://([[:alnum:].-]+\.)?archive\.ubuntu\.com/ubuntu/?|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
+            fi
+            sudo timeout 180 apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+            sudo timeout 360 apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y qemu-system-arm ipxe-qemu
+          fi
+          mkdir evidence
+          git rev-parse HEAD >evidence/product-revision.txt
+          cp build.sig.zon evidence/build.sig.zon
+          cp "$RUNNER_TEMP/native-toolchain/toolchain.json" evidence
+          for format in sb0x sb0k; do
+            python tools/build_sb0.py --format "$format" --optimize ReleaseSmall --output "evidence/ramsql.$format"
+            python tools/test_sb0.py --format "$format" --image "evidence/ramsql.$format" --report "evidence/$format.json"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sb0-simple-query-batch-evidence
+          path: evidence/
