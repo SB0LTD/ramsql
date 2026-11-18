@@ -322,6 +322,14 @@ def exercise(guest, kind, proof):
     guest.query("COMMIT")
     guest.query("SELECT value FROM sb0_probe WHERE id=7", [["committed"]])
     proof.tests.append("transaction_commit")
+    batch = guest.query("SELECT 'one;literal'; SELECT 'two'", [["one;literal"], ["two"]])
+    proof.check([tag for tag, _ in batch] == [b"T", b"D", b"C", b"T", b"D", b"C", b"Z"],
+                "native simple Query batch did not return two results and one ReadyForQuery")
+    failed_batch = guest.query("UPDATE sb0_probe SET value='must roll back' WHERE id=7; SELECT 1/0;", error=True)
+    proof.check(any(tag == b"E" and b"C22012\0" in body for tag, body in failed_batch),
+                "native implicit batch did not report division by zero")
+    guest.query("SELECT value FROM sb0_probe WHERE id=7", [["committed"]])
+    proof.tests.append("simple_query_batch_stream_and_rollback")
     # Exercise shared prepared-statement inference and binary integer encoding,
     # including Describe's bounded result storage on the native stack.
     parse = packet(b"P", b"\0SELECT id,value FROM sb0_probe WHERE id=$1\0" + struct.pack("!HI", 1, 20))
