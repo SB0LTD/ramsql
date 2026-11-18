@@ -1,7 +1,7 @@
 """Prepare pinned Sig runtime/build support, verifying the released stdlib.
 
-The compiler binary stays unchanged. The source pin is based on its 0.6.4
-release; every installed standard-library source file must match byte-for-byte.
+The hosted SDK source pin matches its release revision. Every installed
+standard-library source file must match byte-for-byte.
 Only a new, caller-selected output directory is written. No toolchain install
 or shared package cache is modified.
 """

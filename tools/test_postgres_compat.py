@@ -117,13 +117,18 @@ def local_postgres(binary_directory, psycopg, work_directory):
     Loopback trust matches the candidate's --insecure-local benchmark mode.
     Never connect to or reconfigure an existing PostgreSQL installation.
     """
-    if os.name != "posix" or os.geteuid() == 0:
-        raise RuntimeError("--postgres-bin requires a non-root POSIX user")
+    windows = os.name == "nt"
+    if not windows and (os.name != "posix" or os.geteuid() == 0):
+        raise RuntimeError("--postgres-bin requires Windows or a non-root POSIX user")
     binary_directory = Path(binary_directory).resolve()
+    suffix = ".exe" if windows else ""
+    initdb = binary_directory / ("initdb" + suffix)
+    postgres = binary_directory / ("postgres" + suffix)
+    pg_ctl = binary_directory / ("pg_ctl" + suffix)
     directory = Path(work_directory).resolve() / ("postgres-" + uuid.uuid4().hex)
     directory.mkdir(parents=True)
     data = directory / "data"
-    subprocess.run([str(binary_directory / "initdb"), "-D", str(data), "-U", "ramsql",
+    subprocess.run([str(initdb), "-D", str(data), "-U", "ramsql",
                     "--auth=trust", "--encoding=UTF8", "--locale=C"],
                    check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=60)
     with socket.socket() as reservation:
@@ -133,17 +138,26 @@ def local_postgres(binary_directory, psycopg, work_directory):
     connection = dict(host="127.0.0.1", port=port, user="ramsql", dbname="postgres", password="",
                       sslmode="disable", connect_timeout=3, autocommit=True,
                       application_name="ramsql-postgres-compat", options="-c statement_timeout=4000 -c TimeZone=UTC")
-    with (directory / "server.log").open("wb") as log:
+    server_log = directory / "server.log"
+    settings = ["-c", "listen_addresses=127.0.0.1", "-c", f"port={port}",
+                "-c", "unix_socket_directories=", "-c", "fsync=on",
+                "-c", "synchronous_commit=on", "-c", "full_page_writes=on",
+                "-c", "TimeZone=UTC"]
+    with (directory / "control.log" if windows else server_log).open("wb") as log:
         try:
-            process = subprocess.Popen([str(binary_directory / "postgres"), "-D", str(data),
-                                        "-c", "listen_addresses=127.0.0.1", "-c", f"port={port}",
-                                        "-c", "unix_socket_directories=", "-c", "fsync=on",
-                                        "-c", "synchronous_commit=on", "-c", "full_page_writes=on"],
-                                       stdout=log, stderr=log)
+            if windows:
+                # pg_ctl provides fast shutdown on Windows and owns only this new data directory.
+                # File-backed output keeps the detached server from inheriting a subprocess pipe.
+                subprocess.run([str(pg_ctl), "start", "-w", "-t", "30", "-D", str(data),
+                                "-l", str(server_log), "-o", subprocess.list2cmdline(settings)],
+                               stdout=log, stderr=log, creationflags=subprocess.CREATE_NO_WINDOW,
+                               timeout=35, check=True)
+            else:
+                process = subprocess.Popen([str(postgres), "-D", str(data), *settings], stdout=log, stderr=log)
             deadline = time.monotonic() + 30
             while True:
-                if process.poll() is not None:
-                    raise RuntimeError("owned PostgreSQL exited; see " + str(directory / "server.log"))
+                if process is not None and process.poll() is not None:
+                    raise RuntimeError("owned PostgreSQL exited; see " + str(server_log))
                 try:
                     with psycopg.connect(**connection) as reference:
                         reference.execute("CREATE DATABASE ramsql")
@@ -157,11 +171,15 @@ def local_postgres(binary_directory, psycopg, work_directory):
             connection["dbname"] = "ramsql"
             yield connection, {"deployment": "owned native process", "server_version": version,
                                "server_version_num": version_number, "data_path": str(data),
-                               "postgres_binary": str(binary_directory / "postgres"),
-                               "postgres_sha256": hashlib.sha256((binary_directory / "postgres").read_bytes()).hexdigest(),
+                               "postgres_binary": str(postgres),
+                               "postgres_sha256": hashlib.sha256(postgres.read_bytes()).hexdigest(),
                                "authentication": "loopback trust, isolated benchmark cluster"}
         finally:
-            if process is not None and process.poll() is None:
+            if windows and (data / "postmaster.pid").is_file():
+                subprocess.run([str(pg_ctl), "stop", "-m", "fast", "-w", "-t", "30", "-D", str(data)],
+                               stdout=log, stderr=log, creationflags=subprocess.CREATE_NO_WINDOW,
+                               timeout=35, check=True)
+            elif process is not None and process.poll() is None:
                 process.send_signal(__import__("signal").SIGINT)  # PostgreSQL fast shutdown
                 try:
                     process.wait(timeout=30)
@@ -303,14 +321,21 @@ def candidate_mode(work_directory, *, durable=False, scram=False, timezone_dir=N
 
 
 @contextmanager
-def running_ramsql(binary, legacy_cli=False, extra_arguments=(), *, data_path=None, create_data=False, auth=None, startup_timeout=20):
+def running_ramsql(binary, legacy_cli=False, extra_arguments=(), *, data_path=None, create_data=False, auth=None, auth_list=None, startup_timeout=20):
     command = [str(binary), "--serve", "--port", "0"]
     if data_path is not None:
         command += ["--data", str(data_path)] + (["--create-data"] if create_data else [])
     elif not legacy_cli:
         command += ["--memory"]
-    if auth is not None:
-        command += ["--auth-user", auth[0], "--auth-verifier-file", str(auth[1])]
+    if auth is not None and auth_list is not None:
+        raise ValueError("Specify only one authentication mode")
+    user, password = "ramsql", ""
+    if auth_list is not None:
+        credentials, user, password = auth_list
+        command += ["--auth-credentials-file", str(credentials)]
+    elif auth is not None:
+        user, verifier, password = auth
+        command += ["--auth-user", user, "--auth-verifier-file", str(verifier)]
     elif data_path is not None or not legacy_cli:
         command += ["--insecure-local"]
     command += extra_arguments
@@ -344,8 +369,7 @@ def running_ramsql(binary, legacy_cli=False, extra_arguments=(), *, data_path=No
                 port = int(match[1])
             elif time.monotonic() >= deadline:
                 raise RuntimeError("RAMSQL did not report a PostgreSQL loopback port")
-        yield dict(host="127.0.0.1", port=port, user=auth[0] if auth else "ramsql", dbname="ramsql",
-                   password=auth[2] if auth else "",
+        yield dict(host="127.0.0.1", port=port, user=user, dbname="ramsql", password=password,
                    sslmode="disable", connect_timeout=3, autocommit=True,
                    application_name="ramsql-postgres-compat", options="-c statement_timeout=4000")
         if process.poll() is not None:

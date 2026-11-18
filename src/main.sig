@@ -157,6 +157,7 @@ fn run(init: std.process.Init.Minimal) !u8 {
     var options: server.Options = .{};
     var data_buffer: [4096]u8 = undefined;
     var verifier_buffer: [4096]u8 = undefined;
+    var credentials_buffer: [4096]u8 = undefined;
     var user_buffer: [64]u8 = undefined;
     var backup_buffer: [4096]u8 = undefined;
     var timezone_buffer: [4096]u8 = undefined;
@@ -178,12 +179,21 @@ fn run(init: std.process.Init.Minimal) !u8 {
             if (options.memory) return error.InvalidServerOptions;
             options.create_data = true;
             has_server_options = true;
+        } else if (same(arg, "--database-cluster")) {
+            options.database_cluster = true;
+            has_server_options = true;
+        } else if (same(arg, "--auth-catalog-role")) {
+            options.auth_catalog_role = true;
+            has_server_options = true;
         } else if (same(arg, "--insecure-local")) {
             options.insecure_local = true;
             has_server_options = true;
+        } else if (same(arg, "--typed-bank-memory-profile")) {
+            options.typed_bank_memory_profile = true;
+            has_server_options = true;
         } else {
-            const option: enum { protocol, port, mysql_port, mssql_port, max_clients, workers, idle_ms, max_query_work, storage_rows, storage_versions, work_rows, result_rows, table_rows, table_versions, data, verifier_file, auth_user, backup_to, timezone_dir, memory_budget, os_headroom } =
-                if(same(arg,"--memory-budget")) .memory_budget else if(same(arg,"--os-headroom")) .os_headroom else if (same(arg, "--workers")) .workers else if (same(arg, "--table-rows")) .table_rows else if (same(arg, "--table-versions")) .table_versions else if (same(arg, "--work-rows")) .work_rows else if (same(arg, "--result-rows")) .result_rows else if (same(arg, "--rows")) .storage_rows else if (same(arg, "--versions")) .storage_versions else if (same(arg, "--protocol")) .protocol else if (same(arg, "--port")) .port else if (same(arg, "--mysql-port")) .mysql_port else if (same(arg, "--mssql-port")) .mssql_port else if (same(arg, "--max-clients")) .max_clients else if (same(arg, "--max-query-work")) .max_query_work else if (same(arg, "--idle-ms")) .idle_ms else if (same(arg, "--data")) .data else if (same(arg, "--auth-verifier-file")) .verifier_file else if (same(arg, "--auth-user")) .auth_user else if (same(arg, "--backup-to")) .backup_to else if (same(arg, "--timezone-dir")) .timezone_dir else return error.UnknownArgument;
+            const option: enum { protocol, port, mysql_port, mssql_port, max_clients, workers, idle_ms, max_query_work, max_prepared_transactions, storage_rows, storage_versions, work_rows, result_rows, table_rows, table_versions, table_integral_words, query_refs, data, verifier_file, credentials_file, auth_user, backup_to, timezone_dir, memory_budget, os_headroom } =
+                if(same(arg,"--memory-budget")) .memory_budget else if(same(arg,"--os-headroom")) .os_headroom else if (same(arg, "--workers")) .workers else if (same(arg, "--table-rows")) .table_rows else if (same(arg, "--table-versions")) .table_versions else if (same(arg, "--table-integral-words")) .table_integral_words else if (same(arg, "--query-refs")) .query_refs else if (same(arg, "--work-rows")) .work_rows else if (same(arg, "--result-rows")) .result_rows else if (same(arg, "--rows")) .storage_rows else if (same(arg, "--versions")) .storage_versions else if (same(arg, "--protocol")) .protocol else if (same(arg, "--port")) .port else if (same(arg, "--mysql-port")) .mysql_port else if (same(arg, "--mssql-port")) .mssql_port else if (same(arg, "--max-clients")) .max_clients else if (same(arg, "--max-query-work")) .max_query_work else if (same(arg, "--max-prepared-transactions")) .max_prepared_transactions else if (same(arg, "--idle-ms")) .idle_ms else if (same(arg, "--data")) .data else if (same(arg, "--auth-verifier-file")) .verifier_file else if (same(arg, "--auth-credentials-file")) .credentials_file else if (same(arg, "--auth-user")) .auth_user else if (same(arg, "--backup-to")) .backup_to else if (same(arg, "--timezone-dir")) .timezone_dir else return error.UnknownArgument;
             const value = try args.next() orelse return error.UnknownArgument;
             has_server_options = true;
             switch (option) {
@@ -203,6 +213,11 @@ fn run(init: std.process.Init.Minimal) !u8 {
                     @memcpy(verifier_buffer[0..value.len], value);
                     options.auth_verifier_file = verifier_buffer[0..value.len];
                 },
+                .credentials_file => {
+                    if (value.len == 0 or value.len > credentials_buffer.len) return error.InvalidServerOptions;
+                    @memcpy(credentials_buffer[0..value.len], value);
+                    options.auth_credentials_file = credentials_buffer[0..value.len];
+                },
                 .timezone_dir => {
                     if (value.len == 0 or value.len > timezone_buffer.len) return error.InvalidServerOptions;
                     @memcpy(timezone_buffer[0..value.len], value);
@@ -218,29 +233,40 @@ fn run(init: std.process.Init.Minimal) !u8 {
                 .mysql_port => options.mysql_port = try fmt.parseInt(u16, value, 10),
                 .mssql_port => options.mssql_port = try fmt.parseInt(u16, value, 10),
                 .max_clients => options.max_clients = try fmt.parseInt(usize, value, 10),
-                .workers => options.workers = try fmt.parseInt(usize, value, 10),
+                .workers => {
+                    if (same(value, "auto")) {
+                        options.workers = 0;
+                    } else {
+                        options.workers = try fmt.parseInt(usize, value, 10);
+                        if (options.workers == 0) return error.InvalidServerOptions;
+                    }
+                },
                 .memory_budget => {const amount=try fmt.parseInt(u64,value,10);if(amount==0) return error.InvalidServerOptions;options.memory_budget=amount;},
                 .os_headroom => options.os_headroom = try fmt.parseInt(u64,value,10),
                 .storage_rows => options.storage_rows = try fmt.parseInt(usize, value, 10),
                 .storage_versions => options.storage_versions = try fmt.parseInt(usize, value, 10),
                 .table_rows => options.table_rows = try budgets(value),
                 .table_versions => options.table_versions = try budgets(value),
+                .table_integral_words => options.table_integral_words = try budgets(value),
+                .query_refs => options.query_refs = try fmt.parseInt(usize, value, 10),
                 .work_rows => options.work_rows = try fmt.parseInt(usize, value, 10),
                 .result_rows => options.result_rows = try fmt.parseInt(usize, value, 10),
                 .max_query_work => options.max_query_work = try fmt.parseInt(u64, value, 10),
+                .max_prepared_transactions => options.max_prepared_transactions = try fmt.parseInt(usize, value, 10),
                 .idle_ms => options.idle_ms = try fmt.parseInt(u32, value, 10),
             }
         }
     }
     if (has_server_options and mode != .serve and mode != .capabilities and mode != .machine_capacity) return error.UnknownArgument;
+    if (options.database_cluster and mode != .serve) return error.InvalidServerOptions;
     if (backup_target) |target| {
-        if (mode != .serve or options.memory or options.create_data) return error.InvalidServerOptions;
+        if (mode != .serve or options.memory or options.create_data or options.database_cluster) return error.InvalidServerOptions;
         try server.backup(options, target);
         try write("RAMSQL backup complete\n");
         return 0;
     }
     switch (mode) {
-        .help => try write("ramsql beta (controlled testing; not production)\nUsage: ramsql [--serve|--demo|--stdin|--version|--capabilities|--machine-capacity|--help]\nServer: --protocol postgres|mysql|mssql --port N --mysql-port N --mssql-port N\n        --max-clients N --workers N (experimental I/O reactors; SQL serialized) --idle-ms N --max-query-work N (0: unlimited); default loopback PostgreSQL:5432\nMachine: --machine-capacity (JSON native resources and byte plan; opens no database/listeners)\n         --memory-budget BYTES --os-headroom BYTES (also apply to server region admission)\nInspect: --capabilities (JSON; accepts runtime capacity options; opens no files/listeners)\nCapacity: --rows N --versions N --work-rows N --result-rows N (independent runtime budgets)\n          --table-rows n,n,... --table-versions n,n,... (one budget per table slot)\nStorage: --data WAL_PATH (default ramsql.wal; must exist) | --memory\n         --create-data (first start: create a missing WAL; without it a missing WAL fails startup)\nBackup: --data EXISTING_WAL --backup-to NEW_PATH (offline)\nAuth: --auth-user USER --auth-verifier-file PATH (PostgreSQL SCRAM verifier)\nTime zones: --timezone-dir ZONEINFO_DIR (default /usr/share/zoneinfo on Linux/macOS)\n      --insecure-local explicitly enables unauthenticated loopback testing\n--stdin: one SQL statement per line. --demo: run the example and exit.\n"),
+        .help => try write("ramsql beta (controlled testing; not production)\nUsage: ramsql [--serve|--demo|--stdin|--version|--capabilities|--machine-capacity|--help]\nServer: --protocol postgres|mysql|mssql --port N --mysql-port N --mssql-port N\n        --max-clients N --workers auto|N (automatic PostgreSQL read workers by default) --idle-ms N --max-query-work N (0: unlimited); default loopback PostgreSQL:5432\nMachine: --machine-capacity (JSON native resources and byte plan; opens no database/listeners)\n         --memory-budget BYTES --os-headroom BYTES (also apply to server region admission)\nInspect: --capabilities (JSON; accepts runtime capacity options; opens no files/listeners)\nCapacity: --rows N --versions N --work-rows N --result-rows N (independent runtime budgets)\n          --table-rows n,n,... --table-versions n,n,... (one budget per table slot)\n          --table-integral-words n,n,... (experimental build, 0 selects dense storage)\n          --typed-bank-memory-profile [--query-refs N] (typed slots omit optional scan/hash regions)\nPrepared transactions: --max-prepared-transactions N (PostgreSQL durable mode; default 0)\nStorage: --data WAL_PATH (default ramsql.wal; must exist) | --memory\n         --create-data (first start: create a missing WAL; without it a missing WAL fails startup)\n         --database-cluster (durable PostgreSQL, one reactor, four databases)\nBackup: --data EXISTING_WAL --backup-to NEW_PATH (offline)\nAuth: --auth-user USER --auth-verifier-file PATH (PostgreSQL SCRAM verifier)\n      --auth-catalog-role binds USER to an eligible role in an existing durable database\n      --auth-credentials-file PATH authenticates multiple catalog roles in an existing durable database\nTime zones: --timezone-dir ZONEINFO_DIR (default /usr/share/zoneinfo on Linux/macOS)\n      --insecure-local explicitly enables unauthenticated loopback testing\n--stdin: one SQL statement per line. --demo: run the example and exit.\n"),
         .version => try write("ramsql " ++ ram.version ++ "\n"),
         .capabilities => try server.describe(options),
         .machine_capacity => try server.describeMachine(options),

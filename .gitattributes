@@ -1,2 +1,3 @@
 benchmarks/ci-reporting-41024725859/raw/** -text
 benchmarks/ci-reporting-41024725859/validator/** -text
+toolchains/sig-0.6.5-release-manifest.json -text
