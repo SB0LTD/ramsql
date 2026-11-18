@@ -1,0 +1,56 @@
+name: Qualify serialized RAMSQL WAL commits
+
+on:
+  push:
+    branches: [ci/serialized-wal-proof-20261118]
+
+permissions:
+  contents: read
+
+jobs:
+  persistence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Verify exact source, dependency and hosted compiler
+        run: |
+          set -euo pipefail
+          mkdir -p evidence "$RUNNER_TEMP/sig-sdk"
+          source=72af31d411b564d55b850bf2a1c71c4ff84a2355
+          git merge-base --is-ancestor "$source" HEAD
+          git diff --exit-code "$source" -- src/persistence.sig tests/persistence.sig build.sig.zon
+          git rev-parse HEAD "$source" > evidence/source.log
+          zpm=0aeef3bfb8573c89e2bcf8a8b47070d47932cf48
+          zpm_sha=bb6dc7484379e11664e23f125463851fe952732240f9ebfb765bbb7b6674da12
+          grep -F "$zpm.tar.gz" build.sig.zon
+          grep -F "$zpm_sha" build.sig.zon
+          curl --fail --location --silent --show-error "https://github.com/SB0LTD/zpm/archive/$zpm.tar.gz" -o "$RUNNER_TEMP/zpm.tar.gz"
+          printf '%s  %s\n' "$zpm_sha" "$RUNNER_TEMP/zpm.tar.gz" | sha256sum -c - | tee evidence/zpm.log
+          tag=sig-0.6.5-zig0.17.0.3c72687
+          archive="$RUNNER_TEMP/$tag-x86_64-linux.tar.xz"
+          curl --fail --location --silent --show-error \
+            "https://github.com/SB0LTD/sig/releases/download/$tag/$(basename "$archive")" -o "$archive"
+          printf '%s  %s\n' 179094228e2e6b0db3a5a1e01a8a57e8e91db6aa3b5ca80094ca22d870cc373a "$archive" \
+            | sha256sum -c - | tee evidence/sdk.log
+          tar -xJf "$archive" -C "$RUNNER_TEMP/sig-sdk"
+          compiler="$(find "$RUNNER_TEMP/sig-sdk" -type f -path '*/bin/sig' -print -quit)"
+          test -x "$compiler"
+          sha256sum "$compiler" >> evidence/sdk.log
+          "$compiler" version | tee -a evidence/sdk.log
+          echo "SIG=$compiler" >> "$GITHUB_ENV"
+          echo "SIG_LIB_DIR=$(dirname "$(dirname "$compiler")")/lib" >> "$GITHUB_ENV"
+      - name: Recover actual grouped SQL writes with the existing log reader
+        run: |
+          set -euo pipefail
+          "$SIG" build test-persistence -Doptimize=ReleaseSafe -j2 --Sig-lib-dir "$SIG_LIB_DIR" 2>&1 | tee evidence/persistence.log
+          grep -E '\{"suite":"persistence","pass":true,"assertions":[1-9][0-9]*\}' evidence/persistence.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: serialized-ram-sql-wal
+          path: evidence/
+          if-no-files-found: error
