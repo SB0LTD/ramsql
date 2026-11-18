@@ -47,10 +47,11 @@ also increase CPU/query; this is not a parallel-query executor.
 
 ## Experimental integral version banks
 
-Build with `sig build -Dintegral-version-banks=true` to enable this storage
-profile. Pass `--table-integral-words n,n,...` with one value per compiled table
-slot. Zero selects a dense split payload. The list defaults to all zeros.
-Each positive value reserves that many 8-byte words per row version. Hosted release binaries include integral banks. The default source build needs the flag.
+Hosted release binaries include integral banks. For a source build, enable the
+profile with `sig build -Dintegral-version-banks=true`. Pass
+`--table-integral-words n,n,...` with one value per compiled table slot. Zero
+selects a dense split payload. The list defaults to all zeros. Each positive
+value reserves that many 8-byte words per row version.
 
 Integral banks hold SMALLINT (2 bytes), INT and OID (4 bytes), DATE (4 bytes)
 and BIGINT (8 bytes). Add one bit per column for null state, round the bitmap
