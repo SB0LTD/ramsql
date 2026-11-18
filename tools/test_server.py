@@ -856,10 +856,24 @@ def test_linked_completion_turn(binary):
                 slow.sock.shutdown(socket.SHUT_WR)
                 check(rows(slow.ready()) == [[str(i), payload] for i in range(count)])
                 expect_closed(slow)
-            with connection(server, recv_buffer=4096) as aborted:
+            # FIN can reach the peer before the owning reactor publishes
+            # the closed slot as free. Retry admission, not the query.
+            cutoff = time.monotonic() + 3
+            while True:
+                aborted = PG(server.raw(recv_buffer=4096))
+                try:
+                    aborted.startup()
+                    break
+                except EOFError:
+                    aborted.close(False)
+                    check(server.process.poll() is None and time.monotonic() < cutoff,
+                          f"linked half-close slot was not released: {list(server.errors)!r}")
+                    time.sleep(0.01)
+            try:
                 aborted.sock.sendall(query_packet(query))
                 check(aborted.message()[0] == b"T")
                 aborted.sock.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+            finally:
                 aborted.close(False)
             live_probe(server)
 
