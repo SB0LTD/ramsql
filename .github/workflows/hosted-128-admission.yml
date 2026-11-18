@@ -1,0 +1,127 @@
+name: Opt-in hosted PostgreSQL 128-client admission
+
+on:
+  push:
+    branches: [ci/hosted-128-admission-20261118]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  admission:
+    name: Hosted admission (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PRODUCT_REVISION: d84cd04abbfe6bb383297a594fb2bcb5af5c6a08
+      PRODUCT_SHA256: 7476bf677829bebeaa868117c9d5a40d48c71a20f8fa6960fd1966a51c44ea8a
+      ZPM_REVISION: e947f591aaddc13b89cac74bab1eff8d71d622f2
+      ZPM_SHA256: 551c3fd3734ad39f3867c7b59d4e526f31c1b8e9185b3cc95efcb69c0d3c447c
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PRODUCT_REVISION }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify exact source, dependency and native SDK
+        run: |
+          if ((git rev-parse HEAD) -ne $env:PRODUCT_REVISION) { throw 'Unexpected RAMSQL source revision' }
+          $null = New-Item -Type Directory -Force evidence,sig-out
+          $env:PRODUCT_REVISION > evidence/product-revision.txt
+          $env:ZPM_REVISION > evidence/zpm-revision.txt
+          function Verify-Archive($url, $wanted, $path) {
+            Invoke-WebRequest -Uri $url -OutFile $path
+            $actual = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne $wanted) { throw "Archive digest mismatch for $url" }
+          }
+          Verify-Archive "https://github.com/SB0LTD/ramsql/archive/$env:PRODUCT_REVISION.tar.gz" $env:PRODUCT_SHA256 (Join-Path $env:RUNNER_TEMP 'product.tar.gz')
+          $zpmUrl = "https://github.com/SB0LTD/zpm/archive/$env:ZPM_REVISION.tar.gz"
+          $zon = Get-Content build.sig.zon -Raw
+          if (-not $zon.Contains($zpmUrl) -or -not $zon.Contains($env:ZPM_SHA256)) { throw 'Unexpected ZPM dependency pin' }
+          Verify-Archive $zpmUrl $env:ZPM_SHA256 (Join-Path $env:RUNNER_TEMP 'zpm.tar.gz')
+          python tools/release_matrix.py --compiler-host "$env:RUNNER_OS/$env:RUNNER_ARCH" > evidence/compiler-release.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $pin = Get-Content evidence/compiler-release.json -Raw | ConvertFrom-Json
+          $archive = Join-Path $env:RUNNER_TEMP $pin.asset
+          $destination = (New-Item -Type Directory (Join-Path $env:RUNNER_TEMP 'sig-toolchain')).FullName
+          Verify-Archive "https://github.com/SB0LTD/sig/releases/download/$($pin.tag)/$($pin.asset)" $pin.sha256 $archive
+          if ($env:RUNNER_OS -eq 'Windows') {
+            Expand-Archive -LiteralPath $archive -DestinationPath $destination
+            $name = 'sig.exe'
+          } else {
+            tar -xf $archive -C $destination
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            $name = 'sig'
+          }
+          $compiler = @(Get-ChildItem $destination -Recurse -File |
+            Where-Object { $_.Name -ceq $name -and $_.Directory.Name -ceq 'bin' })
+          if ($compiler.Length -ne 1) { throw 'Expected one native Sig compiler' }
+          $library = Join-Path $compiler[0].Directory.Parent.FullName 'lib'
+          "SIG=$($compiler[0].FullName)" >> $env:GITHUB_ENV
+          "SIG_LIB_DIR=$library" >> $env:GITHUB_ENV
+          & $compiler[0].FullName version | Tee-Object evidence/sig-version.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Prepare the pinned runtime
+        run: |
+          python tools/prepare_sig_runtime.py --installed-lib $env:SIG_LIB_DIR `
+            --output (Join-Path $env:RUNNER_TEMP 'runtime') --github-env $env:GITHUB_ENV
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Exercise rebased ZPM readiness with 70 live socket pairs
+        run: |
+          $zpm = (New-Item -Type Directory (Join-Path $env:RUNNER_TEMP 'zpm')).FullName
+          tar -xf (Join-Path $env:RUNNER_TEMP 'zpm.tar.gz') -C $zpm --strip-components=1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $name = if ($env:RUNNER_OS -eq 'Windows') { 'tcp-contract.exe' } else { 'tcp-contract' }
+          $binary = Join-Path $env:RUNNER_TEMP $name
+          $flags = @('-OReleaseSafe')
+          if ($env:RUNNER_OS -eq 'macOS') { $flags += '-lc' }
+          & $env:SIG build-exe --Sig-lib-dir $env:SIG_LIB_DIR @flags --dep tcp_server `
+            "-Mroot=$zpm/tests/test_tcp_server.sig" "-Mtcp_server=$zpm/src/platform/tcp_server.sig" "-femit-bin=$binary"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $binary 2>&1 | Tee-Object evidence/tcp-contract.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $tcp = Get-Content evidence/tcp-contract.json -Raw | ConvertFrom-Json
+          if ($tcp.suite -ne 'tcp_server' -or $tcp.pass -ne $true -or $tcp.assertions -lt 150) {
+            throw 'Rebased readiness contract did not execute'
+          }
+      - name: Build and test the unchanged default capacity
+        run: |
+          & $env:SIG build -Doptimize=ReleaseSafe 2>&1 | Tee-Object evidence/default-build.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $name = if ($env:RUNNER_OS -eq 'Windows') { 'ramsql.exe' } else { 'ramsql' }
+          $binary = (Resolve-Path "sig-out/bin/$name").Path
+          & $binary --capabilities | Tee-Object evidence/default-capabilities.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $caps = Get-Content evidence/default-capabilities.json -Raw | ConvertFrom-Json
+          if ($caps.compiled_clients -ne 60 -or $caps.clients -ne 16) { throw 'Default client profile changed' }
+          python tools/test_cli.py --binary $binary 2>&1 | Tee-Object evidence/default-cli.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLowerInvariant() > evidence/default-binary-sha256.txt
+      - name: Prove 128 live PostgreSQL sessions with one and four workers
+        run: |
+          & $env:SIG build -Doptimize=ReleaseSafe -Dhosted-client-ceiling=128 2>&1 | Tee-Object evidence/expanded-build.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $name = if ($env:RUNNER_OS -eq 'Windows') { 'ramsql.exe' } else { 'ramsql' }
+          $binary = (Resolve-Path "sig-out/bin/$name").Path
+          (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLowerInvariant() > evidence/expanded-binary-sha256.txt
+          python tools/test_hosted_128_admission.py --binary $binary --report evidence/expanded-admission.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $report = Get-Content evidence/expanded-admission.json -Raw | ConvertFrom-Json
+          if ($report.suite -ne 'hosted_128_admission' -or $report.passed -ne $true -or $report.profiles.Length -ne 2) {
+            throw 'Expanded capacity contract did not execute'
+          }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hosted-admission-${{ matrix.os }}
+          path: evidence/
+          if-no-files-found: error
