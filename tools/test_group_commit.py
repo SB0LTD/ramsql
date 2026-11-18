@@ -20,8 +20,8 @@ WINDOW_MS = 50
 
 
 class TracedServer(DurableServer):
-    def __init__(self, binary, wal, tracer, trace, *, window=WINDOW_MS, inject=None):
-        super().__init__(binary, wal, storage_options=("--workers", "2", "--group-commit-wait-ms", str(window)))
+    def __init__(self, binary, wal, tracer, trace, *, window=WINDOW_MS, workers=2, inject=None):
+        super().__init__(binary, wal, storage_options=("--workers", str(workers), "--group-commit-wait-ms", str(window)))
         self.tracer = tracer
         self.trace = trace
         self.inject = inject
