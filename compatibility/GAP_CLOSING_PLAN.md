@@ -94,9 +94,37 @@ and from 6.85 to 5.82 ms. Every paired trial improved throughput.
 The committed integral projection moved the unchanged million-row Top-N
 query from 24.45 to 631.81 queries/s at one client, with median p99 falling
 from 46.59 to 1.81 ms. The same-runner A/B exercised both RAMSQL builds
-with identical data, correctness checks and capacity. The combined build is
-being qualified separately. [Top-N A/B](https://github.com/benor1470/dbMeter/actions/runs/44203326892) ·
+with identical data, correctness checks and capacity.
+[Top-N A/B](https://github.com/benor1470/dbMeter/actions/runs/44203326892) ·
 [Executor change](https://github.com/SB0LTD/zpm/pull/227)
+
+The combined exact build `bbaca185a88e250f8be7d3b97bdbbc87ab499032` with the
+explicit 256 MiB cache budget passed all original result and capacity checks
+and produced 144 valid timing reports. It led median throughput on all 16
+cases and met the full rate, trial separation and p99 criteria on 11. The
+four prepared primary-key cases ran at 1.11× to 1.53× PostgreSQL throughput.
+The million-row single-client filter ran at 1.23× IRDB throughput. The two
+eight-client primary-key cases also merit tail-latency work, especially the
+100K case at 94 µs p99 versus PostgreSQL's 62 µs. All four Top-N cases cleared
+the gate at 22.81× to 31.45× the faster reference. The repeated read-only
+sales workloads cleared their gates. The dbMeter workflow and README claim
+remain gated on a passing all-case run.
+[Combined full-duration campaign](https://github.com/benor1470/dbMeter/actions/runs/44211327722)
+
+An isolated medium-result cache with the same requested budget raised the
+original million-row filter from 1,027 to 9,136 queries/s at one client and
+from 2,746 to 17,122 at eight in a paired test. Median p99 fell from 1,231
+to 149 µs and 5,439 to 1,903 µs respectively. This path serves repeated
+eligible reads after observing the result size and invalidates on relevant
+writes. It still needs all-engine qualification. A separate sampling run of
+the exact combined build found that the active single-client server thread
+spent about 64% of its recorded CPU time in the kernel. `poll` and `sendto`
+were the largest inclusive syscall stacks. The Linux completion experiment
+now has native contracts for partial sends, EOF, cancellation and buffer
+lifetime. Its effect on original JDBC throughput remains to be measured.
+[Filter A/B](https://github.com/benor1470/dbMeter/actions/runs/44217568675) ·
+[CPU profile](https://github.com/benor1470/dbMeter/actions/runs/44217950460) ·
+[Linux transport contracts](https://github.com/SB0LTD/zpm/actions/runs/44220775588)
 
 ## 17 November 2026 qualification checkpoint
 
