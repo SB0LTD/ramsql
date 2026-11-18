@@ -23,11 +23,31 @@ const database_identity_kind: u16 = 8;
 pub const checkpoint_anchor_kind: u16 = 24;
 pub const DatabaseIdentity = struct { cluster: [16]u8, oid: u32 };
 
-pub const CheckpointPaths = struct {
-    writer_lock: []const u8,
-    selection: []const u8,
-    image: []const u8,
-    wal: []const u8,
+/// One configured stem owns the fixed writer lock and selector paths. Only the
+/// selection read under that lock supplies a generation for its image and WAL.
+pub const CheckpointLayout = struct {
+    pub const path_capacity = 4096;
+    const max_suffix = ".g18446744073709551615.image".len;
+    pub const Stable = enum { lock, manifest };
+    pub const Generation = enum { image, wal };
+
+    stem: []const u8,
+
+    pub fn init(stem: []const u8) !CheckpointLayout {
+        if (stem.len == 0 or stem[stem.len - 1] == '/' or stem[stem.len - 1] == '\\') return error.InvalidPath;
+        if (stem.len > path_capacity - 1 - max_suffix) return error.PathTooLong;
+        for (stem) |byte| if (byte == 0) return error.InvalidPath;
+        return .{ .stem = stem };
+    }
+
+    pub fn stablePath(self: CheckpointLayout, out: []u8, kind: Stable) ![]const u8 {
+        return std.fmt.bufPrint(out, "{s}.{s}", .{ self.stem, @tagName(kind) }) catch return error.PathTooLong;
+    }
+
+    pub fn generationPath(self: CheckpointLayout, out: []u8, generation: u64, kind: Generation) ![]const u8 {
+        if (generation == 0) return error.InvalidCheckpointManifest;
+        return std.fmt.bufPrint(out, "{s}.g{d}.{s}", .{ self.stem, generation, @tagName(kind) }) catch return error.PathTooLong;
+    }
 };
 
 const ImagePayload = struct {
@@ -133,11 +153,19 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
 
         const CheckpointReplay = struct {
             persistence: *Self,
-            /// The anchor contains the complete canonical selection record.
             anchor: [manifest.record_size]u8,
+            image: *disk.File,
+            seal: snapshot.Seal,
+            scratch: []u8,
 
-            fn verify(self: *const CheckpointReplay, _: log.Frame, payload: []const u8) !void {
+            fn verify(self: *CheckpointReplay, _: log.Frame, payload: []const u8) !void {
                 if (!std.mem.eql(u8, payload, &self.anchor)) return error.CheckpointAnchorMismatch;
+                // The borrowed anchor payload is consumed before reusing scratch
+                // to verify and restore the image. WAL replay has not started.
+                const staged = self.persistence.store orelse return error.PersistenceClosed;
+                try snapshot.verify(self.image, self.scratch, self.seal);
+                const source: ImagePayload = .{ .file = self.image, .bytes = self.seal.payload_bytes };
+                try Raw.BaseSnapshot.restore(&staged.database, source, self.seal.identity.sql_csn, self.scratch, &self.persistence.replay_scratch);
             }
 
             fn apply(self: *CheckpointReplay, frame: log.Frame, payload: []const u8) !void {
@@ -145,46 +173,49 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
             }
         };
 
-        /// Internal startup composition. The expected identity comes from
-        /// trusted database configuration. All paths belong to the same
-        /// generation, and its WAL starts with this selection's anchor.
-        /// The caller supplies a fresh unpublished store and discards it on
-        /// any failure. The lock covers source verification through close.
-        pub fn initCheckpoint(self: *Self, paths: CheckpointPaths, identity: manifest.DatabaseIdentity, store: *Store, recovery_buffer: []u8) !log.Recovery {
+        /// Open the manifest-selected generation under the same stable writer
+        /// lock on every restart. The caller supplies trusted configuration and
+        /// a fresh unpublished store, which it discards on any failure.
+        pub fn initCheckpoint(self: *Self, stem: []const u8, identity: manifest.DatabaseIdentity, store: *Store, recovery_buffer: []u8) !log.Recovery {
             try self.requireFresh(store, recovery_buffer);
             if (store.database_oid != identity.oid or store.prepared_limit != 0) return error.InvalidCheckpointStore;
             if (recovery_buffer.len < manifest.record_size) return error.InvalidWorkspace;
+            const layout = try CheckpointLayout.init(stem);
             store.durability_required = true;
             store.storage_failed = true;
-            try self.writer_lock.acquire(paths.writer_lock);
+            var path: [CheckpointLayout.path_capacity]u8 = undefined;
+            try self.writer_lock.acquire(try layout.stablePath(&path, .lock));
             errdefer self.writer_lock.close();
-            var selection_file = try disk.File.openExisting(paths.selection);
-            defer selection_file.close();
-            const selection = try manifest.Selection.read(&selection_file, identity);
+            const selection = selected: {
+                var file = try disk.File.openExisting(try layout.stablePath(&path, .manifest));
+                defer file.close();
+                break :selected try manifest.Selection.read(&file, identity);
+            };
             if (selection.anchor_offset != 0 or selection.anchor_kind != checkpoint_anchor_kind or
                 selection.anchor_length != manifest.record_size) return error.InvalidCheckpointAnchor;
-            var image = try disk.File.openExisting(paths.image);
+            var image = try disk.File.openExisting(try layout.generationPath(&path, selection.generation, .image));
             defer image.close();
-            self.file = try disk.File.openExisting(paths.wal);
+            self.file = try disk.File.openExisting(try layout.generationPath(&path, selection.generation, .wal));
             errdefer self.file.close();
-            const seal: snapshot.Seal = .{
-                .identity = .{
-                    .database_id = identity.database, .generation = selection.generation,
-                    .wal_sequence = selection.base_sequence, .sql_csn = selection.sql_csn,
-                },
-                .payload_bytes = selection.image_bytes, .digest = selection.image_digest,
-            };
-            try snapshot.verify(&image, recovery_buffer, seal);
-            const payload: ImagePayload = .{ .file = &image, .bytes = seal.payload_bytes };
-            try Raw.BaseSnapshot.restore(&store.database, payload, seal.identity.sql_csn, recovery_buffer, &self.replay_scratch);
             self.store = store;
             errdefer self.store = null;
             self.max_batch_bytes = recovery_buffer.len;
             self.expected_identity = null;
             self.seen_identity = false;
             self.seen_change_record = true;
-            self.sequence = selection.base_sequence;
-            var state: CheckpointReplay = .{ .persistence = self, .anchor = try selection.encode() };
+            var state: CheckpointReplay = .{
+                .persistence = self,
+                .anchor = try selection.encode(),
+                .image = &image,
+                .seal = .{
+                    .identity = .{
+                        .database_id = identity.database, .generation = selection.generation,
+                        .wal_sequence = selection.base_sequence, .sql_csn = selection.sql_csn,
+                    },
+                    .payload_bytes = selection.image_bytes, .digest = selection.image_digest,
+                },
+                .scratch = recovery_buffer,
+            };
             const anchor: log.Frame = .{
                 .offset = selection.anchor_offset, .sequence = try selection.anchorSequence(),
                 .kind = selection.anchor_kind, .payload_len = selection.anchor_length,

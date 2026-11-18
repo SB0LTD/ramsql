@@ -22,6 +22,21 @@ native file I/O and the writer lock (`db_file`), and change-record encoding and
 apply (`sql`). This module does not checkpoint, compact or truncate a WAL,
 except that ZPM recovery truncates an incomplete final record.
 
+### Checkpoint startup candidate
+
+Supply one trusted file stem. Recovery holds its `.lock` while it opens and
+checks the `.manifest`, then opens only the selected `.g<N>.image` and `.g<N>.wal`.
+A missing selected file stops startup even when an older generation remains
+on disk. The exact manifest bytes must match the first WAL frame before the
+image is copied into the unpublished store. Lock ownership lasts through WAL
+replay, later durable commits and close.
+
+This internal startup path is exercised by the native checkpoint contract.
+The server still uses its ordinary WAL entry point. A generation publisher
+must create and sync both files, publish the new manifest under the same
+stable lock and coordinate the cut with the active writer. Online publication,
+retirement and automatic compaction remain separate work.
+
 ## 2. Public surface
 
 | Symbol | Kind | Contract (one line) |
