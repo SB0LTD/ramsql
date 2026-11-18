@@ -6,6 +6,11 @@ It is not a supported public service or replacement for all PostgreSQL tooling.
 
 ## Installation and startup
 
+The experimental Linux option `--linux-direct-receive` lets a parallel
+PostgreSQL reactor with a single idle connection wait in a bounded receive.
+Multiple live connections on one worker continue to share the ordinary poll
+loop. Sockets that cannot enable a finite receive stay on the ordinary path.
+
 Verify the release checksums and inspect `provenance.json`, `RELEASE.md` and
 `ramsql --capabilities`. Hosted archives provide a native executable. The
 packaged `create_verifier.py` uses Python's standard library only; the server
