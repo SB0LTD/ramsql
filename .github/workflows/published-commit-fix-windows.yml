@@ -1,0 +1,79 @@
+name: Published Windows beta qualification
+
+on:
+  push:
+    branches: [ci/published-commit-fix-windows-20261118]
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    env:
+      RAMSQL_TAG: ci-v0.3.0-beta.3-run.44252147423.1
+      RAMSQL_ASSET: ramsql-0.3.0-beta.3-x86_64-windows.zip
+      RAMSQL_ASSET_SHA256: 6c7229cd6868bf96c77b16d2963227557e6abea67d514ff66583786a55971113
+      RAMSQL_BINARY_SHA256: 89ed89cd734a5be5def2a2270f459cd5c9e4e59d65948cf8fc49298231c918a2
+      FIXTURE_SOURCE: b33762c6adb7897e2e8a4f2cb00b3aba5374d244
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FIXTURE_SOURCE }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch the public release artifact and verify both checksums
+        shell: pwsh
+        run: |
+          if ((git rev-parse HEAD) -ne $env:FIXTURE_SOURCE) { throw "Fixture ref mismatch" }
+          $path = Join-Path $env:RUNNER_TEMP $env:RAMSQL_ASSET
+          $expanded = Join-Path $env:RUNNER_TEMP 'published-ramsql'
+          $url = "https://github.com/SB0LTD/ramsql/releases/download/$env:RAMSQL_TAG/$env:RAMSQL_ASSET"
+          Invoke-WebRequest -Uri $url -OutFile $path
+          if ((Get-FileHash -Algorithm SHA256 -LiteralPath $path).Hash.ToLowerInvariant() -ne $env:RAMSQL_ASSET_SHA256) {
+            throw "Public archive checksum mismatch"
+          }
+          Expand-Archive -LiteralPath $path -DestinationPath $expanded
+          $matches = @(Get-ChildItem -LiteralPath $expanded -Filter ramsql.exe -Recurse -File)
+          if ($matches.Count -ne 1) { throw "Expected one packaged executable" }
+          $bin = $matches[0].FullName
+          if ((Get-FileHash -Algorithm SHA256 -LiteralPath $bin).Hash.ToLowerInvariant() -ne $env:RAMSQL_BINARY_SHA256) {
+            throw "Packaged executable checksum mismatch"
+          }
+          "PUBLISHED_BINARY=$bin" >> $env:GITHUB_ENV
+          New-Item -ItemType Directory evidence | Out-Null
+          [ordered]@{tag=$env:RAMSQL_TAG; archive_sha256=$env:RAMSQL_ASSET_SHA256;
+            binary_sha256=$env:RAMSQL_BINARY_SHA256; fixtures=$env:FIXTURE_SOURCE} |
+            ConvertTo-Json | Set-Content evidence/provenance.json
+      - name: Run CLI and one- and four-worker wire cases
+        shell: pwsh
+        run: |
+          python tools/test_cli.py --binary $env:PUBLISHED_BINARY | Tee-Object evidence/cli.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          foreach ($workers in @(1, 4)) {
+            python tools/test_server.py --binary $env:PUBLISHED_BINARY --workers $workers | Tee-Object "evidence/wire-$workers.json"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - name: Run independent drivers and PostgreSQL authentication
+        shell: pwsh
+        run: |
+          python -m pip install -r tools/requirements-test.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/test_clients.py --binary $env:PUBLISHED_BINARY --workers 4 | Tee-Object evidence/clients.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/test_auth.py --binary $env:PUBLISHED_BINARY --workers 4 | Tee-Object evidence/auth.json
+          exit $LASTEXITCODE
+      - name: Test durable commits and process recovery on the packaged server
+        shell: pwsh
+        run: |
+          python tools/test_persistence.py --binary $env:PUBLISHED_BINARY --cycles 5 | Tee-Object evidence/persistence.json
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: published-windows-proof
+          path: evidence/
+          if-no-files-found: error
