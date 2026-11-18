@@ -296,7 +296,7 @@ const Client = struct {
                 cancelBackend(key); self.consume(16); self.closing = true; return;
             }
         }
-        if(try self.dispatchRead()) return;
+        if(try self.dispatchRead(false)) return;
         lockStore();
         defer unlockStore();
         if (parallel) {
@@ -350,7 +350,7 @@ const Client = struct {
         if(requested!=0 and requested==self.cancel_key.load(.acquire)) return error.QueryCanceled;
         if(self.read_deadline) |deadline| if(monotonicClock()>=deadline) return error.QueryCanceled;
     }
-    fn dispatchRead(self:*Client) !bool {
+    fn dispatchRead(self:*Client, comptime immediate: bool) !bool {
         if(!parallel or self.protocol!=.postgres or !self.connection.detachedReadEligible()) return false;
         const session=&self.session.postgres;
         const input=self.input[self.input_start..][0..self.input_len];
@@ -362,9 +362,17 @@ const Client = struct {
         const required=try session.requiredCapacity();
         if(self.output.len-self.output_len<required) return false;
         const reader=self.reader orelse return false;
-        if(reader.context==null and monotonicClock()<reader.retry_at) return false;
-        reader.provision() catch {reader.retry_at=monotonicClock()+1000000000;return false;};
-        data_gate.lockRead();defer data_gate.unlockRead();
+        if (immediate) {
+            // The receive pass never reserves memory, waits for the database
+            // gate, or takes over a pending cancellation from the normal pass.
+            if (reader.context == null or self.cancel_request.load(.acquire) != 0 or !data_gate.tryLockRead())
+                return false;
+        } else {
+            if(reader.context==null and monotonicClock()<reader.retry_at) return false;
+            reader.provision() catch {reader.retry_at=monotonicClock()+1000000000;return false;};
+            data_gate.lockRead();
+        }
+        defer data_gate.unlockRead();
         if (store.database.detachedReadsBlocked()) return false;
         const context=reader.context.?;
         // Protocol Describe may lend stack-local interpolation text. No plan
@@ -430,11 +438,28 @@ const Client = struct {
         if (self.closing and self.output_len == 0) self.close();
     }
 
+    const frames_per_turn = 32;
+
+    /// Run a fresh receive batch only while it has detached ownership. Leave
+    /// pending replies alongside any unconsumed frames for normal dispatch and
+    /// a single flush. The next reactor pass still owns all lifecycle work.
+    fn serveFreshRead(self: *Client) void {
+        for (0..frames_per_turn) |_| {
+            if (self.input_len == 0 or self.closing) break;
+            if (!(self.dispatchRead(true) catch {
+                self.close();
+                return;
+            })) return;
+        }
+        if (self.input_len != 0) return;
+        self.flush() catch self.close();
+    }
+
     /// Dispatches at most 32 buffered packets, then flushes. Returns true
     /// when packets remain buffered (the reactor should poll without waiting).
     fn serve(self: *Client) bool {
         var frames: usize = 0;
-        while (frames < 32) : (frames += 1) {
+        while (frames < frames_per_turn) : (frames += 1) {
             const before = self.input_len;
             self.dispatch() catch {
                 self.close();
@@ -448,7 +473,7 @@ const Client = struct {
             return false;
         };
         if (self.socket == tcp.invalid_socket) return false;
-        return frames == 32 and self.input_len != 0 and self.output_len == 0;
+        return frames == frames_per_turn and self.input_len != 0 and self.output_len == 0;
     }
 };
 var store: Store = .{};
@@ -872,6 +897,7 @@ const Reactor = struct {
             var writable: [capacity]bool = @splat(false);
             var active: usize = 0;
             var buffered = false;
+            var blocked = false;
             const now = sig.os.clockMonotonicNs();
             // Shared store state, timers and cancellation are read only while
             // holding the same mutex used for execution and disconnection.
@@ -909,6 +935,7 @@ const Reactor = struct {
                 if (now-client.touched >= @as(i64,self.idle_ms)*1000000) { client.close(); continue; }
                 if (client.serve()) buffered = true;
                 if (client.state.load(.acquire) != 2) continue;
+                blocked = blocked or client.blocked;
                 sockets[slot] = client.socket;
                 readable[slot] = client.output_len == 0 and client.input_len < client.input.len;
                 writable[slot] = client.output_len != 0;
@@ -931,8 +958,11 @@ const Reactor = struct {
                     }
                     if (tcp.recv(client.socket,client.input[client.input_len..]) catch { client.close(); continue; }) |received| {
                         if (received == 0) { client.close(); continue; }
+                        const fresh = client.input_len == 0;
                         client.input_len += received;
                         client.touched = sig.os.clockMonotonicNs();
+                        if (fresh and !blocked and !buffered and client.protocol == .postgres and
+                            !reactor_stop.load(.acquire)) client.serveFreshRead();
                     }
                 }
             }

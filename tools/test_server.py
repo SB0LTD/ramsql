@@ -571,6 +571,27 @@ def test_transactions_and_disconnect(server):
         observer.ok("DROP TABLE txn")
 
 
+def test_fresh_read_pipeline_order(server):
+    with connection(server) as pg:
+        pg.ok("CREATE TABLE fresh_pipeline (id INTEGER PRIMARY KEY, n INTEGER)")
+        pg.ok("INSERT INTO fresh_pipeline VALUES (7, 10)")
+        select = "SELECT n FROM fresh_pipeline WHERE id=7"
+        pg.ok(select, [["10"]])  # Provision the idle client's reactor reader.
+        fresh = query_packet(select)
+        pg.sock.sendall(fresh + query_packet("UPDATE fresh_pipeline SET n=20 WHERE id=7") + fresh)
+        check(rows(pg.ready()) == [["10"]])
+        update = pg.ready()
+        check(not errors(update) and (b"C", b"UPDATE 1\0") in update)
+        check(rows(pg.ready()) == [["20"]])
+        pg.sock.sendall(fresh + fresh[:-1])
+        check(rows(pg.ready()) == [["20"]])
+        pg.sock.sendall(fresh[-1:])
+        check(rows(pg.ready()) == [["20"]])
+        pg.sock.sendall(fresh * 35)
+        for _ in range(35):
+            check(rows(pg.ready()) == [["20"]])
+
+
 def test_slow_reader_fairness(server):
     payload = "x" * 120
     with connection(server) as setup:
@@ -844,7 +865,7 @@ def main():
                      test_fragmented_and_coalesced, test_ssl_negotiation,
                      test_half_close_and_partial_reads,
                      test_protocol_errors, test_fatal_frames, test_truncated_disconnect,
-                     test_transactions_and_disconnect, test_slow_reader_fairness, test_pool_exhaustion):
+                     test_transactions_and_disconnect, test_fresh_read_pipeline_order, test_slow_reader_fairness, test_pool_exhaustion):
             test(server)
             check(server.process.poll() is None, f"server exited after {test.__name__}: {list(server.errors)!r}")
             cases += 1
