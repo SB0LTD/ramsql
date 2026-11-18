@@ -63,6 +63,8 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     const mysql_path = try zpm.modulePath("src/db/mysql.sig", &mysql_buf);
     const tds_path = try zpm.modulePath("src/db/tds.sig", &tds_buf);
     const tcp_path = try zpm.modulePath("src/platform/tcp_server.sig", &tcp_buf);
+    var tcp_completion_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    const tcp_completion_path = try zpm.modulePath("src/platform/tcp_completion.sig", &tcp_completion_buf);
     const store_path = try zpm.modulePath("src/db/store.sig", &store_buf);
     var registry_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
     const registry_path = try zpm.modulePath("src/db/database_registry.sig", &registry_buf);
@@ -158,6 +160,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
             importEntry("mysql", mysql_path),
             importEntry("tds", tds_path),
             importEntry("tcp_server", tcp_path),
+            importEntry("tcp_completion", tcp_completion_path),
             importEntry("db_store", store_path),
             importEntry("database_registry", registry_path),
             importEntry("scram", scram_path),

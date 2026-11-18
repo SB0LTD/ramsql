@@ -48,6 +48,8 @@ def startup_packet(user="ramsql"):
 
 class Server:
     test_workers = 1
+    test_tcp_completions = False
+
     def __init__(self, binary, idle_ms=30000, max_clients=16, max_query_work=0, extra_arguments=()):
         self.binary = binary
         self.idle_ms = idle_ms
@@ -63,6 +65,7 @@ class Server:
             [str(self.binary), "--serve", "--memory", "--insecure-local", "--protocol", "postgres", "--port", "0",
              "--idle-ms", str(self.idle_ms), "--max-clients", str(self.max_clients),
              "--workers", str(min(self.test_workers,self.max_clients)),
+             *(["--tcp-completions"] if self.test_tcp_completions else []),
              *(["--max-query-work", str(self.max_query_work)] if self.max_query_work else []), *self.extra_arguments],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1,
         )
@@ -834,12 +837,26 @@ def main():
     default = Path(__file__).resolve().parents[1] / "sig-out" / "bin" / ("ramsql.exe" if os.name == "nt" else "ramsql")
     parser.add_argument("--binary", type=Path, default=default)
     parser.add_argument("--workers", type=int, default=1)
+    parser.add_argument("--tcp-completions", action="store_true")
     parser.add_argument("--integral-version-banks", action="store_true")
     args = parser.parse_args()
     Server.test_workers = args.workers
+    Server.test_tcp_completions = args.tcp_completions
     binary = args.binary.resolve(strict=True)
+    if args.tcp_completions:
+        output = subprocess.check_output([str(binary), "--capabilities", "--workers", str(args.workers), "--tcp-completions"],
+                                         text=True, timeout=15)
+        check(json.loads(output)["tcp_completions_probe"] is (args.workers > 1),
+              "io_uring probe did not select the requested test backend")
     started = time.monotonic()
     with Server(binary) as server:
+        if args.tcp_completions:
+            expected = ("RAMSQL TCP completions enabled" if args.workers > 1
+                        else "RAMSQL TCP completions unavailable, using portable polling")
+            deadline = time.monotonic() + 3
+            while expected not in server.errors and time.monotonic() < deadline:
+                time.sleep(0.01)
+            check(expected in server.errors, f"backend did not start: {list(server.errors)!r}")
         for test in (test_crud_shared, test_parameterized_primary_key, test_catalog_read_routing, test_detached_relation_locks,
                      test_fragmented_and_coalesced, test_ssl_negotiation,
                      test_half_close_and_partial_reads,

@@ -22,6 +22,8 @@ const entropy = @import("entropy");
 const Persistence = @import("persistence.sig").Persistence(Raw, Store);
 const sql = @import("sql");
 const tcp = @import("tcp_server");
+const tcp_completion = @import("tcp_completion");
+const CompletionQueue = if (tcp_completion.available) tcp_completion.Queue(capacity) else void;
 const pg = @import("postgres");
 const mysql = @import("mysql");
 const tds = @import("tds");
@@ -64,6 +66,7 @@ pub const Options = struct {
     max_query_work: u64 = 0,
     /// Caller-selected budget for shared PostgreSQL read results.
     read_cache_bytes: usize = 0,
+    tcp_completions: bool = false,
     /// Zero disables PostgreSQL prepared transactions. A positive limit
     /// reserves at least one ordinary transaction slot for other work.
     max_prepared_transactions: usize = 0,
@@ -410,6 +413,12 @@ const Client = struct {
         return true;
     }
 
+    fn compactInput(self: *Client) void {
+        if (self.input_start == 0) return;
+        for (0..self.input_len) |offset| self.input[offset] = self.input[self.input_start+offset];
+        self.input_start = 0;
+    }
+
     fn consume(self: *Client, count: usize) void {
         self.input_len -= count;
         self.input_start += count;
@@ -432,7 +441,7 @@ const Client = struct {
 
     /// Dispatches at most 32 buffered packets, then flushes. Returns true
     /// when packets remain buffered (the reactor should poll without waiting).
-    fn serve(self: *Client) bool {
+    fn serve(self: *Client, flush_now: bool) bool {
         var frames: usize = 0;
         while (frames < 32) : (frames += 1) {
             const before = self.input_len;
@@ -443,7 +452,7 @@ const Client = struct {
             if (self.blocked or before == self.input_len or self.closing) break;
         }
         self.deliverNotifications();
-        self.flush() catch {
+        if (flush_now) self.flush() catch {
             self.close();
             return false;
         };
@@ -853,6 +862,66 @@ const Reactor = struct {
     reader:Reader=.{},
     index: usize = 0,
     idle_ms: u32 = 30000,
+    completion: if (tcp_completion.available) ?CompletionQueue else void = if (tcp_completion.available) null else {},
+    retiring: [capacity]bool = @splat(false),
+    wait_socket: [capacity]bool = @splat(false),
+
+    fn drainCompletions(queue: *CompletionQueue) void {
+        if (comptime !tcp_completion.available) unreachable;
+        var pending = false;
+        for (0..clients.len) |slot| {
+            if (queue.reusable(slot)) continue;
+            pending = true;
+            _ = queue.cancel(slot) catch @panic("cannot cancel live TCP completion");
+        }
+        if (!pending) return;
+        _ = queue.submit() catch @panic("cannot submit TCP completion retirement");
+        while (true) {
+            var raw: [2 * capacity]std.os.linux.io_uring_cqe = undefined;
+            var events: [2 * capacity]tcp_completion.Completion = undefined;
+            _ = queue.complete(&raw, &events, true) catch @panic("cannot drain TCP completion ownership");
+            pending = false;
+            for (0..clients.len) |slot| pending = pending or !queue.reusable(slot);
+            if (!pending) return;
+        }
+    }
+
+    fn completionReady(self: *Reactor, queue: *CompletionQueue) !void {
+        if (comptime !tcp_completion.available) unreachable;
+        var raw: [2 * capacity]std.os.linux.io_uring_cqe = undefined;
+        var events: [2 * capacity]tcp_completion.Completion = undefined;
+        const count = try queue.complete(&raw, &events, false);
+        for (events[0..count]) |event| {
+            const client = &clients[event.slot];
+            if (self.retiring[event.slot]) continue;
+            switch (event.outcome) {
+                .bytes => |n| {
+                    client.touched = monotonicClock();
+                    if (event.operation == .receive) client.input_len += n else {
+                        client.output_sent += n;
+                        if (client.output_sent == client.output_len) {
+                            client.output_len = 0;
+                            client.output_sent = 0;
+                        }
+                    }
+                },
+                .retry => self.wait_socket[event.slot] = true,
+                .eof, .failed, .canceled => client.close(),
+                .cancel_accepted, .cancel_raced => return error.UnexpectedTcpCancellation,
+            }
+        }
+        for (self.retiring[0..clients.len], 0..) |retiring, slot| {
+            if (retiring and queue.reusable(slot)) {
+                self.retiring[slot] = false;
+                clients[slot].close();
+            }
+        }
+    }
+
+    fn canArm(client: *Client) bool {
+        return client.protocol == .postgres and client.session.postgres.startup and !client.blocked and
+            client.connection.detachedReadEligible();
+    }
 
     fn entry(context: ?*anyopaque) void {
         const self: *Reactor = @ptrCast(@alignCast(context.?));
@@ -865,6 +934,9 @@ const Reactor = struct {
 
     fn run(self: *Reactor) !void {
         defer self.reader.close();
+        defer if (comptime tcp_completion.available) {
+            if (self.completion) |*queue| drainCompletions(queue);
+        };
         while (!reactor_stop.load(.acquire)) {
             const epoch = self.signal.epoch.load(.acquire);
             var sockets: [capacity]tcp.Socket = @splat(tcp.invalid_socket);
@@ -880,7 +952,10 @@ const Reactor = struct {
             var slot = self.index;
             while (slot < clients.len) : (slot += reactor_count) {
                 const client = &clients[slot];
-                if (client.state.load(.acquire) == 3) client.state.store(0, .release);
+                if (client.state.load(.acquire) == 3) {
+                    self.wait_socket[slot] = false;
+                    client.state.store(0, .release);
+                }
             }
             if (store_mutex.tryLock()) {
             store.now_ns = now;
@@ -899,15 +974,53 @@ const Reactor = struct {
             for (woken[0..woken_count]) |index| {
                 const client = &clients[index];
                 client.blocked = false;
-                if (client.serve()) buffered = true;
+                if (client.serve(true)) buffered = true;
             }
             slot = self.index;
             while (slot < clients.len) : (slot += reactor_count) {
                 const client = &clients[slot];
                 if (client.state.load(.acquire) != 2) continue;
                 if (client.blocked) client.touched = now;
-                if (now-client.touched >= @as(i64,self.idle_ms)*1000000) { client.close(); continue; }
-                if (client.serve()) buffered = true;
+                const expired = now-client.touched >= @as(i64,self.idle_ms)*1000000;
+                if (comptime tcp_completion.available) if (self.completion) |*queue| {
+                    if (!queue.reusable(slot)) {
+                        if (expired and !self.retiring[slot]) {
+                            _ = try queue.cancel(slot);
+                            self.retiring[slot] = true;
+                        }
+                        active += 1;
+                        continue;
+                    }
+                    if (!expired and !self.wait_socket[slot] and canArm(client)) {
+                        if (client.serve(false)) buffered = true;
+                        if (client.state.load(.acquire) != 2) continue;
+                        if (canArm(client)) {
+                            if (client.output_len != 0) {
+                                try queue.send(slot, client.socket, client.output[client.output_sent..client.output_len]);
+                            } else if (client.closing) {
+                                client.close();
+                                continue;
+                            } else if (client.input_len < client.input.len) {
+                                client.compactInput();
+                                try queue.receive(slot, client.socket, client.input[client.input_len..]);
+                            } else {
+                                client.close();
+                                continue;
+                            }
+                            active += 1;
+                            continue;
+                        }
+                        client.flush() catch { client.close(); continue; };
+                        if (client.state.load(.acquire) != 2) continue;
+                        sockets[slot] = client.socket;
+                        readable[slot] = client.output_len == 0 and client.input_len < client.input.len;
+                        writable[slot] = client.output_len != 0;
+                        active += 1;
+                        continue;
+                    }
+                };
+                if (expired) { client.close(); continue; }
+                if (client.serve(true)) buffered = true;
                 if (client.state.load(.acquire) != 2) continue;
                 sockets[slot] = client.socket;
                 readable[slot] = client.output_len == 0 and client.input_len < client.input.len;
@@ -917,28 +1030,68 @@ const Reactor = struct {
             if (active == 0) { self.reader.close();self.signal.wait(epoch, 100); continue; }
             // Finite poll bounds new admission, cancellation and shutdown
             // latency without introducing a second socket wakeup protocol.
-            _ = try tcp.waitMasked(tcp.invalid_socket, &sockets, &readable, &writable, if (buffered) 0 else 10);
+            var completion_fd = tcp.invalid_socket;
+            if (comptime tcp_completion.available) if (self.completion) |*queue| {
+                _ = try queue.submit();
+                completion_fd = queue.descriptor();
+            };
+            const completed = try tcp.waitMasked(completion_fd, &sockets, &readable, &writable, if (buffered) 0 else 10);
+            if (comptime tcp_completion.available) if (completed) if (self.completion) |*queue| {
+                try self.completionReady(queue);
+            };
             slot = self.index;
             while (slot < clients.len) : (slot += reactor_count) {
                 const client = &clients[slot];
                 if (client.state.load(.acquire) != 2) continue;
-                if (writable[slot]) client.flush() catch { client.close(); continue; };
+                if (writable[slot]) {
+                    client.flush() catch { client.close(); continue; };
+                    self.wait_socket[slot] = false;
+                }
                 if (client.state.load(.acquire) != 2) continue;
                 if (readable[slot] and client.output_len == 0) {
-                    if (client.input_start != 0) {
-                        for (0..client.input_len) |offset| client.input[offset] = client.input[client.input_start+offset];
-                        client.input_start = 0;
-                    }
+                    client.compactInput();
                     if (tcp.recv(client.socket,client.input[client.input_len..]) catch { client.close(); continue; }) |received| {
                         if (received == 0) { client.close(); continue; }
                         client.input_len += received;
                         client.touched = sig.os.clockMonotonicNs();
+                        self.wait_socket[slot] = false;
                     }
                 }
             }
         }
     }
 };
+
+fn wantsTcpCompletions(options: Options) bool {
+    return tcp_completion.available and options.tcp_completions and options.protocol == .postgres and options.workers > 1;
+}
+
+fn probeTcpCompletions(options: Options) bool {
+    if (comptime !tcp_completion.available) return false;
+    if (!wantsTcpCompletions(options)) return false;
+    var queue = CompletionQueue.init() catch return false;
+    queue.deinit() catch return false;
+    return true;
+}
+
+fn releaseTcpCompletions(workers: usize) void {
+    if (comptime tcp_completion.available) for (reactors[0..workers]) |*reactor| {
+        if (reactor.completion) |*queue| queue.deinit() catch @panic("lost TCP completion ownership");
+        reactor.completion = null;
+    };
+}
+
+fn initializeTcpCompletions(options: Options) bool {
+    if (comptime !tcp_completion.available) return false;
+    if (!wantsTcpCompletions(options)) return false;
+    for (reactors[0..options.workers], 0..) |*reactor,index| {
+        reactor.completion = CompletionQueue.init() catch {
+            releaseTcpCompletions(index);
+            return false;
+        };
+    }
+    return true;
+}
 
 fn runParallel(options: Options, listeners: []const tcp.Socket, protocols: []const Protocol) !void {
     reactor_count = options.workers;
@@ -949,8 +1102,7 @@ fn runParallel(options: Options, listeners: []const tcp.Socket, protocols: []con
         for (reactors[0..started]) |*reactor| reactor.signal.notify();
         for (reactors[0..started]) |*reactor| reactor.thread.join() catch @panic("cannot release live reactor ownership");
     }
-    for (reactors[0..reactor_count],0..) |*reactor,index| {
-        reactor.* = .{ .index=index, .idle_ms=options.idle_ms };
+    for (reactors[0..reactor_count]) |*reactor| {
         try reactor.thread.start(&Reactor.entry, reactor);
         started += 1;
     }
@@ -1044,6 +1196,8 @@ fn readContextPayload(options: Options, plan: *const StoragePlan) !usize {
 }
 
 fn writeStorageDetails(out: sig.io.File, options: Options, plan: *const StoragePlan, read_payload: usize) !void {
+    try out.writeStreamingAll(.{}, if (probeTcpCompletions(options)) ",\"tcp_completions_probe\":true"
+        else ",\"tcp_completions_probe\":false");
     var buffer: [384]u8 = undefined;
     try out.writeStreamingAll(.{}, try std.fmt.bufPrint(&buffer,
         ",\"typed_bank_memory_profile\":{s},\"query_refs\":{d},\"query_reference_bytes\":{d},\"read_context_payload_bytes_per_worker\":{d},\"max_prepared_transactions\":{d},\"prepared_transactions_ceiling\":{d},\"database_cluster\":{s},\"cluster_database_ceiling\":{d},\"table_storage\":[",
@@ -1515,6 +1669,13 @@ pub fn run(requested: Options) !void {
     interrupt_listener = if (options.protocol == .postgres) listeners[0] else tcp.invalid_socket;
     defer interrupt_listener = tcp.invalid_socket;
     defer for (&overflow_cancels) |*pending| pending.close();
+    for (reactors[0..options.workers], 0..) |*reactor,index| {
+        reactor.* = .{ .index=index, .idle_ms=options.idle_ms };
+    }
+    const completion_mode = initializeTcpCompletions(options);
+    defer if (completion_mode) releaseTcpCompletions(options.workers);
+    if (options.tcp_completions) try sig.io.File.stderr().writeStreamingAll(.{},
+        if (completion_mode) "RAMSQL TCP completions enabled\n" else "RAMSQL TCP completions unavailable, using portable polling\n");
     for (listeners[0..count], protocols[0..count]) |listener, protocol| {
         var buffer: [128]u8 = undefined;
         const line = try sig.fmt.bufPrint(&buffer, "RAMSQL {s} 127.0.0.1:{d}\n", .{ @tagName(protocol), try tcp.localPort(listener) });
@@ -1557,7 +1718,7 @@ pub fn run(requested: Options) !void {
             const client = &clients[index];
             if (client.socket == tcp.invalid_socket) continue;
             client.blocked = false;
-            if (client.serve()) buffered = true;
+            if (client.serve(true)) buffered = true;
         }
         for (clients[0..options.max_clients], 0..) |*client, index| {
             if (client.socket == tcp.invalid_socket) continue;
@@ -1567,7 +1728,7 @@ pub fn run(requested: Options) !void {
                 client.close();
                 continue;
             }
-            if (client.serve()) buffered = true;
+            if (client.serve(true)) buffered = true;
             if (client.socket == tcp.invalid_socket) continue;
             sockets[index] = client.socket;
             readable[index] = client.output_len == 0 and client.input_len < client.input.len;

@@ -49,6 +49,17 @@ it is distinct from SQL `statement_timeout`, `lock_timeout` and deadlock checks.
 PG cancellation is tested. TDS ATTENTION acknowledges an idle protocol request;
 it is not a general asynchronous running-query cancellation implementation.
 
+## Experimental Linux TCP completions
+
+`--tcp-completions` opts in to kernel RX/TX completions for established PostgreSQL
+sessions eligible for detached reads on a Linux server with at least two workers.
+The regular acceptor, startup, overflow cancellation and portable transaction,
+listener and parked-statement paths remain active. The runtime uses the portable
+poll path if the required io_uring operations or reactor rings cannot be opened.
+Capacity output includes the result of the optional kernel probe. When enabled,
+the server waits on ring completion descriptors and any portable socket fallbacks.
+It retires outstanding receive or send buffers before recycling an expired slot.
+
 ## Optional PostgreSQL read cache
 
 `--read-cache-bytes BYTES` reserves a shared cache for eligible PostgreSQL
