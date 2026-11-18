@@ -1,0 +1,72 @@
+name: Current PostgreSQL storage and TLS integration
+on:
+  push:
+    branches: [ci/current-main-postgres-server-20261118]
+permissions:
+  contents: read
+jobs:
+  stock-libpq:
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x86_64
+            digest: 179094228e2e6b0db3a5a1e01a8a57e8e91db6aa3b5ca80094ca22d870cc373a
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+            digest: ef890f870f3215e60d25588742b74fa9d2808addbc0112b7c37818a73dfb0643
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f6c737f1159f6bb0be7bd835c5522f772fadf3b1
+      - name: Install checksum-verified compiler
+        shell: bash
+        run: |
+          tag=sig-0.6.5-zig0.17.0.3c72687
+          asset="$tag-${{ matrix.arch }}-linux.tar.xz"
+          curl -fsSL --retry 3 "https://github.com/SB0LTD/sig/releases/download/$tag/$asset" -o "$RUNNER_TEMP/$asset"
+          echo "${{ matrix.digest }}  $RUNNER_TEMP/$asset" | sha256sum -c
+          mkdir "$RUNNER_TEMP/sdk"
+          tar -xf "$RUNNER_TEMP/$asset" -C "$RUNNER_TEMP/sdk"
+          compiler=$(find "$RUNNER_TEMP/sdk" -type f -name sig -print -quit)
+          stdlib=$(find "$RUNNER_TEMP/sdk" -type f -path '*/lib/std/std.sig' -print -quit)
+          test -x "$compiler"
+          test -f "$stdlib"
+          printf 'SIG=%s\nSIG_LIB_DIR=%s\n' "$compiler" "${stdlib%/std/std.sig}" >> "$GITHUB_ENV"
+      - name: Prepare runtime and stock libpq tools
+        run: |
+          python tools/prepare_sig_runtime.py --installed-lib "$SIG_LIB_DIR" --output "$RUNNER_TEMP/sig-runtime" --github-env "$GITHUB_ENV"
+          if ! psql --version; then
+            sudo apt-get update -q
+            sudo apt-get install --no-install-recommends -y postgresql-client
+          fi
+          python -m pip install -r tools/requirements-test.txt
+      - name: Build isolated ReleaseSafe product
+        shell: bash
+        run: |
+          mkdir -p evidence
+          git rev-parse HEAD | tee evidence/source.log
+          "$SIG" build install -Doptimize=ReleaseSafe -Dcolumns=16 -Dhosted-client-ceiling=128 -Dcompact-version-stamps=true -Dintegral-version-banks=true -j1 2>&1 | tee evidence/build.log
+      - name: Check runtime capacity, wire and durable invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/test_cli.py --binary sig-out/bin/ramsql --expect-integral-version-banks --expect-compact-version-stamps | tee evidence/cli.json
+          python tools/test_hosted_128_admission.py --binary sig-out/bin/ramsql --report evidence/admission-128.json
+          python tools/test_server.py --binary sig-out/bin/ramsql --workers 4 --integral-version-banks | tee evidence/server.json
+          python tools/test_pg_idle_transaction.py --binary sig-out/bin/ramsql --report evidence/idle-timeout.json
+          python tools/test_pg_transaction_timeout.py --binary sig-out/bin/ramsql --report evidence/transaction-timeout.json
+          python tools/test_persistence.py --binary sig-out/bin/ramsql | tee evidence/persistence.json
+      - name: Test stock TLS startup, SCRAM, COPY, cancel and reopen
+        run: |
+          for workers in 2 4; do
+            python tools/test_postgres_tls.py --binary sig-out/bin/ramsql --workers "$workers" --scratch "$RUNNER_TEMP/required-tls-$workers" --report "evidence/report-$workers.json"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: required-postgres-tls-evidence-${{ matrix.arch }}
+          path: evidence/
