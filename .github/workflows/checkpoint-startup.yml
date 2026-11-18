@@ -1,0 +1,102 @@
+name: Native RAMSQL checkpoint startup proof
+
+on:
+  push:
+    branches: [ci/checkpoint-startup-composition-20261118]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checkpoint:
+    name: Native checkpoint startup
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PRODUCT_REVISION: 08af64dac0b3ce60a7aeaa501ba9de614b9ec2f1
+      PRODUCT_SHA256: 6f6d0968f20fa7ee871f2d2e87c83310d4c7b8fe945cf77d68f8bce1383a3e07
+      ZPM_REVISION: 539da73f9815bcc14566f46a4911753092db795a
+      ZPM_SHA256: 49813b7ef25903700b2ce7975481e9b61130382a64e4893ea3fadc86ccef5d74
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PRODUCT_REVISION }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify exact source, dependency and native SDK
+        run: |
+          if ((git rev-parse HEAD) -ne $env:PRODUCT_REVISION) { throw 'Unexpected RAMSQL source revision' }
+          $null = New-Item -Type Directory -Force evidence,sig-out
+          $env:PRODUCT_REVISION > evidence/product-revision.txt
+          $env:ZPM_REVISION > evidence/zpm-revision.txt
+          function Verify-Archive($url, $wanted, $path) {
+            Invoke-WebRequest -Uri $url -OutFile $path
+            $actual = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne $wanted) { throw "Archive digest mismatch for $url" }
+          }
+          Verify-Archive "https://github.com/SB0LTD/ramsql/archive/$env:PRODUCT_REVISION.tar.gz" $env:PRODUCT_SHA256 (Join-Path $env:RUNNER_TEMP 'product.tar.gz')
+          $zpmUrl = "https://github.com/SB0LTD/zpm/archive/$env:ZPM_REVISION.tar.gz"
+          $zon = Get-Content build.sig.zon -Raw
+          if (-not $zon.Contains($zpmUrl) -or -not $zon.Contains($env:ZPM_SHA256)) { throw 'Unexpected ZPM dependency pin' }
+          Verify-Archive $zpmUrl $env:ZPM_SHA256 (Join-Path $env:RUNNER_TEMP 'zpm.tar.gz')
+          python tools/release_matrix.py --compiler-host "$env:RUNNER_OS/$env:RUNNER_ARCH" > evidence/compiler-release.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $pin = Get-Content evidence/compiler-release.json -Raw | ConvertFrom-Json
+          $archive = Join-Path $env:RUNNER_TEMP $pin.asset
+          $destination = (New-Item -Type Directory (Join-Path $env:RUNNER_TEMP 'sig-toolchain')).FullName
+          Verify-Archive "https://github.com/SB0LTD/sig/releases/download/$($pin.tag)/$($pin.asset)" $pin.sha256 $archive
+          if ($env:RUNNER_OS -eq 'Windows') {
+            Expand-Archive -LiteralPath $archive -DestinationPath $destination
+            $name = 'sig.exe'
+          } else {
+            tar -xf $archive -C $destination
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            $name = 'sig'
+          }
+          $compiler = @(Get-ChildItem $destination -Recurse -File |
+            Where-Object { $_.Name -ceq $name -and $_.Directory.Name -ceq 'bin' })
+          if ($compiler.Length -ne 1) { throw 'Expected one native Sig compiler' }
+          $library = Join-Path $compiler[0].Directory.Parent.FullName 'lib'
+          "SIG=$($compiler[0].FullName)" >> $env:GITHUB_ENV
+          "SIG_LIB_DIR=$library" >> $env:GITHUB_ENV
+          & $compiler[0].FullName version | Tee-Object evidence/sig-version.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Prepare the pinned runtime
+        run: |
+          python tools/prepare_sig_runtime.py --installed-lib $env:SIG_LIB_DIR `
+            --output (Join-Path $env:RUNNER_TEMP 'runtime') --github-env $env:GITHUB_ENV
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Reopen actual native checkpoint and verify durable suffix
+        run: |
+          $options = @('-Doptimize=ReleaseSafe')
+          if ($env:RUNNER_OS -eq 'macOS') { $options += '-Dlink-libc=true' }
+          & $env:SIG build test-checkpoint-startup @options 2>&1 | Tee-Object evidence/checkpoint-startup.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $entry = @(Get-Content evidence/checkpoint-startup.txt | Where-Object { $_ -match '^\{"suite":"checkpoint_startup"' })
+          if ($entry.Length -ne 1) { throw 'Checkpoint proof did not execute' }
+          $report = $entry[0] | ConvertFrom-Json
+          if ($report.pass -ne $true -or $report.assertions -lt 12) { throw 'Incomplete native checkpoint proof' }
+          $entry[0] > evidence/checkpoint-startup.json
+      - name: Retest ordinary persistence and backup
+        run: |
+          $options = @('-Doptimize=ReleaseSafe')
+          if ($env:RUNNER_OS -eq 'macOS') { $options += '-Dlink-libc=true' }
+          foreach ($target in @('test-persistence', 'test-backup')) {
+            & $env:SIG build $target @options 2>&1 | Tee-Object "evidence/$target.txt"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: checkpoint-startup-${{ matrix.os }}
+          path: evidence/
+          if-no-files-found: error
