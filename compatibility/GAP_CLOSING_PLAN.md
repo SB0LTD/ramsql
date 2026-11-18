@@ -129,15 +129,34 @@ original million-row filter from 1,027 to 9,136 queries/s at one client and
 from 2,746 to 17,122 at eight in a paired test. Median p99 fell from 1,231
 to 149 µs and 5,439 to 1,903 µs respectively. This path serves repeated
 eligible reads after observing the result size and invalidates on relevant
-writes. It still needs all-engine qualification. A separate sampling run of
+writes. A separate three-engine diagnostic found median throughput of 8,982
+and 21,279 queries/s at one and eight clients. These were 10.0× and 15.8× the
+fastest reference, with median p99 of 137 µs and 2,655 µs. Each engine ran
+three original 60-second trials. Full-workload qualification is tracked
+independently. A separate sampling run of
 the exact combined build found that the active single-client server thread
 spent about 64% of its recorded CPU time in the kernel. `poll` and `sendto`
 were the largest inclusive syscall stacks. The Linux completion experiment
-now has native contracts for partial sends, EOF, cancellation and buffer
-lifetime. Its effect on original JDBC throughput remains to be measured.
+passed native contracts for partial sends, EOF, cancellation and buffer
+lifetime. The linked completion experiment reduced median throughput by
+0.67–4.58% across all four original prepared primary-key cases and remains
+isolated.
 [Filter A/B](https://github.com/benor1470/dbMeter/actions/runs/44217568675) ·
+[Three-engine filter diagnostic](https://github.com/benor1470/dbMeter/actions/runs/44226874148) ·
 [CPU profile](https://github.com/benor1470/dbMeter/actions/runs/44217950460) ·
-[Linux transport contracts](https://github.com/SB0LTD/zpm/actions/runs/44220775588)
+[Linked transport A/B](https://github.com/benor1470/dbMeter/actions/runs/44229499260)
+
+The later packed-cache campaign captured all 144 original JDBC reports and
+passed every original correctness and capacity check. Fourteen of the
+fifteen scorable cases led median throughput. Eleven of the sixteen scheduled
+cases met all performance thresholds. Filters ran 3.22–30.55× the fastest
+reference and Top-N ran 23.92–32.94× under the explicit 256 MiB cache budget.
+All four prepared primary-key cases missed the advantage target, at 0.98–1.28×
+the fastest reference. The full one-client sales case lacked successful
+execution of `q5_high_value_customers` in two PostgreSQL trials. The workflow
+retained the raw reports, left the case unscored, and blocked the dbMeter
+merge and a general RAMSQL speed claim.
+[Full packed-cache qualification](https://github.com/benor1470/dbMeter/actions/runs/44231254167)
 
 The exact published x86-64 Linux binary ran a separate durability profile on
 512 rows with one primary key and one integer payload. Each writer repeatedly
@@ -151,13 +170,65 @@ eight readers alone. The 51 durable reopen checks matched the acknowledged
 state. These results quantify the write-path investigation on this workload.
 [Exact durable write profile](https://github.com/SB0LTD/ramsql/actions/runs/44225804971)
 
-A separate PostgreSQL tooling build matches seven of the twelve queries
-issued by stock `psql \d`. This covers incoming and outgoing foreign-key
-metadata and real named-role and PUBLIC policies. The policy statement uses
-the allocator-free `ARRAY(SELECT …)` constructor. The next missing catalog
-is extended statistics. Publication, trigger and partition reporting also
-require independent checks.
-[PostgreSQL tooling comparison](https://github.com/SB0LTD/ramsql/actions/runs/44227485578)
+An opt-in Linux group-commit candidate paired ordinary explicit PostgreSQL
+transactions on distinct tables across two workers. Both clients received
+their success after one stable WAL flush. The live tests also covered an
+injected flush error, ordinary same-table commits, expiry, cancellation and
+disconnect before selection or during a flush, and recovery of acknowledged
+commits. Other statement paths still follow the ordinary commit route.
+The same-binary timing run halved the number of flushes at two clients while
+reducing throughput from 2,244 to 1,930 transactions/s. The four-client
+distinct-table lane rose from 2,380 to 2,681 transactions/s, short of its
+repeated advantage requirement. A later candidate woke the awaiting reactor
+on Linux and skipped the wait for lone or same-table writers. Its latency
+checks passed, while median distinct-table throughput at four and eight
+clients fell by about 8% and 2% against the same binary with grouping off.
+Windows passed the finite-poll fallback and replay tests. Both versions
+remain opt-in experiments.
+[Native socket and WAL proof](https://github.com/SB0LTD/ramsql/actions/runs/44233435009) ·
+[Initial durability timings](https://github.com/SB0LTD/ramsql/actions/runs/44235108533) ·
+[Linux wakeup and durability timings](https://github.com/SB0LTD/ramsql/actions/runs/44239121066) ·
+[Windows fallback](https://github.com/SB0LTD/ramsql/actions/runs/44240480201)
+
+A separate 16-column tooling build completed all twelve stock `psql \d`
+queries on a table with a real user trigger, incoming foreign key, policies,
+named statistics and publications. The standalone partition and trigger
+comparisons also matched native PostgreSQL 18.3 for their covered cases.
+The combined Windows build passes the previously blocking empty search path,
+recovery status, float formatting, routine validation, XML and diagnostic
+settings in stock tooling. Export advances to `synchronize_seqscans`. The
+unchanged native dump gets through `row_security` and `CREATE SCHEMA`, then
+stops at `default_tablespace` in this binary. The isolated default-placement
+candidate passes its native comparison. Forty live row-security checks match
+PostgreSQL 18.3 with one and four workers, including prepared queries, COPY,
+rollback to a savepoint, `FORCE`, and `BYPASSRLS`.
+
+An ordinary COMMIT had to rebind the owning session before finalizing
+`SET LOCAL` and `LISTEN`. Its focused Windows Store contract passed 3,159
+assertions. A separate stock-client trace confirms that extended Execute
+publishes before Sync, retains earlier writes in a failed group, and retains
+writes when the client disconnects before Sync. PostgreSQL 18.3 rolls back
+groups that disconnect before Sync. Qualification must include commit failure at Sync,
+explicit transactions, server disconnect, and the exact original JDBC tests.
+
+Stock restore loads rows before `ALTER TABLE ONLY ... ADD CONSTRAINT ...
+PRIMARY KEY`. Today that operation returns `0A000`, leaving subsequent foreign
+keys without a referenced unique key. The candidate must allocate a real
+independent backing-index identity, reject duplicate and null rows while
+holding the DDL lock, and validate replay before publishing any new definition.
+The current WAL validation protects legacy tables with inline keys and rejects
+installing a key into a formerly keyless table. Preserve that protection until
+the new operation can validate base and in-record rows before apply.
+
+Both timeout suites match native PostgreSQL 18.3 with one and four workers.
+Nominal `regclass` wire output and a complete stock migration remain open.
+[Populated stock describe](https://github.com/SB0LTD/ramsql/actions/runs/44238734316) ·
+[Stock export audit](https://github.com/SB0LTD/ramsql/actions/runs/44245522501) ·
+[Native idle timeout](https://github.com/SB0LTD/ramsql/actions/runs/44238347427) ·
+[Native transaction timeout](https://github.com/SB0LTD/ramsql/actions/runs/44240230736) ·
+[Default placement qualification](https://github.com/SB0LTD/zpm/actions/runs/44245406020) ·
+[Exact row-security candidate](https://github.com/SB0LTD/ramsql/commit/9799cc836c42b2184fb4fb388f495af0b30d15b2) ·
+[COMMIT session fix](https://github.com/SB0LTD/zpm/pull/253)
 
 ## 17 November 2026 qualification checkpoint
 
@@ -1101,6 +1172,15 @@ retirement under injected failures.
 [Snapshot envelope](https://github.com/SB0LTD/zpm/pull/230) ·
 [Single-table image and suffix](https://github.com/SB0LTD/zpm/pull/232)
 
+The isolated RAMSQL startup path now acquires the real writer lock, checks
+the selected generation and seal, loads a caller-owned two-table image, and
+applies the WAL suffix through the production persistence layer. Linux,
+Windows and macOS each passed 16 checkpoint, 119 ordinary persistence and
+11 backup assertions. The public startup path still needs a durable database
+identity for standalone files, a common lock across the legacy and generation
+layouts, and interruption-safe publication and retirement of generations.
+[Hosted checkpoint startup proof](https://github.com/SB0LTD/ramsql/actions/runs/44234918499)
+
 - [ ] Write a complete validated snapshot with a durable sequence anchor.
 - [ ] Publish it atomically, persist directory changes, then retire only log segments the checkpoint safely covers.
 - [ ] Retain a separate database lock across file replacement and define recovery for every interrupted transition.
@@ -1302,13 +1382,18 @@ reliability targets with reproducible artifacts and environment details.
 
 **Status:** Partial. **Owner:** ZPM reusable thread/poll/ownership primitives; RAMSQL reactor/worker policy.
 
-One reactor handles queries and synchronous persistence. A costly query or flush
-can hold up unrelated clients; increasing connection slots alone does not fix it.
+Independent reads use multiple workers on qualified Windows and Linux
+profiles. A costly query or synchronous flush on the serial store path can
+still hold up unrelated clients. The hosted experimental 128-session build
+passed admission, cancellation, deadlock and slot reuse. macOS passed its
+single-worker lane and rejects unsupported additional workers.
+[Windows and Linux qualification](https://github.com/SB0LTD/ramsql/actions/runs/44228649454) ·
+[macOS qualification](https://github.com/SB0LTD/ramsql/actions/runs/44231434730)
 
 - [ ] Introduce resumable query/lock/I/O work and fair scheduling.
 - [ ] Add worker ownership/coordination after storage and transaction invariants are established.
 - [ ] Replace the small descriptor/connection ceiling with scalable platform readiness mechanisms and budgeted session state.
-- [ ] Evaluate safe group commit; acknowledge only after the required durable flush, and define publication/failure behavior before batching commits.
+- [ ] Qualify opt-in group commit for throughput and tail latency. Extend the supported transaction and platform scope only with tests for acknowledgement, failure and recovery.
 
 **Closed when:** load across cores/connections makes useful progress with bounded
 tail latency and no races/lost updates. Group commit must never weaken the current
