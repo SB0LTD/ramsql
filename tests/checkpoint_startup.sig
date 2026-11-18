@@ -68,6 +68,16 @@ fn refuses(layout: persistence.CheckpointLayout, expected_identity: manifest.Dat
     contender.close();
 }
 
+fn refusesMissingLock(owner: *Persistence, store: *Store, stem: []const u8, lock_path: []const u8, scratch: []u8) !void {
+    if (owner.initCheckpoint(stem, identity, store, scratch)) |_| return error.MissingWriterLockAccepted else |err| try check(err == error.FileNotFound);
+    try check(store.storage_failed and store.commit_fn == null and store.database.csn == 0);
+    if (disk.File.openExisting(lock_path)) |created| {
+        var unexpected = created;
+        unexpected.close();
+        return error.WriterLockWasCreated;
+    } else |err| try check(err == error.FileNotFound);
+}
+
 fn writeManifest(pathname: []const u8, selection: manifest.Selection) !void {
     var selected = try disk.File.createExclusive(pathname);
     defer selected.close();
@@ -76,7 +86,7 @@ fn writeManifest(pathname: []const u8, selection: manifest.Selection) !void {
 
 fn selectManifest(lock_path: []const u8, pending: []const u8, selected: []const u8) !void {
     var lock: disk.WriterLock = .{};
-    try lock.acquire(lock_path);
+    try lock.acquireExisting(lock_path);
     defer lock.close();
     try disk.replaceAtomic(pending, selected);
 }
@@ -123,7 +133,7 @@ fn assertData(client: *Store.Connection, label: []const u8) !void {
 
 pub fn main() !void {
     const pid: u32 = if (builtin.os.tag == .windows) Win.GetCurrentProcessId() else if (builtin.os.tag == .macos) @intCast(std.c.getpid()) else @intCast(std.os.linux.getpid());
-    var names: [11][128]u8 = undefined;
+    var names: [12][128]u8 = undefined;
     const stem = try std.fmt.bufPrint(&names[0], "sig-out/ram-checkpoint-{d}", .{pid});
     const layout = try persistence.CheckpointLayout.init(stem);
     const legacy = try path(&names[1], pid, "source");
@@ -136,7 +146,8 @@ pub fn main() !void {
     const next_wal = try layout.generationPath(&names[8], 8, .wal);
     const hidden_image = try path(&names[9], pid, "image-hidden");
     const hidden_wal = try path(&names[10], pid, "wal-hidden");
-    defer for ([_][]const u8{ legacy, lock_path, selected_path, pending_path, first_image, first_wal, next_image, next_wal, hidden_image, hidden_wal }) |file|
+    const hidden_lock = try path(&names[11], pid, "lock-hidden");
+    defer for ([_][]const u8{ legacy, lock_path, selected_path, pending_path, first_image, first_wal, next_image, next_wal, hidden_image, hidden_wal, hidden_lock }) |file|
         disk.remove(file) catch {};
 
     if (persistence.CheckpointLayout.init("")) |_| return error.EmptyStemAccepted else |err| try check(err == error.InvalidPath);
@@ -157,6 +168,8 @@ pub fn main() !void {
     try writer.execute("INSERT INTO notes VALUES (1,'held')", &result);
     const first_selection = try buildGeneration(layout, 7, &source.database, source_wal.sequence);
     source_wal.close();
+    var bootstrap_lock = try disk.File.createExclusive(lock_path);
+    bootstrap_lock.close();
     try writeManifest(pending_path, first_selection);
     try selectManifest(lock_path, pending_path, selected_path);
 
@@ -171,6 +184,14 @@ pub fn main() !void {
     try check(staged.database.csn == first_selection.sql_csn and staged.commit_fn != null and staged.prepare_fn == null);
     try bind(&source, 0);
     if (source_wal.initCheckpoint(stem, identity, &source, &buffers[0])) |_| return error.DuplicateWriter else |err| try check(err == error.DataDirectoryBusy);
+    if (builtin.os.tag != .windows) {
+        // POSIX permits renaming the lock name while the original owner
+        // holds the inode. A new startup must not create a detached lock.
+        try disk.publishNew(lock_path, hidden_lock);
+        try bind(&source, 0);
+        try refusesMissingLock(&source_wal, &source, stem, lock_path, &buffers[0]);
+        try disk.publishNew(hidden_lock, lock_path);
+    }
     var client: Store.Connection = .{ .store = &staged, .id = 2 };
     try client.execute("BEGIN", &result);
     try client.execute("UPDATE amounts SET cents=29 WHERE id=1", &result);
@@ -236,6 +257,14 @@ pub fn main() !void {
     try check(reopened.sequence == second.sequence + 1 and !reopened.truncated_tail);
     client = .{ .store = &staged, .id = 5 };
     try assertData(&client, "second suffix");
+    durable.close();
+    try disk.publishNew(lock_path, hidden_lock);
+    try bind(&staged, 1);
+    try refusesMissingLock(&durable, &staged, stem, lock_path, &buffers[1]);
+    try disk.publishNew(hidden_lock, lock_path);
+    try bind(&staged, 1);
+    const after_lock_restored = try durable.initCheckpoint(stem, identity, &staged, &buffers[1]);
+    try check(after_lock_restored.sequence == reopened.sequence);
     wal = try disk.File.openExisting(first_wal);
     try check(try wal.length() == valid);
     wal.close();

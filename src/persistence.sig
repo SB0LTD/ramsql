@@ -184,7 +184,7 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
             store.durability_required = true;
             store.storage_failed = true;
             var path: [CheckpointLayout.path_capacity]u8 = undefined;
-            try self.writer_lock.acquire(try layout.stablePath(&path, .lock));
+            try self.writer_lock.acquireExisting(try layout.stablePath(&path, .lock));
             errdefer self.writer_lock.close();
             const selection = selected: {
                 var file = try disk.File.openExisting(try layout.stablePath(&path, .manifest));

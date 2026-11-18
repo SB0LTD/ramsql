@@ -29,7 +29,9 @@ checks the `.manifest`, then opens only the selected `.g<N>.image` and `.g<N>.wa
 A missing selected file stops startup even when an older generation remains
 on disk. The exact manifest bytes must match the first WAL frame before the
 image is copied into the unpublished store. Lock ownership lasts through WAL
-replay, later durable commits and close.
+replay, later durable commits and close. Bootstrap creates the stable lock
+file once. Recovery requires that same lock path to exist and never recreates
+a missing lock.
 
 This internal startup path is exercised by the native checkpoint contract.
 The server still uses its ordinary WAL entry point. A generation publisher
