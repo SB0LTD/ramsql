@@ -7,10 +7,12 @@ from contextlib import ExitStack
 import hashlib
 import json
 from pathlib import Path
+import re
 import select
 import socket
 import struct
 import subprocess
+import time
 
 from test_persistence import DurableServer
 import test_server as wire
@@ -20,15 +22,20 @@ WINDOW_MS = 50
 
 
 class TracedServer(DurableServer):
-    def __init__(self, binary, wal, tracer, trace, *, window=WINDOW_MS, workers=2, inject=None):
+    def __init__(self, binary, wal, tracer, trace, *, window=WINDOW_MS, workers=2, inject=None, trace_wake=False):
         super().__init__(binary, wal, storage_options=("--workers", str(workers), "--group-commit-wait-ms", str(window)))
         self.tracer = tracer
         self.trace = trace
         self.inject = inject
+        self.trace_wake = trace_wake
 
     def command(self):
         prefix = [str(self.tracer), "--daemonize=grandchild", "--kill-on-exit", "--seccomp-bpf",
-                  "-fqq", "-ttt", "-T", "-y", "-e", "trace=fsync", "-P", str(self.wal), "-o", str(self.trace)]
+                  "-fqq", "-ttt", "-T", "-y", "-o", str(self.trace)]
+        if self.trace_wake:
+            prefix += ["-e", "trace=fsync,poll,ppoll,eventfd2"]
+        else:
+            prefix += ["-e", "trace=fsync", "-P", str(self.wal)]
         if self.inject:
             prefix += ["-e", f"inject=fsync:{self.inject}:when=1"]
         return [*prefix, "--", *super().command()]
@@ -42,10 +49,12 @@ def open_client(stack, server):
     return client, key
 
 
-def actors(stack, server, same_table=False):
+def actors(stack, server, same_table=False, same_reactor=False):
     a, key_a = open_client(stack, server)
+    if same_reactor:
+        open_client(stack, server)  # Retain the alternate reactor's next slot.
     b, key_b = open_client(stack, server)
-    assert key_a[0] % 2 != key_b[0] % 2, "fixture actors must belong to different reactors"
+    assert (key_a[0] % 2 == key_b[0] % 2) == same_reactor, "unexpected fixture reactor assignment"
     a.ok("BEGIN", status=b"T")
     b.ok("BEGIN", status=b"T")
     a.ok("INSERT INTO left_rows VALUES (1, 100)", status=b"T")
@@ -99,7 +108,15 @@ def replay(binary, wal, left, right):
         verify_rows(client, left, right)
 
 
-def exercise(args, name, expected_syncs, action, *, delay=False, failure=False, window=WINDOW_MS):
+def wake_observed(trace):
+    # strace prints the descriptor annotation on poll inputs and creation,
+    # but prints plain numbers in revents, including resumed poll calls.
+    descriptors = set(re.findall(r"\beventfd2(?:\(| resumed>)[^\n]* = (\d+)<anon_inode:\[eventfd\]>", trace))
+    ready = set(re.findall(r"\{fd=(\d+)(?:<anon_inode:\[eventfd\]>)?, revents=POLLIN\b", trace))
+    return bool(descriptors & ready)
+
+
+def exercise(args, name, expected_syncs, action, *, delay=False, failure=False, window=WINDOW_MS, trace_wake=False):
     folder = args.output / name
     folder.mkdir()
     wal = args.work_dir / name / "data.wal"
@@ -107,9 +124,10 @@ def exercise(args, name, expected_syncs, action, *, delay=False, failure=False, 
     seed(args.binary, wal)
     trace = folder / "fsync.log"
     injected = "error=EIO" if failure else ("delay_enter=250ms" if delay else None)
-    with TracedServer(args.binary, wal, args.strace, trace, window=window, inject=injected) as server:
+    with TracedServer(args.binary, wal, args.strace, trace, window=window, inject=injected, trace_wake=trace_wake) as server:
         expected = action(server)
-    calls = [line for line in trace.read_text().splitlines() if "fsync(" in line]
+    text = trace.read_text()
+    calls = [line for line in text.splitlines() if " = " in line and ("fsync(" in line or "fsync resumed>" in line)]
     assert len(calls) == expected_syncs, (name, calls)
     if failure:
         assert "EIO" in calls[0] and "INJECTED" in calls[0], calls
@@ -117,14 +135,17 @@ def exercise(args, name, expected_syncs, action, *, delay=False, failure=False, 
         assert all("= 0" in line for line in calls), calls
     if delay:
         assert "(DELAYED)" in calls[0] and float(calls[0].rsplit("<", 1)[1].rstrip(">")) >= 0.24, calls
+    if trace_wake:
+        assert wake_observed(text), "socket poll never observed the commit wake descriptor"
     replay(args.binary, wal, *expected)
     return {"case": name, "wal_fsyncs": len(calls), "trace_sha256": hashlib.sha256(trace.read_bytes()).hexdigest(),
-            "process_crash_replay_checked": True}
+            "process_crash_replay_checked": True, "wake_readiness_checked": trace_wake}
 
 
 def paired(server, *, same_table=False, delay=False, disconnect=False):
     with ExitStack() as stack:
         a, b, key_a = actors(stack, server, same_table=same_table)
+        began = time.monotonic()
         commit(a)
         commit(b)
         if delay:
@@ -138,6 +159,8 @@ def paired(server, *, same_table=False, delay=False, disconnect=False):
         if not disconnect:
             commit_ok(a)
         commit_ok(b)
+        if same_table:
+            assert time.monotonic() - began < (WINDOW_MS - 5) / 1000, "same-table work waited for an impossible pair"
     if same_table:
         return [["1", "100"], ["2", "200"]], []
     return [["1", "100"]], [["2", "200"]]
@@ -158,13 +181,40 @@ def failed_flush(server):
     return [["1", "100"]], [["2", "200"]]
 
 
-def solitary(server, *, cancel_request=False, disconnect=False):
+def wake_pair(server, *, same_reactor=False):
+    with ExitStack() as stack:
+        a, b, _ = actors(stack, server, same_reactor=same_reactor)
+        commit(a)
+        if not same_reactor:
+            quiet((a,), 0.010)
+        began = time.monotonic()
+        commit(b)
+        commit_ok(a)
+        commit_ok(b)
+        assert time.monotonic() - began < (WINDOW_MS - 5) / 1000, "completed group waited out its selection window"
+        deadline = time.monotonic() + 1
+        while not wake_observed(server.trace.read_text()):
+            assert time.monotonic() < deadline, "commit wake never crossed the live poll boundary"
+            time.sleep(0.001)
+    return [["1", "100"]], [["2", "200"]]
+
+
+def solitary(server, *, cancel_request=False, disconnect=False, peer_aborts=False):
     with ExitStack() as stack:
         client, key = open_client(stack, server)
         reader, _ = open_client(stack, server)
         client.ok("BEGIN", status=b"T")
         client.ok("INSERT INTO left_rows VALUES (1, 100)", status=b"T")
+        peer = None
+        if cancel_request or disconnect or peer_aborts:
+            peer, _ = open_client(stack, server)
+            peer.ok("BEGIN", status=b"T")
+            peer.ok("INSERT INTO right_rows VALUES (2, 200)", status=b"T")
+        began = time.monotonic()
         commit(client)
+        if peer_aborts:
+            quiet((client,), 0.010)
+            peer.ok("ROLLBACK")
         if cancel_request or disconnect:
             quiet((client,), 0.010)
             if cancel_request:
@@ -181,9 +231,12 @@ def solitary(server, *, cancel_request=False, disconnect=False):
                     assert replacement_key != key
                 cancel(server, key)
                 replacement.ok("SELECT 7", [["7"]])
+            peer.ok("ROLLBACK")
             verify_rows(reader, [], [])
             return [], []
         commit_ok(client)
+        if not peer_aborts:
+            assert time.monotonic() - began < (WINDOW_MS - 5) / 1000, "lone transaction waited for an impossible pair"
         verify_rows(reader, [["1", "100"]], [])
         return [["1", "100"]], []
 
@@ -222,10 +275,13 @@ def main():
             ("cross_reactor_ack_after_sync", 1, lambda server: paired(server, delay=True), {"delay": True}),
             ("cross_reactor_flush_error", 1, failed_flush, {"failure": True}),
             ("same_table_ordinary_commit", 2, lambda server: paired(server, same_table=True), {}),
-            ("lone_commit_deadline", 1, solitary, {}),
+            ("lone_commit_immediate", 1, solitary, {}),
+            ("peer_abort_before_claim", 1, lambda server: solitary(server, peer_aborts=True), {}),
             ("cancel_before_claim", 0, lambda server: solitary(server, cancel_request=True), {}),
             ("disconnect_before_claim", 0, lambda server: solitary(server, disconnect=True), {}),
             ("disconnect_during_flush", 1, lambda server: paired(server, delay=True, disconnect=True), {"delay": True}),
+            ("commit_wakes_polling_reactor", 1, wake_pair, {"trace_wake": True}),
+            ("commit_wake_before_next_poll", 1, lambda server: wake_pair(server, same_reactor=True), {"trace_wake": True}),
         ):
             print(name, flush=True)
             report["cases"].append(exercise(args, name, syncs, action, **options))

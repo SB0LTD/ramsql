@@ -233,6 +233,7 @@ const Client = struct {
     output_region: owned_pages.Region = .{},
     startup_region: owned_pages.Region = .{},
     database_binding: ?ClusterRegistry.Binding = null,
+    reactor: ?*Reactor = null,
     reader:?*Reader=null,
     read_deadline:?i64=null,
     output_len: usize = 0,
@@ -290,6 +291,7 @@ const Client = struct {
         self.result_region.close() catch @panic("lost client result ownership");
         self.output_region.close() catch @panic("lost client response ownership");
         self.startup_region.close() catch @panic("lost client startup ownership");
+        self.reactor = null;
         self.reader=null;
         unlockMemory();
         self.output = &.{};
@@ -406,20 +408,34 @@ const Client = struct {
                     // COMMIT path. A failed write already ended both slots.
                     if (self.connection.transactionStatus() != 'I' or first.connection.transactionStatus() != 'I') return null;
                     pending_group_commit = null;
-                    first.commit_outcome = .{ .failed = err };
+                    first.publishGroupOutcome(.{ .failed = err });
                     return try self.completeGroupCommit(input, output, .{ .failed = err });
                 };
                 if (!stable) return null;
                 pending_group_commit = null;
-                first.commit_outcome = .durable;
+                first.publishGroupOutcome(.durable);
                 return try self.completeGroupCommit(input, output, .durable);
             }
         }
+        if (!self.hasGroupPeer(table)) return null;
         self.waiting_commit = true;
         self.commit_cancelled = false;
         self.commit_deadline = now + @as(i64, group_commit_wait_ms) * 1000000;
         pending_group_commit = self;
         return null;
+    }
+
+    fn hasGroupPeer(self: *const Client, table: u32) bool {
+        for (clients) |*peer| {
+            if (peer == self or peer.state.load(.acquire) != 2 or peer.connection.store != self.connection.store) continue;
+            if (peer.connection.ordinaryBatchCommitTable()) |other| if (other != table) return true;
+        }
+        return false;
+    }
+
+    fn publishGroupOutcome(self: *Client, outcome: GroupCommitOutcome) void {
+        self.commit_outcome = outcome;
+        if (self.reactor) |reactor| reactor.notifyCommit();
     }
 
     /// Cancellation polling can mark this request with just store_mutex.
@@ -428,7 +444,7 @@ const Client = struct {
         if (pending_group_commit != self or !self.commit_cancelled) return;
         pending_group_commit = null;
         self.connection.failTransaction();
-        self.commit_outcome = .{ .failed = error.QueryCanceled };
+        self.publishGroupOutcome(.{ .failed = error.QueryCanceled });
     }
 
     fn commitPollTimeout(self: *const Client, now: i64, timeout: u32) u32 {
@@ -691,6 +707,7 @@ fn cancelBackend(key: pg.Cancel) void {
         if (target.cancel_key.load(.acquire) != wanted) return;
         target.cancel_request.store(wanted, .release);
         for (&reactors) |*reactor| reactor.signal.notify();
+        if (group_commit_wait_ms != 0) reactors[(key.pid - 1) % reactor_count].notifyCommit();
         return;
     }
     if (target.socket == tcp.invalid_socket or target.protocol != .postgres) return;
@@ -871,7 +888,9 @@ fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial:
     client.startup_region = .{};
     client.database_binding = null;
     client.notify_seen = 0;
-    client.reader=if(parallel) &reactors[slot % reactor_count].reader else null;client.read_deadline=null;
+    client.reactor = if (parallel) &reactors[slot % reactor_count] else null;
+    client.reader = if (client.reactor) |reactor| &reactor.reader else null;
+    client.read_deadline = null;
     client.output = &.{};
     client.blocked = false;
     client.waiting_commit = false;
@@ -959,9 +978,14 @@ fn validateWorkers(options: Options) !void {
 const Reactor = struct {
     thread: threads.Thread = .{},
     signal: threads.Signal = .{},
+    commit_wake: tcp.PollWake = .{},
     reader:Reader=.{},
     index: usize = 0,
     idle_ms: u32 = 30000,
+
+    fn notifyCommit(self: *const Reactor) void {
+        if (self.commit_wake.descriptor != tcp.invalid_socket) self.commit_wake.notify() catch {};
+    }
 
     fn entry(context: ?*anyopaque) void {
         const self: *Reactor = @ptrCast(@alignCast(context.?));
@@ -1028,7 +1052,8 @@ const Reactor = struct {
             if (active == 0) { self.reader.close();self.signal.wait(epoch, 100); continue; }
             // Finite poll bounds new admission, cancellation and shutdown
             // latency without introducing a second socket wakeup protocol.
-            _ = try tcp.waitMasked(tcp.invalid_socket, &sockets, &readable, &writable, if (buffered) 0 else poll_ms);
+            if (try tcp.waitMasked(self.commit_wake.descriptor, &sockets, &readable, &writable, if (buffered) 0 else poll_ms))
+                try self.commit_wake.drain();
             slot = self.index;
             while (slot < clients.len) : (slot += reactor_count) {
                 const client = &clients[slot];
@@ -1055,13 +1080,20 @@ fn runParallel(options: Options, listeners: []const tcp.Socket, protocols: []con
     reactor_count = options.workers;
     reactor_stop.store(false, .release); reactor_failed.store(false, .release);
     var started: usize = 0;
+    var initialized: usize = 0;
     defer {
         reactor_stop.store(true, .release);
-        for (reactors[0..started]) |*reactor| reactor.signal.notify();
+        for (reactors[0..started]) |*reactor| {
+            reactor.signal.notify();
+            reactor.notifyCommit();
+        }
         for (reactors[0..started]) |*reactor| reactor.thread.join() catch @panic("cannot release live reactor ownership");
+        for (reactors[0..initialized]) |*reactor| reactor.commit_wake.close();
     }
     for (reactors[0..reactor_count],0..) |*reactor,index| {
         reactor.* = .{ .index=index, .idle_ms=options.idle_ms };
+        if (tcp.PollWake.available and options.group_commit_wait_ms != 0) reactor.commit_wake = try tcp.PollWake.open();
+        initialized += 1;
         try reactor.thread.start(&Reactor.entry, reactor);
         started += 1;
     }
