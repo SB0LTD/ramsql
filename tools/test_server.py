@@ -831,6 +831,22 @@ def test_integral_version_banks(binary):
             second.ok("SELECT COUNT(*) FROM labels", [["2"]])
 
 
+def test_completion_retirement(binary):
+    with Server(binary, idle_ms=400, max_clients=2) as server:
+        descriptors = Path(f"/proc/{server.process.pid}/fd")
+        rings = sum(os.readlink(fd) == "anon_inode:[io_uring]" for fd in descriptors.iterdir())
+        check(rings == 2, f"expected one completion ring per worker, found {rings}")
+        for _ in range(3):
+            with connection(server) as first, connection(server) as second:
+                first.ok("SELECT 41", [["41"]])
+                second.ok("SELECT 42", [["42"]])
+                # Both owners have an outstanding idle receive. Expiry must
+                # wait for RX and cancel completions before recycling the slots.
+                expect_closed(first)
+                expect_closed(second)
+        live_probe(server)
+
+
 def main():
     global cases
     parser = argparse.ArgumentParser(description=__doc__)
@@ -873,6 +889,9 @@ def main():
     cases += 1
     if args.workers > 1:
         test_read_cache(binary)
+        cases += 1
+    if args.tcp_completions and args.workers > 1:
+        test_completion_retirement(binary)
         cases += 1
     if args.integral_version_banks:
         test_integral_version_banks(binary)
