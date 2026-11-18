@@ -831,6 +831,39 @@ def test_integral_version_banks(binary):
             second.ok("SELECT COUNT(*) FROM labels", [["2"]])
 
 
+def test_linked_completion_turn(binary):
+    width = 96
+    payload = "x" * width
+    count = 768
+    query = "SELECT id,label FROM linked_rows ORDER BY id"
+    with Server(binary, max_clients=2) as server:
+        with connection(server) as holder:
+            holder.ok("CREATE TABLE linked_rows (id INT PRIMARY KEY, label TEXT)")
+            for start in range(0, count, 128):
+                holder.ok("INSERT INTO linked_rows VALUES " + ",".join(
+                    f"({i},'{payload}')" for i in range(start, start + 128)))
+            with connection(server, recv_buffer=4096) as slow:
+                slow.sock.sendall(query_packet(query))
+                head = slow.message()
+                check(head[0] == b"T")
+                # Let RX run while the large prior response is still being
+                # drained. Its query result must follow the previous Ready.
+                slow.sock.sendall(query_packet("SELECT 123"))
+                complete = [head, *slow.ready()]
+                check(rows(complete) == [[str(i), payload] for i in range(count)])
+                check(rows(slow.ready()) == [["123"]])
+                slow.sock.sendall(query_packet(query))
+                slow.sock.shutdown(socket.SHUT_WR)
+                check(rows(slow.ready()) == [[str(i), payload] for i in range(count)])
+                expect_closed(slow)
+            with connection(server, recv_buffer=4096) as aborted:
+                aborted.sock.sendall(query_packet(query))
+                check(aborted.message()[0] == b"T")
+                aborted.sock.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+                aborted.close(False)
+            live_probe(server)
+
+
 def test_completion_retirement(binary):
     with Server(binary, idle_ms=400, max_clients=2) as server:
         descriptors = Path(f"/proc/{server.process.pid}/fd")
@@ -894,7 +927,8 @@ def main():
         cases += 1
     if args.tcp_completions and args.workers > 1:
         test_completion_retirement(binary)
-        cases += 1
+        test_linked_completion_turn(binary)
+        cases += 2
     if args.integral_version_banks:
         test_integral_version_banks(binary)
         cases += 1

@@ -23,7 +23,7 @@ const Persistence = @import("persistence.sig").Persistence(Raw, Store);
 const sql = @import("sql");
 const tcp = @import("tcp_server");
 const tcp_completion = @import("tcp_completion");
-const CompletionQueue = if (tcp_completion.available) tcp_completion.Queue(capacity) else void;
+const CompletionQueue = if (tcp_completion.available) tcp_completion.Queue(2 * capacity) else void;
 const pg = @import("postgres");
 const mysql = @import("mysql");
 const tds = @import("tds");
@@ -866,6 +866,8 @@ const Reactor = struct {
     try_timed_completion: bool = true,
     wake_fd: tcp.Socket = tcp.invalid_socket,
     retiring: [capacity]bool = @splat(false),
+    receive_eof: [capacity]bool = @splat(false),
+    linked_output: [capacity]bool = @splat(false),
     wait_socket: [capacity]bool = @splat(false),
 
     fn notify(self: *Reactor) void {
@@ -894,31 +896,43 @@ const Reactor = struct {
         if (!try queue.armWake(self.wake_fd)) return error.InvalidTcpWakeSignal;
     }
 
+    fn socketReusable(queue: *const CompletionQueue, slot: usize) bool {
+        return queue.reusable(slot) and queue.reusable(capacity + slot);
+    }
+
+    fn retireTransport(self: *Reactor, queue: *CompletionQueue, slot: usize) !void {
+        if (self.retiring[slot]) return;
+        self.retiring[slot] = true;
+        _ = try queue.cancel(slot);
+        _ = try queue.cancel(capacity + slot);
+    }
+
     fn drainCompletions(queue: *CompletionQueue) void {
         if (comptime !tcp_completion.available) unreachable;
         var pending = queue.wakePending();
         if (pending) _ = queue.cancelWake() catch @panic("cannot cancel live TCP wake");
         for (0..clients.len) |slot| {
-            if (queue.reusable(slot)) continue;
+            if (socketReusable(queue, slot)) continue;
             pending = true;
-            _ = queue.cancel(slot) catch @panic("cannot cancel live TCP completion");
+            _ = queue.cancel(slot) catch @panic("cannot cancel live TCP receive");
+            _ = queue.cancel(capacity + slot) catch @panic("cannot cancel live TCP send");
         }
         if (!pending) return;
         _ = queue.submit() catch @panic("cannot submit TCP completion retirement");
         while (true) {
-            var raw: [2 * capacity + 2]std.os.linux.io_uring_cqe = undefined;
-            var events: [2 * capacity + 2]tcp_completion.Completion = undefined;
+            var raw: [4 * capacity + 2]std.os.linux.io_uring_cqe = undefined;
+            var events: [4 * capacity + 2]tcp_completion.Completion = undefined;
             _ = queue.complete(&raw, &events, true) catch @panic("cannot drain TCP completion ownership");
             pending = queue.wakePending();
-            for (0..clients.len) |slot| pending = pending or !queue.reusable(slot);
+            for (0..clients.len) |slot| pending = pending or !socketReusable(queue, slot);
             if (!pending) return;
         }
     }
 
     fn completionReady(self: *Reactor, queue: *CompletionQueue) !void {
         if (comptime !tcp_completion.available) unreachable;
-        var raw: [2 * capacity + 2]std.os.linux.io_uring_cqe = undefined;
-        var events: [2 * capacity + 2]tcp_completion.Completion = undefined;
+        var raw: [4 * capacity + 2]std.os.linux.io_uring_cqe = undefined;
+        var events: [4 * capacity + 2]tcp_completion.Completion = undefined;
         const count = try queue.complete(&raw, &events, false);
         for (events[0..count]) |event| {
             if (event.operation == .wake) {
@@ -926,8 +940,9 @@ const Reactor = struct {
                 try self.consumeWake(queue);
                 continue;
             }
-            const client = &clients[event.slot];
-            if (self.retiring[event.slot]) continue;
+            const slot = event.slot % capacity;
+            const client = &clients[slot];
+            if (self.retiring[slot]) continue;
             switch (event.outcome) {
                 .bytes => |n| {
                     client.touched = monotonicClock();
@@ -939,13 +954,17 @@ const Reactor = struct {
                         }
                     }
                 },
-                .retry => self.wait_socket[event.slot] = true,
-                .eof, .failed, .canceled => client.close(),
+                .retry => self.wait_socket[slot] = true,
+                .eof => self.receive_eof[slot] = true,
+                .failed => try self.retireTransport(queue, slot),
+                // A soft link can cancel the dependent RX on send failure.
+                // The TX outcome decides whether to retire or send a suffix.
+                .canceled => if (event.operation == .send) try self.retireTransport(queue, slot),
                 .cancel_accepted, .cancel_raced, .notified => return error.UnexpectedTcpCancellation,
             }
         }
         for (self.retiring[0..clients.len], 0..) |retiring, slot| {
-            if (retiring and queue.reusable(slot)) {
+            if (retiring and socketReusable(queue, slot)) {
                 self.retiring[slot] = false;
                 clients[slot].close();
             }
@@ -992,6 +1011,8 @@ const Reactor = struct {
                 const client = &clients[slot];
                 if (client.state.load(.acquire) == 3) {
                     self.wait_socket[slot] = false;
+                    self.receive_eof[slot] = false;
+                    self.linked_output[slot] = false;
                     client.state.store(0, .release);
                 }
             }
@@ -1021,20 +1042,55 @@ const Reactor = struct {
                 if (client.blocked) client.touched = now;
                 const expired = now-client.touched >= @as(i64,self.idle_ms)*1000000;
                 if (comptime tcp_completion.available) if (self.completion) |*queue| {
-                    if (!queue.reusable(slot)) {
-                        if (expired and !self.retiring[slot]) {
-                            _ = try queue.cancel(slot);
-                            self.retiring[slot] = true;
+                    const tx = capacity + slot;
+                    if (!socketReusable(queue, slot)) {
+                        if (expired) {
+                            try self.retireTransport(queue, slot);
+                        } else if (!self.retiring[slot] and queue.reusable(tx) and client.output_len != 0) {
+                            // A short send may leave the linked RX pending.
+                            // Continue only TX and leave the input lease alone.
+                            if (self.wait_socket[slot]) {
+                                sockets[slot] = client.socket;
+                                portable_socket = true;
+                                writable[slot] = true;
+                            } else {
+                                try queue.send(tx, client.socket, client.output[client.output_sent..client.output_len]);
+                            }
                         }
                         active += 1;
                         continue;
                     }
+                    if (self.receive_eof[slot] and client.output_len == 0) {
+                        client.close();
+                        continue;
+                    }
+                    if (!expired and self.linked_output[slot] and client.output_len != 0) {
+                        // Even a zero-progress retry must keep a completed
+                        // early RX out of dispatch until the previous reply ends.
+                        if (self.wait_socket[slot]) {
+                            sockets[slot] = client.socket;
+                            portable_socket = true;
+                            writable[slot] = true;
+                        } else {
+                            try queue.send(tx, client.socket, client.output[client.output_sent..client.output_len]);
+                        }
+                        active += 1;
+                        continue;
+                    }
+                    self.linked_output[slot] = false;
                     if (!expired and !self.wait_socket[slot] and canArm(client)) {
                         if (client.serve(false)) buffered = true;
                         if (client.state.load(.acquire) != 2) continue;
                         if (canArm(client)) {
                             if (client.output_len != 0) {
-                                try queue.send(slot, client.socket, client.output[client.output_sent..client.output_len]);
+                                const output = client.output[client.output_sent..client.output_len];
+                                if (!client.closing and !self.receive_eof[slot] and client.input_len == 0) {
+                                    client.compactInput();
+                                    try queue.sendAndReceive(tx, slot, client.socket, output, client.input);
+                                    self.linked_output[slot] = true;
+                                } else {
+                                    try queue.send(tx, client.socket, output);
+                                }
                             } else if (client.closing) {
                                 client.close();
                                 continue;
@@ -1094,10 +1150,22 @@ const Reactor = struct {
                 const client = &clients[slot];
                 if (client.state.load(.acquire) != 2) continue;
                 if (writable[slot]) {
-                    client.flush() catch { client.close(); continue; };
+                    client.flush() catch {
+                        if (comptime tcp_completion.available) if (self.completion) |*queue| {
+                            if (!socketReusable(queue, slot)) {
+                                try self.retireTransport(queue, slot);
+                                continue;
+                            }
+                        };
+                        client.close();
+                        continue;
+                    };
                     self.wait_socket[slot] = false;
                 }
                 if (client.state.load(.acquire) != 2) continue;
+                if (comptime tcp_completion.available) if (self.completion) |*queue| {
+                    if (!socketReusable(queue, slot) or self.receive_eof[slot]) continue;
+                };
                 if (readable[slot] and client.output_len == 0) {
                     client.compactInput();
                     if (tcp.recv(client.socket,client.input[client.input_len..]) catch { client.close(); continue; }) |received| {
