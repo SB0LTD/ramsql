@@ -10,8 +10,9 @@ streams one command's response at a time. Implicit segments commit at the end
 of the frame or at an explicit transaction boundary. A raw syntax error
 rejects the whole frame. A runtime error stops execution at that command and
 rolls back the current implicit segment. Earlier explicit commits persist.
-Send `COPY` in its own Query message. A batch containing `COPY` or unsupported
-raw grammar returns `0A000` before running any command.
+A batch can include `COPY TO STDOUT`. Send `COPY FROM STDIN` in its own
+Query message. A batch containing it or unsupported raw grammar returns
+`0A000` before running any command.
 `PREPARE TRANSACTION` in a batch requires an explicit transaction block.
 
 Extended Parse/Bind/Execute groups retain implicit writes until Sync or a

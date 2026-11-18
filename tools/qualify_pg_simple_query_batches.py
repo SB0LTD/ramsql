@@ -205,6 +205,46 @@ def copy_scope(port, workers, native):
     return {'native_interactive_tail': native, 'candidate_rejects_before_any_effect': not native}
 
 
+def copy_out_batch(port, workers):
+    table = f'batch_copy_out_{workers}'
+    with session(port) as client, session(port) as peer:
+        client.ok(f'CREATE TABLE {table} (id INTEGER PRIMARY KEY)')
+
+        def exchange(sql):
+            frames = client.query(sql)
+            facts = result(frames)
+            facts['copy_output'] = b''.join(body for tag, body in frames if tag == b'd').hex()
+            facts['frames'] = facts['frames'].replace('d', '')
+            return facts
+
+        csv = exchange(f"INSERT INTO {table} VALUES(4); COPY (SELECT id, 'from'::text AS marker FROM {table}) TO STDOUT WITH (FORMAT csv, HEADER true); SELECT COUNT(*) FROM {table}")
+        assert csv['frames'] == 'CHcCTDCZ' and csv['completion'] == ['INSERT 0 1', 'COPY 1', 'SELECT 1'], csv
+        assert csv['rows'] == [['1']] and bytes.fromhex(csv['copy_output']) == b'id,marker\n4,from\n', csv
+        peer.ok(f'SELECT id FROM {table}', [['4']])
+
+        binary = exchange(f"INSERT INTO {table} VALUES(7); COPY (SELECT id FROM {table} ORDER BY id) TO STDOUT WITH (FORMAT binary)")
+        assert binary['frames'] == 'CHcCZ' and binary['completion'] == ['INSERT 0 1', 'COPY 2'], binary
+        assert bytes.fromhex(binary['copy_output']).startswith(b'PGCOPY\n\xff\r\n\x00'), binary
+        peer.ok(f'SELECT id FROM {table} ORDER BY id', [['4'], ['7']])
+
+        runtime_error = exchange(f"INSERT INTO {table} VALUES(8); COPY (SELECT id FROM {table} WHERE id=8) TO STDOUT; SELECT 1/0")
+        assert runtime_error['frames'] == 'CHcCEZ' and runtime_error['errors'] == ['22012'], runtime_error
+        assert bytes.fromhex(runtime_error['copy_output']) == b'8\n', runtime_error
+        peer.ok(f'SELECT COUNT(*) FROM {table} WHERE id=8', [['0']])
+
+        syntax_error = exchange(f"INSERT INTO {table} VALUES(9); COPY {table} TO STDOUT; SELECT 1 +")
+        assert syntax_error['frames'] == 'EZ' and syntax_error['errors'] == ['42601'], syntax_error
+        peer.ok(f'SELECT COUNT(*) FROM {table} WHERE id=9', [['0']])
+
+        explicit = exchange(f"BEGIN; INSERT INTO {table} VALUES(10); COPY (SELECT id FROM {table} WHERE id=10) TO STDOUT; SELECT 1")
+        assert explicit['status'] == 'T' and bytes.fromhex(explicit['copy_output']) == b'10\n', explicit
+        peer.ok(f'SELECT COUNT(*) FROM {table} WHERE id=10', [['0']])
+        client.ok('ROLLBACK')
+        peer.ok(f'SELECT id FROM {table} ORDER BY id', [['4'], ['7']])
+    return {'csv_in_middle': csv, 'binary_at_end': binary, 'runtime_failure': runtime_error,
+            'raw_syntax_failure': syntax_error, 'explicit_rollback': explicit}
+
+
 def durable(binary, evidence_dir, workers):
     wal = (evidence_dir / f'qualified-batch-{workers}.wal').resolve()
     assert not wal.exists(), wal
@@ -241,6 +281,7 @@ def main():
     for workers in (1, 4):
         native = scenarios(args.postgres_port, workers)
         copy_native = copy_scope(args.postgres_port, workers, True)
+        native_copy_out = copy_out_batch(args.postgres_port, workers)
         native_park = parked(args.postgres_port, workers, native=True)
         Server.test_workers = workers
         with Server(binary, max_clients=8, extra_arguments=('--work-rows', '1024', '--result-rows', '512')) as candidate:
@@ -248,12 +289,14 @@ def main():
             for name, expected in native.items():
                 assert actual[name] == expected, (workers, name, actual[name], expected)
             copy_test = copy_scope(candidate.port, workers, False)
+            actual_copy_out = copy_out_batch(candidate.port, workers)
+            assert actual_copy_out == native_copy_out, (workers, actual_copy_out, native_copy_out)
             lock_test = parked(candidate.port, workers)
             assert all(lock_test[name] == expected for name, expected in native_park.items())
             pressure_test = pressure(candidate.port)
             idle_pressure = pressure(candidate.port, idle_timeout=True)
         evidence['modes'].append({'workers': workers, 'ordinary': actual, 'native_copy': copy_native,
-                                  'candidate_copy': copy_test, 'lock_wait_and_disconnect': lock_test,
+                                  'candidate_copy': copy_test, 'copy_out_batch': actual_copy_out, 'lock_wait_and_disconnect': lock_test,
                                   'pressure': pressure_test, 'active_batch_idle_timeout': idle_pressure, 'durability': durable(binary, args.report.parent, workers)})
     args.report.write_text(json.dumps(evidence, indent=2) + '\n')
     print(f'PASS {sum(len(case["ordinary"]) for case in evidence["modes"])} frame differentials, wraparound I/O, COPY scope and blocked continuation')
