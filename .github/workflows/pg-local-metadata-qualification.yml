@@ -1,0 +1,46 @@
+name: Connection-local PostgreSQL metadata correctness
+
+on:
+  push:
+    branches: [perf/pg-local-metadata-20261118]
+
+permissions:
+  contents: read
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prepare verified Sig toolchain
+        shell: bash
+        run: |
+          read -r tag asset digest < <(python tools/release_matrix.py --compiler-host Linux/X64 |
+            python -c 'import json,sys; x=json.load(sys.stdin); print(x["tag"],x["asset"],x["sha256"])')
+          curl -fsSL --retry 3 "https://github.com/SB0LTD/sig/releases/download/$tag/$asset" -o "$RUNNER_TEMP/$asset"
+          echo "$digest  $RUNNER_TEMP/$asset" | sha256sum -c
+          mkdir "$RUNNER_TEMP/sig"
+          tar -xf "$RUNNER_TEMP/$asset" -C "$RUNNER_TEMP/sig"
+          binary=$(find "$RUNNER_TEMP/sig" -type f -name sig | head -n 1)
+          standard=$(find "$RUNNER_TEMP/sig" -type f -path '*/lib/std/std.sig' | head -n 1)
+          test -x "$binary"
+          test -f "$standard"
+          printf 'SIG=%s\n' "$binary" >> "$GITHUB_ENV"
+          python tools/prepare_sig_runtime.py --installed-lib "${standard%/std/std.sig}" \
+            --output "$RUNNER_TEMP/sig-runtime" --github-env "$GITHUB_ENV"
+      - name: Build pinned default product and check the two-worker wire and lock contracts
+        shell: bash
+        run: |
+          mkdir evidence
+          "$SIG" build -Doptimize=ReleaseSafe 2>&1 | tee evidence/build.log
+          sha256sum sig-out/bin/ramsql | tee evidence/ramsql.sha256
+          python tools/test_server.py --workers 2 2>&1 | tee evidence/server.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pg-local-metadata-wire
+          path: evidence/
