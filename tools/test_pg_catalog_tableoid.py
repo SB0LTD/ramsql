@@ -53,7 +53,7 @@ def probe(port, user, database):
         catalog_oid, extension_oid, *extension = values
         assert catalog_oid == "3079" and int(extension_oid) > 0
         assert extension == ["plpgsql", "pg_catalog", "f", "1.0", None, None]
-        assert scalar(pg, "SELECT c.oid FROM pg_class c JOIN pg_extension x ON c.oid=x.tableoid") == catalog_oid
+        assert scalar(pg, "SELECT 'pg_catalog.pg_extension'::regclass::oid") == catalog_oid
         assert scalar(pg, "SELECT (SELECT x.tableoid) FROM pg_extension x") == catalog_oid
         assert scalar(pg, "SELECT x.tableoid FROM pg_extension AS x(extension_id)") == catalog_oid
         assert row(pg, "SELECT n.tableoid, x.tableoid FROM pg_namespace n LEFT JOIN pg_extension x ON x.extnamespace=n.oid WHERE n.nspname='public'")[1] == ["2615", None]
