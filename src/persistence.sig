@@ -198,6 +198,38 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
             _ = try self.appendRecord(change_kind, payload);
         }
 
+        const BatchContext = struct {
+            owner: *Self,
+            framing: []u8,
+        };
+
+        /// Caller holds the store's existing exclusive mutation gate until
+        /// the grouped commits have returned. A false result leaves each
+        /// transaction live for the regular COMMIT path. This method does not
+        /// own transport replies, connection scheduling or cancellation.
+        pub fn commitOrdinaryBatch(self: *Self, connections: []const *Store.Connection,
+                                   scratch: Store.CommitBatchWorkspace, framing: []u8) !bool {
+            const store = self.store orelse return error.PersistenceClosed;
+            if (!self.active or self.file.poisoned) return error.StorageUnavailable;
+            var context: BatchContext = .{ .owner = self, .framing = framing };
+            return store.commitOrdinaryBatch(connections, scratch, &context, persistOrdinaryBatch);
+        }
+
+        fn persistOrdinaryBatch(raw: ?*anyopaque, payloads: []const []const u8) !bool {
+            const context: *BatchContext = @ptrCast(@alignCast(raw.?));
+            const self = context.owner;
+            for (payloads) |payload| {
+                if (payload.len > self.max_batch_bytes) return false;
+                _ = Raw.changeRecordOps(payload) catch return false;
+            }
+            const sequence = log.appendBatch(&self.file, self.sequence, payloads, change_kind, context.framing) catch |err| switch (err) {
+                error.BatchStorageCapacity, error.AliasedBatchStorage, error.InvalidSequence => return false,
+                else => return err,
+            };
+            self.sequence = sequence;
+            return true;
+        }
+
         fn commitPrepared(context: ?*anyopaque, payload: []const u8) anyerror!u64 {
             const self: *Self = @ptrCast(@alignCast(context orelse return error.PersistenceClosed));
             _ = Raw.PreparedWal.decode(payload) catch return error.InvalidCommitBatch;

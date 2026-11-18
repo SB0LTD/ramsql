@@ -388,6 +388,65 @@ fn sequences(path: []const u8) !void {
     try check(result.rows[0].cells[0].integer == 4);
 }
 
+fn serializedBatch(path: []const u8) !void {
+    try clearLog(path);
+    var store: PgStore = .{};
+    var recovery: [transaction_bytes]u8 = undefined;
+    var persistence: PgPersistence = .{};
+    defer persistence.close();
+    _ = try persistence.init(path, &store, &recovery);
+    var a: PgStore.Connection = .{ .store = &store, .id = 1 };
+    var b: PgStore.Connection = .{ .store = &store, .id = 2 };
+    var reader: PgStore.Connection = .{ .store = &store, .id = 3 };
+    var result: PgRaw.Result = .{};
+    try a.execute("CREATE TABLE left_rows (id INT PRIMARY KEY, value INT)", &result);
+    try a.execute("CREATE TABLE right_rows (id INT PRIMARY KEY, value INT)", &result);
+    const members = [_]*PgStore.Connection{ &a, &b };
+    var table_oids: [2]u32 = undefined;
+    var payloads: [2][]const u8 = undefined;
+    var encoded: [512]u8 = undefined;
+    var framing: [512]u8 = undefined;
+    const workspace: PgStore.CommitBatchWorkspace = .{ .table_oids = &table_oids, .payloads = &payloads, .encoded = &encoded };
+    try a.beginTransaction();
+    try b.beginTransaction();
+    try a.execute("INSERT INTO left_rows VALUES (1, 100)", &result);
+    try b.execute("INSERT INTO right_rows VALUES (2, 200)", &result);
+    const prefix_length = try persistence.file.length();
+    try check(!try persistence.commitOrdinaryBatch(&members, workspace, framing[0..1]));
+    try check(persistence.sequence == 2 and store.database.csn == 2 and try persistence.file.length() == prefix_length);
+    try check(a.transactionStatus() == 'T' and b.transactionStatus() == 'T');
+    try check(try firstInteger(&reader, "SELECT COUNT(*) FROM left_rows") == 0);
+    try check(try firstInteger(&reader, "SELECT COUNT(*) FROM right_rows") == 0);
+    try check(try persistence.commitOrdinaryBatch(&members, workspace, &framing));
+    try check(persistence.sequence == 4 and store.database.csn == 4 and try allKindThree(&persistence.file, 1));
+    try check(a.transactionStatus() == 'I' and b.transactionStatus() == 'I');
+    try check(try firstInteger(&reader, "SELECT value FROM right_rows WHERE id = 2") == 200);
+    try reader.execute("UPDATE left_rows SET value = 300 WHERE id = 1", &result);
+    try check(persistence.sequence == 5);
+
+    try a.beginTransaction();
+    try b.beginTransaction();
+    try a.execute("DELETE FROM left_rows WHERE id = 1", &result);
+    try b.execute("DELETE FROM right_rows WHERE id = 2", &result);
+    persistence.file.close();
+    if (persistence.commitOrdinaryBatch(&members, workspace, &framing)) |_| {
+        return error.NativeBatchFailureIgnored;
+    } else |_| try check(persistence.file.poisoned and store.storage_failed);
+    try check(persistence.sequence == 5 and store.database.csn == 5);
+    try check(a.transactionStatus() == 'I' and b.transactionStatus() == 'I');
+    try check(try firstInteger(&reader, "SELECT value FROM left_rows WHERE id = 1") == 300);
+    try check(try firstInteger(&reader, "SELECT value FROM right_rows WHERE id = 2") == 200);
+
+    persistence.close();
+    store = .{};
+    reader = .{ .store = &store, .id = 3 };
+    const recovered = try persistence.initExisting(path, &store, &recovery);
+    try check(recovered.sequence == 5 and !recovered.truncated_tail and !store.storage_failed);
+    try check(try allKindThree(&persistence.file, 1));
+    try check(try firstInteger(&reader, "SELECT value FROM left_rows WHERE id = 1") == 300);
+    try check(try firstInteger(&reader, "SELECT value FROM right_rows WHERE id = 2") == 200);
+}
+
 pub fn main(init: std.process.Init) !void {
     const pid: u32 = if (builtin.os.tag == .windows) Win.GetCurrentProcessId() else if (builtin.os.tag == .macos) @intCast(std.c.getpid()) else @intCast(std.os.linux.getpid());
     var path_buffer: [256]u8 = undefined;
@@ -556,6 +615,7 @@ pub fn main(init: std.process.Init) !void {
     try wideContinuation(path);
     try typedValues(path);
     try sequences(path);
+    try serializedBatch(path);
     var report_buffer: [160]u8 = undefined;
     const report = try std.fmt.bufPrint(&report_buffer, "{{\"suite\":\"persistence\",\"pass\":true,\"assertions\":{d}}}\n", .{assertions});
     try std.Io.File.stdout().writeStreamingAll(init.io, report);
