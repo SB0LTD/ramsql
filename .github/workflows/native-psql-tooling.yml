@@ -1,0 +1,67 @@
+name: Stock PostgreSQL restore on the qualified main runtime
+
+on:
+  push:
+    branches: [ci/qualified-main-stock-pg-restore-20261118]
+
+permissions:
+  contents: read
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prepare verified Sig toolchain
+        shell: bash
+        run: |
+          read -r tag asset digest < <(python tools/release_matrix.py --compiler-host Linux/X64 |
+            python -c 'import json,sys; x=json.load(sys.stdin); print(x["tag"],x["asset"],x["sha256"])')
+          curl -fsSL --retry 3 "https://github.com/SB0LTD/sig/releases/download/$tag/$asset" -o "$RUNNER_TEMP/$asset"
+          echo "$digest  $RUNNER_TEMP/$asset" | sha256sum -c
+          mkdir "$RUNNER_TEMP/sig"
+          tar -xf "$RUNNER_TEMP/$asset" -C "$RUNNER_TEMP/sig"
+          binary=$(find "$RUNNER_TEMP/sig" -type f -name sig | head -n 1)
+          standard=$(find "$RUNNER_TEMP/sig" -type f -path '*/lib/std/std.sig' | head -n 1)
+          test -x "$binary"
+          test -f "$standard"
+          printf 'SIG=%s\n' "$binary" >> "$GITHUB_ENV"
+          python tools/prepare_sig_runtime.py --installed-lib "${standard%/std/std.sig}" \
+            --output "$RUNNER_TEMP/sig-runtime" --github-env "$GITHUB_ENV"
+      - name: Build exact candidate and run PostgreSQL 18.3 psql
+        shell: bash
+        run: |
+          mkdir evidence
+          "$SIG" build -Doptimize=ReleaseSafe -Dcolumns=16 2>&1 | tee evidence/build.log
+          sha256sum sig-out/bin/ramsql | tee evidence/ramsql.sha256
+          image=postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba
+          docker run --detach --name tooling-native --publish 127.0.0.1::5432 \
+            -e POSTGRES_HOST_AUTH_METHOD=trust "$image"
+          for attempt in $(seq 1 60); do
+            if docker exec tooling-native pg_isready -h 127.0.0.1 -U postgres; then break; fi
+            sleep 1
+          done
+          docker exec tooling-native pg_isready -h 127.0.0.1 -U postgres
+          python tools/qualify_pg_tooling.py sig-out/bin/ramsql 2>&1 | tee evidence/check.log
+      - name: Compare row-security settings with PostgreSQL 18.3
+        shell: bash
+        run: |
+          python -m pip install 'psycopg[binary]==3.3.2'
+          endpoint=$(docker port tooling-native 5432/tcp)
+          python tools/qualify_pg_row_security.py --binary sig-out/bin/ramsql \
+            --postgres-port "${endpoint##*:}" --report evidence/row-security.json
+      - name: Require unchanged native PostgreSQL dump and RAMSQL WAL reopen
+        if: success() || failure()
+        shell: bash
+        run: |
+          test -x sig-out/bin/ramsql
+          python tools/qualify_pg_dump.py sig-out/bin/ramsql --restore-only 2>&1 | tee evidence/dump-check.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-pg-stock-restore
+          path: evidence/
