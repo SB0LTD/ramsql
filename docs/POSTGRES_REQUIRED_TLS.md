@@ -1,8 +1,12 @@
 # Required PostgreSQL TLS preview
 
 Configure both `--tls-cert-der PATH` and `--tls-key-raw PATH` with the normal SCRAM
-verifier options. This selects a TLS-required PostgreSQL loopback listener with
-one reactor. Worker auto-selection resolves to one in this mode. The certificate
+verifier options. This selects a TLS-required PostgreSQL loopback listener.
+Worker auto-selection resolves to one in this mode. On hosted builds that
+support native reactors, use `--workers N` to select multiple workers.
+The acceptor owns each TLS slot until the first decrypted PostgreSQL startup
+frame and closes unfinished admission attempts after at most one second.
+A worker owns subsequent TLS traffic and the PostgreSQL session. The certificate
 is one DER-encoded P-256 server leaf, at most 16 KiB. The key file contains the
 matching 32-byte P-256 private scalar. Keep the scalar file accessible only to
 the server user. The sample proof generates an ephemeral CA and instrumented
@@ -21,9 +25,9 @@ TLS memory is reserved for the configured connection slots at startup and
 charged to the server region ledger. `--capabilities` shows the configured TLS
 policy and TLS bytes per slot. Under overload the server closes new sockets
 without sending plaintext. Encrypted cancellation requires a free slot.
-The initial TLS policy supports a single PostgreSQL listener. Additional
-protocol listeners, cluster mode, and parallel reactors require separate
-qualification.
+Encrypted cancellation in multi-worker mode is processed by the acceptor
+independently of SQL worker availability. Additional protocol listeners,
+cluster mode, and the optional shared read cache are outside this TLS preview.
 
 With both TLS options omitted, the existing PostgreSQL negotiation and plaintext
 policy apply. The release stage and production-readiness flags stay unchanged.

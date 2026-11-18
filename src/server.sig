@@ -300,7 +300,7 @@ const Client = struct {
         if (self.blocked or self.output_sent != 0 or self.closing or (self.input_len == 0 and !self.connection.copyBlocked())) return;
         // Cancellation is control traffic and must not queue behind SQL held
         // by another reactor. An established session cannot send startup frames.
-        if (parallel and self.protocol == .postgres and !self.session.postgres.startup) {
+        if (parallel and self.transport == null and self.protocol == .postgres and !self.session.postgres.startup) {
             if (pg.parseCancel(self.input[self.input_start..][0..self.input_len])) |key| {
                 cancelBackend(key); self.consume(16); self.closing = true; return;
             }
@@ -462,6 +462,36 @@ const Client = struct {
             // The same leaf was sent by this completed TLS exchange. The
             // PostgreSQL codec must see the binding before any startup bytes.
             try self.session.postgres.configureChannelBinding(tls_credentials.endpoint(), false);
+        }
+    }
+
+    fn wantsRead(self: *const Client) bool {
+        if (self.output_len != 0 or self.input_len == self.input.len) return false;
+        if (self.transport) |transport| return !self.closing and transport.canRead();
+        return true;
+    }
+
+    fn wantsWrite(self: *const Client) bool {
+        if (self.output_len != 0) return true;
+        if (self.transport) |transport| return self.closing or transport.needsWrite();
+        return false;
+    }
+
+    fn receive(self: *Client) !void {
+        if (!self.wantsRead()) return;
+        if (self.transport) |transport| {
+            if (try transport.receive(self.socket)) self.touched = monotonicClock();
+            return;
+        }
+        // Compact once per socket read, not once per pipelined packet.
+        if (self.input_start != 0) {
+            std.mem.copyForwards(u8, self.input[0..self.input_len], self.input[self.input_start..][0..self.input_len]);
+            self.input_start = 0;
+        }
+        if (try tcp.recv(self.socket, self.input[self.input_len..])) |received| {
+            if (received == 0) return error.EndOfStream;
+            self.input_len += received;
+            self.touched = monotonicClock();
         }
     }
 
@@ -683,7 +713,7 @@ const OverflowCancel = struct {
         if (!clientMemoryAvailable()) return false;
         for (clients,0..) |*client,slot| if (client.state.load(.acquire) == 0) {
             const socket = self.socket;
-            configureClient(socket,.postgres,slot,self.bytes[0..self.used]) catch |err| {
+            configureClient(socket,.postgres,slot,self.bytes[0..self.used],false) catch |err| {
                 switch(err) {
                     error.BudgetExceeded,error.TokenCapacity,error.MemoryReservationFailed=>{
                         self.output_len=pg.memoryLimitError(&self.output) catch {self.close();return true;};
@@ -777,7 +807,7 @@ fn pollInterrupts(_: ?*anyopaque, _: u64) void {
     if (now < next_interrupt_poll) return;
     next_interrupt_poll = now + 1000000;
     if (interrupt_listener != tcp.invalid_socket)
-        acceptConnections(interrupt_listener, .postgres, interrupt_max_clients, 4) catch {};
+        acceptConnections(interrupt_listener, .postgres, interrupt_max_clients, 4, null) catch {};
     pollOverflowCancels(now);
     for (clients[0..interrupt_max_clients]) |*client| {
         if (client.socket == tcp.invalid_socket or client.protocol != .postgres or client.session.postgres.startup or client.closing or client.input_start != 0) continue;
@@ -804,7 +834,11 @@ fn pollInterrupts(_: ?*anyopaque, _: u64) void {
 
 // Bounded connection setup shared by the reactor and interrupt polling. No SQL
 // is dispatched here; a fresh connection owns no transaction or shared session.
-fn acceptConnections(listener: tcp.Socket, protocol: Protocol, max_clients: usize, limit: usize) !void {
+// Only the acceptor writes this list. Worker retirement also passes through
+// state 1, so that state alone cannot identify an acceptor-owned client.
+const TlsAdmissions = [capacity]?i64;
+
+fn acceptConnections(listener: tcp.Socket, protocol: Protocol, max_clients: usize, limit: usize, admissions: ?*TlsAdmissions) !void {
     for (0..limit) |_| {
         const socket = tcp.accept(listener) catch break orelse break;
         if (protocol == .postgres and tls_slots.len == 0) {
@@ -822,11 +856,12 @@ fn acceptConnections(listener: tcp.Socket, protocol: Protocol, max_clients: usiz
             if (tls_slots.len != 0 or protocol != .postgres or !queueOverflowCancel(socket)) tcp.close(socket);
             continue;
         };
-        configureClient(socket,protocol,slot,&.{}) catch {tcp.close(socket);continue;};
+        configureClient(socket, protocol, slot, &.{}, admissions != null) catch { tcp.close(socket); continue; };
+        if (admissions) |pending| pending[slot] = monotonicClock() + admission_timeout_ns;
     }
 }
 
-fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial: []const u8) !void {
+fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial: []const u8, defer_ready: bool) !void {
     const client = &clients[slot];
     client.state.store(1, .release);
     client.cancel_key.store(0, .release);
@@ -898,9 +933,41 @@ fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial:
         .mysql => |*session| try session.begin(client.output),
         .mssql => |*session| try session.begin(client.output),
     };
-    if (protocol == .postgres) client.cancel_key.store((@as(u64, client.cancel_secret) << 1) | 1, .release);
+    if (!defer_ready) publishClient(client, slot);
+}
+
+fn publishClient(client: *Client, slot: usize) void {
+    if (client.protocol == .postgres) client.cancel_key.store((@as(u64, client.cancel_secret) << 1) | 1, .release);
     client.state.store(2, .release);
     if (parallel) reactors[slot % reactor_count].signal.notify();
+}
+
+// Perform only transport negotiation and inspect the first untyped PG frame.
+// SQL and authentication run on the assigned reactor. An executing reactor
+// cannot delay a separate encrypted cancel connection owned by the acceptor.
+fn driveTlsAdmission(client: *Client, slot: usize, deadline: *?i64) !void {
+    const transport = client.transport.?;
+    if (!client.closing) {
+        try client.pullTls(transport);
+        if (transport.established()) {
+            switch (pg.classifyStartup(client.input[0..client.input_len])) {
+                .incomplete => if (transport.peer_closed) return error.EndOfStream,
+                .startup => {
+                    deadline.* = null;
+                    publishClient(client, slot);
+                    return;
+                },
+                .cancel => |key| {
+                    if (client.input_len != 16) return error.InvalidStartup;
+                    cancelBackend(key);
+                    client.closing = true;
+                },
+                else => return error.InvalidStartup,
+            }
+        }
+    }
+    try client.flush();
+    if (client.socket == tcp.invalid_socket) deadline.* = null;
 }
 
 const max_reactors = capacity;
@@ -913,7 +980,7 @@ var reactors: [max_reactors]Reactor = @splat(.{});
 
 fn validateWorkers(options: Options) !void {
     if (options.workers == 0 or options.workers > max_reactors or options.workers > options.max_clients) return error.InvalidServerOptions;
-    if ((options.database_cluster or options.tls_certificate_file != null) and options.workers != 1) return error.InvalidServerOptions;
+    if (options.database_cluster and options.workers != 1) return error.InvalidServerOptions;
     if (options.read_cache_bytes != 0 and options.workers < 2) return error.InvalidServerOptions;
     if (options.workers > 1 and !threads.available) return error.WorkersUnsupportedOnPlatform;
 }
@@ -981,8 +1048,8 @@ const Reactor = struct {
                 if (client.serve()) buffered = true;
                 if (client.state.load(.acquire) != 2) continue;
                 sockets[slot] = client.socket;
-                readable[slot] = client.output_len == 0 and client.input_len < client.input.len;
-                writable[slot] = client.output_len != 0;
+                readable[slot] = client.wantsRead();
+                writable[slot] = client.wantsWrite();
                 active += 1;
             }
             if (active == 0) { self.reader.close();self.signal.wait(epoch, 100); continue; }
@@ -995,17 +1062,7 @@ const Reactor = struct {
                 if (client.state.load(.acquire) != 2) continue;
                 if (writable[slot]) client.flush() catch { client.close(); continue; };
                 if (client.state.load(.acquire) != 2) continue;
-                if (readable[slot] and client.output_len == 0) {
-                    if (client.input_start != 0) {
-                        for (0..client.input_len) |offset| client.input[offset] = client.input[client.input_start+offset];
-                        client.input_start = 0;
-                    }
-                    if (tcp.recv(client.socket,client.input[client.input_len..]) catch { client.close(); continue; }) |received| {
-                        if (received == 0) { client.close(); continue; }
-                        client.input_len += received;
-                        client.touched = sig.os.clockMonotonicNs();
-                    }
-                }
+                if (readable[slot]) client.receive() catch client.close();
             }
         }
     }
@@ -1020,19 +1077,63 @@ fn runParallel(options: Options, listeners: []const tcp.Socket, protocols: []con
         for (reactors[0..started]) |*reactor| reactor.signal.notify();
         for (reactors[0..started]) |*reactor| reactor.thread.join() catch @panic("cannot release live reactor ownership");
     }
-    for (reactors[0..reactor_count],0..) |*reactor,index| {
-        reactor.* = .{ .index=index, .idle_ms=options.idle_ms };
+    for (reactors[0..reactor_count], 0..) |*reactor, index| {
+        reactor.* = .{ .index = index, .idle_ms = options.idle_ms };
+    }
+    for (reactors[0..reactor_count]) |*reactor| {
         try reactor.thread.start(&Reactor.entry, reactor);
         started += 1;
     }
+    if (tls_slots.len != 0) return runTlsAcceptor(listeners[0], options.max_clients);
     while (!reactor_stop.load(.acquire)) {
-        for (listeners,protocols) |listener,protocol| try acceptConnections(listener,protocol,options.max_clients,capacity);
+        for (listeners,protocols) |listener,protocol| try acceptConnections(listener,protocol,options.max_clients,capacity,null);
         pollOverflowCancels(sig.os.clockMonotonicNs());
         var sockets: [2]tcp.Socket = @splat(tcp.invalid_socket);
         var readable: [2]bool = @splat(false);
         var writable: [2]bool = @splat(false);
         for (1..listeners.len) |index| { sockets[index-1]=listeners[index]; readable[index-1]=true; }
         _ = try tcp.waitMasked(listeners[0],&sockets,&readable,&writable,10);
+    }
+    if (reactor_failed.load(.acquire)) return error.ReactorFailed;
+}
+
+fn runTlsAcceptor(listener: tcp.Socket, max_clients: usize) !void {
+    var pending: TlsAdmissions = @splat(null);
+    while (!reactor_stop.load(.acquire)) {
+        try acceptConnections(listener, .postgres, max_clients, capacity, &pending);
+        var sockets: [capacity]tcp.Socket = @splat(tcp.invalid_socket);
+        var readable: [capacity]bool = @splat(false);
+        var writable: [capacity]bool = @splat(false);
+        const now = monotonicClock();
+        var buffered = false;
+        for (pending[0..max_clients], 0..) |*deadline, slot| {
+            const due = deadline.* orelse continue;
+            const client = &clients[slot];
+            if (now >= due) {
+                client.close();
+                deadline.* = null;
+                continue;
+            }
+            driveTlsAdmission(client, slot, deadline) catch {
+                client.close();
+                deadline.* = null;
+                continue;
+            };
+            if (deadline.* == null) continue;
+            sockets[slot] = client.socket;
+            readable[slot] = client.wantsRead();
+            writable[slot] = client.wantsWrite();
+            const transport = client.transport.?;
+            if (transport.more and !transport.needsWrite()) buffered = true;
+        }
+        _ = try tcp.waitMasked(listener, &sockets, &readable, &writable, if (buffered) 0 else 10);
+        for (pending[0..max_clients], 0..) |*deadline, slot| {
+            if (deadline.* == null) continue;
+            const client = &clients[slot];
+            if (writable[slot]) client.flush() catch client.close();
+            if (client.socket != tcp.invalid_socket and readable[slot]) client.receive() catch client.close();
+            if (client.socket == tcp.invalid_socket) deadline.* = null;
+        }
     }
     if (reactor_failed.load(.acquire)) return error.ReactorFailed;
 }
@@ -1070,7 +1171,7 @@ fn storagePlan(options: Options) !StoragePlan {
     if ((options.tls_certificate_file == null) != (options.tls_key_file == null)) return error.InvalidServerOptions;
     if (options.tls_certificate_file != null and (options.protocol != .postgres or options.database_cluster or
         options.mysql_port != null or options.mssql_port != null or options.insecure_local or
-        options.workers > 1 or options.read_cache_bytes != 0 or
+        options.read_cache_bytes != 0 or
         (options.auth_verifier_file == null and options.auth_credentials_file == null))) return error.InvalidServerOptions;
     if (options.database_cluster and (options.memory or options.protocol != .postgres or
         options.mysql_port != null or options.mssql_port != null or options.auth_catalog_role or options.auth_credentials_file != null)) return error.InvalidServerOptions;
@@ -1630,7 +1731,7 @@ pub fn run(requested: Options) !void {
     while (true) {
         // Bound accept work so connection churn cannot monopolize the reactor.
         for (listeners[0..count], protocols[0..count], listener_ready[0..count]) |listener, protocol, ready| {
-            if (ready) try acceptConnections(listener, protocol, options.max_clients, capacity);
+            if (ready) try acceptConnections(listener, protocol, options.max_clients, capacity, null);
         }
         pollOverflowCancels(sig.os.clockMonotonicNs());
         var sockets: [capacity + 2]tcp.Socket = @splat(tcp.invalid_socket);
@@ -1669,12 +1770,8 @@ pub fn run(requested: Options) !void {
             if (client.serve()) buffered = true;
             if (client.socket == tcp.invalid_socket) continue;
             sockets[index] = client.socket;
-            readable[index] = client.output_len == 0 and client.input_len < client.input.len;
-            writable[index] = client.output_len != 0;
-            if (client.transport) |transport| {
-                readable[index] = readable[index] and transport.canRead() and !client.closing;
-                writable[index] = writable[index] or transport.needsWrite() or client.closing;
-            }
+            readable[index] = client.wantsRead();
+            writable[index] = client.wantsWrite();
         }
         for (1..count) |index| {
             sockets[capacity + index - 1] = listeners[index];
@@ -1705,28 +1802,7 @@ pub fn run(requested: Options) !void {
                 };
             }
             if (client.socket == tcp.invalid_socket) continue;
-            if (readable[index] and client.output_len == 0) {
-                if (client.transport) |transport| {
-                    if (transport.receive(client.socket) catch { client.close(); continue; }) client.touched = monotonicClock();
-                    continue;
-                }
-                // Compact once per socket read, not once per pipelined packet.
-                if (client.input_start != 0) {
-                    for (0..client.input_len) |offset| client.input[offset] = client.input[client.input_start + offset];
-                    client.input_start = 0;
-                }
-                if (tcp.recv(client.socket, client.input[client.input_len..]) catch {
-                    client.close();
-                    continue;
-                }) |received| {
-                    if (received == 0) {
-                        client.close();
-                        continue;
-                    }
-                    client.input_len += received;
-                    client.touched = sig.os.clockMonotonicNs();
-                }
-            }
+            if (readable[index]) client.receive() catch client.close();
         }
     }
 }
