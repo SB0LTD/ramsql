@@ -321,8 +321,9 @@ def candidate_mode(work_directory, *, durable=False, scram=False, timezone_dir=N
 
 
 @contextmanager
-def running_ramsql(binary, legacy_cli=False, extra_arguments=(), *, data_path=None, create_data=False, auth=None, auth_list=None, startup_timeout=20):
-    command = [str(binary), "--serve", "--port", "0"]
+def running_ramsql(binary, legacy_cli=False, extra_arguments=(), *, data_path=None, create_data=False,
+                   auth=None, auth_list=None, startup_timeout=20, command_prefix=()):
+    command = [*command_prefix, str(binary), "--serve", "--port", "0"]
     if data_path is not None:
         command += ["--data", str(data_path)] + (["--create-data"] if create_data else [])
     elif not legacy_cli:

@@ -1,0 +1,87 @@
+name: Profile durable writes
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_run:
+        description: Successful Release Matrix run ID supplying the Linux artifact
+        type: string
+        required: true
+      source_revision:
+        description: Exact source commit recorded inside the package
+        type: string
+        required: true
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  profile:
+    name: Profile verified Linux WAL and concurrent readers
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      RELEASE_RUN: ${{ inputs.release_run }}
+      SOURCE_REVISION: ${{ inputs.source_revision }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: profiler
+      - name: Validate exact source and completed release run
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_RUN" =~ ^[1-9][0-9]*$ ]]
+          [[ "$SOURCE_REVISION" =~ ^[0-9a-f]{40}$ ]]
+          mkdir -p "$RUNNER_TEMP/durable-profile-evidence"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN" \
+            --jq '{id, path, status, conclusion, html_url, head_sha}' > "$RUNNER_TEMP/durable-profile-evidence/source-run.json"
+          jq -e '.status == "completed" and .conclusion == "success" and (.path | startswith(".github/workflows/release.yml"))' \
+            "$RUNNER_TEMP/durable-profile-evidence/source-run.json" > /dev/null
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_REVISION }}
+          path: release-source
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify and install the exact release binary
+        working-directory: release-source
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/durable-profile-evidence"
+          [[ "$(git rev-parse HEAD)" == "$SOURCE_REVISION" ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN/artifacts" --paginate --slurp \
+            | jq '[.[].artifacts[] | select(.name == "release-x86_64-linux" and .expired == false)]' > "$RUNNER_TEMP/artifacts.json"
+          jq -e 'if length == 1 then .[0] | {id, name, digest} else error("expected one exact Linux artifact") end' \
+            "$RUNNER_TEMP/artifacts.json" > "$evidence/source-artifact.json"
+          artifact="$(jq -r .id "$evidence/source-artifact.json")"
+          digest="$(jq -er '.digest | select(test("^sha256:[0-9a-f]{64}$"))' "$evidence/source-artifact.json")"
+          archive="$RUNNER_TEMP/durable-profile-package.zip"
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact/zip" > "$archive"
+          printf '%s  %s\n' "${digest#sha256:}" "$archive" | sha256sum -c -
+          python -m zipfile -e "$archive" "$RUNNER_TEMP/durable-profile-package"
+          python tools/package_release.py verify --input "$RUNNER_TEMP/durable-profile-package" \
+            --target x86_64-linux --revision "$SOURCE_REVISION" --install-bin "$RUNNER_TEMP/durable-profile-bin" \
+            --report "$evidence/verified-package.json"
+          python -m pip install -r tools/requirements-test.txt
+          if ! command -v strace >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install --no-install-recommends -y strace
+          fi
+      - name: Compare untraced client latency and trace exact WAL calls
+        working-directory: profiler
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/durable-profile-evidence"
+          python tools/profile_durable_writes.py --binary "$RUNNER_TEMP/durable-profile-bin/ramsql" \
+            --verification "$evidence/verified-package.json" --strace "$(command -v strace)" \
+            --work-dir "$RUNNER_TEMP/durable-profile-databases" --output "$evidence"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: durable-write-profile
+          path: ${{ runner.temp }}/durable-profile-evidence/*
+          if-no-files-found: error
+          retention-days: 30
