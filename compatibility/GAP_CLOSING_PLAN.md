@@ -146,6 +146,18 @@ isolated.
 [CPU profile](https://github.com/benor1470/dbMeter/actions/runs/44217950460) ·
 [Linked transport A/B](https://github.com/benor1470/dbMeter/actions/runs/44229499260)
 
+The later packed-cache campaign captured all 144 original JDBC reports and
+passed every original correctness and capacity check. Fourteen of the
+fifteen scorable cases led median throughput. Eleven of the sixteen scheduled
+cases met all performance thresholds. Filters ran 3.22–30.55× the fastest
+reference and Top-N ran 23.92–32.94× under the explicit 256 MiB cache budget.
+All four prepared primary-key cases missed the advantage target, at 0.98–1.28×
+the fastest reference. The full one-client sales case lacked successful
+execution of `q5_high_value_customers` in two PostgreSQL trials. The workflow
+retained the raw reports and left the case unscored. It did not authorize a
+dbMeter merge or a general RAMSQL speed claim.
+[Full packed-cache qualification](https://github.com/benor1470/dbMeter/actions/runs/44231254167)
+
 The exact published x86-64 Linux binary ran a separate durability profile on
 512 rows with one primary key and one integer payload. Each writer repeatedly
 updated its own row. In three 512-operation trials per phase, median durable
