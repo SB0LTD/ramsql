@@ -1102,9 +1102,10 @@ promises. Do not imply PostgreSQL physical replication compatibility automatical
 Hosted listeners currently bind loopback and PostgreSQL clients use sslmode=disable.
 SCRAM authenticates credentials but does not encrypt query text or result data.
 The private pure-Sig TLS 1.3 exchange matched RFC test vectors and completed a
-certificate- and hostname-verified OpenSSL session on Windows and Linux. The
-listener still needs the record channel, handshake admission, encrypted cancel
-and SCRAM channel binding before exposing a TLS endpoint.
+certificate- and hostname-verified OpenSSL session on Linux. The native TLS
+socket adapter has separate Windows loopback coverage. The listener still needs
+the record channel, handshake admission, encrypted cancel and SCRAM channel
+binding before exposing a TLS endpoint.
 [Server exchange draft](https://github.com/SB0LTD/zpm/pull/228)
 
 - [ ] Implement a tested native TLS server transport with certificate/key loading and safe lifecycle handling.
