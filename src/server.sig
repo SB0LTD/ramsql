@@ -36,6 +36,7 @@ const machine_capacity = @import("capacity.sig");
 const database_registry = @import("database_registry");
 const database_catalog = @import("database_catalog.sig");
 const disk = @import("db_file");
+const postgres_tls = @import("postgres_tls.sig");
 
 pub const Protocol = enum { postgres, mysql, mssql };
 pub const table_capacity = profile.tables;
@@ -59,6 +60,8 @@ pub const Options = struct {
     auth_verifier_file: ?[]const u8 = null,
     auth_credentials_file: ?[]const u8 = null,
     auth_catalog_role: bool = false,
+    tls_certificate_file: ?[]const u8 = null,
+    tls_key_file: ?[]const u8 = null,
     idle_ms: u32 = 30000,
     /// Execution checkpoints per statement; zero disables the work limit.
     max_query_work: u64 = 0,
@@ -230,6 +233,7 @@ const Client = struct {
     result_region: owned_pages.Region = .{},
     output_region: owned_pages.Region = .{},
     startup_region: owned_pages.Region = .{},
+    transport: ?*postgres_tls.Transport = null,
     database_binding: ?ClusterRegistry.Binding = null,
     reader:?*Reader=null,
     read_deadline:?i64=null,
@@ -272,6 +276,11 @@ const Client = struct {
         }
         self.state.store(1, .release);
         if (active) unlockStore();
+        if (self.transport) |transport| {
+            transport.close();
+            std.crypto.secureZero(u8, &self.input);
+        }
+        self.transport = null;
         if(self.socket!=tcp.invalid_socket) tcp.close(self.socket);
         lockMemory();
         self.result_region.close() catch @panic("lost client result ownership");
@@ -417,6 +426,17 @@ const Client = struct {
     }
 
     fn flush(self: *Client) !void {
+        if (self.transport) |transport| {
+            const result = try transport.flush(self.socket, self.output[self.output_sent..self.output_len], self.closing);
+            if (result.sent) self.touched = monotonicClock();
+            self.output_sent += result.accepted;
+            if (self.output_sent == self.output_len and !transport.needsWrite()) {
+                self.output_len = 0;
+                self.output_sent = 0;
+                if (self.closing and transport.close_queued) self.close();
+            }
+            return;
+        }
         if (self.output_len != 0) {
             const sent = try tcp.send(self.socket, self.output[self.output_sent..self.output_len]) orelse return;
             if (sent == 0) return error.SendFailed;
@@ -430,9 +450,25 @@ const Client = struct {
         if (self.closing and self.output_len == 0) self.close();
     }
 
+    fn pullTls(self: *Client, transport: *postgres_tls.Transport) !void {
+        if (self.closing) return;
+        if (self.input_start != 0) {
+            std.mem.copyForwards(u8, self.input[0..self.input_len], self.input[self.input_start..][0..self.input_len]);
+            self.input_start = 0;
+        }
+        self.input_len += try transport.pull(self.input[self.input_len..]);
+    }
+
     /// Dispatches at most 32 buffered packets, then flushes. Returns true
     /// when packets remain buffered (the reactor should poll without waiting).
     fn serve(self: *Client) bool {
+        if (self.transport) |transport| {
+            self.pullTls(transport) catch { self.close(); return false; };
+            if (!transport.established()) {
+                self.flush() catch self.close();
+                return false;
+            }
+        }
         var frames: usize = 0;
         while (frames < 32) : (frames += 1) {
             const before = self.input_len;
@@ -442,12 +478,21 @@ const Client = struct {
             };
             if (self.blocked or before == self.input_len or self.closing) break;
         }
+        if (self.transport) |transport| {
+            if (transport.peer_closed) {
+                if (self.blocked) { self.close(); return false; }
+                self.closing = true;
+            }
+        }
         self.deliverNotifications();
         self.flush() catch {
             self.close();
             return false;
         };
         if (self.socket == tcp.invalid_socket) return false;
+        if (self.transport) |transport| {
+            if (transport.more and !self.closing and self.input_len < self.input.len and !transport.needsWrite()) return true;
+        }
         return frames == 32 and self.input_len != 0 and self.output_len == 0;
     }
 };
@@ -573,6 +618,8 @@ fn provisionClient(client: *Client) !void {
     client.output = client.output_region.memory.bytes;
 }
 var next_id: u64 = 1;
+var tls_credentials: postgres_tls.Credentials = .{};
+var tls_slots: []postgres_tls.Slot = &.{};
 
 fn sameSecret(a: u32, b: u32) bool {
     // Constant time in the secret's bits.
@@ -723,7 +770,16 @@ fn pollInterrupts(_: ?*anyopaque, _: u64) void {
     pollOverflowCancels(now);
     for (clients[0..interrupt_max_clients]) |*client| {
         if (client.socket == tcp.invalid_socket or client.protocol != .postgres or client.session.postgres.startup or client.closing or client.input_start != 0) continue;
-        if (client.input_len < 16) {
+        if (client.transport) |transport| {
+            // During a query, drive only TLS and control traffic. Leave an
+            // ordinary decrypted startup packet for the reactor to dispatch.
+            if (client.input_len < 16) {
+                if (transport.receive(client.socket) catch { client.close(); continue; }) client.touched = now;
+                client.pullTls(transport) catch { client.close(); continue; };
+                client.flush() catch { client.close(); continue; };
+            }
+            if (!transport.established()) continue;
+        } else if (client.input_len < 16) {
             // Startup connections have not consumed any input yet.
             const n = tcp.recv(client.socket, client.input[client.input_len..16]) catch continue orelse continue;
             client.input_len += n;
@@ -740,7 +796,7 @@ fn pollInterrupts(_: ?*anyopaque, _: u64) void {
 fn acceptConnections(listener: tcp.Socket, protocol: Protocol, max_clients: usize, limit: usize) !void {
     for (0..limit) |_| {
         const socket = tcp.accept(listener) catch break orelse break;
-        if (protocol == .postgres) {
+        if (protocol == .postgres and tls_slots.len == 0) {
             if (!queueOverflowCancel(socket)) tcp.close(socket);
             continue;
         }
@@ -750,7 +806,9 @@ fn acceptConnections(listener: tcp.Socket, protocol: Protocol, max_clients: usiz
             break;
         };
         const slot = free orelse {
-            if (protocol != .postgres or !queueOverflowCancel(socket)) tcp.close(socket);
+            // A saturated TLS listener closes without plaintext PG or TLS
+            // negotiation. The plaintext overflow queue must never see it.
+            if (tls_slots.len != 0 or protocol != .postgres or !queueOverflowCancel(socket)) tcp.close(socket);
             continue;
         };
         configureClient(socket,protocol,slot,&.{}) catch {tcp.close(socket);continue;};
@@ -766,6 +824,7 @@ fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial:
     client.result_region = .{};
     client.output_region = .{};
     client.startup_region = .{};
+    client.transport = null;
     client.database_binding = null;
     client.notify_seen = 0;
     client.reader=if(parallel) &reactors[slot % reactor_count].reader else null;client.read_deadline=null;
@@ -786,6 +845,7 @@ fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial:
     // emit a PostgreSQL resource error instead of silently resetting TCP.
     errdefer {client.socket=tcp.invalid_socket;client.close();}
     try provisionClient(client);
+    if (tls_slots.len != 0) client.transport = try tls_slots[slot].open(&tls_credentials);
     if (protocol == .postgres) {
         if (cluster_options.database_cluster) {
             try client.startup_region.reserve(&memory_ledger, pg.routed_startup_capacity);
@@ -842,7 +902,7 @@ var reactors: [max_reactors]Reactor = @splat(.{});
 
 fn validateWorkers(options: Options) !void {
     if (options.workers == 0 or options.workers > max_reactors or options.workers > options.max_clients) return error.InvalidServerOptions;
-    if (options.database_cluster and options.workers != 1) return error.InvalidServerOptions;
+    if ((options.database_cluster or options.tls_certificate_file != null) and options.workers != 1) return error.InvalidServerOptions;
     if (options.read_cache_bytes != 0 and options.workers < 2) return error.InvalidServerOptions;
     if (options.workers > 1 and !threads.available) return error.WorkersUnsupportedOnPlatform;
 }
@@ -996,6 +1056,11 @@ const StoragePlan = struct {
 };
 
 fn storagePlan(options: Options) !StoragePlan {
+    if ((options.tls_certificate_file == null) != (options.tls_key_file == null)) return error.InvalidServerOptions;
+    if (options.tls_certificate_file != null and (options.protocol != .postgres or options.database_cluster or
+        options.mysql_port != null or options.mssql_port != null or options.insecure_local or
+        options.workers > 1 or options.read_cache_bytes != 0 or
+        (options.auth_verifier_file == null and options.auth_credentials_file == null))) return error.InvalidServerOptions;
     if (options.database_cluster and (options.memory or options.protocol != .postgres or
         options.mysql_port != null or options.mssql_port != null or options.auth_catalog_role or options.auth_credentials_file != null)) return error.InvalidServerOptions;
     if (options.max_prepared_transactions >= Store.prepared_capacity or (options.memory and options.max_prepared_transactions != 0)) return error.InvalidServerOptions;
@@ -1061,13 +1126,22 @@ fn writeStorageDetails(out: sig.io.File, options: Options, plan: *const StorageP
 }
 
 fn storageCharges(options: Options, plan: *const StoragePlan, worker_bytes: u64) !machine_capacity.StartupCharges {
-    const regions = [_]usize{ plan.bytes, plan.workspace_bytes, options.max_clients * @sizeOf(Client), plan.read_cache.bytes };
-    return machine_capacity.startupCharges(regions[0..if (plan.read_cache.bytes == 0) 3 else 4], worker_bytes);
+    var regions = [_]usize{ plan.bytes, plan.workspace_bytes, options.max_clients * @sizeOf(Client), 0, 0 };
+    var count: usize = 3;
+    if (plan.read_cache.bytes != 0) {
+        regions[count] = plan.read_cache.bytes;
+        count += 1;
+    }
+    if (options.tls_certificate_file != null) {
+        regions[count] = options.max_clients * @sizeOf(postgres_tls.Slot);
+        count += 1;
+    }
+    return machine_capacity.startupCharges(regions[0..count], worker_bytes);
 }
 
 fn chooseWorkers(options: Options, plan: *const StoragePlan, observed: machine_capacity.Sample) !usize {
     if (options.workers != 0) return options.workers;
-    if (!threads.available or options.protocol != .postgres or options.database_cluster) return 1;
+    if (!threads.available or options.protocol != .postgres or options.database_cluster or options.tls_certificate_file != null) return 1;
     const max_cpu = @min(options.max_clients, max_reactors, @as(usize, observed.plan.cpu_workers));
     if (max_cpu <= 1) return 1;
     const fixed = try storageCharges(options, plan, 0);
@@ -1088,11 +1162,13 @@ pub fn describe(requested: Options) !void {
     const read_payload = try readContextPayload(options, &plan);
     var buffer: [4096]u8 = undefined;
     const message = try sig.fmt.bufPrint(&buffer,
-        "{{\"schema\":1,\"version\":\"{s}\",\"release_stage\":\"beta\",\"production_ready\":false,\"default_protocol\":\"postgres\",\"bind\":\"127.0.0.1\",\"tls\":false,\"roles\":false,\"isolation\":\"read_committed\",\"workers\":{d},\"sql_execution_workers\":{d},\"exclusive_sql_workers\":1,\"parallel_simple_reads\":{s},\"native_workers_available\":{s},\"libc_linked\":{s},\"cpu_model\":\"{s}\",\"build_mode\":\"{s}\",\"rows_per_table\":{d},\"versions_per_table\":{d},\"tables\":{d},\"columns\":{d},\"result_rows\":{d},\"work_rows\":{d},\"text_bytes\":{d},\"name_bytes\":{d},\"clients\":{d},\"compiled_clients\":{d},\"transaction_bytes\":{d},\"tx_writes\":{d},\"row_locks\":{d},\"predicates\":{d},\"expr_nodes\":{d},\"expr_depth\":{d},\"relations\":{d},\"subqueries\":{d},\"ctes\":{d},\"savepoints\":{d},\"sequences\":{d},\"numeric_digits\":{d},\"json_depth\":{d},\"copy_line_bytes\":{d},\"pg_packet_bytes\":{d},\"pg_prepared_sql_bytes\":{d},\"pg_statements\":{d},\"pg_portals\":{d},\"pg_parameters\":{d},\"input_bytes\":{d},\"output_bytes_per_client\":{d},\"backing_bytes\":{d},\"query_workspace_bytes\":{d},\"result_bytes_per_client\":{d},\"client_metadata_bytes\":{d},\"summary_groups\":{d},\"compact_integral_scans\":{s},\"wal_checkpointing\":false,\"mysql_tds_authentication\":false}}\n",
-        .{ @import("ramsql").version, options.workers, options.workers, if(options.workers>1) "true" else "false", if (threads.available) "true" else "false", if (@import("builtin").link_libc) "true" else "false", @import("builtin").cpu.model.name, @tagName(@import("builtin").mode), plan.max_rows, plan.versions, config.tables, config.columns, options.result_rows, options.work_rows, config.text_bytes, config.name_bytes, options.max_clients, capacity, profile.transaction_bytes, config.tx_writes, config.row_locks, config.predicates, config.expr_nodes, config.expr_depth, config.relations, config.subqueries, config.ctes, config.savepoints, config.sequences, config.numeric_digits, config.json_depth, config.copy_line_bytes, pg.max_packet, pg.sql_capacity, pg.statement_capacity, pg.portal_capacity, pg.parameter_capacity, input_capacity, plan.response_bytes, plan.bytes, plan.workspace_bytes, plan.result_bytes, options.max_clients * @sizeOf(Client), config.summary_groups, if(config.compact_integral_scans and config.columns <= 64) "true" else "false" });
+        "{{\"schema\":1,\"version\":\"{s}\",\"release_stage\":\"beta\",\"production_ready\":false,\"default_protocol\":\"postgres\",\"bind\":\"127.0.0.1\",\"tls\":{s},\"roles\":false,\"isolation\":\"read_committed\",\"workers\":{d},\"sql_execution_workers\":{d},\"exclusive_sql_workers\":1,\"parallel_simple_reads\":{s},\"native_workers_available\":{s},\"libc_linked\":{s},\"cpu_model\":\"{s}\",\"build_mode\":\"{s}\",\"rows_per_table\":{d},\"versions_per_table\":{d},\"tables\":{d},\"columns\":{d},\"result_rows\":{d},\"work_rows\":{d},\"text_bytes\":{d},\"name_bytes\":{d},\"clients\":{d},\"compiled_clients\":{d},\"transaction_bytes\":{d},\"tx_writes\":{d},\"row_locks\":{d},\"predicates\":{d},\"expr_nodes\":{d},\"expr_depth\":{d},\"relations\":{d},\"subqueries\":{d},\"ctes\":{d},\"savepoints\":{d},\"sequences\":{d},\"numeric_digits\":{d},\"json_depth\":{d},\"copy_line_bytes\":{d},\"pg_packet_bytes\":{d},\"pg_prepared_sql_bytes\":{d},\"pg_statements\":{d},\"pg_portals\":{d},\"pg_parameters\":{d},\"input_bytes\":{d},\"output_bytes_per_client\":{d},\"backing_bytes\":{d},\"query_workspace_bytes\":{d},\"result_bytes_per_client\":{d},\"client_metadata_bytes\":{d},\"summary_groups\":{d},\"compact_integral_scans\":{s},\"wal_checkpointing\":false,\"mysql_tds_authentication\":false}}\n",
+        .{ @import("ramsql").version, if (options.tls_certificate_file == null) "false" else "true", options.workers, options.workers, if(options.workers>1) "true" else "false", if (threads.available) "true" else "false", if (@import("builtin").link_libc) "true" else "false", @import("builtin").cpu.model.name, @tagName(@import("builtin").mode), plan.max_rows, plan.versions, config.tables, config.columns, options.result_rows, options.work_rows, config.text_bytes, config.name_bytes, options.max_clients, capacity, profile.transaction_bytes, config.tx_writes, config.row_locks, config.predicates, config.expr_nodes, config.expr_depth, config.relations, config.subqueries, config.ctes, config.savepoints, config.sequences, config.numeric_digits, config.json_depth, config.copy_line_bytes, pg.max_packet, pg.sql_capacity, pg.statement_capacity, pg.portal_capacity, pg.parameter_capacity, input_capacity, plan.response_bytes, plan.bytes, plan.workspace_bytes, plan.result_bytes, options.max_clients * @sizeOf(Client), config.summary_groups, if(config.compact_integral_scans and config.columns <= 64) "true" else "false" });
     const out = sig.io.File.stdout();
     try out.writeStreamingAll(.{}, message[0..message.len-2]);
     var number: [32]u8 = undefined;
+    try out.writeStreamingAll(.{}, ",\"postgres_tls_bytes_per_client\":");
+    try out.writeStreamingAll(.{}, try sig.fmt.bufPrint(&number, "{d}", .{if (options.tls_certificate_file == null) @as(usize, 0) else @sizeOf(postgres_tls.Slot)}));
     try out.writeStreamingAll(.{}, ",\"postgres_scram_catalog_roles\":true,\"postgres_scram_credential_limit\":");
     try out.writeStreamingAll(.{}, try sig.fmt.bufPrint(&number, "{d}", .{config.catalog_objects}));
     try out.writeStreamingAll(.{}, ",\"table_rows\":[");
@@ -1470,6 +1546,18 @@ pub fn run(requested: Options) !void {
     zones.in_use = &zoneInUse;
     configureStore(&store, options);
     try loadAuthentication(options);
+    var tls_memory: owned_pages.Region = .{};
+    defer {
+        tls_slots = &.{};
+        tls_credentials.close();
+        tls_memory.close() catch @panic("lost TLS transport ownership");
+    }
+    if (options.tls_certificate_file) |certificate| {
+        try tls_credentials.load(certificate, options.tls_key_file.?);
+        try tls_memory.reserve(&memory_ledger, options.max_clients * @sizeOf(postgres_tls.Slot));
+        tls_slots = try tls_memory.memory.view(postgres_tls.Slot, 0, options.max_clients);
+    }
+
     var cache_region: owned_pages.Region = .{};
     defer cache_region.close() catch @panic("lost result cache memory ownership");
     if (plan.read_cache.entries != 0) try cache_region.reserve(&memory_ledger, plan.read_cache.bytes);
@@ -1572,6 +1660,10 @@ pub fn run(requested: Options) !void {
             sockets[index] = client.socket;
             readable[index] = client.output_len == 0 and client.input_len < client.input.len;
             writable[index] = client.output_len != 0;
+            if (client.transport) |transport| {
+                readable[index] = readable[index] and transport.canRead() and !client.closing;
+                writable[index] = writable[index] or transport.needsWrite() or client.closing;
+            }
         }
         for (1..count) |index| {
             sockets[capacity + index - 1] = listeners[index];
@@ -1603,6 +1695,10 @@ pub fn run(requested: Options) !void {
             }
             if (client.socket == tcp.invalid_socket) continue;
             if (readable[index] and client.output_len == 0) {
+                if (client.transport) |transport| {
+                    if (transport.receive(client.socket) catch { client.close(); continue; }) client.touched = monotonicClock();
+                    continue;
+                }
                 // Compact once per socket read, not once per pipelined packet.
                 if (client.input_start != 0) {
                     for (0..client.input_len) |offset| client.input[offset] = client.input[client.input_start + offset];
@@ -1626,7 +1722,7 @@ pub fn run(requested: Options) !void {
 
 /// Offline backup validates/replays the existing source before publishing a copy.
 pub fn backup(options: Options, target: []const u8) !void {
-    if (options.memory or options.database_cluster) return error.InvalidServerOptions;
+    if (options.memory or options.database_cluster or options.tls_certificate_file != null or options.tls_key_file != null) return error.InvalidServerOptions;
     _ = try initializeMemory(options);
     var backing:owned_pages.Region=.{};
     try openStorage(options,&backing);
