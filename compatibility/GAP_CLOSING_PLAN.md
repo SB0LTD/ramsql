@@ -548,6 +548,23 @@ Primary evidence:
 - [ZPM SQL/store changes, PR 20](https://github.com/SB0LTD/zpm/pull/20), merged to ZPM `main`.
 - [RAMSQL integration, PR 4](https://github.com/SB0LTD/ramsql/pull/4); consult its current status for qualification and merge state.
 
+### Windows and migration verification
+
+The exact published beta.3 Windows x64 binary passed the CLI and real-driver
+checks, 5,246 wire assertions with four workers, 8,598 SCRAM assertions and
+3,372 persistence assertions across 83 cases and five crash cycles.
+[Published Windows verification](https://github.com/SB0LTD/ramsql/actions/runs/44267034004)
+
+The merged ZPM migration foundation imported a stock PostgreSQL 18.3 plain
+dump with stock psql on Windows and Linux. Memory and synchronous WAL runs
+at one and four workers verified primary keys, foreign keys, CHECK and NOT NULL
+constraints, defaults, and persistence across WAL reopens. The RAMSQL product
+integration is in release qualification. Stock pg_dump export and general
+single-transaction pg_restore still require implementation and testing.
+[ZPM foundation](https://github.com/SB0LTD/zpm/pull/257) ·
+[Stock restore CI](https://github.com/SB0LTD/ramsql/actions/runs/44265114896) ·
+[RAMSQL integration](https://github.com/SB0LTD/ramsql/pull/84)
+
 ## What already works, and must keep working
 
 The current hosted server has a typed parser/binder/executor pipeline behind
@@ -584,25 +601,27 @@ fresh qualification before publishing alpha.3; production gates remain unchanged
 
 ### Current limits that applications will encounter
 
-| Resource | Current hosted default or codec bound | Why it matters |
-| --- | --- | --- |
-| Connection slots | 16 by default; compiled hosted profile currently capped at 60 | Ordinary connection pools can exhaust the server. |
-| Tables / columns | 8 tables; 8 columns per table in the server | Normal schemas exceed this immediately. |
-| Rows | Published alpha.3 defaults to 512 per table; alpha.4 candidate adds runtime `--rows` / `--versions` backed by caller-owned buffers | The candidate removes the compiled row-array ceiling, but compact values, shared page budgets and streaming remain open. |
-| Text | 128 bytes per value by default | Common names, documents and JSON exceed it. |
-| Identifiers | 63 bytes in the server, ASCII and case-insensitive | Quoted names, schemas and name semantics are incomplete. |
-| Transaction SQL log | 1 MiB per connection by default | Larger write transactions fail. |
-| PostgreSQL SQL / packet | 4,096 bytes of SQL; 16,384-byte packet bound | Generated SQL and bulk operations exceed the codec's bounds even if the store allows more. |
-| PostgreSQL prepared state | 8 statements, 8 portals, 32 parameters | Frameworks can exceed these small fixed session limits. |
-| MySQL / TDS request | 65,536 bytes; TDS parameters bounded at 32 | Bulk and generated requests need a scalable path. |
-| Results | Materialized into capacity-sized buffers | Large results consume substantial memory and cannot stream freely. |
-| Execution | One reactor thread | A slow query or flush delays other clients and CPU capacity is underused. |
+These are the limits of the published beta.3 hosted profile. Inspect the exact
+binary and proposed runtime options with `--capabilities` and `--machine-capacity`.
 
-Some capacities can be changed at build time. Increasing those constants does
-not close the scale gap: the dense storage, full transaction copies, protocol
-buffers and scheduling model also need to change. Allocator-free execution still
-needs an explicit resource budget; it must fail predictably when that budget is
-exhausted rather than promising unlimited memory.
+| Resource | Published hosted default or codec bound | Effect |
+| --- | --- | --- |
+| Connections | 16 by default, adjustable at startup through 60 | Full PostgreSQL SQL pools return 53300 while the separate startup queue has room. Larger pools need a qualified build with a higher ceiling. |
+| Tables and columns | 8 tables and 8 columns per table | Larger schemas need a build profile. |
+| Rows and versions | 4,096 rows and 8,192 versions per table by default | OS-backed storage budgets can be set independently per table at startup. Reservations remain fixed for the life of the process. |
+| Text | 128 bytes per value by default | Larger values need a build profile. Inline cells grow with its configured width. |
+| Identifiers | 63 bytes | PostgreSQL naming and collation coverage remains incomplete. |
+| Encoded transaction change records | 1 MiB and 4,096 changes by default | Larger write transactions need a larger build profile and sufficient version capacity. |
+| PostgreSQL query and packet | 65,530 bytes of simple Query SQL, 65,535 bytes including the length field | Authenticated oversized Q/P/B messages through 16 MiB are drained and return 54000. Larger or malformed frames can terminate the connection. |
+| PostgreSQL prepared state | 8 statements, 8 portals and 32 parameters | Applications with a larger prepared working set can hit these bounds. |
+| MySQL and TDS requests | 65,536 bytes including framing constraints, with 32 TDS RPC parameters | Bulk and generated requests need a streaming path. |
+| Results and query workspace | 8,192 result rows and 4,096 workspace rows by default | Both budgets can be raised at startup. General materialized plans can still exhaust memory without disk spill. |
+| Execution | Multiple PostgreSQL socket and read workers on supported Linux and Windows builds | Individual queries still run on one worker. Writes share the exclusive SQL execution lane. Hosted macOS and native SB0 use one reactor. |
+
+Larger budgets increase the machine memory grant the server needs. Sizing a
+general workload still involves table shape, version churn, connection count,
+and the largest live execution state. The limits and memory charges are
+described in [Capacity and admission planning](../CAPACITY.md).
 
 ## Layer rules for every gap
 

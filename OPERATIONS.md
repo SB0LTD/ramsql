@@ -1,8 +1,10 @@
 # Beta operations
 
-This beta is for controlled evaluation on trusted loopback hosts. It has one
-reactor, one shared database, READ COMMITTED transactions and synchronous WAL.
-It is not a supported public service or replacement for all PostgreSQL tooling.
+This beta supports evaluation on trusted loopback hosts with synchronous WAL.
+Linux and Windows builds with native workers can run concurrent PostgreSQL
+read sessions. Writes share one exclusive SQL lane. The default is one
+database with READ COMMITTED transaction isolation. Production qualification
+is still open.
 
 PostgreSQL simple Query messages can carry multiple supported SQL commands.
 The server checks the entire frame before running its first command and
