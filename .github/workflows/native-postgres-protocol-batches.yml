@@ -1,0 +1,80 @@
+name: Composed PostgreSQL storage and protocol qualification
+
+on:
+  push:
+    branches: [ci/pg-beta-product-storage-20261118]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  simple-query-batches:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 2082eb9dbc97a76323b7d3a613a4d041778d6091
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prepare verified Sig toolchain
+        shell: bash
+        run: |
+          read -r tag asset digest < <(python tools/release_matrix.py --compiler-host Linux/X64 |
+            python -c 'import json,sys; x=json.load(sys.stdin); print(x["tag"],x["asset"],x["sha256"])')
+          curl -fsSL --retry 3 "https://github.com/SB0LTD/sig/releases/download/$tag/$asset" -o "$RUNNER_TEMP/$asset"
+          echo "$digest  $RUNNER_TEMP/$asset" | sha256sum -c
+          mkdir "$RUNNER_TEMP/sig"
+          tar -xf "$RUNNER_TEMP/$asset" -C "$RUNNER_TEMP/sig"
+          binary=$(find "$RUNNER_TEMP/sig" -type f -name sig | head -n 1)
+          standard=$(find "$RUNNER_TEMP/sig" -type f -path '*/lib/std/std.sig' | head -n 1)
+          test -x "$binary"
+          test -f "$standard"
+          printf 'SIG=%s\n' "$binary" >> "$GITHUB_ENV"
+          python tools/prepare_sig_runtime.py --installed-lib "${standard%/std/std.sig}" \
+            --output "$RUNNER_TEMP/sig-runtime" --github-env "$GITHUB_ENV"
+      - name: Build and qualify exact product against native PostgreSQL 18.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir evidence
+          git rev-parse HEAD >evidence/product-revision.txt
+          cp build.sig.zon evidence/build.sig.zon
+          "$SIG" build -Doptimize=ReleaseSafe -Dcolumns=16 -Dhosted-client-ceiling=128 \
+            -Dcompact-version-stamps=true -Dintegral-version-banks=true -j1 2>&1 | tee evidence/build.log
+          sha256sum sig-out/bin/ramsql | tee evidence/ramsql.sha256
+          python tools/test_cli.py --binary sig-out/bin/ramsql --expect-integral-version-banks --expect-compact-version-stamps
+          python tools/test_hosted_128_admission.py --binary sig-out/bin/ramsql --report evidence/hosted-128.json
+          image=postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba
+          docker run --detach --name simple-query-native --publish 127.0.0.1::5432 \
+            -e POSTGRES_USER=ramsql -e POSTGRES_DB=ramsql -e POSTGRES_HOST_AUTH_METHOD=trust "$image"
+          for attempt in $(seq 1 60); do
+            if docker exec simple-query-native pg_isready -h 127.0.0.1 -U ramsql; then break; fi
+            sleep 1
+          done
+          docker exec simple-query-native pg_isready -h 127.0.0.1 -U ramsql
+          endpoint=$(docker port simple-query-native 5432/tcp)
+          python tools/qualify_pg_simple_query_batches.py --binary sig-out/bin/ramsql \
+            --postgres-port "${endpoint##*:}" --report evidence/simple-query-batches.json
+          python -m pip install 'psycopg[binary]==3.3.2'
+          python tools/qualify_pg_extended_sync.py --binary sig-out/bin/ramsql \
+            --postgres-port "${endpoint##*:}" --report evidence/extended-sync.json
+          python tools/qualify_pg_extended_copy.py --binary sig-out/bin/ramsql \
+            --postgres-port "${endpoint##*:}" --report evidence/extended-copy.json
+          python tools/test_pg_idle_transaction.py --binary sig-out/bin/ramsql \
+            --reference-port "${endpoint##*:}" --reference-user ramsql --reference-database ramsql \
+            --report evidence/session-idle-timeout.json
+      - name: Check ordinary one-statement wire routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/test_server.py --binary sig-out/bin/ramsql --workers 4 --integral-version-banks | tee evidence/ordinary-server.json
+          python tools/test_persistence.py --binary sig-out/bin/ramsql | tee evidence/ordinary-persistence.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-simple-query-batch-evidence
+          path: evidence/
+
