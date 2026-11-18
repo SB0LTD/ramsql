@@ -88,6 +88,7 @@ def main():
     slots = caps['tables']
     assert caps['table_integral_words'] == [0] * slots, caps
     assert caps['typed_bank_memory_profile'] is False
+    assert caps['packed_hash_load_percent'] == 50, caps
     assert caps['query_reference_bytes'] == 4 * caps['query_refs']
     capacity_args = ['--rows', '1024', '--versions', '3072', '--workers', '1']
     def integral_args(words):
@@ -126,6 +127,10 @@ def main():
                         'compact_version_stamps', 'storage_version_bytes'):
                 assert observed[key] == lean[key], (key, observed, lean)
             assert lean['typed_bank_memory_profile'] is True
+            packed = facts('--capabilities', lean_flag, '--packed-hash-load-75')
+            assert packed['packed_hash_load_percent'] == 75, packed
+            assert packed['table_storage'] == lean['table_storage']
+            assert packed['backing_bytes'] == lean['backing_bytes'] - 1_073_741_824
             assert lean['query_refs'] == 65536 * 4 * (caps['relations'] + 4)
             assert stock['query_refs'] == max(400_000_000, lean['query_refs'])
             assert lean['table_storage'][0] == dict(rows=100_000_000, versions=100_065_536,
@@ -141,6 +146,7 @@ def main():
             assert overridden['query_refs'] == lean['query_refs'] + 123
             assert overridden['backing_bytes'] == lean['backing_bytes'] + 123 * 4
         for flags in ([lean_flag], [lean_flag, *integral_args([0] * slots)],
+                      ['--packed-hash-load-75'], ['--packed-hash-load-75', *integral_args([0] * slots)],
                       ['--query-refs', '1', *integral_args(compact)],
                       [lean_flag, '--query-refs', '0', *integral_args(compact)],
                       [lean_flag, '--query-refs', '2147483648', *integral_args(compact)]):
@@ -148,6 +154,8 @@ def main():
             assert rejected.returncode == 2 and not rejected.stdout and b'InvalidServerOptions' in rejected.stderr, rejected
     else:
         assert candidate.returncode == 2 and b'InvalidServerOptions' in candidate.stderr, candidate
+        packed = run(['--capabilities', '--packed-hash-load-75', *integral_args(compact)])
+        assert packed.returncode == 2 and not packed.stdout and b'InvalidServerOptions' in packed.stderr, packed
         rejected = run(['--machine-capacity', '--typed-bank-memory-profile', *integral_args(compact)])
         assert rejected.returncode == 2 and not rejected.stdout and b'InvalidServerOptions' in rejected.stderr, rejected
     for invalid in ([0] * (slots - 1), [0] * (slots + 1), [-1] + compact[1:],
