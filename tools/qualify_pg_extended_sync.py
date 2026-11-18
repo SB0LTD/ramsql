@@ -85,8 +85,8 @@ def probe(port):
         assert ids(observer) == [1, 4]
         writer.ok('SELECT 20', [['20']], status=b'T')
         result['after_single_simple_boundary'] = ids(observer)
-        synchronize(writer)
-        result['after_single_simple_and_sync'] = ids(observer)
+        writer.ok('SELECT 30; SELECT 31', [['30'], ['31']])
+        result['after_single_simple_and_batch'] = ids(observer)
 
         extended(writer, 'INSERT INTO sync_fixture VALUES (21)', b'INSERT 0 1')
         frames = writer.query('SELECT 21; INSERT INTO sync_fixture VALUES (22); SELECT 22')
@@ -119,12 +119,29 @@ EXPECTED = {
     'after_malformed_sync': [1], 'after_valid_sync': [1], 'explicit_before_commit': [1],
     'explicit_after_commit': [1, 4], 'failed_begin_promotion': [1, 4],
     'after_simple_error': [1, 4], 'after_single_simple_boundary': [1, 4],
-    'after_single_simple_and_sync': [1, 4, 20],
+    'after_single_simple_and_batch': [1, 4, 20],
     'after_simple_batch_boundary': [1, 4, 20, 21, 22],
     'after_cross_protocol_batch_error': [1, 4, 20, 21, 22],
     'after_cross_protocol_commit_and_error': [1, 4, 20, 21, 22, 25],
     'after_disconnect': [1, 4, 20, 21, 22, 25],
 }
+
+
+def single_query_then_sync(port):
+    writer, observer = connect(port), connect(port)
+    try:
+        observer.ok('CREATE TABLE mixed_sync_fixture (id INT PRIMARY KEY)')
+        extended(writer, 'INSERT INTO mixed_sync_fixture VALUES (1)', b'INSERT 0 1')
+        writer.ok('SELECT 1', [['1']], status=b'T')
+        observer.ok('SELECT id FROM mixed_sync_fixture', [])
+        synchronize(writer)
+        published = rows(observer.ok('SELECT id FROM mixed_sync_fixture'))
+        next_query = writer.query('SELECT 1')
+        return {'published': published, 'next_query': rows(next_query),
+                'next_errors': [error['C'] for error in errors(next_query)]}
+    finally:
+        writer.close()
+        observer.close()
 
 
 def main():
@@ -148,12 +165,17 @@ def main():
                 report['postgres'] = db.execute('SELECT version()').fetchone()[0]
             report['native'] = probe(parameters['port'])
             assert report['native'] == EXPECTED, report['native']
+            report['native_single_query_then_sync'] = single_query_then_sync(parameters['port'])
+        report['candidate_single_query_then_sync'] = {}
         for workers in (1, 4):
             options = ['--workers', str(workers)]
             with running_ramsql(binary, extra_arguments=options) as parameters:
                 observed = probe(parameters['port'])
                 assert observed == EXPECTED, observed
                 report['candidate'][f'memory-{workers}'] = observed
+                liveness = single_query_then_sync(parameters['port'])
+                assert liveness == {'published': [['1']], 'next_query': [['1']], 'next_errors': []}, liveness
+                report['candidate_single_query_then_sync'][str(workers)] = liveness
             wal = directory / f'extended-{workers}.wal'
             with running_ramsql(binary, extra_arguments=options, data_path=wal, create_data=True) as parameters:
                 observed = probe(parameters['port'])

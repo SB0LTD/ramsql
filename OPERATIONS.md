@@ -18,7 +18,9 @@ Extended Parse/Bind/Execute groups retain implicit writes until Sync or a
 successful multi-command simple Query completes on the same connection.
 Flush and a single ordinary simple Query leave the transaction open.
 Extended COPY FROM and COPY TO run as portals and share the same transaction
-boundary.
+boundary. PostgreSQL 18.3 can report idle before publishing writes if Sync
+immediately follows a single simple Query in a mixed-protocol group. RAMSQL
+commits the group before reporting idle.
 
 ## Installation and startup
 

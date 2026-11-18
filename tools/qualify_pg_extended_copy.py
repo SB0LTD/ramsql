@@ -88,7 +88,7 @@ def probe(port):
         consume(writer, b'COPY 1')
         assert writer.message() == (b'Z', b'T')
         seen(1, 2, 3)
-        synchronize(writer)
+        writer.ok('SELECT 30; SELECT 31', [['30'], ['31']])
         seen(1, 2, 3, 10, 11)
         completed.append('simple-copy-in-unsynchronized-extended-group')
 
