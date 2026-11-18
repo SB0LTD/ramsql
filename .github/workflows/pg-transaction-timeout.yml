@@ -21,8 +21,8 @@ jobs:
       run:
         shell: pwsh
     env:
-      PRODUCT_REVISION: f10e8c0b3dae578671499f564b58ca677dfbadc6
-      PRODUCT_SHA256: 052e83fdb97bdfd78cb2cc0eab610e1b0481c26f86303daad334682428cb5ed1
+      PRODUCT_REVISION: a7e8db9fc9d4219c76a9857357f79181ebfde791
+      PRODUCT_SHA256: cadcc2e67364e5e3236e97940f0cb40b3c343a725e7f13aaa5d29f6b55dfaf10
       ZPM_REVISION: 75e25b14a3470b8dbe7ae8b1d4c2d39ee98744d1
       ZPM_SHA256: 3e63fb5a3db9d8916ad516d5a9f9fc3e4ab8bafd9fcc9c53a5af4b26fcc7e94c
     steps:
