@@ -173,17 +173,17 @@ release blockers for enabling this setting by default.
 [Native socket and WAL proof](https://github.com/SB0LTD/ramsql/actions/runs/44233435009) ·
 [Matched durability timings](https://github.com/SB0LTD/ramsql/actions/runs/44235108533)
 
-A separate 16-column tooling build completed all eleven stock `psql \d`
-queries for the regular table fixture. Direct comparisons exercised real
-foreign keys, policies, named statistics, all-table, schema and explicit
-publications, and partition bounds. Nominal `regclass` output, populated
-trigger metadata and wider tooling fixtures remain separate. Stock `pg_dump`
-stopped when it attempted to set an empty search path. A native PostgreSQL
-dump restored into PostgreSQL and stopped on `idle_in_transaction_session_timeout`
-when restored into RAMSQL. Closing the migration gate requires actual search-path
-resolution, timeout behavior, and real dump and restore in both directions.
-[Successful stock describe](https://github.com/SB0LTD/ramsql/actions/runs/44235209311) ·
-[Stock dump and restore audit](https://github.com/SB0LTD/ramsql/actions/runs/44235375832)
+A separate 16-column tooling build completed all twelve stock `psql \d`
+queries on a table with a real user trigger, incoming foreign key, policies,
+named statistics and publications. The standalone partition and trigger
+comparisons also matched native PostgreSQL 18.3 for their covered cases.
+The catalog build honors an empty search path and stock `pg_dump` now reaches
+`pg_is_in_recovery()`. The matching restore still needs the timeout work.
+In a separately qualified native server build, the stock restore passed
+`idle_in_transaction_session_timeout` and reached `transaction_timeout`.
+Nominal `regclass` wire output and broader migration fixtures remain open.
+[Populated stock describe and export audit](https://github.com/SB0LTD/ramsql/actions/runs/44238734316) ·
+[Native idle transaction timeout qualification](https://github.com/SB0LTD/ramsql/actions/runs/44238347427)
 
 ## 17 November 2026 qualification checkpoint
 
@@ -1126,6 +1126,15 @@ multiple tables and the full catalog, then prove generation publication and
 retirement under injected failures.
 [Snapshot envelope](https://github.com/SB0LTD/zpm/pull/230) ·
 [Single-table image and suffix](https://github.com/SB0LTD/zpm/pull/232)
+
+The isolated RAMSQL startup path now acquires the real writer lock, checks
+the selected generation and seal, loads a caller-owned two-table image, and
+applies the WAL suffix through the production persistence layer. Linux,
+Windows and macOS each passed 16 checkpoint, 119 ordinary persistence and
+11 backup assertions. The public startup path still needs a durable database
+identity for standalone files, a common lock across the legacy and generation
+layouts, and interruption-safe publication and retirement of generations.
+[Hosted checkpoint startup proof](https://github.com/SB0LTD/ramsql/actions/runs/44234918499)
 
 - [ ] Write a complete validated snapshot with a durable sequence anchor.
 - [ ] Publish it atomically, persist directory changes, then retire only log segments the checkpoint safely covers.
