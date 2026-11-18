@@ -1,0 +1,50 @@
+name: Linux PostgreSQL worker locality qualification
+
+on:
+  push:
+    branches: [ci/linux-worker-locality-20261118]
+
+permissions:
+  contents: read
+
+jobs:
+  linux-locality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prepare verified Sig toolchain
+        shell: bash
+        run: |
+          read -r tag asset digest < <(python tools/release_matrix.py --compiler-host Linux/X64 |
+            python -c 'import json,sys; x=json.load(sys.stdin); print(x["tag"],x["asset"],x["sha256"])')
+          curl -fsSL --retry 3 "https://github.com/SB0LTD/sig/releases/download/$tag/$asset" -o "$RUNNER_TEMP/$asset"
+          echo "$digest  $RUNNER_TEMP/$asset" | sha256sum -c
+          mkdir "$RUNNER_TEMP/sig"
+          tar -xf "$RUNNER_TEMP/$asset" -C "$RUNNER_TEMP/sig"
+          binary=$(find "$RUNNER_TEMP/sig" -type f -name sig | head -n 1)
+          standard=$(find "$RUNNER_TEMP/sig" -type f -path '*/lib/std/std.sig' | head -n 1)
+          test -x "$binary"
+          test -f "$standard"
+          printf 'SIG=%s\n' "$binary" >> "$GITHUB_ENV"
+          python tools/prepare_sig_runtime.py --installed-lib "${standard%/std/std.sig}" \
+            --output "$RUNNER_TEMP/sig-runtime" --github-env "$GITHUB_ENV"
+      - name: Build and test opt-in placement and ordinary sockets
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir evidence
+          git rev-parse HEAD >evidence/product-revision.txt
+          cp build.sig.zon evidence/build.sig.zon
+          "$SIG" build -Doptimize=ReleaseSafe -Dcolumns=16 -j1 2>&1 | tee evidence/build.log
+          sha256sum sig-out/bin/ramsql | tee evidence/ramsql.sha256
+          python tools/test_linux_worker_locality.py --binary sig-out/bin/ramsql --report evidence/locality.json
+          python tools/test_server.py --binary sig-out/bin/ramsql --workers 4 | tee evidence/server.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linux-worker-locality
+          path: evidence/
