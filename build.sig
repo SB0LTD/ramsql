@@ -146,6 +146,32 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     _ = try ctx.addModule("profile", profile_path);
     const lib = try ctx.addModule("ramsql", "src/root.sig");
     try ctx.addImport(lib, "sql", sql_path);
+    var tls_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    const tls_path = try zpm.modulePath("src/core/crypto/tls/stream.sig", &tls_buf);
+    const tls_module = try ctx.addModule("postgres_tls_stream", tls_path);
+    try ctx.addImport(tls_module, "entropy", entropy_path);
+    const tls_modules = .{
+        .{ "sha256", "src/core/sha256.sig" }, .{ "sig_mem", "src/core/sig_mem.sig" },
+        .{ "sig_testing", "src/core/sig_testing.sig" }, .{ "hmac", "src/core/crypto/hmac.sig" },
+        .{ "hkdf", "src/core/crypto/hkdf.sig" }, .{ "aes", "src/core/crypto/aes.sig" },
+        .{ "gcm", "src/core/crypto/gcm.sig" }, .{ "chacha20poly1305", "src/core/crypto/chacha20poly1305.sig" },
+        .{ "x25519", "src/core/crypto/x25519.sig" }, .{ "tls13_keys", "src/core/crypto/tls13_keys.sig" },
+    };
+    var tls_handles: [tls_modules.len]@TypeOf(tls_module) = undefined;
+    var tls_paths: [tls_modules.len][sig_build.PATH_BUF_SIZE]u8 = undefined;
+    inline for (tls_modules, 0..) |module, index| {
+        const path = try zpm.modulePath(module[1], &tls_paths[index]);
+        tls_handles[index] = try ctx.addModule(module[0], path);
+        try ctx.addImport(tls_module, module[0], path);
+    }
+    // Named imports used by individual crypto modules in the TLS root.
+    const tls_edges = .{
+        .{0, "sig_mem", 1}, .{0, "sig_testing", 2}, .{3, "sha256", 0},
+        .{4, "hmac", 3}, .{6, "aes", 5}, .{9, "sha256", 0}, .{9, "hkdf", 4}, .{9, "hmac", 3},
+    };
+    inline for (tls_edges) |edge| {
+        try ctx.addImport(tls_handles[edge[0]], edge[1], try zpm.modulePath(tls_modules[edge[2]][1], &tls_paths[edge[2]]));
+    }
     const app = try ctx.addCompileStep(.{
         .source_path = "src/main.sig",
         .output_name = "ramsql",
@@ -157,6 +183,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
             importEntry("sig", runtime_path),
             importEntry("sql", sql_path),
             importEntry("postgres", pg_path),
+            importEntry("postgres_tls_stream", tls_path),
             importEntry("mysql", mysql_path),
             importEntry("tds", tds_path),
             importEntry("tcp_server", tcp_path),
