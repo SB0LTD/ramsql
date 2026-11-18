@@ -68,7 +68,12 @@ capacity in both capacity commands. A result can be reused within its
 committed database snapshot. Writes, including DDL, advance the snapshot and
 invalidate earlier results. Restricted roles, nondefault session settings,
 work limits and timeouts use ordinary query execution. A restart starts with
-an empty cache.
+an empty cache. A new medium query key runs the complete scan for its first
+two successful observations and pays the packing cost on the second. Writes
+advance the database snapshot, so even an unchanged query must build
+observations again. The projected tier shares the requested byte budget with
+the small aggregate tier. Measure cold-start and write-heavy workloads with
+their own traffic patterns and cache budgets.
 
 ## Stop, backup, restore and upgrade
 
