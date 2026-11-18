@@ -8,9 +8,10 @@ matching 32-byte P-256 private scalar. Keep the scalar file accessible only to
 the server user. The sample proof generates an ephemeral CA and instrumented
 leaf outside the uploaded evidence directory.
 
-The listener accepts PostgreSQL SSLRequest before TLS 1.3. Plaintext startup
-and cancellation, GSS startup and direct TLS are closed without a PostgreSQL
-response. Configure stock clients with `sslmode=verify-full`, the issuing CA,
+The listener accepts PostgreSQL SSLRequest before TLS 1.3. It may decline
+one GSS encryption request with `N` before SSLRequest. Plaintext startup,
+plaintext cancellation, repeated GSS requests and direct TLS are closed.
+Configure stock clients with `sslmode=verify-full`, the issuing CA,
 `gssencmode=disable`, and channel binding disabled for this SCRAM-only preview.
 Clients must trust the issuing CA and verify the configured hostname.
 
