@@ -8,6 +8,7 @@ from test_server import Server
 IMAGE = "postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba"
 EVIDENCE = Path("evidence")
 SETUP = "CREATE TABLE tooling(id INT PRIMARY KEY, label TEXT)"
+TOOLING_INDEX = "CREATE INDEX tooling_label ON tooling (label)"
 INDEX_SETUP = (
     'CREATE TABLE "Case Table" ("Select" INT PRIMARY KEY, qty INT, label TEXT)',
     'CREATE INDEX "ix Weird" ON "Case Table" (qty DESC NULLS LAST) INCLUDE (label) WHERE qty > 1',
@@ -58,12 +59,14 @@ def main():
     native_conn = ["-U", "postgres", "-d", "postgres"]
     check(psql(native, native_conn, "native-version", "--version"))
     check(psql(native, native_conn, "native-setup", "-c", SETUP))
+    check(psql(native, native_conn, "native-tooling-index", "-c", TOOLING_INDEX))
     native_describe = psql(native, native_conn, "native-describe", "-E", "-c", r"\d tooling")
     check(native_describe)
-    lookup, relation_sql, attribute_sql, *_ = describe_queries(native_describe)
+    lookup, relation_sql, attribute_sql, constraint_indexes_sql, *_ = describe_queries(native_describe)
     assert "pg_table_is_visible" in lookup and "OPERATOR(pg_catalog.~)" in lookup and "COLLATE pg_catalog.default" in lookup
     assert "pg_catalog.pg_am" in relation_sql and "::pg_catalog.regtype::pg_catalog.text" in relation_sql
     assert "pg_catalog.pg_attribute" in attribute_sql and "pg_catalog.pg_collation" in attribute_sql
+    assert "pg_catalog.pg_constraint" in constraint_indexes_sql and "pg_catalog.pg_get_constraintdef" in constraint_indexes_sql
     (EVIDENCE / "discovery.sql").write_text(lookup + "\n")
     native_rows = psql(native, native_conn, "native-discovery", "-At", "-c", lookup)
     check(native_rows)
@@ -75,11 +78,15 @@ def main():
     check(native_attributes)
     assert native_attributes.stdout == "id|integer||t|||\nlabel|text||f|||\n", native_attributes.stdout
     native_indexes = index_definitions(native, native_conn, "native")
+    native_constraints = psql(native, native_conn, "native-index-constraints", "-At", "-c", constraint_indexes_sql)
+    check(native_constraints)
+    assert len(native_constraints.stdout.splitlines()) == 2 and "PRIMARY KEY (id)|p|f|f" in native_constraints.stdout
     Server.test_workers = 2
     with Server(Path(sys.argv[1]).resolve()) as server:
         client = ["docker", "run", "--rm", "--network", "host", IMAGE]
         conn = ["-h", "127.0.0.1", "-p", str(server.port), "-U", "ramsql", "-d", "ramsql"]
         check(psql(client, conn, "ramsql-setup", "-c", SETUP))
+        check(psql(client, conn, "ramsql-tooling-index", "-c", TOOLING_INDEX))
         actual = psql(client, conn, "ramsql-describe", "-E", "-c", r"\d tooling")
         actual_lookup, actual_relation_sql, actual_attribute_sql, *_ = describe_queries(actual)
         assert actual_lookup == lookup
@@ -98,12 +105,19 @@ def main():
         assert actual_attributes.stdout == native_attributes.stdout, (native_attributes.stdout, actual_attributes.stdout)
         actual_indexes = index_definitions(client, conn, "ramsql")
         assert actual_indexes == native_indexes, (native_indexes, actual_indexes)
+        ram_constraint_sql = constraint_indexes_sql.replace(f"c.oid = '{old_oid}'", f"c.oid = '{new_oid}'")
+        actual_constraints = psql(client, conn, "ramsql-index-constraints", "-At", "-c", ram_constraint_sql)
+        check(actual_constraints)
+        assert actual_constraints.stdout == native_constraints.stdout, (native_constraints.stdout, actual_constraints.stdout)
+        assert len(describe_queries(actual)) >= 5, actual.stderr
         (EVIDENCE / "relation-metadata.sql").write_text(actual_relation_sql + "\n")
         (EVIDENCE / "column-metadata.sql").write_text(actual_attribute_sql + "\n")
+        (EVIDENCE / "index-constraints.sql").write_text(ram_constraint_sql + "\n")
         print("PASS native psql 18.3 discovery SQL on both engines")
         print("PASS native psql 18.3 relation-metadata SQL and values on both engines")
         print("PASS native psql 18.3 column-metadata SQL and values on both engines")
         print("PASS quoted primary and partial covering index definitions and missing OIDs on both engines")
+        print("PASS stock psql primary-constraint and secondary-index metadata on both engines")
         print(f"psql describe exit status: native={native_describe.returncode} RAMSQL={actual.returncode}")
         print(actual.stderr, end="")
         if not actual.returncode:
