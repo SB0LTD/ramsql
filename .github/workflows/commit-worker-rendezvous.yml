@@ -1,0 +1,70 @@
+name: Qualify native PostgreSQL commit rendezvous
+
+on:
+  push:
+    branches: [ci/commit-worker-rendezvous-20261118]
+
+permissions:
+  contents: read
+
+jobs:
+  sockets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Verify candidate, dependency and compiler
+        run: |
+          set -euo pipefail
+          mkdir -p evidence "$RUNNER_TEMP/sig-sdk"
+          source=2ce85736aff78d9314387ad137568c6dbce7afa3
+          git diff --exit-code "$source" -- src build.sig.zon tools/test_group_commit.py
+          git rev-parse HEAD "$source" > evidence/source.log
+          zpm=c92226ba55d53de3b48bd658768b523c3aa65ce7
+          digest=dcbade05640d7ce47babaa87ece6195de52a5d05b18449c074a8deb332cca938
+          grep -F "$zpm.tar.gz" build.sig.zon
+          grep -F "$digest" build.sig.zon
+          curl --fail --location --silent --show-error "https://github.com/SB0LTD/zpm/archive/$zpm.tar.gz" -o "$RUNNER_TEMP/zpm.tar.gz"
+          printf '%s  %s\n' "$digest" "$RUNNER_TEMP/zpm.tar.gz" | sha256sum -c - | tee evidence/zpm.log
+          tag=sig-0.6.5-zig0.17.0.3c72687
+          archive="$RUNNER_TEMP/$tag-x86_64-linux.tar.xz"
+          curl --fail --location --silent --show-error \
+            "https://github.com/SB0LTD/sig/releases/download/$tag/$(basename "$archive")" -o "$archive"
+          printf '%s  %s\n' 179094228e2e6b0db3a5a1e01a8a57e8e91db6aa3b5ca80094ca22d870cc373a "$archive" \
+            | sha256sum -c - | tee evidence/sdk.log
+          tar -xJf "$archive" -C "$RUNNER_TEMP/sig-sdk"
+          compiler="$(find "$RUNNER_TEMP/sig-sdk" -type f -path '*/bin/sig' -print -quit)"
+          test -x "$compiler"
+          sha256sum "$compiler" >> evidence/sdk.log
+          "$compiler" version | tee -a evidence/sdk.log
+          echo "SIG=$compiler" >> "$GITHUB_ENV"
+          echo "SIG_LIB_DIR=$(dirname "$(dirname "$compiler")")/lib" >> "$GITHUB_ENV"
+          if ! command -v strace >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install --no-install-recommends -y strace
+          fi
+          strace --version > evidence/strace.log
+      - name: Build the exact ReleaseSafe binary
+        run: |
+          set -euo pipefail
+          "$SIG" build -Doptimize=ReleaseSafe -j2 --Sig-lib-dir "$SIG_LIB_DIR" 2>&1 | tee evidence/build.log
+          sha256sum sig-out/bin/ramsql | tee evidence/binary-sha256.log
+      - name: Assert native grouped flush, error and connection lifecycle
+        run: |
+          set -euo pipefail
+          python3 tools/test_group_commit.py --binary sig-out/bin/ramsql --strace "$(command -v strace)" \
+            --work-dir "$RUNNER_TEMP/group-commit-databases" --output evidence/sockets 2>&1 | tee evidence/sockets.log
+      - name: Exercise ordinary PostgreSQL wire and durability
+        run: |
+          set -euo pipefail
+          python3 tools/test_server.py --binary sig-out/bin/ramsql --workers 2 2>&1 | tee evidence/ordinary-wire.log
+          python3 tools/test_persistence.py --binary sig-out/bin/ramsql --workers 2 2>&1 | tee evidence/ordinary-persistence.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: group-commit-rendezvous
+          path: evidence/
+          if-no-files-found: error
