@@ -234,6 +234,7 @@ const Client = struct {
     reader:?*Reader=null,
     read_deadline:?i64=null,
     idle_transaction_deadline: ?i64 = null,
+    idle_transaction_after_flush_ms: u32 = 0,
     output_len: usize = 0,
     output_sent: usize = 0,
     closing: bool = false,
@@ -284,6 +285,7 @@ const Client = struct {
         self.socket = tcp.invalid_socket;
         self.blocked = false;
         self.idle_transaction_deadline = null;
+        self.idle_transaction_after_flush_ms = 0;
         // The owner publishes a closed slot as free on its next iteration,
         // after callers of close have stopped inspecting the old connection.
         self.state.store(if (parallel and active) 3 else 0, .release);
@@ -305,6 +307,7 @@ const Client = struct {
         if (now < deadline) return;
         const transaction_expired = self.connection.transactionDeadline() == deadline;
         self.idle_transaction_deadline = null;
+        self.idle_transaction_after_flush_ms = 0;
         self.closing = true;
         self.touched = now;
         self.cancel_key.store(0, .release);
@@ -374,9 +377,9 @@ const Client = struct {
         notification_sequence.store(store.database.notificationSequence(), .release);
         if (reply.consumed > self.input_len or reply.written > output.len) return error.InvalidReply;
         if (self.protocol == .postgres and (reply.consumed != 0 or reply.written != 0 or reply.blocked)) {
-            const timeout = self.session.postgres.idleTransactionTimeout(&self.connection);
-            self.idle_transaction_deadline = if (reply.close or timeout == 0) null else
-                monotonicClock() +| (@as(i64, timeout) * 1000000);
+            self.idle_transaction_deadline = null;
+            self.idle_transaction_after_flush_ms = if (reply.close) 0 else
+                self.session.postgres.idleTransactionTimeout(&self.connection);
         }
         if (reply.blocked) {
             // Only a parked COPY row consumes input (through that row).
@@ -476,7 +479,17 @@ const Client = struct {
                 self.output_sent = 0;
             }
         }
-        if (self.closing and self.output_len == 0) self.close();
+        if (self.output_len != 0) return;
+        if (self.closing) {
+            self.close();
+            return;
+        }
+        // ReadyForQuery enters the idle read phase only once output drains.
+        if (self.idle_transaction_after_flush_ms != 0) {
+            self.idle_transaction_deadline = monotonicClock() +|
+                (@as(i64, self.idle_transaction_after_flush_ms) * 1000000);
+            self.idle_transaction_after_flush_ms = 0;
+        }
     }
 
     /// Dispatches at most 32 buffered packets, then flushes. Returns true
@@ -829,6 +842,7 @@ fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial:
     client.notify_seen = 0;
     client.reader=if(parallel) &reactors[slot % reactor_count].reader else null;client.read_deadline=null;
     client.idle_transaction_deadline = null;
+    client.idle_transaction_after_flush_ms = 0;
     client.output = &.{};
     client.blocked = false;
     client.connection = .{ .store = &store, .id = next_id };
