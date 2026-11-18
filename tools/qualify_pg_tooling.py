@@ -34,9 +34,10 @@ def main():
     check(psql(native, native_conn, "native-setup", "-c", SETUP))
     native_describe = psql(native, native_conn, "native-describe", "-E", "-c", r"\d tooling")
     check(native_describe)
-    lookup, relation_sql, *_ = describe_queries(native_describe)
+    lookup, relation_sql, attribute_sql, *_ = describe_queries(native_describe)
     assert "pg_table_is_visible" in lookup and "OPERATOR(pg_catalog.~)" in lookup and "COLLATE pg_catalog.default" in lookup
     assert "pg_catalog.pg_am" in relation_sql and "::pg_catalog.regtype::pg_catalog.text" in relation_sql
+    assert "pg_catalog.pg_attribute" in attribute_sql and "pg_catalog.pg_collation" in attribute_sql
     (EVIDENCE / "discovery.sql").write_text(lookup + "\n")
     native_rows = psql(native, native_conn, "native-discovery", "-At", "-c", lookup)
     check(native_rows)
@@ -44,13 +45,16 @@ def main():
     native_relation = psql(native, native_conn, "native-relation", "-At", "-c", relation_sql)
     check(native_relation)
     assert native_relation.stdout == "0|r|t|f|f|f|f|f|f||0||p|d|heap\n", native_relation.stdout
+    native_attributes = psql(native, native_conn, "native-attributes", "-At", "-c", attribute_sql)
+    check(native_attributes)
+    assert native_attributes.stdout == "id|integer||t|||\nlabel|text||f|||\n", native_attributes.stdout
     Server.test_workers = 2
     with Server(Path(sys.argv[1]).resolve()) as server:
         client = ["docker", "run", "--rm", "--network", "host", IMAGE]
         conn = ["-h", "127.0.0.1", "-p", str(server.port), "-U", "ramsql", "-d", "ramsql"]
         check(psql(client, conn, "ramsql-setup", "-c", SETUP))
         actual = psql(client, conn, "ramsql-describe", "-E", "-c", r"\d tooling")
-        actual_lookup, actual_relation_sql, *_ = describe_queries(actual)
+        actual_lookup, actual_relation_sql, actual_attribute_sql, *_ = describe_queries(actual)
         assert actual_lookup == lookup
         rows = psql(client, conn, "ramsql-discovery", "-At", "-c", lookup)
         check(rows)
@@ -61,9 +65,15 @@ def main():
         actual_relation = psql(client, conn, "ramsql-relation", "-At", "-c", actual_relation_sql)
         check(actual_relation)
         assert actual_relation.stdout == native_relation.stdout, (native_relation.stdout, actual_relation.stdout)
+        assert actual_attribute_sql == attribute_sql.replace(f"a.attrelid = '{old_oid}'", f"a.attrelid = '{new_oid}'")
+        actual_attributes = psql(client, conn, "ramsql-attributes", "-At", "-c", actual_attribute_sql)
+        check(actual_attributes)
+        assert actual_attributes.stdout == native_attributes.stdout, (native_attributes.stdout, actual_attributes.stdout)
         (EVIDENCE / "relation-metadata.sql").write_text(actual_relation_sql + "\n")
+        (EVIDENCE / "column-metadata.sql").write_text(actual_attribute_sql + "\n")
         print("PASS native psql 18.3 discovery SQL on both engines")
         print("PASS native psql 18.3 relation-metadata SQL and values on both engines")
+        print("PASS native psql 18.3 column-metadata SQL and values on both engines")
         print(f"psql describe exit status: native={native_describe.returncode} RAMSQL={actual.returncode}")
         print(actual.stderr, end="")
         if not actual.returncode:
