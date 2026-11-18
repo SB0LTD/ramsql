@@ -1,0 +1,116 @@
+name: Compare durable PostgreSQL commit rendezvous
+
+on:
+  push:
+    branches: [ci/commit-rendezvous-wake-exact-20261118]
+
+permissions:
+  contents: read
+
+jobs:
+  matched-transactions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify exact sources and install hosted tools
+        run: |
+          set -euo pipefail
+          mkdir -p evidence "$RUNNER_TEMP/sig-sdk"
+          source=a87e5ebb746eae957f981b9a4d21ea838b865033
+          git diff --exit-code "$source" -- src build.sig.zon tools/test_group_commit.py tools/benchmark_group_commit.py
+          git rev-parse HEAD "$source" > evidence/source.log
+          zpm=c61826fe68829fabff93625f83ee5e903c62c366
+          digest=556ae38967862c98f004ed431b6d771b3c4051dd6c9d8f80fabce58ce6d9b411
+          grep -F "$zpm.tar.gz" build.sig.zon
+          grep -F "$digest" build.sig.zon
+          curl --fail --location --silent --show-error "https://github.com/SB0LTD/zpm/archive/$zpm.tar.gz" -o "$RUNNER_TEMP/zpm.tar.gz"
+          printf '%s  %s\n' "$digest" "$RUNNER_TEMP/zpm.tar.gz" | sha256sum -c - | tee evidence/zpm.log
+          tag=sig-0.6.5-zig0.17.0.3c72687
+          archive="$RUNNER_TEMP/$tag-x86_64-linux.tar.xz"
+          curl --fail --location --silent --show-error \
+            "https://github.com/SB0LTD/sig/releases/download/$tag/$(basename "$archive")" -o "$archive"
+          printf '%s  %s\n' 179094228e2e6b0db3a5a1e01a8a57e8e91db6aa3b5ca80094ca22d870cc373a "$archive" \
+            | sha256sum -c - | tee evidence/sdk.log
+          tar -xJf "$archive" -C "$RUNNER_TEMP/sig-sdk"
+          compiler="$(find "$RUNNER_TEMP/sig-sdk" -type f -path '*/bin/sig' -print -quit)"
+          test -x "$compiler"
+          sha256sum "$compiler" >> evidence/sdk.log
+          "$compiler" version | tee -a evidence/sdk.log
+          echo "SIG=$compiler" >> "$GITHUB_ENV"
+          echo "SIG_LIB_DIR=$(dirname "$(dirname "$compiler")")/lib" >> "$GITHUB_ENV"
+          if ! command -v strace >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install --no-install-recommends -y strace
+          fi
+          strace --version > evidence/strace.log
+          if ! command -v pg_config >/dev/null || ! test -x "$(pg_config --bindir)/postgres"; then
+            sudo apt-get update
+            sudo apt-get install --no-install-recommends -y postgresql
+          fi
+          pg_bin="$(pg_config --bindir)"
+          test -x "$pg_bin/initdb" && test -x "$pg_bin/postgres"
+          "$pg_bin/postgres" --version | tee evidence/postgres.log
+          echo "PG_BIN=$pg_bin" >> "$GITHUB_ENV"
+          python -m pip install -r tools/requirements-test.txt
+      - name: Build one ReleaseFast RAMSQL binary
+        run: |
+          set -euo pipefail
+          "$SIG" build -Doptimize=ReleaseFast -j2 --Sig-lib-dir "$SIG_LIB_DIR" 2>&1 | tee evidence/build.log
+          sha256sum sig-out/bin/ramsql | tee evidence/binary-sha256.log
+          sig-out/bin/ramsql --capabilities --workers 4 | tee evidence/capabilities.json
+      - name: Qualify native readiness and session ownership against exact ZPM
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/zpm-source"
+          tar -xzf "$RUNNER_TEMP/zpm.tar.gz" -C "$RUNNER_TEMP/zpm-source" --strip-components=1
+          zpm="$RUNNER_TEMP/zpm-source"
+          "$SIG" build-exe -OReleaseSafe --Sig-lib-dir "$SIG_LIB_DIR" "-femit-bin=$RUNNER_TEMP/tcp-contract" \
+            --dep tcp_server "-Mroot=$zpm/tests/test_tcp_server.sig" \
+            "-Mtcp_server=$zpm/src/platform/tcp_server.sig" 2>&1 | tee evidence/tcp-build.log
+          "$RUNNER_TEMP/tcp-contract" 2>&1 | tee evidence/tcp-contract.log
+          grep -F '{"suite":"tcp_server","pass":true' evidence/tcp-contract.log
+          "$SIG" build-exe -OReleaseSafe --Sig-lib-dir "$SIG_LIB_DIR" "-femit-bin=$RUNNER_TEMP/store-contract" \
+            --dep sql --dep db_store "-Mroot=$zpm/tests/test_db_store.sig" "-Msql=$zpm/src/core/sql.sig" \
+            "-Mdb_store=$zpm/src/db/store.sig" 2>&1 | tee evidence/store-build.log
+          "$RUNNER_TEMP/store-contract" 2>&1 | tee evidence/store-contract.log
+          grep -E '^store: [1-9][0-9]+ assertions passed$' evidence/store-contract.log
+      - name: Require actual native WAL failure and wire behaviour on this binary
+        run: |
+          set -euo pipefail
+          python tools/test_group_commit.py --binary sig-out/bin/ramsql --strace "$(command -v strace)" \
+            --work-dir "$RUNNER_TEMP/socket-contract" --output evidence/sockets 2>&1 | tee evidence/sockets.log
+      - name: Measure matched synchronous transactions and same-table fallback
+        run: |
+          set -euo pipefail
+          python tools/benchmark_group_commit.py --binary sig-out/bin/ramsql --postgres-bin "$PG_BIN" \
+            --strace "$(command -v strace)" --work-dir "$RUNNER_TEMP/benchmark-group-commit" \
+            --output evidence/benchmark/group-commit.json 2>&1 | tee evidence/benchmark.log
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+          data = json.loads(Path('evidence/benchmark/group-commit.json').read_text())
+          print('## Matched durable explicit transactions\n')
+          print('Throughput is the median of three repeated trials. Each transaction performs one UPDATE.\n')
+          print('| Workload | Clients | PostgreSQL tx/s | RAMSQL off tx/s | RAMSQL on tx/s | Off COMMIT p95 µs | On COMMIT p95 µs | Targets met |')
+          print('|---|---:|---:|---:|---:|---:|---:|---|')
+          for row in data['summary']:
+              pg, off, on = (row['engines'][key] for key in ('postgres', 'ramsql_disabled', 'ramsql_enabled'))
+              targets = 'yes' if all(row['provisional_targets'].values()) else 'no'
+              print(f"| {row['shape']} | {row['clients']} | {pg['median_transactions_per_second']:.1f} | "
+                    f"{off['median_transactions_per_second']:.1f} | {on['median_transactions_per_second']:.1f} | "
+                    f"{off['median_commit_p95_us']:.1f} | {on['median_commit_p95_us']:.1f} | {targets} |")
+          print('\nThe artifact includes every trial, p99 results, raw latency samples and separate syscall counts.')
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: matched-durable-group-commit
+          path: evidence/
+          if-no-files-found: error
