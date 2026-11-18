@@ -52,13 +52,14 @@ def scalar(pg, source, status=b"I"):
     return row[6:].decode()
 
 
-def expect_fatal(pg, started):
+def expect_fatal(pg, started, code=b"25P03", maximum=5):
     message = pg.message()
     error, = errors([message])
-    assert error[b"C"] == b"25P03" and error[b"V"] == b"FATAL", error
-    assert error[b"M"] == b"terminating connection due to idle-in-transaction timeout", error
+    assert error[b"C"] == code and error[b"V"] == b"FATAL", error
+    reason = b"idle-in-transaction timeout" if code == b"25P03" else b"transaction timeout"
+    assert error[b"M"] == b"terminating connection due to " + reason, error
     elapsed = time.monotonic() - started
-    assert INTERVAL / 2 < elapsed < 5, elapsed
+    assert INTERVAL / 2 < elapsed < maximum, elapsed
     try:
         pg.message()
     except (EOFError, ConnectionResetError):

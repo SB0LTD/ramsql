@@ -130,6 +130,8 @@ jobs:
           [int[]]$workers = if ($env:RUNNER_OS -eq 'macOS') { @(1) } else { @(1, 4) }
           python tools/test_pg_idle_transaction.py --binary $binary --report sig-out/idle-transaction.json --workers @workers
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/test_pg_transaction_timeout.py --binary $binary --report sig-out/transaction-timeout.json --workers @workers
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Install independent database clients for tests
         run: python -m pip install -r tools/requirements-test.txt

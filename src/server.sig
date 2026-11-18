@@ -287,9 +287,19 @@ const Client = struct {
         self.state.store(if (parallel and active) 3 else 0, .release);
     }
 
-    fn expireIdleTransaction(self: *Client, now: i64) void {
-        const deadline = self.idle_transaction_deadline orelse return;
+    fn sessionDeadline(self: *const Client) ?i64 {
+        if (self.protocol != .postgres or self.connection.blocked() or self.closing) return null;
+        // Like PostgreSQL, a COPY socket read defers ordinary transaction
+        // timeout delivery until input or a parked COPY row resumes.
+        const transaction = if (self.session.postgres.waitingForCopyInput()) null else self.connection.transactionDeadline();
+        const idle = self.idle_transaction_deadline orelse return transaction;
+        return if (transaction) |at| @min(at, idle) else idle;
+    }
+
+    fn expireSessionTimeout(self: *Client, now: i64) void {
+        const deadline = self.sessionDeadline() orelse return;
         if (now < deadline) return;
+        const transaction_expired = self.connection.transactionDeadline() == deadline;
         self.idle_transaction_deadline = null;
         self.closing = true;
         self.touched = now;
@@ -297,8 +307,7 @@ const Client = struct {
         lockStore();
         // Release the transaction immediately, even if the peer has not yet
         // drained its earlier response or stops reading after the timeout.
-        self.connection.disconnect();
-        self.connection.id = 0;
+        self.connection.terminateTimedOut();
         unlockStore();
         if (self.output_sent != 0) {
             const unsent = self.output[self.output_sent..self.output_len];
@@ -306,7 +315,8 @@ const Client = struct {
             self.output_len = unsent.len;
             self.output_sent = 0;
         }
-        const written = pg.idleTransactionTimeoutError(self.output[self.output_len..]) catch {
+        const response = self.output[self.output_len..];
+        const written = (if (transaction_expired) pg.transactionTimeoutError(response) else pg.idleTransactionTimeoutError(response)) catch {
             self.close();
             return;
         };
@@ -466,7 +476,7 @@ const Client = struct {
     fn serve(self: *Client) bool {
         var frames: usize = 0;
         while (frames < 32) : (frames += 1) {
-            if (self.idle_transaction_deadline != null) self.expireIdleTransaction(monotonicClock());
+            if (self.sessionDeadline() != null) self.expireSessionTimeout(monotonicClock());
             if (self.socket == tcp.invalid_socket) return false;
             const before = self.input_len;
             self.dispatch() catch {
@@ -944,13 +954,13 @@ const Reactor = struct {
             while (slot < clients.len) : (slot += reactor_count) {
                 const client = &clients[slot];
                 if (client.state.load(.acquire) != 2) continue;
-                client.expireIdleTransaction(now);
+                client.expireSessionTimeout(now);
                 if (client.state.load(.acquire) != 2) continue;
                 if (client.blocked) client.touched = now;
                 if (now-client.touched >= @as(i64,self.idle_ms)*1000000) { client.close(); continue; }
                 if (client.serve()) buffered = true;
                 if (client.state.load(.acquire) != 2) continue;
-                if (client.idle_transaction_deadline) |due| poll_timeout_ms = deadlinePollMs(monotonicClock(), due, poll_timeout_ms);
+                if (client.sessionDeadline()) |due| poll_timeout_ms = deadlinePollMs(monotonicClock(), due, poll_timeout_ms);
                 sockets[slot] = client.socket;
                 readable[slot] = client.output_len == 0 and client.input_len < client.input.len;
                 writable[slot] = client.output_len != 0;
@@ -1571,7 +1581,7 @@ pub fn run(requested: Options) !void {
         }
         for (clients[0..options.max_clients], 0..) |*client, index| {
             if (client.socket == tcp.invalid_socket) continue;
-            client.expireIdleTransaction(now);
+            client.expireSessionTimeout(now);
             if (client.socket == tcp.invalid_socket) continue;
             // The idle timeout does not apply while a statement waits.
             if (client.blocked) client.touched = now;
@@ -1595,7 +1605,7 @@ pub fn run(requested: Options) !void {
         for (&overflow_cancels) |*pending| if (pending.socket != tcp.invalid_socket) { timeout = @min(timeout,10); break; };
         for (clients[0..options.max_clients]) |*client| {
             if (client.socket == tcp.invalid_socket) continue;
-            if (client.idle_transaction_deadline) |due| timeout = deadlinePollMs(poll_now, due, timeout);
+            if (client.sessionDeadline()) |due| timeout = deadlinePollMs(poll_now, due, timeout);
             if (!client.blocked) continue;
             if (client.connection.wakeReady()) {
                 timeout = 0;

@@ -52,6 +52,15 @@ A nonzero value starts after `ReadyForQuery` in an open or failed transaction
 block. Expiry rolls the transaction back, releases its locks, sends fatal
 SQLSTATE `25P03`, and closes the connection. Running and lock-waiting statements
 use their own limits. `--idle-ms` remains a separate server-side socket limit.
+
+PostgreSQL `transaction_timeout` starts at the beginning of an explicit or
+implicit engine transaction. It runs during execution, lock waits and time
+between statements, and expires with fatal SQLSTATE `25P04`. Zero disables
+the timer. A positive-to-positive change preserves an armed deadline. COPY
+input checks a pending expiration when input resumes. The extended protocol
+currently publishes autocommit at Execute. A shared implicit transaction
+across Parse, Bind, Execute and Sync requires separate compatibility work.
+
 PG cancellation is tested. TDS ATTENTION acknowledges an idle protocol request;
 it is not a general asynchronous running-query cancellation implementation.
 
