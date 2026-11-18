@@ -834,8 +834,10 @@ def test_integral_version_banks(binary):
 def test_completion_retirement(binary):
     with Server(binary, idle_ms=400, max_clients=2) as server:
         descriptors = Path(f"/proc/{server.process.pid}/fd")
-        rings = sum(os.readlink(fd) == "anon_inode:[io_uring]" for fd in descriptors.iterdir())
+        kinds = [os.readlink(fd) for fd in descriptors.iterdir()]
+        rings = kinds.count("anon_inode:[io_uring]")
         check(rings == 2, f"expected one completion ring per worker, found {rings}")
+        check(kinds.count("anon_inode:[eventfd]") >= 2, "missing per-worker kernel wake descriptors")
         for _ in range(3):
             with connection(server) as first, connection(server) as second:
                 first.ok("SELECT 41", [["41"]])

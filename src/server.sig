@@ -596,7 +596,7 @@ fn cancelBackend(key: pg.Cancel) void {
         const wanted = (@as(u64, key.secret) << 1) | 1;
         if (target.cancel_key.load(.acquire) != wanted) return;
         target.cancel_request.store(wanted, .release);
-        for (&reactors) |*reactor| reactor.signal.notify();
+        for (&reactors) |*reactor| reactor.notify();
         return;
     }
     if (target.socket == tcp.invalid_socket or target.protocol != .postgres) return;
@@ -838,7 +838,7 @@ fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial:
     };
     if (protocol == .postgres) client.cancel_key.store((@as(u64, client.cancel_secret) << 1) | 1, .release);
     client.state.store(2, .release);
-    if (parallel) reactors[slot % reactor_count].signal.notify();
+    if (parallel) reactors[slot % reactor_count].notify();
 }
 
 const max_reactors = capacity;
@@ -864,12 +864,40 @@ const Reactor = struct {
     idle_ms: u32 = 30000,
     completion: if (tcp_completion.available) ?CompletionQueue else void = if (tcp_completion.available) null else {},
     try_timed_completion: bool = true,
+    wake_fd: tcp.Socket = tcp.invalid_socket,
     retiring: [capacity]bool = @splat(false),
     wait_socket: [capacity]bool = @splat(false),
 
+    fn notify(self: *Reactor) void {
+        self.signal.notify();
+        if (comptime tcp_completion.available) {
+            if (self.wake_fd == tcp.invalid_socket) return;
+            const one: u64 = 1;
+            // EAGAIN means the descriptor is already readable. Any other
+            // inability to signal still has the timed maintenance deadline.
+            _ = std.os.linux.write(self.wake_fd, @ptrCast(&one), @sizeOf(u64));
+        }
+    }
+
+    fn consumeWake(self: *Reactor, queue: *CompletionQueue) !void {
+        const linux = std.os.linux;
+        var count: u64 = undefined;
+        for (0..8) |_| {
+            const got = linux.read(self.wake_fd, @ptrCast(&count), @sizeOf(u64));
+            switch (linux.errno(got)) {
+                .SUCCESS => if (got != @sizeOf(u64)) return error.InvalidTcpWakeSignal,
+                .AGAIN => break,
+                .INTR => continue,
+                else => return error.InvalidTcpWakeSignal,
+            }
+        }
+        if (!try queue.armWake(self.wake_fd)) return error.InvalidTcpWakeSignal;
+    }
+
     fn drainCompletions(queue: *CompletionQueue) void {
         if (comptime !tcp_completion.available) unreachable;
-        var pending = false;
+        var pending = queue.wakePending();
+        if (pending) _ = queue.cancelWake() catch @panic("cannot cancel live TCP wake");
         for (0..clients.len) |slot| {
             if (queue.reusable(slot)) continue;
             pending = true;
@@ -878,10 +906,10 @@ const Reactor = struct {
         if (!pending) return;
         _ = queue.submit() catch @panic("cannot submit TCP completion retirement");
         while (true) {
-            var raw: [2 * capacity]std.os.linux.io_uring_cqe = undefined;
-            var events: [2 * capacity]tcp_completion.Completion = undefined;
+            var raw: [2 * capacity + 2]std.os.linux.io_uring_cqe = undefined;
+            var events: [2 * capacity + 2]tcp_completion.Completion = undefined;
             _ = queue.complete(&raw, &events, true) catch @panic("cannot drain TCP completion ownership");
-            pending = false;
+            pending = queue.wakePending();
             for (0..clients.len) |slot| pending = pending or !queue.reusable(slot);
             if (!pending) return;
         }
@@ -889,10 +917,15 @@ const Reactor = struct {
 
     fn completionReady(self: *Reactor, queue: *CompletionQueue) !void {
         if (comptime !tcp_completion.available) unreachable;
-        var raw: [2 * capacity]std.os.linux.io_uring_cqe = undefined;
-        var events: [2 * capacity]tcp_completion.Completion = undefined;
+        var raw: [2 * capacity + 2]std.os.linux.io_uring_cqe = undefined;
+        var events: [2 * capacity + 2]tcp_completion.Completion = undefined;
         const count = try queue.complete(&raw, &events, false);
         for (events[0..count]) |event| {
+            if (event.operation == .wake) {
+                if (event.outcome != .notified) return error.InvalidTcpWakeSignal;
+                try self.consumeWake(queue);
+                continue;
+            }
             const client = &clients[event.slot];
             if (self.retiring[event.slot]) continue;
             switch (event.outcome) {
@@ -908,7 +941,7 @@ const Reactor = struct {
                 },
                 .retry => self.wait_socket[event.slot] = true,
                 .eof, .failed, .canceled => client.close(),
-                .cancel_accepted, .cancel_raced => return error.UnexpectedTcpCancellation,
+                .cancel_accepted, .cancel_raced, .notified => return error.UnexpectedTcpCancellation,
             }
         }
         for (self.retiring[0..clients.len], 0..) |retiring, slot| {
@@ -929,7 +962,7 @@ const Reactor = struct {
         self.run() catch {
             reactor_failed.store(true, .release);
             reactor_stop.store(true, .release);
-            for (&reactors) |*reactor| reactor.signal.notify();
+            for (&reactors) |*reactor| reactor.notify();
         };
     }
 
@@ -937,6 +970,9 @@ const Reactor = struct {
         defer self.reader.close();
         defer if (comptime tcp_completion.available) {
             if (self.completion) |*queue| drainCompletions(queue);
+        };
+        if (comptime tcp_completion.available) if (self.completion) |*queue| {
+            if (self.wake_fd != tcp.invalid_socket and !try queue.armWake(self.wake_fd)) return error.InvalidTcpWakeSignal;
         };
         while (!reactor_stop.load(.acquire)) {
             const epoch = self.signal.epoch.load(.acquire);
@@ -1092,6 +1128,10 @@ fn releaseTcpCompletions(workers: usize) void {
     if (comptime tcp_completion.available) for (reactors[0..workers]) |*reactor| {
         if (reactor.completion) |*queue| queue.deinit() catch @panic("lost TCP completion ownership");
         reactor.completion = null;
+        if (reactor.wake_fd != tcp.invalid_socket) {
+            _ = std.os.linux.close(reactor.wake_fd);
+            reactor.wake_fd = tcp.invalid_socket;
+        }
     };
 }
 
@@ -1103,6 +1143,11 @@ fn initializeTcpCompletions(options: Options) bool {
             releaseTcpCompletions(index);
             return false;
         };
+        if (reactor.completion.?.wake_supported) {
+            const linux = std.os.linux;
+            const wake = linux.eventfd(0, linux.EFD.NONBLOCK | linux.EFD.CLOEXEC);
+            if (linux.errno(wake) == .SUCCESS) reactor.wake_fd = @intCast(wake);
+        }
     }
     return true;
 }
@@ -1113,7 +1158,7 @@ fn runParallel(options: Options, listeners: []const tcp.Socket, protocols: []con
     var started: usize = 0;
     defer {
         reactor_stop.store(true, .release);
-        for (reactors[0..started]) |*reactor| reactor.signal.notify();
+        for (reactors[0..started]) |*reactor| reactor.notify();
         for (reactors[0..started]) |*reactor| reactor.thread.join() catch @panic("cannot release live reactor ownership");
     }
     for (reactors[0..reactor_count]) |*reactor| {
