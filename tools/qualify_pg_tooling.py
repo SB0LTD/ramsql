@@ -118,6 +118,19 @@ def statistics(client, connection, label, statistics_sql, relation_oid):
 
 def publications(client, connection, label, publication_sql):
     empty = psql(client, connection, label + '-no-publications', '-At', '-c', publication_sql)
+    if empty.returncode:
+        branches = re.split(r'^UNION\s*$', publication_sql, flags=re.M)
+        for index, branch in enumerate(branches):
+            result = psql(client, connection, f'{label}-publication-branch-{index}', '-At', '-c', branch)
+            print(f'{label} publication branch {index}: {result.returncode} {result.stderr.strip()}')
+        for index, source in enumerate((
+            "SELECT s FROM pg_catalog.generate_series(0,pg_catalog.array_upper(NULL::pg_catalog.int2[],1)) s",
+            "SELECT pr.prattrs[s] FROM pg_catalog.pg_publication_rel pr, pg_catalog.generate_series(0,pg_catalog.array_upper(pr.prattrs::pg_catalog.int2[],1)) s",
+            "SELECT (SELECT string_agg(attname, ', ') FROM pg_catalog.generate_series(0,pg_catalog.array_upper(pr.prattrs::pg_catalog.int2[],1)) s, pg_catalog.pg_attribute WHERE attrelid=pr.prrelid AND attnum=prattrs[s]) FROM pg_catalog.pg_publication_rel pr",
+            "SELECT pubname,NULL,NULL FROM pg_catalog.pg_publication UNION SELECT pubname,pg_get_expr(prqual,prrelid),NULL FROM pg_catalog.pg_publication p JOIN pg_catalog.pg_publication_rel pr ON p.oid=prpubid ORDER BY 1",
+        )):
+            result = psql(client, connection, f'{label}-publication-component-{index}', '-At', '-c', source)
+            print(f'{label} publication component {index}: {result.returncode} {result.stderr.strip()}')
     check(empty)
     assert empty.stdout == '', empty.stdout
     for index, definition in enumerate(TOOLING_PUBLICATIONS):
