@@ -49,7 +49,8 @@ def main():
     assert caps['postgres_scram_catalog_roles'] is True and caps['postgres_scram_credential_limit'] == 512
     assert caps['sql_execution_workers']==1 and caps['exclusive_sql_workers']==1
     assert caps['parallel_simple_reads'] is False
-    cache_fields = ('read_cache_bytes', 'read_cache_region_bytes', 'read_cache_entries', 'read_cache_rows_per_entry')
+    cache_fields = ('read_cache_bytes', 'read_cache_region_bytes', 'read_cache_entries', 'read_cache_rows_per_entry',
+                    'read_cache_projected_bytes', 'read_cache_projected_entries', 'read_cache_projected_rows_per_entry')
     assert all(caps[field] == 0 for field in cache_fields)
     cache_limit = 8 * 1024 * 1024
     cache_flags = ['--read-cache-bytes', str(cache_limit)]
@@ -72,6 +73,20 @@ def main():
         assert all(cached_plan[field] == cached[field] for field in cache_fields)
         assert cached_plan['legacy_startup_bytes'] - baseline_plan['legacy_startup_bytes'] == cached['read_cache_bytes']
         assert cached_plan['startup_region_bytes'] - baseline_plan['startup_region_bytes'] == charged
+        assert cached['read_cache_projected_entries'] == 0
+        large = ['--workers', '2', '--max-clients', '2', '--result-rows', '2048',
+                 '--table-rows', ','.join(['65536'] + ['1'] * (caps['tables'] - 1)),
+                 '--table-versions', ','.join(['131072'] + ['2'] * (caps['tables'] - 1))]
+        large_budget = 256 * 1024 * 1024
+        large_flags = ['--read-cache-bytes', str(large_budget)]
+        medium = json.loads(run(['--capabilities', *large, *large_flags]).stdout)
+        assert 0 < medium['read_cache_projected_bytes'] <= large_budget // 8
+        assert medium['read_cache_projected_entries'] >= 8
+        assert medium['read_cache_projected_rows_per_entry'] == 2048
+        assert medium['read_cache_rows_per_entry'] == 128
+        assert medium['read_cache_bytes'] <= large_budget
+        medium_plan = json.loads(run(['--machine-capacity', *large, *large_flags]).stdout)
+        assert all(medium_plan[field] == medium[field] for field in cache_fields)
     with tempfile.TemporaryDirectory(prefix='ramsql-cache-scope-') as directory:
         wal = Path(directory) / 'must-not-be-created.wal'
         rejected = run(['--serve', '--database-cluster', '--workers', '1', '--insecure-local',
