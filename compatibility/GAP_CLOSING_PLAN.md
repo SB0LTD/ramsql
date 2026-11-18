@@ -1092,14 +1092,27 @@ existing WAL format. [Anchor PR](https://github.com/SB0LTD/zpm/pull/219) ·
 [Writer-lock tests](https://github.com/SB0LTD/zpm/actions/runs/44191670373)
 
 The streaming envelope binds length, database and generation identity, WAL
-sequence and SQL commit number to a BLAKE3 seal. The one-table logical image
-restores committed OIDs, RowIDs, allocation counters and SQL commit number
-from dense or packed storage. A normal WAL update/delete/insert suffix
-continued after both restores on Windows and Linux. Expand the codec to
-multiple tables and the full catalog, then prove generation publication and
-retirement under injected failures.
+sequence and SQL commit number to a BLAKE3 seal. The logical image restores
+multiple committed base tables, their OIDs and RowIDs, allocation counters and
+SQL commit number into caller-owned dense and packed banks. The ZPM native
+harness proves atomic manifest selection and verifies the selected generation
+before resuming a normal WAL suffix.
 [Snapshot envelope](https://github.com/SB0LTD/zpm/pull/230) ·
-[Single-table image and suffix](https://github.com/SB0LTD/zpm/pull/232)
+[Selected generation proof](https://github.com/SB0LTD/zpm/actions/runs/44222268377)
+
+The RAMSQL startup experiment holds the stable writer lock, verifies the
+trusted database identity, manifest and sealed image, then installs the
+production WAL commit hook after replay. Its native fixture commits updates
+and inserts into separate typed and dense tables, recovers them after reopen,
+and verifies torn-tail repair. A foreign manifest, absent image and mismatched
+WAL anchor all fail before the staged store becomes available. Ordinary WAL
+and backup tests run alongside this contract.
+[Exact product proof](https://github.com/SB0LTD/ramsql/actions/runs/44234918499)
+
+Public startup still uses the original WAL. Checkpoint rollout requires a
+durable standalone identity, one stable lock shared across legacy and
+generation opens, full catalog and prepared-transaction coverage, and product
+publication and retirement tests for interrupted transitions.
 
 - [ ] Write a complete validated snapshot with a durable sequence anchor.
 - [ ] Publish it atomically, persist directory changes, then retire only log segments the checkpoint safely covers.
