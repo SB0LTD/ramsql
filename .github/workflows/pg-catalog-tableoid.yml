@@ -2,7 +2,7 @@ name: Native PostgreSQL schema CREATE and ownership
 
 on:
   push:
-    branches: [ci/pg-schema-create-authority-20261118]
+    branches: [ci/qualified-main-private-schema-create-20261118]
   workflow_dispatch:
 
 permissions:
@@ -21,10 +21,10 @@ jobs:
       run:
         shell: pwsh
     env:
-      PRODUCT_REVISION: 44321c1dd3c2439751a46adbbe6d2ed31a013768
-      PRODUCT_SHA256: a272afd672249bcb06dfbf988c2b782a9786a2f7cd7a96cfc100226fe3ae7e60
-      ZPM_REVISION: 66ad59d3c68abdf71d5bfaaff4f071277ccaa23d
-      ZPM_SHA256: 2da090fcbab471a36852d41ebc8016d48a00a7cef66f8dd69c75ceb1925519b6
+      PRODUCT_REVISION: 9ab6aa53cfc855a959c4d084aa5f25de2089e849
+      PRODUCT_SHA256: 892a46e70daae9c25c10be997bd9f489fb67772b92ebd702e81c445f0700884f
+      ZPM_REVISION: 724fbf97498d5ba8c2a7a3b206409ca64458a62b
+      ZPM_SHA256: e47cd88c9349500f988eea470b49a1bc0aac83bc97708b263d384652bb1524f9
     steps:
       - uses: actions/checkout@v4
         with:
