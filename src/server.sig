@@ -466,7 +466,7 @@ const Client = struct {
             self.pullTls(transport) catch { self.close(); return false; };
             if (!transport.established()) {
                 self.flush() catch self.close();
-                return false;
+                return self.socket != tcp.invalid_socket and transport.more and !transport.needsWrite();
             }
         }
         var frames: usize = 0;
