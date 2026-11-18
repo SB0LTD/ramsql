@@ -61,7 +61,10 @@ def probe(port, user, database):
         assert [name for name, _ in row(pg, "SELECT x.* FROM pg_extension x")[0]] == [
             "oid", "extname", "extowner", "extnamespace", "extrelocatable", "extversion", "extconfig", "extcondition",
         ]
-        sql(pg, "SELECT tableoid FROM pg_extension x CROSS JOIN pg_namespace n", error=b"42702")
+        sql(pg, "SELECT tableoid FROM pg_extension x CROSS JOIN pg_namespace n", error=b"42703")
+        sql(pg, "SELECT tableoid FROM pg_extension x, pg_namespace n", error=b"42702")
+        assert scalar(pg, "SELECT x.tableoid FROM pg_extension x JOIN (SELECT 1) q ON tableoid = 3079::oid") == catalog_oid
+        assert scalar(pg, "SELECT tableoid FROM pg_extension x, (SELECT 1) a CROSS JOIN (SELECT 2) b") == catalog_oid
         sql(pg, "SELECT tableoid, count(*) FROM pg_extension", error=b"42803")
         sql(pg, "SELECT tableoid FROM pg_settings", error=b"42703")
         sql(pg, "SELECT v.tableoid FROM (SELECT oid FROM pg_extension) v", error=b"42703")
