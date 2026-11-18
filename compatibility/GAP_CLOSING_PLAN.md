@@ -2,6 +2,25 @@
 
 ## 18 November 2026 qualification checkpoint
 
+The consolidated `1b1a3e747dc4fb1c093ee93911ce453a380c33d8` revision matched all
+118 native inventory programs again and all 331 PostgreSQL 18.3 durable SCRAM
+cases. The Windows packed build passed 16 two-worker wire cases, 8,598
+authentication assertions and 83 persistence cases. The Linux build recovered
+the same 100M-row fixture from its 6.77 GB synchronous WAL in 139.066 seconds.
+It reproduced the original results before and after restart and held peak RSS
+to 13.384 GB during recovery. [SQL Server evidence](https://github.com/benor1470/dbMeter/actions/runs/44196211165) ·
+[100M evidence](https://github.com/benor1470/dbMeter/actions/runs/44196210578) ·
+[Consolidated matrix](https://github.com/SB0LTD/ramsql/actions/runs/44195561261)
+
+Hosted isolation exposed two reads that bypassed the lock for an uncommitted
+DROP TABLE. `da0b68f1cf3cd6f64d2de2464f9d645b68fb1c31` routes reads through
+the lock queue when an AccessExclusive owner or waiter is present. The Windows
+build matched all 46 native PostgreSQL 18.3 durable isolation schedules and
+passed 17 two-worker wire cases with 4,539 assertions. The test covers waiting
+behind queued DDL, rollback restoring visibility and prepared reads returning
+`42P01` after committed DROP. [Table-lock change](https://github.com/SB0LTD/zpm/pull/223) ·
+[Replacement release matrix](https://github.com/SB0LTD/ramsql/actions/runs/44202780430)
+
 RAMSQL `0af167b420edd605597bf5bb7c25dc0fc9483136` with ZPM
 `aa0250509ebb1befb9d9864bd98581f7e695f970` matched all 118 original wire
 inventory programs. PostgreSQL 18.3 matched all 106 with durable cluster mode
@@ -34,8 +53,8 @@ the temporal resolver routing and cluster-wide prepared-transaction semantics.
 
 The original full and subset sales mixes both matched their correctness and
 capacity gates on `0af167b`. RAMSQL reached 1.75× and 1.70× IRDB throughput
-at eight clients and was slightly slower at one. The size matrix is still
-running for this revision. An independent same-binary helper comparison lost
+at eight clients and was slightly slower at one. The completed campaign passed
+six of sixteen performance cases. An independent same-binary helper comparison lost
 throughput in every Q3 trial with a dedicated fourth CPU and one query helper.
 [Sales suites](https://github.com/benor1470/dbMeter/actions/runs/44187617545) ·
 [Query helper comparison](https://github.com/benor1470/dbMeter/actions/runs/44187730700)
@@ -47,6 +66,11 @@ and from 138.01 to 17,633.45 queries/s at eight. Eight-client p99 moved from
 174.079 ms to 8.575 ms. Cross-engine performance under that exact configured
 profile requires its own full campaign, including the original key cases.
 [Paired cache benchmark](https://github.com/benor1470/dbMeter/actions/runs/44188527666)
+
+One-pass shared-storage range validation improved prepared point lookups in
+each of 24 original JDBC trials across 100K and 1M rows. Paired throughput
+gains were 6.7–9.1% at one client and 15.1–16.5% at eight. Median p99 improved
+in all four cases. [Lookup A/B](https://github.com/benor1470/dbMeter/actions/runs/44192112939)
 
 ## 17 November 2026 qualification checkpoint
 
