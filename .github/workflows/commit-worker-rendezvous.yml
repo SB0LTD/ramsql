@@ -61,7 +61,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/test_server.py --binary sig-out/bin/ramsql --workers 2 2>&1 | tee evidence/ordinary-wire.log
-          python3 tools/test_persistence.py --binary sig-out/bin/ramsql --workers 2 2>&1 | tee evidence/ordinary-persistence.log
+          python3 tools/test_persistence.py --binary sig-out/bin/ramsql 2>&1 | tee evidence/ordinary-persistence.log
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
