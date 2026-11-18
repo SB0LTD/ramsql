@@ -124,6 +124,13 @@ jobs:
       - name: Test TCP framing, fairness, limits and session cleanup
         run: python tools/test_server.py
 
+      - name: Test PostgreSQL idle transaction expiry and lock release
+        run: |
+          $binary = if ($env:RUNNER_OS -eq 'Windows') { 'sig-out/bin/ramsql.exe' } else { 'sig-out/bin/ramsql' }
+          [int[]]$workers = if ($env:RUNNER_OS -eq 'macOS') { @(1) } else { @(1, 4) }
+          python tools/test_pg_idle_transaction.py --binary $binary --report sig-out/idle-transaction.json --workers @workers
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Install independent database clients for tests
         run: python -m pip install -r tools/requirements-test.txt
 

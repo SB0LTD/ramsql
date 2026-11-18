@@ -46,6 +46,12 @@ authentication. Bind addresses are loopback only; TLS is not available.
 Use client connect/query timeouts. `--idle-ms` expires idle sessions, with special
 treatment for parked lock waits. `--max-query-work` limits execution checkpoints;
 it is distinct from SQL `statement_timeout`, `lock_timeout` and deadlock checks.
+PostgreSQL `idle_in_transaction_session_timeout` is a session setting in
+milliseconds. It defaults to zero and supports `SET LOCAL`, `SHOW` and `RESET`.
+A nonzero value starts after `ReadyForQuery` in an open or failed transaction
+block. Expiry rolls the transaction back, releases its locks, sends fatal
+SQLSTATE `25P03`, and closes the connection. Running and lock-waiting statements
+use their own limits. `--idle-ms` remains a separate server-side socket limit.
 PG cancellation is tested. TDS ATTENTION acknowledges an idle protocol request;
 it is not a general asynchronous running-query cancellation implementation.
 

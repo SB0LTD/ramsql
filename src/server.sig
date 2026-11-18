@@ -231,6 +231,7 @@ const Client = struct {
     database_binding: ?ClusterRegistry.Binding = null,
     reader:?*Reader=null,
     read_deadline:?i64=null,
+    idle_transaction_deadline: ?i64 = null,
     output_len: usize = 0,
     output_sent: usize = 0,
     closing: bool = false,
@@ -280,9 +281,36 @@ const Client = struct {
         self.output = &.{};
         self.socket = tcp.invalid_socket;
         self.blocked = false;
+        self.idle_transaction_deadline = null;
         // The owner publishes a closed slot as free on its next iteration,
         // after callers of close have stopped inspecting the old connection.
         self.state.store(if (parallel and active) 3 else 0, .release);
+    }
+
+    fn expireIdleTransaction(self: *Client, now: i64) void {
+        const deadline = self.idle_transaction_deadline orelse return;
+        if (now < deadline) return;
+        self.idle_transaction_deadline = null;
+        self.closing = true;
+        self.touched = now;
+        self.cancel_key.store(0, .release);
+        lockStore();
+        // Release the transaction immediately, even if the peer has not yet
+        // drained its earlier response or stops reading after the timeout.
+        self.connection.disconnect();
+        self.connection.id = 0;
+        unlockStore();
+        if (self.output_sent != 0) {
+            const unsent = self.output[self.output_sent..self.output_len];
+            std.mem.copyForwards(u8, self.output, unsent);
+            self.output_len = unsent.len;
+            self.output_sent = 0;
+        }
+        const written = pg.idleTransactionTimeoutError(self.output[self.output_len..]) catch {
+            self.close();
+            return;
+        };
+        self.output_len += written;
     }
 
     fn dispatch(self: *Client) !void {
@@ -327,6 +355,11 @@ const Client = struct {
         };
         notification_sequence.store(store.database.notificationSequence(), .release);
         if (reply.consumed > self.input_len or reply.written > output.len) return error.InvalidReply;
+        if (self.protocol == .postgres and (reply.consumed != 0 or reply.blocked)) {
+            const timeout = self.session.postgres.idleTransactionTimeout(&self.connection);
+            self.idle_transaction_deadline = if (reply.close or timeout == 0) null else
+                monotonicClock() +| (@as(i64, timeout) * 1000000);
+        }
         if (reply.blocked) {
             // Only a parked COPY row consumes input (through that row).
             if (reply.written != 0 or !self.connection.blocked() or (reply.consumed != 0 and !self.connection.copyBlocked())) return error.InvalidReply;
@@ -433,6 +466,8 @@ const Client = struct {
     fn serve(self: *Client) bool {
         var frames: usize = 0;
         while (frames < 32) : (frames += 1) {
+            if (self.idle_transaction_deadline != null) self.expireIdleTransaction(monotonicClock());
+            if (self.socket == tcp.invalid_socket) return false;
             const before = self.input_len;
             self.dispatch() catch {
                 self.close();
@@ -595,6 +630,11 @@ fn cancelBackend(key: pg.Cancel) void {
 
 fn monotonicClock() i64 {
     return sig.os.clockMonotonicNs();
+}
+
+fn deadlinePollMs(now: i64, due: i64, ceiling: u32) u32 {
+    if (due <= now) return 0;
+    return @intCast(@min(@divFloor((due -| now) +| 999999, 1000000), ceiling));
 }
 
 var interrupt_listener: tcp.Socket = tcp.invalid_socket;
@@ -767,6 +807,7 @@ fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial:
     client.database_binding = null;
     client.notify_seen = 0;
     client.reader=if(parallel) &reactors[slot % reactor_count].reader else null;client.read_deadline=null;
+    client.idle_transaction_deadline = null;
     client.output = &.{};
     client.blocked = false;
     client.connection = .{ .store = &store, .id = next_id };
@@ -869,6 +910,7 @@ const Reactor = struct {
             var writable: [capacity]bool = @splat(false);
             var active: usize = 0;
             var buffered = false;
+            var poll_timeout_ms: u32 = 10;
             const now = sig.os.clockMonotonicNs();
             // Shared store state, timers and cancellation are read only while
             // holding the same mutex used for execution and disconnection.
@@ -902,10 +944,13 @@ const Reactor = struct {
             while (slot < clients.len) : (slot += reactor_count) {
                 const client = &clients[slot];
                 if (client.state.load(.acquire) != 2) continue;
+                client.expireIdleTransaction(now);
+                if (client.state.load(.acquire) != 2) continue;
                 if (client.blocked) client.touched = now;
                 if (now-client.touched >= @as(i64,self.idle_ms)*1000000) { client.close(); continue; }
                 if (client.serve()) buffered = true;
                 if (client.state.load(.acquire) != 2) continue;
+                if (client.idle_transaction_deadline) |due| poll_timeout_ms = deadlinePollMs(monotonicClock(), due, poll_timeout_ms);
                 sockets[slot] = client.socket;
                 readable[slot] = client.output_len == 0 and client.input_len < client.input.len;
                 writable[slot] = client.output_len != 0;
@@ -914,7 +959,7 @@ const Reactor = struct {
             if (active == 0) { self.reader.close();self.signal.wait(epoch, 100); continue; }
             // Finite poll bounds new admission, cancellation and shutdown
             // latency without introducing a second socket wakeup protocol.
-            _ = try tcp.waitMasked(tcp.invalid_socket, &sockets, &readable, &writable, if (buffered) 0 else 10);
+            _ = try tcp.waitMasked(tcp.invalid_socket, &sockets, &readable, &writable, if (buffered) 0 else poll_timeout_ms);
             slot = self.index;
             while (slot < clients.len) : (slot += reactor_count) {
                 const client = &clients[slot];
@@ -1526,6 +1571,8 @@ pub fn run(requested: Options) !void {
         }
         for (clients[0..options.max_clients], 0..) |*client, index| {
             if (client.socket == tcp.invalid_socket) continue;
+            client.expireIdleTransaction(now);
+            if (client.socket == tcp.invalid_socket) continue;
             // The idle timeout does not apply while a statement waits.
             if (client.blocked) client.touched = now;
             if (now - client.touched >= @as(i64, options.idle_ms) * 1000000) {
@@ -1542,19 +1589,20 @@ pub fn run(requested: Options) !void {
             sockets[capacity + index - 1] = listeners[index];
             readable[capacity + index - 1] = true;
         }
-        // Poll timeout: the idle bound or the nearest parked-statement timer.
+        // Poll timeout: the nearest session or parked statement deadline.
         var timeout: u32 = @min(options.idle_ms, 1000);
+        const poll_now = monotonicClock();
         for (&overflow_cancels) |*pending| if (pending.socket != tcp.invalid_socket) { timeout = @min(timeout,10); break; };
         for (clients[0..options.max_clients]) |*client| {
-            if (client.socket == tcp.invalid_socket or !client.blocked) continue;
+            if (client.socket == tcp.invalid_socket) continue;
+            if (client.idle_transaction_deadline) |due| timeout = deadlinePollMs(poll_now, due, timeout);
+            if (!client.blocked) continue;
             if (client.connection.wakeReady()) {
                 timeout = 0;
                 continue;
             }
             const due = client.connection.nextDeadline() orelse continue;
-            const remaining = due - now;
-            const ms: u32 = if (remaining <= 0) 0 else @intCast(@min(@divFloor(remaining + 999999, 1000000), timeout));
-            timeout = @min(timeout, ms);
+            timeout = deadlinePollMs(poll_now, due, timeout);
         }
         listener_ready[0] = try tcp.waitMasked(listeners[0], &sockets, &readable, &writable, if (buffered) 0 else timeout);
         for (1..count) |index| listener_ready[index] = readable[capacity + index - 1];
