@@ -129,15 +129,22 @@ original million-row filter from 1,027 to 9,136 queries/s at one client and
 from 2,746 to 17,122 at eight in a paired test. Median p99 fell from 1,231
 to 149 µs and 5,439 to 1,903 µs respectively. This path serves repeated
 eligible reads after observing the result size and invalidates on relevant
-writes. It still needs all-engine qualification. A separate sampling run of
+writes. A separate three-engine diagnostic found median throughput of 8,982
+and 21,279 queries/s at one and eight clients. These were 10.0× and 15.8× the
+fastest reference, with median p99 of 137 µs and 2,655 µs. Each engine ran
+three original 60-second trials. Full-workload qualification is tracked
+independently. A separate sampling run of
 the exact combined build found that the active single-client server thread
 spent about 64% of its recorded CPU time in the kernel. `poll` and `sendto`
 were the largest inclusive syscall stacks. The Linux completion experiment
-now has native contracts for partial sends, EOF, cancellation and buffer
-lifetime. Its effect on original JDBC throughput remains to be measured.
+passed native contracts for partial sends, EOF, cancellation and buffer
+lifetime. The linked completion experiment reduced median throughput by
+0.67–4.58% across all four original prepared primary-key cases and remains
+isolated.
 [Filter A/B](https://github.com/benor1470/dbMeter/actions/runs/44217568675) ·
+[Three-engine filter diagnostic](https://github.com/benor1470/dbMeter/actions/runs/44226874148) ·
 [CPU profile](https://github.com/benor1470/dbMeter/actions/runs/44217950460) ·
-[Linux transport contracts](https://github.com/SB0LTD/zpm/actions/runs/44220775588)
+[Linked transport A/B](https://github.com/benor1470/dbMeter/actions/runs/44229499260)
 
 The exact published x86-64 Linux binary ran a separate durability profile on
 512 rows with one primary key and one integer payload. Each writer repeatedly
@@ -151,13 +158,32 @@ eight readers alone. The 51 durable reopen checks matched the acknowledged
 state. These results quantify the write-path investigation on this workload.
 [Exact durable write profile](https://github.com/SB0LTD/ramsql/actions/runs/44225804971)
 
-A separate PostgreSQL tooling build matches seven of the twelve queries
-issued by stock `psql \d`. This covers incoming and outgoing foreign-key
-metadata and real named-role and PUBLIC policies. The policy statement uses
-the allocator-free `ARRAY(SELECT …)` constructor. The next missing catalog
-is extended statistics. Publication, trigger and partition reporting also
-require independent checks.
-[PostgreSQL tooling comparison](https://github.com/SB0LTD/ramsql/actions/runs/44227485578)
+An opt-in Linux group-commit candidate paired ordinary explicit PostgreSQL
+transactions on distinct tables across two workers. Both clients received
+their success after one stable WAL flush. The live tests also covered an
+injected flush error, ordinary same-table commits, expiry, cancellation and
+disconnect before selection or during a flush, and recovery of acknowledged
+commits. Other statement paths still follow the ordinary commit route.
+The same-binary timing run halved the number of flushes at two clients while
+reducing throughput from 2,244 to 1,930 transactions/s. The four-client
+distinct-table lane rose from 2,380 to 2,681 transactions/s, short of its
+repeated advantage requirement. The waiting reactor needs a wakeup when its
+peer finishes the flush. Single-client and same-table regressions remain
+release blockers for enabling this setting by default.
+[Native socket and WAL proof](https://github.com/SB0LTD/ramsql/actions/runs/44233435009) ·
+[Matched durability timings](https://github.com/SB0LTD/ramsql/actions/runs/44235108533)
+
+A separate 16-column tooling build completed all eleven stock `psql \d`
+queries for the regular table fixture. Direct comparisons exercised real
+foreign keys, policies, named statistics, all-table, schema and explicit
+publications, and partition bounds. Nominal `regclass` output, populated
+trigger metadata and wider tooling fixtures remain separate. Stock `pg_dump`
+stopped when it attempted to set an empty search path. A native PostgreSQL
+dump restored into PostgreSQL and stopped on `idle_in_transaction_session_timeout`
+when restored into RAMSQL. Closing the migration gate requires actual search-path
+resolution, timeout behavior, and real dump and restore in both directions.
+[Successful stock describe](https://github.com/SB0LTD/ramsql/actions/runs/44235209311) ·
+[Stock dump and restore audit](https://github.com/SB0LTD/ramsql/actions/runs/44235375832)
 
 ## 17 November 2026 qualification checkpoint
 
@@ -1302,13 +1328,18 @@ reliability targets with reproducible artifacts and environment details.
 
 **Status:** Partial. **Owner:** ZPM reusable thread/poll/ownership primitives; RAMSQL reactor/worker policy.
 
-One reactor handles queries and synchronous persistence. A costly query or flush
-can hold up unrelated clients; increasing connection slots alone does not fix it.
+Independent reads use multiple workers on qualified Windows and Linux
+profiles. A costly query or synchronous flush on the serial store path can
+still hold up unrelated clients. The hosted experimental 128-session build
+passed admission, cancellation, deadlock and slot reuse. macOS passed its
+single-worker lane and rejects unsupported additional workers.
+[Windows and Linux qualification](https://github.com/SB0LTD/ramsql/actions/runs/44228649454) ·
+[macOS qualification](https://github.com/SB0LTD/ramsql/actions/runs/44231434730)
 
 - [ ] Introduce resumable query/lock/I/O work and fair scheduling.
 - [ ] Add worker ownership/coordination after storage and transaction invariants are established.
 - [ ] Replace the small descriptor/connection ceiling with scalable platform readiness mechanisms and budgeted session state.
-- [ ] Evaluate safe group commit; acknowledge only after the required durable flush, and define publication/failure behavior before batching commits.
+- [ ] Qualify opt-in group commit for throughput and tail latency. Extend the supported transaction and platform scope only with tests for acknowledgement, failure and recovery.
 
 **Closed when:** load across cores/connections makes useful progress with bounded
 tail latency and no races/lost updates. Group commit must never weaken the current
