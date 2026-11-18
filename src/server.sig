@@ -1223,7 +1223,7 @@ fn runTlsAcceptor(listener: tcp.Socket, max_clients: usize) !void {
             const transport = client.transport.?;
             if (transport.more and !transport.needsWrite()) buffered = true;
         }
-        _ = try tcp.waitMasked(listener, &sockets, &readable, &writable, if (buffered) 0 else 10);
+        _ = try waitServer(listener, sockets[0..max_clients], readable[0..max_clients], writable[0..max_clients], if (buffered) 0 else 10);
         for (pending[0..max_clients], 0..) |*deadline, slot| {
             if (deadline.* == null) continue;
             const client = &clients[slot];
