@@ -1,8 +1,8 @@
-name: Native PostgreSQL batched COPY TO STDOUT
+name: Native PostgreSQL active-output and idle boundary
 
 on:
   push:
-    branches: [ci/pg-simple-batch-copy-out-20261118]
+    branches: [ci/pg-batch-pressure-differential-20261118]
 
 permissions:
   contents: read
@@ -12,10 +12,20 @@ jobs:
   simple-query-batches:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - candidate: out
+            source: db32e371b7e77a3323453e7b2ad978fa82d84c2e
+          - candidate: in
+            source: 0c1dc21da538c5c01c4d8e8f04427ebb0935ead1
+          - candidate: combined
+            source: e73b91e58b5605155c9dfa21a29f340cf8dc9647
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 33fa72ad6ae08123d37df8da6f11f006b57d9741
+          ref: ${{ matrix.source }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -40,7 +50,9 @@ jobs:
         run: |
           set -o pipefail
           mkdir evidence
+          test "$(git rev-parse HEAD)" = '${{ matrix.source }}'
           git rev-parse HEAD >evidence/product-revision.txt
+          python -m py_compile tools/qualify_pg_simple_query_batches.py
           cp build.sig.zon evidence/build.sig.zon
           "$SIG" build -Doptimize=ReleaseSafe -Dcolumns=16 -j1 2>&1 | tee evidence/build.log
           sha256sum sig-out/bin/ramsql | tee evidence/ramsql.sha256
@@ -72,6 +84,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: native-simple-query-batch-evidence
+          name: native-pressure-${{ matrix.candidate }}
           path: evidence/
 
