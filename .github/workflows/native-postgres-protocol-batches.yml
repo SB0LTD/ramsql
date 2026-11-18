@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 915582157d3eb6e28090742b998c02bee6ab5677
+          ref: b1dfeaf6f8d20879fc0ee18b7dda05cd5e1b466d
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -81,7 +81,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 915582157d3eb6e28090742b998c02bee6ab5677
+          ref: b1dfeaf6f8d20879fc0ee18b7dda05cd5e1b466d
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
