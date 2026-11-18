@@ -3,8 +3,10 @@
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 
 from qualify_pg_tooling import EVIDENCE, IMAGE, check, psql
+from test_postgres_compat import running_ramsql
 from test_server import Server
 
 
@@ -102,6 +104,20 @@ def main():
             restore(remote_client, conn, 'restore-native-ramsql', reference)
         except AssertionError as error:
             failures.append(f'Native PostgreSQL dump restored to RAMSQL failed\n{error}')
+    for workers in (1, 4):
+        label = f'restore-native-durable-{workers}'
+        wal_directory = Path(tempfile.mkdtemp(prefix=f'{label}-', dir=EVIDENCE)).resolve()
+        wal = wal_directory / 'database.wal'
+        options = ('--workers', str(workers))
+        try:
+            with running_ramsql(candidate, extra_arguments=options, data_path=wal, create_data=True) as endpoint:
+                conn = ['-h', endpoint['host'], '-p', str(endpoint['port']), '-U', 'ramsql', '-d', 'ramsql']
+                restore(remote_client, conn, label, reference)
+            with running_ramsql(candidate, extra_arguments=options, data_path=wal) as endpoint:
+                conn = ['-h', endpoint['host'], '-p', str(endpoint['port']), '-U', 'ramsql', '-d', 'ramsql']
+                require_constraints(remote_client, conn, label + '-reopened')
+        except AssertionError as error:
+            failures.append(f'Native PostgreSQL dump / WAL reopen failed at {workers} workers\n{error}')
     if failures:
         sys.exit('\n'.join(failures))
     print('PASS stock PostgreSQL data and schema dump and restore in both directions')
