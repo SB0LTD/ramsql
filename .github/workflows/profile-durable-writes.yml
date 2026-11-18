@@ -1,6 +1,8 @@
 name: Profile durable writes
 
 on:
+  push:
+    branches: [ci/durable-write-profile-exact-20261118]
   workflow_dispatch:
     inputs:
       release_run:
@@ -22,8 +24,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
-      RELEASE_RUN: ${{ inputs.release_run }}
-      SOURCE_REVISION: ${{ inputs.source_revision }}
+      RELEASE_RUN: ${{ inputs.release_run || '44202780430' }}
+      SOURCE_REVISION: ${{ inputs.source_revision || '1ee571fe883a3ab86ed86f901e18374ca2d3aeac' }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
