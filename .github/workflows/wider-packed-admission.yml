@@ -1,8 +1,8 @@
-name: Opt-in hosted PostgreSQL 128-client admission
+name: Opt-in native admission across wider 100M schemas
 
 on:
   push:
-    branches: [ci/hosted-128-admission-20261118]
+    branches: [ci/wider-packed-admission-20261118]
   workflow_dispatch:
 
 permissions:
@@ -10,21 +10,21 @@ permissions:
 
 jobs:
   admission:
-    name: Hosted admission (${{ matrix.os }})
+    name: Native wider schema plans
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-latest, macos-latest]
+        os: [ubuntu-24.04]
     defaults:
       run:
         shell: pwsh
     env:
-      PRODUCT_REVISION: d84cd04abbfe6bb383297a594fb2bcb5af5c6a08
-      PRODUCT_SHA256: 7476bf677829bebeaa868117c9d5a40d48c71a20f8fa6960fd1966a51c44ea8a
-      ZPM_REVISION: e947f591aaddc13b89cac74bab1eff8d71d622f2
-      ZPM_SHA256: 551c3fd3734ad39f3867c7b59d4e526f31c1b8e9185b3cc95efcb69c0d3c447c
+      PRODUCT_REVISION: 9e4bcafa4367dbd92429b88bcbcf3970cac50ead
+      PRODUCT_SHA256: 494701b33833f4cfc1b2775787f632af2097b0b0b3a64712d02782bf439b68d5
+      ZPM_REVISION: 3182edc733f600594c45d24520df112816107b05
+      ZPM_SHA256: 6b57a32ff044e560104aa838b22c4ec3891047efc66c610ba3133dea31942a29
     steps:
       - uses: actions/checkout@v4
         with:
@@ -75,53 +75,48 @@ jobs:
           python tools/prepare_sig_runtime.py --installed-lib $env:SIG_LIB_DIR `
             --output (Join-Path $env:RUNNER_TEMP 'runtime') --github-env $env:GITHUB_ENV
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Exercise rebased ZPM readiness with 70 live socket pairs
+      - name: Verify rebased storage and projected Top-N
         run: |
           $zpm = (New-Item -Type Directory (Join-Path $env:RUNNER_TEMP 'zpm')).FullName
           tar -xf (Join-Path $env:RUNNER_TEMP 'zpm.tar.gz') -C $zpm --strip-components=1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $name = if ($env:RUNNER_OS -eq 'Windows') { 'tcp-contract.exe' } else { 'tcp-contract' }
-          $binary = Join-Path $env:RUNNER_TEMP $name
-          $flags = @('-OReleaseSafe')
-          if ($env:RUNNER_OS -eq 'macOS') { $flags += '-lc' }
-          & $env:SIG build-exe --Sig-lib-dir $env:SIG_LIB_DIR @flags --dep tcp_server `
-            "-Mroot=$zpm/tests/test_tcp_server.sig" "-Mtcp_server=$zpm/src/platform/tcp_server.sig" "-femit-bin=$binary"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & $binary 2>&1 | Tee-Object evidence/tcp-contract.json
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $tcp = Get-Content evidence/tcp-contract.json -Raw | ConvertFrom-Json
-          if ($tcp.suite -ne 'tcp_server' -or $tcp.pass -ne $true -or $tcp.assertions -lt 150) {
-            throw 'Rebased readiness contract did not execute'
+          foreach ($test in @('compact_version_stamps', 'external_hash_load', 'projected_filter', 'change_log')) {
+            $binary = Join-Path $env:RUNNER_TEMP $test
+            & $env:SIG build-exe --Sig-lib-dir $env:SIG_LIB_DIR -OReleaseSafe --dep sql "-Mroot=$zpm/tests/test_sql_$test.sig" "-Msql=$zpm/src/core/sql.sig" "-femit-bin=$binary"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            & $binary 2>&1 | Tee-Object "evidence/zpm-$test.txt"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
-      - name: Build and test the unchanged default capacity
+      - name: Build combined opt-in variant and qualify supported startup
         run: |
-          & $env:SIG build -Doptimize=ReleaseSafe 2>&1 | Tee-Object evidence/default-build.txt
+          & $env:SIG build -Doptimize=ReleaseSafe -Dhosted-client-ceiling=128 -Dintegral-version-banks=true -Dcompact-version-stamps=true 2>&1 | Tee-Object evidence/build.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $name = if ($env:RUNNER_OS -eq 'Windows') { 'ramsql.exe' } else { 'ramsql' }
-          $binary = (Resolve-Path "sig-out/bin/$name").Path
-          & $binary --capabilities | Tee-Object evidence/default-capabilities.json
+          $binary = (Resolve-Path 'sig-out/bin/ramsql').Path
+          (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLowerInvariant() > evidence/binary-sha256.txt
+          python tools/test_cli.py --binary $binary --expect-integral-version-banks --expect-compact-version-stamps 2>&1 | Tee-Object evidence/cli.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $caps = Get-Content evidence/default-capabilities.json -Raw | ConvertFrom-Json
-          if ($caps.compiled_clients -ne 60 -or $caps.clients -ne 16) { throw 'Default client profile changed' }
-          python tools/test_cli.py --binary $binary 2>&1 | Tee-Object evidence/default-cli.txt
+          python tools/test_hosted_128_admission.py --binary $binary --report evidence/admission-128.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLowerInvariant() > evidence/default-binary-sha256.txt
-      - name: Prove 128 live PostgreSQL sessions with one and four workers
+      - name: Exercise wide schema placement and compute exact RAM for 100M rows per table
         run: |
-          & $env:SIG build -Doptimize=ReleaseSafe -Dhosted-client-ceiling=128 2>&1 | Tee-Object evidence/expanded-build.txt
+          $binary = (Resolve-Path 'sig-out/bin/ramsql').Path
+          python tools/test_wider_admission.py --binary $binary --report evidence/wider-native-plans.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $name = if ($env:RUNNER_OS -eq 'Windows') { 'ramsql.exe' } else { 'ramsql' }
-          $binary = (Resolve-Path "sig-out/bin/$name").Path
-          (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLowerInvariant() > evidence/expanded-binary-sha256.txt
-          python tools/test_hosted_128_admission.py --binary $binary --report evidence/expanded-admission.json
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $report = Get-Content evidence/expanded-admission.json -Raw | ConvertFrom-Json
-          if ($report.suite -ne 'hosted_128_admission' -or $report.passed -ne $true -or $report.profiles.Length -ne 2) {
-            throw 'Expanded capacity contract did not execute'
+          $report = Get-Content evidence/wider-native-plans.json -Raw | ConvertFrom-Json
+          if ($report.suite -ne 'wider_100m_admission' -or $report.passed -ne $true -or $report.plans.Length -ne 33) {
+            throw 'Wider admission cases did not execute'
+          }
+          '' >> $env:GITHUB_STEP_SUMMARY
+          'Each 100M entry is a native capacity probe. Real schema placement and SQL mutation run on separate small fixtures.' >> $env:GITHUB_STEP_SUMMARY
+          '| Schema combination | Clients | Planned active bytes | Sampled grant | Fits |' >> $env:GITHUB_STEP_SUMMARY
+          '|---|---:|---:|---:|---|' >> $env:GITHUB_STEP_SUMMARY
+          foreach ($plan in $report.plans) {
+            $native = $plan.machine_capacity
+            "| $($plan.case) | $($plan.clients) | $($native.active_admission_bytes) | $($native.new_region_bytes) | $($native.active_admission_fits) |" >> $env:GITHUB_STEP_SUMMARY
           }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: hosted-admission-${{ matrix.os }}
+          name: wider-packed-admission-evidence
           path: evidence/
           if-no-files-found: error
