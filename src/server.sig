@@ -33,6 +33,7 @@ const threads = @import("worker_thread");
 const resource_budget = @import("resource_budget");
 const owned_pages = @import("budgeted_region");
 const machine_capacity = @import("capacity.sig");
+const machine_resources = @import("machine_resources");
 const database_registry = @import("database_registry");
 const database_catalog = @import("database_catalog.sig");
 const disk = @import("db_file");
@@ -48,6 +49,7 @@ pub const Options = struct {
     /// Reactors and concurrent simple readers; mutations remain exclusive.
     /// Zero selects the native CPU and memory plan.
     workers: usize = 0,
+    linux_worker_locality: bool = false,
     memory: bool = false,
     data: []const u8 = "ramsql.wal",
     /// Durable startup creates a missing `data` file only when set; otherwise
@@ -623,22 +625,23 @@ const OverflowCancel = struct {
 
     fn handOff(self: *OverflowCancel) bool {
         if (!clientMemoryAvailable()) return false;
-        for (clients,0..) |*client,slot| if (client.state.load(.acquire) == 0) {
-            const socket = self.socket;
-            configureClient(socket,.postgres,slot,self.bytes[0..self.used]) catch |err| {
-                switch(err) {
-                    error.BudgetExceeded,error.TokenCapacity,error.MemoryReservationFailed=>{
-                        self.output_len=pg.memoryLimitError(&self.output) catch {self.close();return true;};
-                        self.output_sent=0;self.closing=true;
-                    },
-                    else=>self.close(),
-                }
-                return true;
-            };
-            self.socket = tcp.invalid_socket;
+        const slot = postgresStartupSlot(self.socket) orelse return false;
+        configureClient(self.socket, .postgres, slot, self.bytes[0..self.used]) catch |err| {
+            switch (err) {
+                error.BudgetExceeded, error.TokenCapacity, error.MemoryReservationFailed => {
+                    self.output_len = pg.memoryLimitError(&self.output) catch {
+                        self.close();
+                        return true;
+                    };
+                    self.output_sent = 0;
+                    self.closing = true;
+                },
+                else => self.close(),
+            }
             return true;
         };
-        return false;
+        self.socket = tcp.invalid_socket;
+        return true;
     }
 
     fn poll(self: *OverflowCancel, now: i64) void {
@@ -840,7 +843,84 @@ var notification_sequence: std.atomic.Value(u64) = .init(0);
 var reactor_failed: std.atomic.Value(bool) = .init(false);
 var reactors: [max_reactors]Reactor = @splat(.{});
 
+const WorkerLocality = struct {
+    eligible: []const machine_resources.Processor,
+    lanes: [max_reactors]machine_resources.Processor = undefined,
+
+    fn assign(self: *WorkerLocality) void {
+        var assigned: usize = 0;
+        // Spread over distinct physical cores before using SMT siblings.
+        for (self.eligible) |cpu| {
+            for (self.lanes[0..assigned]) |previous| {
+                if (previous.core == cpu.core) break;
+            } else {
+                self.lanes[assigned] = cpu;
+                assigned += 1;
+                if (assigned == reactor_count) return;
+            }
+        }
+        for (self.eligible) |cpu| {
+            for (self.lanes[0..assigned]) |previous| {
+                if (previous.cpu == cpu.cpu) break;
+            } else {
+                self.lanes[assigned] = cpu;
+                assigned += 1;
+                if (assigned == reactor_count) return;
+            }
+        }
+        unreachable;
+    }
+
+    fn chooseSlot(self: *const WorkerLocality, incoming: u32) ?usize {
+        const core = for (self.eligible) |cpu| {
+            if (cpu.cpu == incoming) break cpu.core;
+        } else return null;
+        var counts: [max_reactors]usize = @splat(0);
+        var free: [max_reactors]?usize = @splat(null);
+        for (clients, 0..) |*client, slot| {
+            const lane = slot % reactor_count;
+            if (client.state.load(.acquire) == 0) {
+                if (free[lane] == null) free[lane] = slot;
+            } else counts[lane] += 1;
+        }
+        var least: usize = clients.len;
+        for (free[0..reactor_count], counts[0..reactor_count]) |slot, count| {
+            if (slot != null) least = @min(least, count);
+        }
+        var selected: ?usize = null;
+        for (self.lanes[0..reactor_count], 0..) |cpu, lane| {
+            if (cpu.core != core or free[lane] == null or counts[lane] > least + 1) continue;
+            if (selected) |previous| {
+                if (counts[lane] > counts[previous]) continue;
+                if (counts[lane] == counts[previous] and (cpu.cpu == incoming or self.lanes[previous].cpu != incoming))
+                    continue;
+            }
+            selected = lane;
+        }
+        return if (selected) |lane| free[lane] else null;
+    }
+};
+
+// Accessed only by the acceptor. runParallel keeps the plan alive until
+// listeners stop accepting and all reactor owners have joined.
+var worker_locality: ?*const WorkerLocality = null;
+
+fn postgresStartupSlot(socket: tcp.Socket) ?usize {
+    if (worker_locality) |locality| {
+        if (tcp.incomingCpu(socket)) |cpu| {
+            if (locality.chooseSlot(cpu)) |slot| return slot;
+        }
+    }
+    for (clients, 0..) |*client, slot| {
+        if (client.state.load(.acquire) == 0) return slot;
+    }
+    return null;
+}
+
 fn validateWorkers(options: Options) !void {
+    if (options.linux_worker_locality and
+        (@import("builtin").os.tag != .linux or options.protocol != .postgres or options.workers == 1))
+        return error.InvalidServerOptions;
     if (options.workers == 0 or options.workers > max_reactors or options.workers > options.max_clients) return error.InvalidServerOptions;
     if (options.database_cluster and options.workers != 1) return error.InvalidServerOptions;
     if (options.read_cache_bytes != 0 and options.workers < 2) return error.InvalidServerOptions;
@@ -940,8 +1020,12 @@ const Reactor = struct {
     }
 };
 
-fn runParallel(options: Options, listeners: []const tcp.Socket, protocols: []const Protocol) !void {
+fn runParallel(options: Options, listeners: []const tcp.Socket, protocols: []const Protocol,
+               processors: []const machine_resources.Processor) !void {
     reactor_count = options.workers;
+    var locality: WorkerLocality = .{ .eligible = processors };
+    if (options.linux_worker_locality) locality.assign();
+    defer worker_locality = null;
     reactor_stop.store(false, .release); reactor_failed.store(false, .release);
     var started: usize = 0;
     defer {
@@ -953,7 +1037,9 @@ fn runParallel(options: Options, listeners: []const tcp.Socket, protocols: []con
         reactor.* = .{ .index=index, .idle_ms=options.idle_ms };
         try reactor.thread.start(&Reactor.entry, reactor);
         started += 1;
+        if (options.linux_worker_locality) try reactor.thread.pinToCpu(locality.lanes[index].cpu);
     }
+    if (options.linux_worker_locality) worker_locality = &locality;
     while (!reactor_stop.load(.acquire)) {
         for (listeners,protocols) |listener,protocol| try acceptConnections(listener,protocol,options.max_clients,capacity);
         pollOverflowCancels(sig.os.clockMonotonicNs());
@@ -1439,6 +1525,11 @@ pub fn run(requested: Options) !void {
     const observed = try initializeMemory(options);
     options.workers = try chooseWorkers(options, &plan, observed);
     try validateWorkers(options);
+    var processor_storage: [machine_resources.linux_processor_capacity]machine_resources.Processor = undefined;
+    const processors = if (options.linux_worker_locality)
+        machine_resources.linuxProcessors(&processor_storage) catch return error.WorkerAffinityUnavailable
+    else &.{};
+    if (options.linux_worker_locality and processors.len < options.workers) return error.WorkerAffinityUnavailable;
     parallel = options.workers > 1;
     cluster_options = options;
     defer clearAuthentication();
@@ -1523,7 +1614,7 @@ pub fn run(requested: Options) !void {
     defer for (clients) |*client| if (client.socket != tcp.invalid_socket) {
         client.close();
     };
-    if (parallel) return runParallel(options, listeners[0..count], protocols[0..count]);
+    if (parallel) return runParallel(options, listeners[0..count], protocols[0..count], processors);
     // Probe once at startup, then accept only after readiness. Queues that
     // exceed the bounded accept batch stay readable on the next poll. The
     // separate execution hook still accepts CancelRequests during long SQL.

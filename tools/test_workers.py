@@ -18,8 +18,8 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'.sig-cache/client-deps'))
 
 
-def cancel_during_work(binary):
-    with Server(binary,max_clients=16,extra_arguments=('--workers','4')) as server:
+def cancel_during_work(binary, extra_arguments=()):
+    with Server(binary,max_clients=16,extra_arguments=('--workers','4',*extra_arguments)) as server:
         pg=PG(server.raw())
         try:
             startup=pg.startup()

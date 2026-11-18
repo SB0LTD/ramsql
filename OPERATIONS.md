@@ -4,6 +4,14 @@ This beta is for controlled evaluation on trusted loopback hosts. It has one
 reactor, one shared database, READ COMMITTED transactions and synchronous WAL.
 It is not a supported public service or replacement for all PostgreSQL tooling.
 
+On Linux, `--linux-worker-locality` opts a parallel PostgreSQL listener into
+experimental reactor placement. Each worker starts on one CPU from the
+process affinity mask. PostgreSQL startup can prefer a worker on the socket's
+receive core when that worker has room and its connection count remains
+within one of the least-loaded worker with room. A missing or ineligible
+socket hint uses ordinary placement. If the requested worker count cannot
+be pinned to distinct allowed CPUs, the server reports startup failure.
+
 ## Installation and startup
 
 Verify the release checksums and inspect `provenance.json`, `RELEASE.md` and
