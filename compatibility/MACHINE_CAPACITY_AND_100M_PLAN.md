@@ -8,6 +8,27 @@ constant or a larger executable does not satisfy this requirement.
 
 ## Current evidence and blockers
 
+The 18 November Linux qualification on RAMSQL `da0b68f1` used one real
+100M-row, six-column integral fact table and two dimension tables. It recovered
+the 6,771,074,198-byte synchronous WAL after process termination in 140.389
+seconds with peak RSS 13,383,847,936 bytes. After replay it reproduced all
+91 full and three selective groups, 20 ordered rows and concurrent key probes.
+The uncommitted update was absent. Data other than the packed integral fact
+schema and multiple fact tables at this scale remain unqualified.
+[Exact durable run](https://github.com/benor1470/dbMeter/actions/runs/44203961680)
+
+An isolated 32-byte MVCC experiment reduced peak resident memory by
+1,601,085,600 bytes at this scale. The measured images ran on distinct hosted
+runners, so their wall-clock recovery figures do not establish a layout speedup.
+The runtime connection ceiling is still 60. Evaluate caller-owned poll capacity,
+per-client result and response page grants, available transaction workspaces
+and explicit headroom together before raising it. Admission at multiple
+100M-row tables needs a separate dataset and enough measured effective memory.
+[Compact header evidence](https://github.com/benor1470/dbMeter/actions/runs/44186893882) ·
+[Compact header draft](https://github.com/SB0LTD/zpm/pull/221)
+
+### Earlier dbMeter evidence
+
 The original dbMeter workload passed 38 result checks each for RAMSQL,
 PostgreSQL and IRDB in [CI run 44103107594](https://github.com/benor1470/dbMeter/actions/runs/44103107594).
 That includes all seven full sales checks on the six-table dataset with five
