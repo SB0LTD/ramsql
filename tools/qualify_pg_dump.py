@@ -50,8 +50,10 @@ def require_constraints(client, connection, label):
     for name, statement, state in failures:
         result = psql(client, connection, f'{label}-{name}', '-v', 'VERBOSITY=verbose', '-c', statement)
         assert result.returncode != 0 and f'ERROR:  {state}:' in result.stderr, result.stderr
-    default = psql(client, connection, f'{label}-child-default', '-qAt', '-c',
-                   'BEGIN; INSERT INTO dump_fixture.child (id,parent_id) VALUES (13,1) RETURNING count; ROLLBACK;')
+    default = psql(client, connection, f'{label}-child-default', '-qAt',
+                   '-c', 'BEGIN',
+                   '-c', 'INSERT INTO dump_fixture.child (id,parent_id) VALUES (13,1) RETURNING count',
+                   '-c', 'ROLLBACK')
     check(default)
     assert default.stdout == '4\n', default.stdout
     require_data(client, connection, f'{label}-after-constraints')
