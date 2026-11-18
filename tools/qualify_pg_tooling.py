@@ -173,12 +173,15 @@ def partitions(client, connection, label, children_sql, template_oid):
 
 
 def populated_describe(client, connection, label):
-    for index, definition in enumerate((*TOOLING_STATISTICS[1:], *TOOLING_PUBLICATIONS)):
+    trigger = ('CREATE FUNCTION tooling_noop() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$',
+               'CREATE TRIGGER tooling_bi BEFORE INSERT ON tooling FOR EACH ROW EXECUTE FUNCTION tooling_noop()')
+    for index, definition in enumerate((*TOOLING_STATISTICS[1:], *TOOLING_PUBLICATIONS, *trigger)):
         check(psql(client, connection, f'{label}-describe-setup-{index}', '-c', definition))
     result = psql(client, connection, label + '-describe-populated', '-E', '-c', r'\d tooling')
     print(f'populated stock psql {label} completed {len(describe_queries(result))} catalog queries')
     check(result)
-    for expected in ('Referenced by:', 'Policies', 'Statistics objects:', 'Publications:'):
+    for expected in ('Referenced by:', 'Policies', 'Statistics objects:', 'Publications:', 'Triggers:',
+                     'tooling_bi BEFORE INSERT ON tooling FOR EACH ROW EXECUTE FUNCTION tooling_noop()'):
         assert expected in result.stdout, (expected, result.stdout)
 
 
