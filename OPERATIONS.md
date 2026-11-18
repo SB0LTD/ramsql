@@ -59,7 +59,12 @@ region. Cluster mode uses one worker and rejects a positive cache budget.
 
 Both `--capabilities` and `--machine-capacity` show the number of entries,
 admitted payload bytes and page-rounded cache bytes. Each entry accepts SQL
-up to 1 KiB and at most 128 result rows. A result can be reused within its
+up to 1 KiB and at most 128 result rows. For large tables with a committed
+integral scan projection, the same opt-in budget may reserve up to one eighth
+for entries holding 129 to 2,048 rows of up to four direct non-null integral
+columns. The query must repeat within the same snapshot before publication.
+The cache reports the projected tier's payload bytes, entry count and row
+capacity in both capacity commands. A result can be reused within its
 committed database snapshot. Writes, including DDL, advance the snapshot and
 invalidate earlier results. Restricted roles, nondefault session settings,
 work limits and timeouts use ordinary query execution. A restart starts with

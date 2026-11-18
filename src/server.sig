@@ -971,16 +971,30 @@ const ReadCachePlan = struct {
     region_bytes: u64 = 0,
     entries: usize = 0,
     rows: usize = 0,
+    small_offset: usize = 0,
+    small_bytes: usize = 0,
+    projected_bytes: usize = 0,
+    projected_entries: usize = 0,
+    projected_rows: usize = 0,
 };
 const read_cache_key_bytes = 1024;
+const projected_cache_min_scan_rows = 65536;
 
-fn planReadCache(options: Options) !ReadCachePlan {
+fn planReadCache(options: Options, has_large_projection: bool) !ReadCachePlan {
     if (options.read_cache_bytes == 0) return .{};
     if (options.protocol != .postgres or options.database_cluster or options.workers == 1) return error.InvalidServerOptions;
     const rows = @min(@as(usize, 128), options.result_rows);
-    const layout = Raw.ReadResultCache.layoutForBytes(options.read_cache_bytes, read_cache_key_bytes, rows) catch return error.InvalidServerOptions;
+    const projected_rows = if (has_large_projection) @min(@as(usize, 2048), options.result_rows) else 0;
+    const layout = Raw.ReadResultCache.tieredLayoutForBytes(options.read_cache_bytes, read_cache_key_bytes, rows, projected_rows) catch return error.InvalidServerOptions;
     const charges = machine_capacity.startupCharges(&.{layout.bytes}, 0) catch return error.InvalidServerOptions;
-    return .{ .bytes = layout.bytes, .region_bytes = charges.rounded, .entries = layout.entries, .rows = rows };
+    const projected_bytes = if (layout.projected) |medium| medium.bytes else 0;
+    const projected_entries = if (layout.projected) |medium| medium.entries else 0;
+    return .{
+        .bytes=layout.bytes, .region_bytes=charges.rounded, .entries=layout.small.entries, .rows=rows,
+        .small_offset=layout.small_offset, .small_bytes=layout.small.bytes,
+        .projected_bytes=projected_bytes, .projected_entries=projected_entries,
+        .projected_rows=if (projected_entries == 0) 0 else projected_rows,
+    };
 }
 
 const StoragePlan = struct {
@@ -1008,6 +1022,7 @@ fn storagePlan(options: Options) !StoragePlan {
     var budgets: [profile.tables]Raw.TableBudget = undefined;
     var max_rows: usize = 0; var max_versions: usize = 0;
     var typed_banks = false;
+    var has_large_projection = false;
     for (&budgets,0..) |*budget,index| {
         const rows = if (options.table_rows) |values| values[index] else options.storage_rows;
         if (rows == 0 or rows > 0x3fffffff) return error.InvalidServerOptions;
@@ -1024,6 +1039,7 @@ fn storagePlan(options: Options) !StoragePlan {
                 budget.secondary_hashes = 0;
             }
         }
+        if (!budget.omit_compact_scan and rows >= projected_cache_min_scan_rows) has_large_projection = true;
         max_rows=@max(max_rows,rows); max_versions=@max(max_versions,versions);
     }
     if (options.typed_bank_memory_profile and !typed_banks) return error.InvalidServerOptions;
@@ -1033,7 +1049,7 @@ fn storagePlan(options: Options) !StoragePlan {
         .workspace_bytes = Raw.queryWorkspaceBytes(options.work_rows) catch return error.InvalidServerOptions,
         .result_bytes = Raw.Result.rowBytes(options.result_rows) catch return error.InvalidServerOptions,
         .response_bytes = responseBytes(options.result_rows) catch return error.InvalidServerOptions,
-        .read_cache = try planReadCache(options),
+        .read_cache = try planReadCache(options, has_large_projection),
     };
 }
 
@@ -1056,8 +1072,10 @@ fn writeStorageDetails(out: sig.io.File, options: Options, plan: *const StorageP
             .{ budget.rows, budget.versions, budget.integral_row_words, if (scan) "true" else "false", budget.secondary_hashes orelse config.external_indexes }));
     }
     try out.writeStreamingAll(.{}, try std.fmt.bufPrint(&buffer,
-        "],\"read_cache_bytes\":{d},\"read_cache_region_bytes\":{d},\"read_cache_entries\":{d},\"read_cache_rows_per_entry\":{d}}}\n",
-        .{ plan.read_cache.bytes, plan.read_cache.region_bytes, plan.read_cache.entries, plan.read_cache.rows }));
+        "],\"read_cache_bytes\":{d},\"read_cache_region_bytes\":{d},\"read_cache_entries\":{d},\"read_cache_rows_per_entry\":{d}," ++
+        "\"read_cache_projected_bytes\":{d},\"read_cache_projected_entries\":{d},\"read_cache_projected_rows_per_entry\":{d}}}\n",
+        .{ plan.read_cache.bytes, plan.read_cache.region_bytes, plan.read_cache.entries, plan.read_cache.rows,
+            plan.read_cache.projected_bytes, plan.read_cache.projected_entries, plan.read_cache.projected_rows }));
 }
 
 fn storageCharges(options: Options, plan: *const StoragePlan, worker_bytes: u64) !machine_capacity.StartupCharges {
@@ -1486,7 +1504,13 @@ pub fn run(requested: Options) !void {
     } else if (bind_catalog_role and store.database.authenticatedRole(verifier.?.identity()) == null) return error.AuthenticationFailed;
     var read_cache: Raw.ReadResultCache = undefined;
     if (plan.read_cache.entries != 0) {
-        try read_cache.bindMemory(&store.database, cache_region.memory.bytes, plan.read_cache.entries, read_cache_key_bytes, plan.read_cache.rows);
+        const cache_bytes = cache_region.memory.bytes;
+        try read_cache.bindMemory(&store.database, cache_bytes[plan.read_cache.small_offset..][0..plan.read_cache.small_bytes],
+            plan.read_cache.entries, read_cache_key_bytes, plan.read_cache.rows);
+        if (plan.read_cache.projected_entries != 0) {
+            try read_cache.bindProjectedMemory(cache_bytes[0..plan.read_cache.projected_bytes],
+                plan.read_cache.projected_rows, projected_cache_min_scan_rows);
+        }
         store.read_result_cache = &read_cache;
     }
     defer store.read_result_cache = null;
