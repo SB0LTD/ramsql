@@ -382,7 +382,7 @@ const Client = struct {
         if (reply.cancel) |key| cancelBackend(key);
         if (reply.consumed != 0) {
             self.consume(reply.consumed);
-        } else if (self.input_len == self.input.len) return error.RequestTooLarge;
+        } else if (reply.written == 0 and self.input_len == self.input.len) return error.RequestTooLarge;
         self.output_len += reply.written;
         self.closing = reply.close;
     }
@@ -481,11 +481,12 @@ const Client = struct {
             if (self.sessionDeadline() != null) self.expireSessionTimeout(monotonicClock());
             if (self.socket == tcp.invalid_socket) return false;
             const before = self.input_len;
+            const previous_output = self.output_len;
             self.dispatch() catch {
                 self.close();
                 return false;
             };
-            if (self.blocked or before == self.input_len or self.closing) break;
+            if (self.blocked or (before == self.input_len and previous_output == self.output_len) or self.closing) break;
         }
         self.deliverNotifications();
         self.flush() catch {
@@ -493,7 +494,8 @@ const Client = struct {
             return false;
         };
         if (self.socket == tcp.invalid_socket) return false;
-        return frames == 32 and self.input_len != 0 and self.output_len == 0;
+        const continuing_query = self.protocol == .postgres and self.session.postgres.continuingSimpleQuery();
+        return !self.blocked and (frames == 32 or continuing_query) and self.input_len != 0 and self.output_len == 0;
     }
 };
 var store: Store = .{};
