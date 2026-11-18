@@ -71,6 +71,15 @@ def fragmented_ssl_request(port, ca, gss_first=False):
             raw.sendall(GSS_REQUEST)
             assert raw.recv(1) == b"N"
         raw.sendall(SSL_REQUEST[:3])
+        raw.settimeout(0.1)
+        try:
+            early = raw.recv(1)
+        except TimeoutError:
+            pass
+        else:
+            raise AssertionError(f"premature SSL response: {early!r}")
+        finally:
+            raw.settimeout(5)
         raw.sendall(SSL_REQUEST[3:])
         assert raw.recv(1) == b"S"
         with context.wrap_socket(raw, server_hostname="localhost") as encrypted:

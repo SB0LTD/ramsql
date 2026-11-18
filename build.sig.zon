@@ -5,7 +5,7 @@
     .dependencies = .{
         .zpm = .{
             .url = "https://github.com/SB0LTD/zpm/archive/9b19b0216c3933d04659f201038076196c2b1afb.tar.gz",
-            .hash = "96f809a93de482e0a0ec1a5d867c423315dbf1f0510108f12a8d74bb0cbf33e3",
+            .hash = "555b7be64833b4b9448da917a5ff208fbc2a9585d52dcdd0e70d3eb4d521f384",
         },
     },
     .paths = .{

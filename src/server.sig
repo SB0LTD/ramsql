@@ -487,7 +487,9 @@ const Client = struct {
         if (self.transport) |transport| {
             if (transport.peer_closed) {
                 if (self.blocked) { self.close(); return false; }
-                if (frames < 32 or self.input_len == 0) self.closing = true;
+                if (self.input_len == 0 or
+                    (frames < 32 and self.output_len == 0 and !transport.needsWrite()))
+                    self.closing = true;
             }
         }
         self.deliverNotifications();
@@ -497,7 +499,10 @@ const Client = struct {
         };
         if (self.socket == tcp.invalid_socket) return false;
         if (self.transport) |transport| {
-            if (transport.more and !self.closing and self.input_len < self.input.len and !transport.needsWrite()) return true;
+            if (!self.closing and !transport.needsWrite()) {
+                if (transport.peer_closed and self.input_len != 0 and self.output_len == 0) return true;
+                if (transport.more and self.input_len < self.input.len) return true;
+            }
         }
         return frames == 32 and self.input_len != 0 and self.output_len == 0;
     }

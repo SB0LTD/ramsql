@@ -9,7 +9,7 @@ const record_plaintext_bytes = 16384;
 const max_leaf_bytes = 16384;
 const flight_bytes = max_leaf_bytes + 512;
 const cipher_output_bytes = @max(tls.record_capacity, flight_bytes + 512);
-const Identity = @typeInfo(@typeInfo(@TypeOf(tls.Stream.init)).@"fn".params[0].type.?).pointer.child;
+const Identity = @typeInfo(@typeInfo(@TypeOf(tls.Stream.init)).@"fn".param_types[0].?).pointer.child;
 
 pub const Credentials = struct {
     certificate: [max_leaf_bytes + 1]u8 = undefined,
