@@ -354,7 +354,8 @@ const Client = struct {
         if(!parallel or self.protocol!=.postgres or !self.connection.detachedReadEligible()) return false;
         const session=&self.session.postgres;
         const input=self.input[self.input_start..][0..self.input_len];
-        const candidate=session.detachedCandidate(input) orelse return false;
+        var key_hint: ?PG.DetachedPrimaryKey = null;
+        const candidate = session.detachedCandidateWithKey(input, if (store.max_query_work == 0) &key_hint else null) orelse return false;
         const source:?[]const u8=switch(candidate){.metadata=>null,.describe,.execute=>|text|text};
         if(source) |text| {
             if(!Raw.queryCandidate(text)) return false;
@@ -382,7 +383,7 @@ const Client = struct {
         if (comptime @hasDecl(PG, "detachedPrimaryKey") and @hasDecl(Raw.ReadContext, "preparePrimaryKey")) {
             // A failed hint must not spend a second parse budget on queries
             // running under an explicit work limit. The normal lane owns them.
-            if (store.max_query_work == 0) if (session.detachedPrimaryKey(input)) |key| {
+            if (key_hint) |key| {
                 const data_type: ?sql.DataType = switch (key.oid) {
                     20 => .integer,
                     21 => .smallint,
@@ -390,7 +391,7 @@ const Client = struct {
                     else => null,
                 };
                 if (data_type) |ty| prepared_primary_key = context.preparePrimaryKey(&store.database,key.source,snapshot,ty) catch false;
-            };
+            }
         }
         var prepared=true;
         if (!prepared_primary_key) if(source) |text| context.prepare(&store.database,text,snapshot) catch |err| switch(err) {
