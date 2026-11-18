@@ -26,6 +26,11 @@ TOOLING_PUBLICATIONS = (
     'CREATE PUBLICATION tooling_schema FOR TABLES IN SCHEMA public',
     'CREATE PUBLICATION tooling_table FOR TABLE ONLY tooling',
 )
+PARTITION_FIXTURE = (
+    'CREATE TABLE tooling_dates (day DATE) PARTITION BY RANGE (day)',
+    "CREATE TABLE tooling_dates_jan PARTITION OF tooling_dates FOR VALUES FROM ('2026-01-01') TO ('2026-02-01')",
+    'CREATE TABLE tooling_dates_default PARTITION OF tooling_dates DEFAULT',
+)
 INDEX_SETUP = (
     'CREATE TABLE "Case Table" ("Select" INT PRIMARY KEY, qty INT, label TEXT)',
     'CREATE INDEX "ix Weird" ON "Case Table" (qty DESC NULLS LAST) INCLUDE (label) WHERE qty > 1',
@@ -145,6 +150,28 @@ def publications(client, connection, label, publication_sql):
     assert after.stdout == '', after.stdout
 
 
+def partitions(client, connection, label, children_sql, template_oid):
+    for index, definition in enumerate(PARTITION_FIXTURE):
+        check(psql(client, connection, f'{label}-partition-{index}', '-c', definition))
+    objects = psql(client, connection, label + '-partition-oids', '-At', '-c',
+                   "SELECT relname,oid FROM pg_class WHERE relname IN ('tooling_dates','tooling_dates_jan','tooling_dates_default')")
+    check(objects)
+    by_name = dict(line.split('|') for line in objects.stdout.splitlines())
+    root = by_name['tooling_dates']
+    key = psql(client, connection, label + '-partition-key', '-At', '-c',
+               f'SELECT pg_catalog.pg_get_partkeydef({root})')
+    check(key)
+    assert key.stdout == 'RANGE (day)\n', key.stdout
+    children = psql(client, connection, label + '-partition-children', '-At', '-c',
+                    children_sql.replace(f"'{template_oid}'", f"'{root}'"))
+    check(children)
+    rendered_jan = 'tooling_dates_jan' if label == 'native' else by_name['tooling_dates_jan']
+    rendered_default = 'tooling_dates_default' if label == 'native' else by_name['tooling_dates_default']
+    expected = (f"{rendered_jan}|r|f|FOR VALUES FROM ('2026-01-01') TO ('2026-02-01')\n"
+                f'{rendered_default}|r|f|DEFAULT\n')
+    assert children.stdout == expected, children.stdout
+
+
 def main():
     native = ["docker", "exec", "tooling-native"]
     native_conn = ["-U", "postgres", "-d", "postgres"]
@@ -153,7 +180,7 @@ def main():
     check(psql(native, native_conn, "native-tooling-index", "-c", TOOLING_INDEX))
     native_describe = psql(native, native_conn, "native-describe", "-E", "-c", r"\d tooling")
     check(native_describe)
-    lookup, relation_sql, attribute_sql, constraint_indexes_sql, outgoing_sql, incoming_sql, policy_sql, stats_sql, publication_sql, *_ = describe_queries(native_describe)
+    lookup, relation_sql, attribute_sql, constraint_indexes_sql, outgoing_sql, incoming_sql, policy_sql, stats_sql, publication_sql, _, children_sql, *_ = describe_queries(native_describe)
     assert "pg_table_is_visible" in lookup and "OPERATOR(pg_catalog.~)" in lookup and "COLLATE pg_catalog.default" in lookup
     assert "pg_catalog.pg_am" in relation_sql and "::pg_catalog.regtype::pg_catalog.text" in relation_sql
     assert "pg_catalog.pg_attribute" in attribute_sql and "pg_catalog.pg_collation" in attribute_sql
@@ -162,6 +189,7 @@ def main():
     assert "pg_catalog.pg_policy" in policy_sql and "array(select rolname" in policy_sql
     assert "pg_catalog.pg_statistic_ext" in stats_sql and "any(stxkind)" in stats_sql
     assert "pg_catalog.pg_publication_rel" in publication_sql and "pg_catalog.pg_publication_namespace" in publication_sql
+    assert 'pg_catalog.pg_inherits' in children_sql and 'c.relpartbound' in children_sql
     (EVIDENCE / "discovery.sql").write_text(lookup + "\n")
     native_rows = psql(native, native_conn, "native-discovery", "-At", "-c", lookup)
     check(native_rows)
@@ -183,6 +211,7 @@ def main():
     incoming_foreign_keys(native, native_conn, 'native', incoming_sql)
     row_policies(native, native_conn, 'native', policy_sql)
     statistics(native, native_conn, 'native', stats_sql, native_rows.stdout.split('|', 1)[0])
+    partitions(native, native_conn, 'native', children_sql, native_rows.stdout.split('|', 1)[0])
     publications(native, native_conn, 'native', publication_sql)
     Server.test_workers = 2
     with Server(Path(sys.argv[1]).resolve()) as server:
@@ -222,6 +251,8 @@ def main():
         row_policies(client, conn, 'ramsql', policy_sql.replace(f"'{old_oid}'", f"'{new_oid}'"))
         ram_stats_sql = stats_sql.replace(f"'{old_oid}'", f"'{new_oid}'")
         statistics(client, conn, 'ramsql', ram_stats_sql, new_oid)
+        partitions(client, conn, 'ramsql', children_sql, old_oid)
+        print("PASS stock psql partition children and real bounds on both engines")
         ram_publication_sql = publication_sql.replace(f"'{old_oid}'", f"'{new_oid}'")
         publications(client, conn, 'ramsql', ram_publication_sql)
         assert len(describe_queries(actual)) >= 10 or actual.returncode == 0, actual.stderr
