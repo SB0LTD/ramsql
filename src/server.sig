@@ -68,6 +68,8 @@ pub const Options = struct {
     max_prepared_transactions: usize = 0,
     /// Experimental rendezvous window for simple explicit PostgreSQL COMMIT.
     group_commit_wait_ms: u32 = 0,
+    /// Admit proved detached key reads during grouped Linux WAL I/O.
+    group_commit_read_window: bool = false,
     /// Runtime storage budget, independent of result/query workspace sizes.
     storage_rows: usize = profile.rows,
     storage_versions: ?usize = null,
@@ -403,7 +405,7 @@ const Client = struct {
                     .encoded = group_commit_scratch[0..group_commit_encode_bytes],
                 };
                 const stable = persistence.commitOrdinaryBatch(&.{ &first.connection, &self.connection }, scratch,
-                    group_commit_scratch[group_commit_encode_bytes..]) catch |err| {
+                    group_commit_scratch[group_commit_encode_bytes..], if (group_commit_read_window) setWalReadWindow else null) catch |err| {
                     // Preflight errors retain both live owners for the usual
                     // COMMIT path. A failed write already ended both slots.
                     if (self.connection.transactionStatus() != 'I' or first.connection.transactionStatus() != 'I') return null;
@@ -476,6 +478,12 @@ const Client = struct {
         reader.provision() catch {reader.retry_at=monotonicClock()+1000000000;return false;};
         data_gate.lockRead();defer data_gate.unlockRead();
         if (store.database.detachedReadsBlocked()) return false;
+        // Keep transaction modes with stronger semantics on the store owner.
+        // A bound key Execute is the only SQL admitted in the WAL window.
+        const in_wal_window = wal_read_window_open;
+        const window_metadata = in_wal_window and candidate == .metadata and switch (input[0]) { 'B', 'H', 'S' => true, else => false };
+        if (in_wal_window and (self.connection.engine_session.values.isolation != .read_committed or
+            (!window_metadata and (candidate != .execute or input[0] != 'E')))) return false;
         const context=reader.context.?;
         // Protocol Describe may lend stack-local interpolation text. No plan
         // or source reference survives the complete codec call or worker reuse.
@@ -484,11 +492,15 @@ const Client = struct {
         self.connection.execution.reset(store.max_query_work);
         self.connection.execution.context=self;self.connection.execution.poll=pollRead;
         self.read_deadline=if(self.connection.settings.statement_timeout_ms==0) null else monotonicClock()+@as(i64,self.connection.settings.statement_timeout_ms)*1000000;
+        defer self.read_deadline = null;
         const statement_us=wallClock();
         context.session=self.connection.detachedReadSession(&self.connection.execution,statement_us);
         context.dialect=.postgres;
         const snapshot: Raw.Snapshot = .{.csn=store.database.csn};
         var prepared_primary_key = false;
+        // Proving the route must not consume a cancel that belongs to the
+        // real Execute or its serialized fallback. Execute polls normally.
+        if (in_wal_window) context.session.control = null;
         if (comptime @hasDecl(PG, "detachedPrimaryKey") and @hasDecl(Raw.ReadContext, "preparePrimaryKey")) {
             // A failed hint must not spend a second parse budget on queries
             // running under an explicit work limit. The normal lane owns them.
@@ -502,6 +514,10 @@ const Client = struct {
                 if (data_type) |ty| prepared_primary_key = context.preparePrimaryKey(&store.database,key.source,snapshot,ty) catch false;
             };
         }
+        if (in_wal_window) {
+            context.session.control = &self.connection.execution;
+            if (!prepared_primary_key and !window_metadata) return false;
+        }
         var prepared=true;
         if (!prepared_primary_key) if(source) |text| context.prepare(&store.database,text,snapshot) catch |err| switch(err) {
             error.QueryCanceled,error.QueryWorkLimit=>{prepared=false;},
@@ -511,7 +527,7 @@ const Client = struct {
         // ownership. Typed temporal values use the immutable session zone.
         if(source!=null and prepared and !prepared_primary_key and context.needsZoneResolver()) return false;
         self.connection.read_context=context;self.connection.running_statement=true;
-        defer {self.connection.read_context=null;self.connection.running_statement=false;self.read_deadline=null;}
+        defer {self.connection.read_context=null;self.connection.running_statement=false;}
         const output=self.output[self.output_len..];
         const reply=try session.handle(&self.connection,input,output);
         if(reply.consumed>self.input_len or reply.written>output.len or reply.blocked or reply.cancel!=null) return error.InvalidReply;
@@ -610,11 +626,36 @@ const group_commit_encode_bytes = 64 * 1024;
 const group_commit_bytes = 2 * group_commit_encode_bytes + 2 * durable_log.overhead;
 var group_commit_scratch: []u8 = &.{};
 var group_commit_wait_ms: u32 = 0;
+var group_commit_read_window: bool = false;
 var pending_group_commit: ?*Client = null;
 var store_mutex: threads.Mutex = .{};
 var data_gate:threads.RwLock=.{};
-fn lockStore() void { if (parallel) {data_gate.lockWrite();store_mutex.lock();} }
-fn unlockStore() void { if (parallel) {store_mutex.unlock();data_gate.unlockWrite();} }
+// The mutation lease always precedes the data gate, which it may temporarily
+// lend to immutable readers while waiting for the selected WAL append.
+fn lockStore() void {
+    if (!parallel) return;
+    store_mutex.lock();
+    data_gate.lockWrite();
+}
+fn unlockStore() void {
+    if (!parallel) return;
+    data_gate.unlockWrite();
+    store_mutex.unlock();
+}
+
+/// Called by the WAL owner while it retains store_mutex. The data gate
+/// protects this marker and all published SQL state, independent of file I/O.
+var wal_read_window_open: bool = false;
+fn setWalReadWindow(open: bool) void {
+    if (open) {
+        if (wal_read_window_open) @panic("nested WAL read window");
+        wal_read_window_open = true;
+        data_gate.unlockWrite();
+    } else {
+        data_gate.lockWrite();
+        wal_read_window_open = false;
+    }
+}
 var memory_mutex:threads.Mutex=.{};
 var memory_ledger:resource_budget.Ledger=.{};
 var memory_slots:[capacity*2+max_reactors*2+5]resource_budget.Slot=undefined;
@@ -973,6 +1014,8 @@ fn validateWorkers(options: Options) !void {
     if (options.group_commit_wait_ms != 0 and (options.group_commit_wait_ms > 50 or options.workers < 2 or
         options.memory or options.database_cluster or options.protocol != .postgres or
         options.mysql_port != null or options.mssql_port != null)) return error.InvalidServerOptions;
+    if (options.group_commit_read_window and (!tcp.PollWake.available or options.group_commit_wait_ms == 0 or
+        options.workers < 3)) return error.InvalidServerOptions;
 }
 
 const Reactor = struct {
@@ -1572,6 +1615,7 @@ pub fn run(requested: Options) !void {
     defer {
         pending_group_commit = null;
         group_commit_wait_ms = 0;
+        group_commit_read_window = false;
         group_commit_scratch = &.{};
         batch_memory.close() catch @panic("lost group commit workspace ownership");
     }
@@ -1579,6 +1623,7 @@ pub fn run(requested: Options) !void {
         try batch_memory.reserve(&memory_ledger, group_commit_bytes);
         group_commit_scratch = batch_memory.memory.bytes;
         group_commit_wait_ms = options.group_commit_wait_ms;
+        group_commit_read_window = options.group_commit_read_window;
     }
     var client_memory:owned_pages.Region=.{};
     try client_memory.reserve(&memory_ledger,options.max_clients * @sizeOf(Client));

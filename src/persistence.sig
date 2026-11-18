@@ -201,17 +201,19 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
         const BatchContext = struct {
             owner: *Self,
             framing: []u8,
+            read_window: ?*const fn (bool) void,
         };
 
-        /// Caller holds the store's existing exclusive mutation gate until
-        /// the grouped commits have returned. A false result leaves each
-        /// transaction live for the regular COMMIT path. This method does not
-        /// own transport replies, connection scheduling or cancellation.
+        /// The caller owns mutation and WAL generation from encoding through
+        /// publication. An optional read window lends immutable visibility
+        /// during append/sync and restores exclusive access before returning
+        /// to the store. False leaves both transactions live for ordinary COMMIT.
         pub fn commitOrdinaryBatch(self: *Self, connections: []const *Store.Connection,
-                                   scratch: Store.CommitBatchWorkspace, framing: []u8) !bool {
+                                   scratch: Store.CommitBatchWorkspace, framing: []u8,
+                                   read_window: ?*const fn (bool) void) !bool {
             const store = self.store orelse return error.PersistenceClosed;
             if (!self.active or self.file.poisoned) return error.StorageUnavailable;
-            var context: BatchContext = .{ .owner = self, .framing = framing };
+            var context: BatchContext = .{ .owner = self, .framing = framing, .read_window = read_window };
             return store.commitOrdinaryBatch(connections, scratch, &context, persistOrdinaryBatch);
         }
 
@@ -222,12 +224,19 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
                 if (payload.len > self.max_batch_bytes) return false;
                 _ = Raw.changeRecordOps(payload) catch return false;
             }
-            const sequence = log.appendBatch(&self.file, self.sequence, payloads, change_kind, context.framing) catch |err| switch (err) {
+            const sequence = appendOrdinaryBatch(context, payloads) catch |err| switch (err) {
                 error.BatchStorageCapacity, error.AliasedBatchStorage, error.InvalidSequence => return false,
                 else => return err,
             };
             self.sequence = sequence;
             return true;
+        }
+
+        fn appendOrdinaryBatch(context: *BatchContext, payloads: []const []const u8) !u64 {
+            const owner = context.owner;
+            if (context.read_window) |window| window(true);
+            defer if (context.read_window) |window| window(false);
+            return log.appendBatch(&owner.file, owner.sequence, payloads, change_kind, context.framing);
         }
 
         fn commitPrepared(context: ?*anyopaque, payload: []const u8) anyerror!u64 {

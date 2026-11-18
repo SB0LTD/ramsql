@@ -240,6 +240,8 @@ Set `--group-commit-wait-ms N` on a durable PostgreSQL server with at least two 
 
 The option reserves two 64 KiB scratch areas plus WAL framing and native page rounding through the server's machine memory budget. A group writes independent WAL records, synchronizes the file once and then completes each transaction and its wire response. The store stays exclusively owned during the flush, so the window covers partner selection and storage or lock waits can still add latency. A cancellation or disconnect handled before selection can withdraw a waiting transaction. After selection, the durable result can survive a lost client connection.
 
+On Linux, `--group-commit-read-window` also requires at least three workers and a positive `--group-commit-wait-ms`. It lets eligible idle READ COMMITTED clients execute bound integral primary-key reads during a grouped WAL append and sync. These reads see the last published snapshot. Mutations still require the same owner, and commit replies still follow synchronization and publication.
+
 ## Inspect capacity before loading
 
 Allocator-free means explicit owned storage, not unlimited RAM. **Stored rows
