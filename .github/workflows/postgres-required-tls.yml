@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: f6c737f1159f6bb0be7bd835c5522f772fadf3b1
+          ref: cc2d6c8525196ed6e6aba193b3be5ca15ae7a289
       - name: Install checksum-verified compiler
         shell: bash
         run: |
