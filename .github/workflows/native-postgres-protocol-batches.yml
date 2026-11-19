@@ -9,7 +9,48 @@ permissions:
   actions: read
 
 jobs:
+  native-pressure-oracle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e660949adc8483cf717105f3e8c90241159ad31b
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prove the blocked-output fixture against stock PostgreSQL first
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir evidence
+          image=postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba
+          docker run --detach --name simple-query-native --publish 127.0.0.1::5432 \
+            -e POSTGRES_USER=ramsql -e POSTGRES_DB=ramsql -e POSTGRES_HOST_AUTH_METHOD=trust "$image"
+          for attempt in $(seq 1 60); do
+            if docker exec simple-query-native pg_isready -h 127.0.0.1 -U ramsql; then break; fi
+            sleep 1
+          done
+          docker exec simple-query-native pg_isready -h 127.0.0.1 -U ramsql
+          endpoint=$(docker port simple-query-native 5432/tcp)
+          PYTHONPATH=tools python - "${endpoint##*:}" <<'PY' | tee evidence/native-pressure-oracle.json
+          import json, sys
+          from qualify_pg_simple_query_batches import pressure, session, rows
+          port = int(sys.argv[1])
+          with session(port) as oracle:
+              version = rows(oracle.ok('SHOW server_version'))[0][0]
+          assert version.startswith('18.3'), version
+          print(json.dumps({'version': version, 'pressure': pressure(port),
+                            'active_output_idle': pressure(port, idle_timeout=True, native=True)}, indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-pressure-oracle
+          path: evidence/
+
   simple-query-batches:
+    needs: native-pressure-oracle
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
@@ -17,11 +58,11 @@ jobs:
       matrix:
         include:
           - candidate: out
-            source: db32e371b7e77a3323453e7b2ad978fa82d84c2e
+            source: e660949adc8483cf717105f3e8c90241159ad31b
           - candidate: in
-            source: 0c1dc21da538c5c01c4d8e8f04427ebb0935ead1
+            source: 920e9fe4b3aac06cd23c0e4fa5516fa89b265625
           - candidate: combined
-            source: e73b91e58b5605155c9dfa21a29f340cf8dc9647
+            source: 3905f784d9bcb1b7f35e86d8e49341361c415c47
     steps:
       - uses: actions/checkout@v4
         with:
