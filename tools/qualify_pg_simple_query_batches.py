@@ -1,6 +1,6 @@
 """Compare one PostgreSQL simple Query frame at a time with native PostgreSQL."""
 import argparse
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 import hashlib
 import json
 from pathlib import Path
@@ -13,14 +13,19 @@ from test_persistence import DurableServer
 
 @contextmanager
 def session(port):
-    sock = socket.create_connection(('127.0.0.1', port), 8)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 8192)
-    client = PG(sock)
+    # Negotiate TCP receive-window scaling before the handshake. A small
+    # post-connect window makes the later bulk drain dependent on tiny window
+    # updates and can outlast a valid idle-in-transaction deadline.
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 128 * 1024)
+        sock.settimeout(8)
+        sock.connect(('127.0.0.1', port))
+        client = PG(sock)
         client.startup()
         yield client
     finally:
-        client.close()
+        sock.close()
 
 
 def result(frames):
@@ -104,21 +109,35 @@ def scenarios(port, workers):
     return out
 
 
-def pressure(port, *, idle_timeout=False):
-    commands = 192 if idle_timeout else 68
+def pressure(port, *, idle_timeout=False, native=False):
+    commands = 896 if idle_timeout else 68
     row_count = 350
+    idle_seconds = 6
+    pause_seconds = idle_seconds + 0.25 if idle_timeout else 0
     query = f"SELECT repeat('x', 96) FROM generate_series(1,{row_count});"
-    with session(port) as client:
+    assert len(query_packet(query * commands)) < 65536
+    with session(port) as client, (session(port) if native and idle_timeout else nullcontext()) as observer:
         if idle_timeout:
-            client.ok('SET idle_in_transaction_session_timeout = 1000')
+            pid = int(rows(client.ok('SELECT pg_backend_pid()'))[0][0])
+            client.ok(f'SET idle_in_transaction_session_timeout = {idle_seconds * 1000}')
             client.ok('BEGIN', status=b'T')
         client.sock.sendall(query_packet(query * commands) + query_packet('SELECT 999'))
+        assert client.message()[0] == b'T'
+        if idle_timeout:
+            # More than 32 MiB of output exceeds the negotiated receive
+            # window and the hosted Linux sender buffers. The independent
+            # observer below must prove ClientWrite after a whole idle
+            # timeout has elapsed; a completed Query is not backpressure.
+            time.sleep(pause_seconds)
+            if observer is not None:
+                observer.ok('SELECT pg_stat_clear_snapshot()')
+                state = rows(observer.ok(
+                    f'SELECT state, wait_event FROM pg_stat_activity WHERE pid={pid}'))
+                assert state == [['active', 'ClientWrite']], state
+        draining = time.monotonic()
         for index in range(commands):
-            assert client.message()[0] == b'T'
-            if idle_timeout and index == 0:
-                # Keep the active frame over the former idle deadline while output is backed up.
-                time.sleep(1.25)
-                client.sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024 * 1024)
+            if index != 0:
+                assert client.message()[0] == b'T'
             for _ in range(row_count):
                 data_row = client.message()
                 assert rows([data_row]) == [['x' * 96]]
@@ -127,12 +146,34 @@ def pressure(port, *, idle_timeout=False):
         assert client.message() == (b'Z', status)
         next_frame = client.ready()
         assert rows(next_frame) == [['999']] and next_frame[-1] == (b'Z', status)
+        ready_at = time.monotonic()
+        drain_seconds = ready_at - draining
         if idle_timeout:
+            # Output may finish before the client reads ReadyForQuery.
+            # Complete the drain well inside the new idle period.
+            assert drain_seconds < idle_seconds / 2, drain_seconds
             kind, payload = client.message()
             assert kind == b'E', (kind, payload)
-            assert errors([(kind, payload)])[0]['C'] == '25P03'
+            fatal, = errors([(kind, payload)])
+            assert fatal['C'] == '25P03' and fatal['V'] == 'FATAL', fatal
+            fatal_seconds = time.monotonic() - ready_at
+            assert idle_seconds - drain_seconds - 0.25 < fatal_seconds < idle_seconds + 2, fatal_seconds
+            try:
+                client.message()
+            except (EOFError, ConnectionResetError):
+                pass
+            else:
+                raise AssertionError('backend returned data after idle timeout FATAL')
+        else:
+            fatal_seconds = None
     return {'commands': commands, 'data_rows': commands * row_count, 'queued_next_frame_intact': True,
-            'idle_expired_after_ready': idle_timeout}
+            'idle_expired_after_ready': idle_timeout,
+            'observation': {'read_pause_seconds': pause_seconds, 'drain_seconds': drain_seconds,
+                            'fatal_after_ready_seconds': fatal_seconds}}
+
+
+def pressure_contract(report):
+    return {key: value for key, value in report.items() if key != 'observation'}
 
 
 def parked(port, workers, native=False):
@@ -183,27 +224,122 @@ def parked(port, workers, native=False):
     return {'resumed_once': True, 'invisible_until_commit': True, 'disconnect_rolled_back': True}
 
 
-def copy_scope(port, workers, native):
+def copy_scope(port, workers):
     table = f'batch_copy_{workers}'
-    with session(port) as client:
-        client.ok(f'CREATE TABLE {table} (id INTEGER)')
-        source = f'INSERT INTO {table} VALUES (1); COPY {table} FROM STDIN; SELECT id FROM {table} ORDER BY id;'
-        if native:
+    with session(port) as client, session(port) as peer:
+        client.ok(f'CREATE TABLE {table} (id INTEGER PRIMARY KEY)')
+
+        def send(source):
             client.sock.sendall(query_packet(source))
-            assert client.message() == (b'C', b'INSERT 0 1\0')
-            assert client.message()[0] == b'G'
-            client.sock.sendall(packet(b'd', b'6\n') + packet(b'c'))
-            assert rows(client.ready()) == [['1'], ['6']]
-        else:
-            reply = result(client.query(source))
-            assert reply['frames'] == 'EZ' and reply['errors'] == ['0A000'], reply
-            client.ok(f'SELECT COUNT(*) FROM {table}', [['0']])
-            client.sock.sendall(query_packet(f'COPY {table} FROM STDIN'))
-            assert client.message()[0] == b'G'
-            client.sock.sendall(packet(b'd', b'6\n') + packet(b'c'))
-            assert result(client.ready())['completion'] == ['COPY 1']
-            client.ok(f'SELECT id FROM {table}', [['6']])
-    return {'native_interactive_tail': native, 'candidate_rejects_before_any_effect': not native}
+
+        def complete_copy(data, following=b''):
+            client.sock.sendall(packet(b'd', data) + packet(b'c') + following)
+
+        def expect_copy_in():
+            tag, body = client.message()
+            assert tag == b'G' and body == b'\0\0\1\0\0', (tag, body)
+
+        send(f"INSERT INTO {table} VALUES (1); COPY {table} FROM STDIN; SELECT SUM(id) FROM {table}; COPY {table} FROM STDIN; SELECT SUM(id) FROM {table}")
+        assert client.message() == (b'C', b'INSERT 0 1\0')
+        expect_copy_in()
+        peer.ok(f'SELECT COUNT(*) FROM {table}', [['0']])
+        client.sock.sendall(packet(b'd', b'4') + packet(b'd', b'\n') + packet(b'c'))
+        assert client.message() == (b'C', b'COPY 1\0')
+        first_result = [client.message() for _ in range(3)]
+        assert rows(first_result) == [['5']] and first_result[-1] == (b'C', b'SELECT 1\0')
+        expect_copy_in()
+        peer.ok(f'SELECT COUNT(*) FROM {table}', [['0']])
+        complete_copy(b'8\n', query_packet('SELECT 999'))
+        final_copy = result(client.ready())
+        assert final_copy['frames'] == 'CTDCZ' and final_copy['rows'] == [['13']], final_copy
+        assert rows(client.ready()) == [['999']]
+        peer.ok(f'SELECT id FROM {table} ORDER BY id', [['1'], ['4'], ['8']])
+
+        send(f"INSERT INTO {table} VALUES (20); COPY {table} FROM STDIN; INSERT INTO {table} VALUES (21)")
+        assert client.message() == (b'C', b'INSERT 0 1\0')
+        expect_copy_in()
+        client.sock.sendall(packet(b'f', b'reviewer stopped upload\0'))
+        failed = result(client.ready())
+        assert failed['errors'] == ['57014'] and failed['status'] == 'I', failed
+        peer.ok(f'SELECT COUNT(*) FROM {table} WHERE id >= 20', [['0']])
+
+        send(f"INSERT INTO {table} VALUES (30); COPY {table} FROM STDIN; INSERT INTO {table} VALUES (31)")
+        assert client.message() == (b'C', b'INSERT 0 1\0')
+        expect_copy_in()
+        complete_copy(b'invalid integer\n', query_packet('SELECT 123'))
+        malformed = result(client.ready())
+        assert malformed['errors'] == ['22P02'] and malformed['status'] == 'I', malformed
+        assert rows(client.ready()) == [['123']]
+        peer.ok(f'SELECT COUNT(*) FROM {table} WHERE id >= 30', [['0']])
+
+        send(f"BEGIN; INSERT INTO {table} VALUES (40); COPY {table} FROM STDIN")
+        assert client.message() == (b'C', b'BEGIN\0')
+        assert client.message() == (b'C', b'INSERT 0 1\0')
+        expect_copy_in()
+        complete_copy(b'41\n')
+        explicit = result(client.ready())
+        assert explicit['status'] == 'T' and explicit['completion'] == ['COPY 1'], explicit
+        peer.ok(f'SELECT COUNT(*) FROM {table} WHERE id >= 40', [['0']])
+        client.ok('COMMIT')
+        peer.ok(f'SELECT id FROM {table} WHERE id >= 40 ORDER BY id', [['40'], ['41']])
+
+        syntax = result(client.query(f"INSERT INTO {table} VALUES (50); COPY {table} FROM STDIN; SELECT 1 +"))
+        assert syntax['frames'] == 'EZ' and syntax['errors'] == ['42601'], syntax
+        peer.ok(f'SELECT COUNT(*) FROM {table} WHERE id = 50', [['0']])
+
+        client.ok('SET idle_in_transaction_session_timeout = 600')
+        send(f"BEGIN; COPY {table} FROM STDIN; SELECT id FROM {table} WHERE id=60")
+        assert client.message() == (b'C', b'BEGIN\0')
+        expect_copy_in()
+        complete_copy(b'60\n')
+        idle = result(client.ready())
+        assert idle['status'] == 'T' and idle['rows'] == [['60']], idle
+        timeout_tag, timeout_response = client.message()
+        assert timeout_tag == b'E' and errors([(timeout_tag, timeout_response)])[0]['C'] == '25P03'
+        peer.ok(f'SELECT COUNT(*) FROM {table} WHERE id = 60', [['0']])
+
+    return {'continued_twice': final_copy, 'copy_fail': failed, 'malformed_row': malformed,
+            'explicit_final_copy': explicit, 'raw_syntax_failure': syntax, 'idle_armed_after_owned_tail': idle}
+
+
+def copy_out_batch(port, workers):
+    table = f'batch_copy_out_{workers}'
+    with session(port) as client, session(port) as peer:
+        client.ok(f'CREATE TABLE {table} (id INTEGER PRIMARY KEY)')
+
+        def exchange(sql):
+            frames = client.query(sql)
+            facts = result(frames)
+            facts['copy_output'] = b''.join(body for tag, body in frames if tag == b'd').hex()
+            facts['frames'] = facts['frames'].replace('d', '')
+            return facts
+
+        csv = exchange(f"INSERT INTO {table} VALUES(4); COPY (SELECT id, 'from'::text AS marker FROM {table}) TO STDOUT WITH (FORMAT csv, HEADER true); SELECT COUNT(*) FROM {table}")
+        assert csv['frames'] == 'CHcCTDCZ' and csv['completion'] == ['INSERT 0 1', 'COPY 1', 'SELECT 1'], csv
+        assert csv['rows'] == [['1']] and bytes.fromhex(csv['copy_output']) == b'id,marker\n4,from\n', csv
+        peer.ok(f'SELECT id FROM {table}', [['4']])
+
+        binary = exchange(f"INSERT INTO {table} VALUES(7); COPY (SELECT id FROM {table} ORDER BY id) TO STDOUT WITH (FORMAT binary)")
+        assert binary['frames'] == 'CHcCZ' and binary['completion'] == ['INSERT 0 1', 'COPY 2'], binary
+        assert bytes.fromhex(binary['copy_output']).startswith(b'PGCOPY\n\xff\r\n\x00'), binary
+        peer.ok(f'SELECT id FROM {table} ORDER BY id', [['4'], ['7']])
+
+        runtime_error = exchange(f"INSERT INTO {table} VALUES(8); COPY (SELECT id FROM {table} WHERE id=8) TO STDOUT; SELECT 1/0")
+        assert runtime_error['frames'] == 'CHcCEZ' and runtime_error['errors'] == ['22012'], runtime_error
+        assert bytes.fromhex(runtime_error['copy_output']) == b'8\n', runtime_error
+        peer.ok(f'SELECT COUNT(*) FROM {table} WHERE id=8', [['0']])
+
+        syntax_error = exchange(f"INSERT INTO {table} VALUES(9); COPY {table} TO STDOUT; SELECT 1 +")
+        assert syntax_error['frames'] == 'EZ' and syntax_error['errors'] == ['42601'], syntax_error
+        peer.ok(f'SELECT COUNT(*) FROM {table} WHERE id=9', [['0']])
+
+        explicit = exchange(f"BEGIN; INSERT INTO {table} VALUES(10); COPY (SELECT id FROM {table} WHERE id=10) TO STDOUT; SELECT 1")
+        assert explicit['status'] == 'T' and bytes.fromhex(explicit['copy_output']) == b'10\n', explicit
+        peer.ok(f'SELECT COUNT(*) FROM {table} WHERE id=10', [['0']])
+        client.ok('ROLLBACK')
+        peer.ok(f'SELECT id FROM {table} ORDER BY id', [['4'], ['7']])
+    return {'csv_in_middle': csv, 'binary_at_end': binary, 'runtime_failure': runtime_error,
+            'raw_syntax_failure': syntax_error, 'explicit_rollback': explicit}
 
 
 def durable(binary, evidence_dir, workers):
@@ -241,20 +377,29 @@ def main():
     evidence = {'reference_version': version, 'binary_sha256': hashlib.sha256(binary.read_bytes()).hexdigest(), 'modes': []}
     for workers in (1, 4):
         native = scenarios(args.postgres_port, workers)
-        copy_native = copy_scope(args.postgres_port, workers, True)
+        copy_native = copy_scope(args.postgres_port, workers)
+        native_copy_out = copy_out_batch(args.postgres_port, workers)
         native_park = parked(args.postgres_port, workers, native=True)
+        native_pressure = pressure(args.postgres_port)
+        native_idle_pressure = pressure(args.postgres_port, idle_timeout=True, native=True)
         Server.test_workers = workers
         with Server(binary, max_clients=8, extra_arguments=('--work-rows', '1024', '--result-rows', '512')) as candidate:
             actual = scenarios(candidate.port, workers)
             for name, expected in native.items():
                 assert actual[name] == expected, (workers, name, actual[name], expected)
-            copy_test = copy_scope(candidate.port, workers, False)
+            copy_test = copy_scope(candidate.port, workers)
+            assert copy_test == copy_native, (workers, copy_test, copy_native)
+            actual_copy_out = copy_out_batch(candidate.port, workers)
+            assert actual_copy_out == native_copy_out, (workers, actual_copy_out, native_copy_out)
             lock_test = parked(candidate.port, workers)
             assert all(lock_test[name] == expected for name, expected in native_park.items())
             pressure_test = pressure(candidate.port)
             idle_pressure = pressure(candidate.port, idle_timeout=True)
+            assert pressure_contract(pressure_test) == pressure_contract(native_pressure)
+            assert pressure_contract(idle_pressure) == pressure_contract(native_idle_pressure)
         evidence['modes'].append({'workers': workers, 'ordinary': actual, 'native_copy': copy_native,
-                                  'candidate_copy': copy_test, 'lock_wait_and_disconnect': lock_test,
+                                  'candidate_copy': copy_test, 'copy_out_batch': actual_copy_out, 'lock_wait_and_disconnect': lock_test,
+                                  'native_pressure': native_pressure, 'native_active_batch_idle_timeout': native_idle_pressure,
                                   'pressure': pressure_test, 'active_batch_idle_timeout': idle_pressure, 'durability': durable(binary, args.report.parent, workers)})
     args.report.write_text(json.dumps(evidence, indent=2) + '\n')
     print(f'PASS {sum(len(case["ordinary"]) for case in evidence["modes"])} frame differentials, wraparound I/O, COPY scope and blocked continuation')

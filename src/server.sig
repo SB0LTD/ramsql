@@ -341,8 +341,12 @@ const Client = struct {
         self.output_len += written;
     }
 
+    fn queuedSimpleQuery(self: *const Client) bool {
+        return self.protocol == .postgres and self.session.postgres.queuedSimpleQuery();
+    }
+
     fn dispatch(self: *Client) !void {
-        if (self.blocked or self.output_sent != 0 or self.closing or (self.input_len == 0 and !self.connection.copyBlocked())) return;
+        if (self.blocked or self.output_sent != 0 or self.closing or (self.input_len == 0 and !self.connection.copyBlocked() and !self.queuedSimpleQuery())) return;
         // Cancellation is control traffic and must not queue behind SQL held
         // by another reactor. An established session cannot send startup frames.
         if (parallel and self.transport == null and self.protocol == .postgres and !self.session.postgres.startup) {
@@ -350,7 +354,7 @@ const Client = struct {
                 cancelBackend(key); self.consume(16); self.closing = true; return;
             }
         }
-        if(try self.dispatchRead()) return;
+        if (!self.queuedSimpleQuery() and try self.dispatchRead()) return;
         lockStore();
         defer unlockStore();
         if (parallel) {
@@ -363,7 +367,7 @@ const Client = struct {
             .mssql => |*session| try session.requiredCapacity(),
         };
         const parked_copy = self.connection.copyBlocked();
-        if (self.blocked or self.output_sent != 0 or self.closing or (self.input_len == 0 and !parked_copy) or self.output.len - self.output_len < required) return;
+        if (self.blocked or self.output_sent != 0 or self.closing or (self.input_len == 0 and !parked_copy and !self.queuedSimpleQuery()) or self.output.len - self.output_len < required) return;
         const input = self.input[self.input_start..][0..self.input_len];
         const output = self.output[self.output_len..];
         self.connection.store.now_ns = sig.os.clockMonotonicNs();
@@ -476,7 +480,8 @@ const Client = struct {
     }
 
     fn armIdleTimeoutAfterFlush(self: *Client) void {
-        if (self.closing or self.idle_transaction_after_flush_ms == 0) return;
+        if (self.closing or self.idle_transaction_after_flush_ms == 0 or
+            (self.protocol == .postgres and self.session.postgres.continuingSimpleQuery())) return;
         self.idle_transaction_deadline = monotonicClock() +|
             (@as(i64, self.idle_transaction_after_flush_ms) * 1000000);
         self.idle_transaction_after_flush_ms = 0;
@@ -603,7 +608,8 @@ const Client = struct {
             }
         }
         const continuing_query = self.protocol == .postgres and self.session.postgres.continuingSimpleQuery();
-        return !self.blocked and (frames == 32 or continuing_query) and self.input_len != 0 and self.output_len == 0;
+        const more_input = (frames == 32 or continuing_query) and self.input_len != 0;
+        return !self.blocked and self.output_len == 0 and (more_input or self.queuedSimpleQuery());
     }
 };
 var store: Store = .{};

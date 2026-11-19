@@ -1,5 +1,63 @@
 # RAMSQL gap-closing plan
 
+## 19 November 2026 integration and benchmark checkpoint
+
+The latest full reviewer dbMeter run passed all original correctness and
+capacity checks and scored every one of the 16 cases. RAMSQL led median
+throughput in every case and passed the complete significant-advantage gate
+in 12. The four prepared primary-key cases remain short of the required 2x
+lead over the fastest reference, at 1.08x to 1.54x over PostgreSQL; the
+100K/eight-client case also misses the p99 requirement. This run used the
+explicit 256 MiB read cache. Its final performance decision is correctly red;
+the dbMeter workflow PR remains unmerged.
+[Full trials and decision](https://github.com/benor1470/dbMeter/actions/runs/44347340190)
+
+The combined product candidate in PR #87 passed Linux x86-64 and ARM64
+integration with real libpq clients: simple/extended queries, 128-client
+admission, idle/absolute transaction deadlines, durable replay and TLS
+with two and four native workers. TLS includes verify-full and SCRAM-PLUS,
+prepared statements, COPY, encrypted cancellation and reciprocal KeyUpdate.
+It remains a preview with explicit TLS worker selection, a spare-slot
+requirement for cancellation and the documented exclusions for shared cache,
+cluster mode and secondary listeners.
+[Combined exact-source proof](https://github.com/SB0LTD/ramsql/actions/runs/44346300626) |
+[Integration PR](https://github.com/SB0LTD/ramsql/pull/87)
+
+The full release attempt passed its hosted build, artifact execution and
+PostgreSQL 16/18 lanes, then failed native SB0 compilation in a new decimal
+leading-zero-count operation. It did not publish. Portable scalar numeric
+and UTF-8 compatibility fixes are being qualified with actual SB0X/SB0K
+images. The existing downloadable prereleases below remain valid for their
+own source revisions; they are not this consolidated candidate.
+[Full release attempt](https://github.com/SB0LTD/ramsql/actions/runs/44346305282)
+
+ZPM main now contains schema ownership/USAGE/CREATE and ACL mutation checks,
+PostgreSQL internal-byte `"char"` metadata, ordinary multi-query batches and
+extended Sync/COPY, exact numeric comparisons/hashing, and reusable TLS
+primitives. Current schema CREATE tests cover owner and inherited-owner
+authority, correct table creator identity and PostgreSQL's distinct behavior
+for plain versus inline PRIMARY KEY/UNIQUE creation without schema USAGE.
+Broader CREATE variants and delegated CREATE remain gaps.
+[Native schema evidence](https://github.com/SB0LTD/ramsql/actions/runs/44347345269) |
+[SQL TDD status](https://github.com/SB0LTD/zpm/blob/main/docs/SQL_CONFORMANCE_TDD_STATUS.md)
+
+Immediate acceptance work:
+
+| Gap | Required evidence before closing |
+| --- | --- |
+| Consolidated release | Portable current-core numeric/UTF-8 proof, complete hosted and native matrix, published prerelease and independent public-asset checksum audit |
+| Interactive simple-query COPY | Original COPY IN/OUT cases, transaction/error-tail semantics, proven slow-reader boundary and actual SB0 stream execution on the exact composed source |
+| Typed bounded text | Current-main composition of PR #270, malformed UTF-8/NUL rejection, raw internal-char casts retained, dense/typed copy and WAL replay |
+| Checkpoint startup | Current table, primary-index and constraint identities/counters preserved; native generation selection and existing-writer-lock recovery; explicit rejection of unsupported catalog state |
+| Stock PostgreSQL migration | Remaining namespace ACL projections and full outbound dump/restore; single-transaction and general late/composite key restoration |
+| Prepared-key performance | Four unchanged reviewer cases pass all trial separation, 2x and p99 requirements in CI, with correctness still green |
+
+The production gate remains open for sustained wide-schema/mixed-write scale,
+bounded online checkpoint/rotation, upgrade and power-loss evidence, HA and
+complete application/dialect compatibility. The last recorded cross-engine
+smoke inventory is 118 programs, not the entire 755-record PostgreSQL feature
+inventory. Each historical checkpoint below retains its original source scope.
+
 ## 18 November 2026 qualification checkpoint
 
 The COMMIT ownership fix is available in

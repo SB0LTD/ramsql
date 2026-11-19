@@ -6,6 +6,21 @@ later binary.
 
 ## Unreleased
 
+- Add PostgreSQL TLS 1.3 with SCRAM channel binding, encrypted cancellation
+  and explicit native workers. Linux x86-64 and ARM64 tests exercise real
+  PostgreSQL clients, COPY, prepared SQL, TLS key updates and WAL reopen.
+- Add multi-command PostgreSQL simple-query handling and extended
+  Parse/Bind/Execute transactions committed at Sync. Extended COPY shares
+  that transaction boundary. COPY inside a simple batch is tracked separately.
+- Integrate stock PostgreSQL plain-dump import, session settings and
+  catalog relation identities. Export and general pg_restore remain open.
+- Add optional 32-byte MVCC headers and a packed tier for eligible cached
+  projected reads, with explicit memory charges and invalidation.
+- Add the optional 128-client hosted PostgreSQL build and caller-provided
+  readiness storage. Keep the configured connection default at 16.
+- Begin idle-in-transaction timeout accounting after the response drains.
+
+
 - Add the opt-in PostgreSQL database cluster with separate database storage
   and WALs, authenticated database routing, CREATE/DROP DATABASE and
   `pg_database` discovery. This beta profile supports four databases, one

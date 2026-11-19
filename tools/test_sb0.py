@@ -347,6 +347,23 @@ def exercise(guest, kind, proof):
     guest.query("SELECT value FROM sb0_probe WHERE id=9", [["from portal"]])
     guest.query("DELETE FROM sb0_probe WHERE id=9")
     proof.tests.append("extended_transaction_crossing_and_copy_sync")
+
+    guest.send(packet(b"Q", b"INSERT INTO sb0_probe VALUES (9,'before copy'); COPY sb0_probe FROM STDIN; SELECT value FROM sb0_probe WHERE id=10\0") +
+               packet(b"d", b"10\tfrom batch\n") + packet(b"c"))
+    copy_batch = guest.response()
+    proof.check([tag for tag, _ in copy_batch] == [b"C", b"G", b"C", b"T", b"D", b"C", b"Z"] and
+                b"from batch" in copy_batch[4][1] and copy_batch[-1] == (b"Z", b"I"),
+                "native COPY batch failed to resume after the final frontend message")
+    guest.query("SELECT value FROM sb0_probe WHERE id=10", [["from batch"]])
+    guest.send(packet(b"Q", b"INSERT INTO sb0_probe VALUES (11,'before failure'); COPY sb0_probe FROM STDIN; INSERT INTO sb0_probe VALUES(12,'after failure')\0") +
+               packet(b"f", b"stopped\0"))
+    copy_failed = guest.response()
+    proof.check([tag for tag, _ in copy_failed] == [b"C", b"G", b"E", b"Z"] and
+                b"C57014\0" in copy_failed[2][1] and copy_failed[-1] == (b"Z", b"I"),
+                "native COPY failure did not discard its query tail")
+    guest.query("SELECT COUNT(*) FROM sb0_probe WHERE id IN (11,12)", [["0"]])
+    guest.query("DELETE FROM sb0_probe WHERE id IN (9,10)")
+    proof.tests.append("copy_input_resumes_native_simple_query")
     # Exercise shared prepared-statement inference and binary integer encoding,
     # including Describe's bounded result storage on the native stack.
     parse = packet(b"P", b"\0SELECT id,value FROM sb0_probe WHERE id=$1\0" + struct.pack("!HI", 1, 20))
