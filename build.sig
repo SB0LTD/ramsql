@@ -109,7 +109,8 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     const pg_module = try ctx.addModule("postgres", pg_path);
     try ctx.addImport(pg_module, "scram", scram_path);
     try ctx.addImport(pg_module, "sql", sql_path);
-    const clients = ctx.option(usize, "clients", "Default runtime connection budget (1..60)") orelse 16;
+    const client_ceiling = ctx.option(usize, "hosted-client-ceiling", "Experimental hosted PostgreSQL client ceiling (60 or 128)") orelse 60;
+    const clients = ctx.option(usize, "clients", "Default runtime connection budget (bounded by the compiled ceiling)") orelse 16;
     const rows = ctx.option(usize, "rows", "Rows per table") orelse 4096;
     const tables = ctx.option(usize, "tables", "Table capacity") orelse 8;
     const columns = ctx.option(usize, "columns", "Columns per table/result (1..255)") orelse 8;
@@ -127,12 +128,13 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     const summary_groups = ctx.option(usize, "summary-groups", "Optional exact committed groups per supported column (0 disables group synopses; SQL falls back beyond budget)") orelse 64;
     const compact_integral_scans = ctx.option(bool, "compact-integral-scans", "Maintain caller-backed committed integer columns for analytical scans") orelse true;
     const integral_version_banks = ctx.option(bool, "integral-version-banks", "Enable experimental per-table integral version storage") orelse false;
-    if (clients == 0 or clients > 60 or rows == 0 or tables == 0 or text_bytes == 0 or text_bytes > 65535 or transaction_bytes < 65540 or tx_writes == 0 or versions <= rows or timezones == 0 or timezones > 256 or work_rows == 0) return error.BufferTooSmall;
+    const compact_version_stamps = ctx.option(bool, "compact-version-stamps", "Use opt-in 32-byte external MVCC version headers") orelse false;
+    if ((client_ceiling != 60 and client_ceiling != 128) or clients == 0 or clients > client_ceiling or rows == 0 or tables == 0 or text_bytes == 0 or text_bytes > 65535 or transaction_bytes < 65540 or tx_writes == 0 or versions <= rows or timezones == 0 or timezones > 256 or work_rows == 0) return error.BufferTooSmall;
     if (columns == 0 or columns > 255 or result_rows == 0 or row_locks == 0 or predicates == 0 or expr_nodes == 0 or relations == 0) return error.BufferTooSmall;
     var profile_buf: [2048]u8 = undefined;
-    const profile = try std.fmt.bufPrint(&profile_buf, "pub const clients={d}; pub const rows={d}; pub const tables={d}; pub const text_bytes={d}; pub const transaction_bytes={d}; pub const tx_writes={d}; pub const versions={d}; pub const transactions={d}; pub const timezones={d}; pub const work_rows={d}; pub const summary_groups={d}; pub const compact_integral_scans={s};\n", .{ clients, rows, tables, text_bytes, transaction_bytes, tx_writes, versions, 62, timezones, work_rows, summary_groups, if(compact_integral_scans) "true" else "false" });
+    const profile = try std.fmt.bufPrint(&profile_buf, "pub const clients={d}; pub const client_ceiling={d}; pub const rows={d}; pub const tables={d}; pub const text_bytes={d}; pub const transaction_bytes={d}; pub const tx_writes={d}; pub const versions={d}; pub const transactions={d}; pub const timezones={d}; pub const work_rows={d}; pub const summary_groups={d}; pub const compact_integral_scans={s};\n", .{ clients, client_ceiling, rows, tables, text_bytes, transaction_bytes, tx_writes, versions, client_ceiling + 2, timezones, work_rows, summary_groups, if(compact_integral_scans) "true" else "false" });
     var extra_buf: [512]u8 = undefined;
-    const extra = try std.fmt.bufPrint(&extra_buf, "pub const columns={d}; pub const result_rows={d}; pub const row_locks={d}; pub const predicates={d}; pub const expr_nodes={d}; pub const relations={d}; pub const integral_version_banks={s};\n", .{ columns, result_rows, row_locks, predicates, expr_nodes, relations, if (integral_version_banks) "true" else "false" });
+    const extra = try std.fmt.bufPrint(&extra_buf, "pub const columns={d}; pub const result_rows={d}; pub const row_locks={d}; pub const predicates={d}; pub const expr_nodes={d}; pub const relations={d}; pub const integral_version_banks={s}; pub const compact_version_stamps={s};\n", .{ columns, result_rows, row_locks, predicates, expr_nodes, relations, if (integral_version_banks) "true" else "false", if (compact_version_stamps) "true" else "false" });
     @memcpy(profile_buf[profile.len..][0..extra.len], extra);
     const full_profile = profile_buf[0..profile.len + extra.len];
     var profile_path_buf: [256]u8 = undefined;
@@ -144,6 +146,32 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
     _ = try ctx.addModule("profile", profile_path);
     const lib = try ctx.addModule("ramsql", "src/root.sig");
     try ctx.addImport(lib, "sql", sql_path);
+    var tls_buf: [sig_build.PATH_BUF_SIZE]u8 = undefined;
+    const tls_path = try zpm.modulePath("src/core/crypto/tls/stream.sig", &tls_buf);
+    const tls_module = try ctx.addModule("postgres_tls_stream", tls_path);
+    try ctx.addImport(tls_module, "entropy", entropy_path);
+    const tls_modules = .{
+        .{ "sha256", "src/core/sha256.sig" }, .{ "sig_mem", "src/core/sig_mem.sig" },
+        .{ "sig_testing", "src/core/sig_testing.sig" }, .{ "hmac", "src/core/crypto/hmac.sig" },
+        .{ "hkdf", "src/core/crypto/hkdf.sig" }, .{ "aes", "src/core/crypto/aes.sig" },
+        .{ "gcm", "src/core/crypto/gcm.sig" }, .{ "chacha20poly1305", "src/core/crypto/chacha20poly1305.sig" },
+        .{ "x25519", "src/core/crypto/x25519.sig" }, .{ "tls13_keys", "src/core/crypto/tls13_keys.sig" },
+    };
+    var tls_handles: [tls_modules.len]@TypeOf(tls_module) = undefined;
+    var tls_paths: [tls_modules.len][sig_build.PATH_BUF_SIZE]u8 = undefined;
+    inline for (tls_modules, 0..) |module, index| {
+        const path = try zpm.modulePath(module[1], &tls_paths[index]);
+        tls_handles[index] = try ctx.addModule(module[0], path);
+        try ctx.addImport(tls_module, module[0], path);
+    }
+    // Named imports used by individual crypto modules in the TLS root.
+    const tls_edges = .{
+        .{0, "sig_mem", 1}, .{0, "sig_testing", 2}, .{3, "sha256", 0},
+        .{4, "hmac", 3}, .{6, "aes", 5}, .{9, "sha256", 0}, .{9, "hkdf", 4}, .{9, "hmac", 3},
+    };
+    inline for (tls_edges) |edge| {
+        try ctx.addImport(tls_handles[edge[0]], edge[1], try zpm.modulePath(tls_modules[edge[2]][1], &tls_paths[edge[2]]));
+    }
     const app = try ctx.addCompileStep(.{
         .source_path = "src/main.sig",
         .output_name = "ramsql",
@@ -155,6 +183,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
             importEntry("sig", runtime_path),
             importEntry("sql", sql_path),
             importEntry("postgres", pg_path),
+            importEntry("postgres_tls_stream", tls_path),
             importEntry("mysql", mysql_path),
             importEntry("tds", tds_path),
             importEntry("tcp_server", tcp_path),

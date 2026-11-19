@@ -15,10 +15,10 @@ the shared SQL subset. Supporting all common SQL dialects is the
 
 ## Quick start
 
-The [beta.3 prerelease](https://github.com/SB0LTD/ramsql/releases/tag/ci-v0.3.0-beta.3-run.44202780430.1)
-includes machine planning and shared memory-budget admission. Inspect the
-machine budget before opening a listener.
-
+Download a hosted archive from [Releases](https://github.com/SB0LTD/ramsql/releases)
+and inspect its bundled provenance and `--capabilities` output. Each CI
+prerelease identifies its exact source and qualified runtime features.
+Inspect the machine budget before opening a listener.
 ```sh
 ./ramsql --machine-capacity
 ./ramsql --machine-capacity --memory-budget 8589934592 --os-headroom 1073741824
@@ -126,8 +126,24 @@ WAL and storage budget. This beta mode supports four databases and one reactor.
 The single-WAL offline backup command is unavailable in cluster mode.
 [PostgreSQL cluster operations](POSTGRES_CLUSTER.md)
 
-All listeners bind to 127.0.0.1. TLS and channel binding are pending, and
-MySQL/TDS require explicit insecure-local mode. Checkpointing, WAL compaction,
+All listeners bind to 127.0.0.1. The PostgreSQL TLS preview supports TLS 1.3,
+SCRAM-SHA-256-PLUS and explicit native workers. Supply a DER P-256 server
+leaf and its 32-byte private scalar together with the SCRAM verifier.
+
+```sh
+./ramsql --data ramsql.wal --auth-user postgres --auth-verifier-file postgres.verifier \
+  --tls-cert-der server.der --tls-key-raw server.scalar --workers 4
+psql "host=localhost hostaddr=127.0.0.1 user=postgres dbname=ramsql \
+  sslmode=verify-full sslrootcert=issuer.pem gssencmode=disable channel_binding=require" -W
+```
+
+The certificate must cover the client hostname. Protect the private scalar
+with filesystem permissions. TLS auto-selection uses one worker. Encrypted
+cancellation needs a free client slot. The preview currently excludes the
+shared read cache, cluster mode and secondary protocol listeners. See the
+[TLS configuration and tested scope](docs/POSTGRES_REQUIRED_TLS.md).
+
+MySQL and TDS require explicit insecure-local mode. Checkpointing, WAL compaction,
 online backup, replication and upgrade migration remain production blockers.
 
 To run the PostgreSQL listener under a catalog role, create a `LOGIN` role and
@@ -265,7 +281,10 @@ sig build -Doptimize=ReleaseFast -Dclients=4 -Dtables=4 -Drows=1024 \
 
 That profile is tested with a 12-column table, a 600-row result and 200-byte text.
 Inline cells, workspaces and per-client result/response buffers grow with the
-profile. Hosted connection admission currently has a 60-client ceiling.
+profile. The stock hosted connection ceiling is 60. An optional source build
+with `-Dhosted-client-ceiling=128` supports `--max-clients 128` for PostgreSQL.
+Its budget includes transaction slots and peak client memory. Cluster mode,
+secondary listeners and prepared transactions have separate admission limits.
 
 ### Experimental typed bank memory profile
 
@@ -289,21 +308,32 @@ tracks real load and query gates separately from capacity arithmetic.
 
 ## Measured performance
 
-The original reviewer suite is now available locally as sibling `dbMeter`, pinned
-to `630fbb13be21bd4bbdf7afe4b438ce771a8b3fc0`. It exercises stock PostgreSQL
-JDBC 42.7.4 and the reviewer's supplied IRDB Java client. The [dbMeter report](benchmarks/dbmeter-reviewer-20261027/REPORT.md)
-retains actual JDBC checks, failures, profiles and comparison trials. The
-earlier native SQL-string results below are a different measurement boundary.
-The million-row analytic mix currently remains substantially slower than IRDB;
-the report records that gap alongside the smaller-query improvements. These
-results do not establish 100M-row capacity or general benchmark leadership.
-The [actual five-million-row campaign](benchmarks/dbmeter-full-five-million-20261028/REPORT.md)
-loads the full data with the default text build and passes totals plus two
-original queries. Four queries remain unsupported, and the tested scans/joins
-remain substantially slower than IRDB. This is not full-suite qualification.
-The report includes isolated original-duration comparisons, raw reports and
-workspace-admission diagnostics; results apply to the recorded binary hashes.
+The reviewer suite is available as sibling `dbMeter`. CI retains its
+original JDBC drivers, SQL, generated data, correctness checks and reports.
+The current integration campaign passed every correctness and capacity
+check, led median throughput in all 16 cases, and met the complete throughput,
+trial-separation and p99 criteria in **12 of 16 cases**. All four prepared-key
+cases missed the performance criteria, with 1.08x to 1.54x the PostgreSQL rate.
+The 100K-row eight-client lookup had 94 microseconds p99 against PostgreSQL at
+61 microseconds. This comparison used the explicit 256 MiB RAMSQL read cache.
+Every result applies to the source and binary hashes in the run.
+[Full CI campaign](https://github.com/benor1470/dbMeter/actions/runs/44347340190)
 
+On the isolated packed-filter candidate, the same 256 MiB budget improved
+the original million-row filter from 810 to 8,840 queries/s at one client
+and from 2,524 to 15,649 at eight. It retained the original correctness
+and capacity checks. Both candidate and control ran three original-duration
+trials on the same runner. [Paired CI](https://github.com/benor1470/dbMeter/actions/runs/44259236510)
+
+The optional 32-byte version headers saved 1.60 GB on the durable 100M-row
+integral fact-table fixture with two dimensions. Both layouts recovered
+the same 6,771,074,198 WAL bytes and reproduced the query results.
+[Capacity and recovery proof](https://github.com/benor1470/dbMeter/actions/runs/44259619802)
+
+Earlier reports record the baseline limitations and the changes that led
+to these results. The [reviewer baseline](benchmarks/dbmeter-reviewer-20261027/REPORT.md)
+and [five-million-row baseline](benchmarks/dbmeter-full-five-million-20261028/REPORT.md)
+retain their original failures and losses.
 To reproduce size-scaling runs after building dbMeter, installing its configured
 drivers and running its original generator:
 

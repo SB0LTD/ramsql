@@ -23,6 +23,21 @@ achieved by the current inline-row beta.
 | Multi-core and efficiency | ZPM: allocator-free partition/index/vector/aggregate/join primitives with ownership rules; RAMSQL: scheduling/admission/backpressure | Equivalent-semantics, durability and concurrency measurements; raw data, tails, memory/import/write costs, failures and reference tuning retained |
 | Native SB0 hosted-feature parity | Sig/platform ABI primitives, then ZPM TCP/files/entropy/barriers, then RAMSQL integration | Actual SB0S system integration, TCP, authenticated sessions, durable recovery and faults on the real target; memory-channel QEMU tests alone are insufficient |
 
+## Current verified development
+
+The PostgreSQL TLS worker candidate passed stock-client verification on Linux
+x86-64 and ARM64 with two and four workers, including SCRAM-PLUS, encrypted
+cancellation of an active query and reciprocal TLS key updates. Windows TLS
+and all-hosted release integration remain qualification work.
+[Native client evidence](https://github.com/SB0LTD/ramsql/actions/runs/44295501326)
+
+Checkpoint generation selection and existing-lock recovery passed on Linux,
+macOS and Windows in an isolated stack. Porting that stack onto the current
+catalog and constraint state is in progress. Snapshot export still has
+explicit unsupported-state checks. Online checkpoint publication, WAL
+rotation, full catalog snapshots and power-loss qualification remain open.
+[Recovery evidence](https://github.com/SB0LTD/ramsql/actions/runs/44289970826)
+
 ## Production graduation gates
 
 Beta testing is not production acceptance. Before a stable production release:

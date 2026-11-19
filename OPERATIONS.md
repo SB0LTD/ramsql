@@ -6,6 +6,24 @@ read sessions. Writes share one exclusive SQL lane. The default is one
 database with READ COMMITTED transaction isolation. Production qualification
 is still open.
 
+PostgreSQL simple Query messages can carry multiple supported SQL commands.
+The server checks the entire frame before running its first command and
+streams one command's response at a time. Implicit segments commit at the end
+of the frame or at an explicit transaction boundary. A raw syntax error
+rejects the whole frame. A runtime error stops execution at that command and
+rolls back the current implicit segment. Earlier explicit commits persist.
+Send `COPY` in its own Query message. A batch containing `COPY` or unsupported
+raw grammar returns `0A000` before running any command.
+`PREPARE TRANSACTION` in a batch requires an explicit transaction block.
+
+Extended Parse/Bind/Execute groups retain implicit writes until Sync or a
+successful multi-command simple Query completes on the same connection.
+Flush and a single ordinary simple Query leave the transaction open.
+Extended COPY FROM and COPY TO run as portals and share the same transaction
+boundary. PostgreSQL 18.3 can report idle before publishing writes if Sync
+immediately follows a single simple Query in a mixed-protocol group. RAMSQL
+commits the group before reporting idle.
+
 ## Installation and startup
 
 Verify the release checksums and inspect `provenance.json`, `RELEASE.md` and
@@ -48,6 +66,21 @@ authentication. Bind addresses are loopback only; TLS is not available.
 Use client connect/query timeouts. `--idle-ms` expires idle sessions, with special
 treatment for parked lock waits. `--max-query-work` limits execution checkpoints;
 it is distinct from SQL `statement_timeout`, `lock_timeout` and deadlock checks.
+PostgreSQL `idle_in_transaction_session_timeout` is a session setting in
+milliseconds. It defaults to zero and supports `SET LOCAL`, `SHOW` and `RESET`.
+A nonzero value starts after `ReadyForQuery` in an open or failed transaction
+block. Expiry rolls the transaction back, releases its locks, sends fatal
+SQLSTATE `25P03`, and closes the connection. Running and lock-waiting statements
+use their own limits. `--idle-ms` remains a separate server-side socket limit.
+
+PostgreSQL `transaction_timeout` starts at the beginning of an explicit or
+implicit engine transaction. It runs during execution, lock waits and time
+between statements, and expires with fatal SQLSTATE `25P04`. Zero disables
+the timer. A positive-to-positive change preserves an armed deadline. COPY
+input checks a pending expiration when input resumes. The extended protocol
+currently publishes autocommit at Execute. A shared implicit transaction
+across Parse, Bind, Execute and Sync requires separate compatibility work.
+
 PG cancellation is tested. TDS ATTENTION acknowledges an idle protocol request;
 it is not a general asynchronous running-query cancellation implementation.
 
@@ -61,11 +94,28 @@ region. Cluster mode uses one worker and rejects a positive cache budget.
 
 Both `--capabilities` and `--machine-capacity` show the number of entries,
 admitted payload bytes and page-rounded cache bytes. Each entry accepts SQL
-up to 1 KiB and at most 128 result rows. A result can be reused within its
+up to 1 KiB and at most 128 result rows. For large tables with a committed
+integral scan projection, the same opt-in budget may reserve up to one eighth
+for entries holding 129 to 2,048 rows of up to four direct non-null integral
+columns. The query must repeat within the same snapshot before publication.
+The cache reports the projected tier's payload bytes, entry count and row
+capacity in both capacity commands. A result can be reused within its
 committed database snapshot. Writes, including DDL, advance the snapshot and
 invalidate earlier results. Restricted roles, nondefault session settings,
 work limits and timeouts use ordinary query execution. A restart starts with
-an empty cache.
+an empty cache. A new medium query key runs the complete scan for its first
+two successful observations and pays the packing cost on the second. Writes
+advance the database snapshot, so even an unchanged query must build
+observations again. The projected tier shares the requested byte budget with
+the small aggregate tier. Measure cold-start and write-heavy workloads with
+their own traffic patterns and cache budgets.
+
+A source build may opt into 32-byte external MVCC headers with
+`sig build -Dcompact-version-stamps=true`. The default build keeps its
+existing layout. In a build with `-Dintegral-version-banks=true`, the
+flag saves 16 bytes per provisioned version slot. The WAL format is
+shared between builds. Both `--capabilities` and `--machine-capacity`
+report the selected layout and the size of each provisioned version.
 
 ## Stop, backup, restore and upgrade
 
