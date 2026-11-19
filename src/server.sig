@@ -36,6 +36,7 @@ const machine_capacity = @import("capacity.sig");
 const database_registry = @import("database_registry");
 const database_catalog = @import("database_catalog.sig");
 const disk = @import("db_file");
+const postgres_tls = @import("postgres_tls.sig");
 
 pub const Protocol = enum { postgres, mysql, mssql };
 pub const table_capacity = profile.tables;
@@ -59,6 +60,8 @@ pub const Options = struct {
     auth_verifier_file: ?[]const u8 = null,
     auth_credentials_file: ?[]const u8 = null,
     auth_catalog_role: bool = false,
+    tls_certificate_file: ?[]const u8 = null,
+    tls_key_file: ?[]const u8 = null,
     idle_ms: u32 = 30000,
     /// Execution checkpoints per statement; zero disables the work limit.
     max_query_work: u64 = 0,
@@ -135,10 +138,11 @@ const config: sql.Config = storageConfig(.{
 });
 
 fn storageConfig(defaults: sql.Config) sql.Config {
-    if (comptime profile.integral_version_banks) {
+    if (comptime profile.integral_version_banks or profile.compact_version_stamps) {
         var experimental = defaults;
         experimental.split_external_versions = true;
-        experimental.integral_external_versions = true;
+        experimental.integral_external_versions = profile.integral_version_banks;
+        experimental.compact_external_version_stamps = profile.compact_version_stamps;
         return experimental;
     }
     return defaults;
@@ -175,7 +179,8 @@ fn wallClock() ?i64 {
 const PG = pg.SessionWithAdmission(DB, true);
 const MySQL = mysql.Session(DB);
 const TDS = tds.Session(DB);
-const capacity = 60;
+const standard_capacity = 60;
+const capacity = profile.client_ceiling;
 const input_capacity = 65536;
 const output_capacity = @max(PG.responseCapacity(), @max(MySQL.responseCapacity(), TDS.responseCapacity())) + 32768;
 const Session = union(Protocol) { postgres: PG, mysql: MySQL, mssql: TDS };
@@ -230,9 +235,12 @@ const Client = struct {
     result_region: owned_pages.Region = .{},
     output_region: owned_pages.Region = .{},
     startup_region: owned_pages.Region = .{},
+    transport: ?*postgres_tls.Transport = null,
     database_binding: ?ClusterRegistry.Binding = null,
     reader:?*Reader=null,
     read_deadline:?i64=null,
+    idle_transaction_deadline: ?i64 = null,
+    idle_transaction_after_flush_ms: u32 = 0,
     output_len: usize = 0,
     output_sent: usize = 0,
     closing: bool = false,
@@ -272,6 +280,11 @@ const Client = struct {
         }
         self.state.store(1, .release);
         if (active) unlockStore();
+        if (self.transport) |transport| {
+            transport.close();
+            std.crypto.secureZero(u8, &self.input);
+        }
+        self.transport = null;
         if(self.socket!=tcp.invalid_socket) tcp.close(self.socket);
         lockMemory();
         self.result_region.close() catch @panic("lost client result ownership");
@@ -282,21 +295,66 @@ const Client = struct {
         self.output = &.{};
         self.socket = tcp.invalid_socket;
         self.blocked = false;
+        self.idle_transaction_deadline = null;
+        self.idle_transaction_after_flush_ms = 0;
         // The owner publishes a closed slot as free on its next iteration,
         // after callers of close have stopped inspecting the old connection.
         self.state.store(if (parallel and active) 3 else 0, .release);
     }
 
+    fn sessionDeadline(self: *const Client) ?i64 {
+        if (self.protocol != .postgres or self.connection.blocked() or self.closing) return null;
+        // Like PostgreSQL, a COPY socket read defers ordinary transaction
+        // timeout delivery until input or a parked COPY row resumes.
+        const transaction = if (self.session.postgres.waitingForCopyInput()) null else self.connection.transactionDeadline();
+        // A simple Query still running against socket backpressure is active.
+        if (self.session.postgres.continuingSimpleQuery()) return transaction;
+        const idle = self.idle_transaction_deadline orelse return transaction;
+        return if (transaction) |at| @min(at, idle) else idle;
+    }
+
+    fn expireSessionTimeout(self: *Client, now: i64) void {
+        const deadline = self.sessionDeadline() orelse return;
+        if (now < deadline) return;
+        const transaction_expired = self.connection.transactionDeadline() == deadline;
+        self.idle_transaction_deadline = null;
+        self.idle_transaction_after_flush_ms = 0;
+        self.closing = true;
+        self.touched = now;
+        self.cancel_key.store(0, .release);
+        lockStore();
+        // Release the transaction immediately, even if the peer has not yet
+        // drained its earlier response or stops reading after the timeout.
+        self.connection.terminateTimedOut();
+        unlockStore();
+        if (self.output_sent != 0) {
+            const unsent = self.output[self.output_sent..self.output_len];
+            std.mem.copyForwards(u8, self.output, unsent);
+            self.output_len = unsent.len;
+            self.output_sent = 0;
+        }
+        const response = self.output[self.output_len..];
+        const written = (if (transaction_expired) pg.transactionTimeoutError(response) else pg.idleTransactionTimeoutError(response)) catch {
+            self.close();
+            return;
+        };
+        self.output_len += written;
+    }
+
+    fn queuedSimpleQuery(self: *const Client) bool {
+        return self.protocol == .postgres and self.session.postgres.queuedSimpleQuery();
+    }
+
     fn dispatch(self: *Client) !void {
-        if (self.blocked or self.output_sent != 0 or self.closing or (self.input_len == 0 and !self.connection.copyBlocked())) return;
+        if (self.blocked or self.output_sent != 0 or self.closing or (self.input_len == 0 and !self.connection.copyBlocked() and !self.queuedSimpleQuery())) return;
         // Cancellation is control traffic and must not queue behind SQL held
         // by another reactor. An established session cannot send startup frames.
-        if (parallel and self.protocol == .postgres and !self.session.postgres.startup) {
+        if (parallel and self.transport == null and self.protocol == .postgres and !self.session.postgres.startup) {
             if (pg.parseCancel(self.input[self.input_start..][0..self.input_len])) |key| {
                 cancelBackend(key); self.consume(16); self.closing = true; return;
             }
         }
-        if(try self.dispatchRead()) return;
+        if (!self.queuedSimpleQuery() and try self.dispatchRead()) return;
         lockStore();
         defer unlockStore();
         if (parallel) {
@@ -309,7 +367,7 @@ const Client = struct {
             .mssql => |*session| try session.requiredCapacity(),
         };
         const parked_copy = self.connection.copyBlocked();
-        if (self.blocked or self.output_sent != 0 or self.closing or (self.input_len == 0 and !parked_copy) or self.output.len - self.output_len < required) return;
+        if (self.blocked or self.output_sent != 0 or self.closing or (self.input_len == 0 and !parked_copy and !self.queuedSimpleQuery()) or self.output.len - self.output_len < required) return;
         const input = self.input[self.input_start..][0..self.input_len];
         const output = self.output[self.output_len..];
         self.connection.store.now_ns = sig.os.clockMonotonicNs();
@@ -329,6 +387,11 @@ const Client = struct {
         };
         notification_sequence.store(store.database.notificationSequence(), .release);
         if (reply.consumed > self.input_len or reply.written > output.len) return error.InvalidReply;
+        if (self.protocol == .postgres and (reply.consumed != 0 or reply.written != 0 or reply.blocked)) {
+            self.idle_transaction_deadline = null;
+            self.idle_transaction_after_flush_ms = if (reply.close) 0 else
+                self.session.postgres.idleTransactionTimeout(&self.connection);
+        }
         if (reply.blocked) {
             // Only a parked COPY row consumes input (through that row).
             if (reply.written != 0 or !self.connection.blocked() or (reply.consumed != 0 and !self.connection.copyBlocked())) return error.InvalidReply;
@@ -339,7 +402,7 @@ const Client = struct {
         if (reply.cancel) |key| cancelBackend(key);
         if (reply.consumed != 0) {
             self.consume(reply.consumed);
-        } else if (self.input_len == self.input.len) return error.RequestTooLarge;
+        } else if (reply.written == 0 and self.input_len == self.input.len) return error.RequestTooLarge;
         self.output_len += reply.written;
         self.closing = reply.close;
     }
@@ -416,7 +479,28 @@ const Client = struct {
         if (self.input_len == 0) self.input_start = 0;
     }
 
+    fn armIdleTimeoutAfterFlush(self: *Client) void {
+        if (self.closing or self.idle_transaction_after_flush_ms == 0 or
+            (self.protocol == .postgres and self.session.postgres.continuingSimpleQuery())) return;
+        self.idle_transaction_deadline = monotonicClock() +|
+            (@as(i64, self.idle_transaction_after_flush_ms) * 1000000);
+        self.idle_transaction_after_flush_ms = 0;
+    }
+
     fn flush(self: *Client) !void {
+        if (self.transport) |transport| {
+            const result = try transport.flush(self.socket, self.output[self.output_sent..self.output_len], self.closing);
+            if (result.sent) self.touched = monotonicClock();
+            self.output_sent += result.accepted;
+            if (self.output_sent == self.output_len and !transport.needsWrite()) {
+                self.output_len = 0;
+                self.output_sent = 0;
+                if (self.closing and transport.close_queued) {
+                    self.close();
+                } else self.armIdleTimeoutAfterFlush();
+            }
+            return;
+        }
         if (self.output_len != 0) {
             const sent = try tcp.send(self.socket, self.output[self.output_sent..self.output_len]) orelse return;
             if (sent == 0) return error.SendFailed;
@@ -427,20 +511,89 @@ const Client = struct {
                 self.output_sent = 0;
             }
         }
-        if (self.closing and self.output_len == 0) self.close();
+        if (self.output_len != 0) return;
+        if (self.closing) {
+            self.close();
+            return;
+        }
+        // ReadyForQuery enters the idle read phase only once output drains.
+        self.armIdleTimeoutAfterFlush();
+    }
+
+    fn pullTls(self: *Client, transport: *postgres_tls.Transport) !void {
+        if (self.closing) return;
+        if (self.input_start != 0) {
+            std.mem.copyForwards(u8, self.input[0..self.input_len], self.input[self.input_start..][0..self.input_len]);
+            self.input_start = 0;
+        }
+        const established = transport.established();
+        self.input_len += try transport.pull(self.input[self.input_len..]);
+        if (!established and transport.established()) {
+            // The same leaf was sent by this completed TLS exchange. The
+            // PostgreSQL codec must see the binding before any startup bytes.
+            try self.session.postgres.configureChannelBinding(tls_credentials.endpoint(), false);
+        }
+    }
+
+    fn wantsRead(self: *const Client) bool {
+        if (self.output_len != 0 or self.input_len == self.input.len) return false;
+        if (self.transport) |transport| return !self.closing and transport.canRead();
+        return true;
+    }
+
+    fn wantsWrite(self: *const Client) bool {
+        if (self.output_len != 0) return true;
+        if (self.transport) |transport| return self.closing or transport.needsWrite();
+        return false;
+    }
+
+    fn receive(self: *Client) !void {
+        if (!self.wantsRead()) return;
+        if (self.transport) |transport| {
+            if (try transport.receive(self.socket)) self.touched = monotonicClock();
+            return;
+        }
+        // Compact once per socket read, not once per pipelined packet.
+        if (self.input_start != 0) {
+            std.mem.copyForwards(u8, self.input[0..self.input_len], self.input[self.input_start..][0..self.input_len]);
+            self.input_start = 0;
+        }
+        if (try tcp.recv(self.socket, self.input[self.input_len..])) |received| {
+            if (received == 0) return error.EndOfStream;
+            self.input_len += received;
+            self.touched = monotonicClock();
+        }
     }
 
     /// Dispatches at most 32 buffered packets, then flushes. Returns true
     /// when packets remain buffered (the reactor should poll without waiting).
     fn serve(self: *Client) bool {
+        if (self.transport) |transport| {
+            self.pullTls(transport) catch { self.close(); return false; };
+            if (!transport.established()) {
+                self.flush() catch self.close();
+                return self.socket != tcp.invalid_socket and transport.more and !transport.needsWrite();
+            }
+        }
         var frames: usize = 0;
         while (frames < 32) : (frames += 1) {
+            if (self.sessionDeadline() != null) self.expireSessionTimeout(monotonicClock());
+            if (self.socket == tcp.invalid_socket) return false;
             const before = self.input_len;
+            const previous_output = self.output_len;
             self.dispatch() catch {
                 self.close();
                 return false;
             };
-            if (self.blocked or before == self.input_len or self.closing) break;
+            if (self.blocked or (before == self.input_len and previous_output == self.output_len) or self.closing) break;
+        }
+        if (self.transport) |transport| {
+            if (transport.peer_closed) {
+                if (self.blocked) { self.close(); return false; }
+                if (self.input_len == 0 or
+                    (frames < 32 and self.output_len == 0 and !transport.needsWrite()))
+                    self.closing = true;
+            }
         }
         self.deliverNotifications();
         self.flush() catch {
@@ -448,7 +601,15 @@ const Client = struct {
             return false;
         };
         if (self.socket == tcp.invalid_socket) return false;
-        return frames == 32 and self.input_len != 0 and self.output_len == 0;
+        if (self.transport) |transport| {
+            if (!self.closing and !transport.needsWrite()) {
+                if (transport.peer_closed and self.input_len != 0 and self.output_len == 0) return true;
+                if (transport.more and self.input_len < self.input.len) return true;
+            }
+        }
+        const continuing_query = self.protocol == .postgres and self.session.postgres.continuingSimpleQuery();
+        const more_input = (frames == 32 or continuing_query) and self.input_len != 0;
+        return !self.blocked and self.output_len == 0 and (more_input or self.queuedSimpleQuery());
     }
 };
 var store: Store = .{};
@@ -573,6 +734,8 @@ fn provisionClient(client: *Client) !void {
     client.output = client.output_region.memory.bytes;
 }
 var next_id: u64 = 1;
+var tls_credentials: postgres_tls.Credentials = .{};
+var tls_slots: []postgres_tls.Slot = &.{};
 
 fn sameSecret(a: u32, b: u32) bool {
     // Constant time in the secret's bits.
@@ -597,6 +760,11 @@ fn cancelBackend(key: pg.Cancel) void {
 
 fn monotonicClock() i64 {
     return sig.os.clockMonotonicNs();
+}
+
+fn deadlinePollMs(now: i64, due: i64, ceiling: u32) u32 {
+    if (due <= now) return 0;
+    return @intCast(@min(@divFloor((due -| now) +| 999999, 1000000), ceiling));
 }
 
 var interrupt_listener: tcp.Socket = tcp.invalid_socket;
@@ -625,7 +793,7 @@ const OverflowCancel = struct {
         if (!clientMemoryAvailable()) return false;
         for (clients,0..) |*client,slot| if (client.state.load(.acquire) == 0) {
             const socket = self.socket;
-            configureClient(socket,.postgres,slot,self.bytes[0..self.used]) catch |err| {
+            configureClient(socket,.postgres,slot,self.bytes[0..self.used],false) catch |err| {
                 switch(err) {
                     error.BudgetExceeded,error.TokenCapacity,error.MemoryReservationFailed=>{
                         self.output_len=pg.memoryLimitError(&self.output) catch {self.close();return true;};
@@ -719,11 +887,20 @@ fn pollInterrupts(_: ?*anyopaque, _: u64) void {
     if (now < next_interrupt_poll) return;
     next_interrupt_poll = now + 1000000;
     if (interrupt_listener != tcp.invalid_socket)
-        acceptConnections(interrupt_listener, .postgres, interrupt_max_clients, 4) catch {};
+        acceptConnections(interrupt_listener, .postgres, interrupt_max_clients, 4, null) catch {};
     pollOverflowCancels(now);
     for (clients[0..interrupt_max_clients]) |*client| {
         if (client.socket == tcp.invalid_socket or client.protocol != .postgres or client.session.postgres.startup or client.closing or client.input_start != 0) continue;
-        if (client.input_len < 16) {
+        if (client.transport) |transport| {
+            // During a query, drive only TLS and control traffic. Leave an
+            // ordinary decrypted startup packet for the reactor to dispatch.
+            if (client.input_len < 16) {
+                if (transport.receive(client.socket) catch { client.close(); continue; }) client.touched = now;
+                client.pullTls(transport) catch { client.close(); continue; };
+                client.flush() catch { client.close(); continue; };
+            }
+            if (!transport.established()) continue;
+        } else if (client.input_len < 16) {
             // Startup connections have not consumed any input yet.
             const n = tcp.recv(client.socket, client.input[client.input_len..16]) catch continue orelse continue;
             client.input_len += n;
@@ -737,10 +914,14 @@ fn pollInterrupts(_: ?*anyopaque, _: u64) void {
 
 // Bounded connection setup shared by the reactor and interrupt polling. No SQL
 // is dispatched here; a fresh connection owns no transaction or shared session.
-fn acceptConnections(listener: tcp.Socket, protocol: Protocol, max_clients: usize, limit: usize) !void {
+// Only the acceptor writes this list. Worker retirement also passes through
+// state 1, so that state alone cannot identify an acceptor-owned client.
+const TlsAdmissions = [capacity]?i64;
+
+fn acceptConnections(listener: tcp.Socket, protocol: Protocol, max_clients: usize, limit: usize, admissions: ?*TlsAdmissions) !void {
     for (0..limit) |_| {
         const socket = tcp.accept(listener) catch break orelse break;
-        if (protocol == .postgres) {
+        if (protocol == .postgres and tls_slots.len == 0) {
             if (!queueOverflowCancel(socket)) tcp.close(socket);
             continue;
         }
@@ -750,14 +931,17 @@ fn acceptConnections(listener: tcp.Socket, protocol: Protocol, max_clients: usiz
             break;
         };
         const slot = free orelse {
-            if (protocol != .postgres or !queueOverflowCancel(socket)) tcp.close(socket);
+            // A saturated TLS listener closes without plaintext PG or TLS
+            // negotiation. The plaintext overflow queue must never see it.
+            if (tls_slots.len != 0 or protocol != .postgres or !queueOverflowCancel(socket)) tcp.close(socket);
             continue;
         };
-        configureClient(socket,protocol,slot,&.{}) catch {tcp.close(socket);continue;};
+        configureClient(socket, protocol, slot, &.{}, admissions != null) catch { tcp.close(socket); continue; };
+        if (admissions) |pending| pending[slot] = monotonicClock() + admission_timeout_ns;
     }
 }
 
-fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial: []const u8) !void {
+fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial: []const u8, defer_ready: bool) !void {
     const client = &clients[slot];
     client.state.store(1, .release);
     client.cancel_key.store(0, .release);
@@ -766,9 +950,12 @@ fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial:
     client.result_region = .{};
     client.output_region = .{};
     client.startup_region = .{};
+    client.transport = null;
     client.database_binding = null;
     client.notify_seen = 0;
     client.reader=if(parallel) &reactors[slot % reactor_count].reader else null;client.read_deadline=null;
+    client.idle_transaction_deadline = null;
+    client.idle_transaction_after_flush_ms = 0;
     client.output = &.{};
     client.blocked = false;
     client.connection = .{ .store = &store, .id = next_id };
@@ -786,6 +973,7 @@ fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial:
     // emit a PostgreSQL resource error instead of silently resetting TCP.
     errdefer {client.socket=tcp.invalid_socket;client.close();}
     try provisionClient(client);
+    if (tls_slots.len != 0) client.transport = try tls_slots[slot].open(&tls_credentials);
     if (protocol == .postgres) {
         if (cluster_options.database_cluster) {
             try client.startup_region.reserve(&memory_ledger, pg.routed_startup_capacity);
@@ -827,9 +1015,41 @@ fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial:
         .mysql => |*session| try session.begin(client.output),
         .mssql => |*session| try session.begin(client.output),
     };
-    if (protocol == .postgres) client.cancel_key.store((@as(u64, client.cancel_secret) << 1) | 1, .release);
+    if (!defer_ready) publishClient(client, slot);
+}
+
+fn publishClient(client: *Client, slot: usize) void {
+    if (client.protocol == .postgres) client.cancel_key.store((@as(u64, client.cancel_secret) << 1) | 1, .release);
     client.state.store(2, .release);
     if (parallel) reactors[slot % reactor_count].signal.notify();
+}
+
+// Perform only transport negotiation and inspect the first untyped PG frame.
+// SQL and authentication run on the assigned reactor. An executing reactor
+// cannot delay a separate encrypted cancel connection owned by the acceptor.
+fn driveTlsAdmission(client: *Client, slot: usize, deadline: *?i64) !void {
+    const transport = client.transport.?;
+    if (!client.closing) {
+        try client.pullTls(transport);
+        if (transport.established()) {
+            switch (pg.classifyStartup(client.input[0..client.input_len])) {
+                .incomplete => if (transport.peer_closed) return error.EndOfStream,
+                .startup => {
+                    deadline.* = null;
+                    publishClient(client, slot);
+                    return;
+                },
+                .cancel => |key| {
+                    if (client.input_len != 16) return error.InvalidStartup;
+                    cancelBackend(key);
+                    client.closing = true;
+                },
+                else => return error.InvalidStartup,
+            }
+        }
+    }
+    try client.flush();
+    if (client.socket == tcp.invalid_socket) deadline.* = null;
 }
 
 const max_reactors = capacity;
@@ -845,6 +1065,22 @@ fn validateWorkers(options: Options) !void {
     if (options.database_cluster and options.workers != 1) return error.InvalidServerOptions;
     if (options.read_cache_bytes != 0 and options.workers < 2) return error.InvalidServerOptions;
     if (options.workers > 1 and !threads.available) return error.WorkersUnsupportedOnPlatform;
+}
+
+fn validateClientLimit(options: Options) !void {
+    if (options.max_clients == 0 or options.max_clients > capacity) return error.InvalidServerOptions;
+    if (options.max_clients <= standard_capacity) return;
+    const os = @import("builtin").os.tag;
+    if (os != .linux and os != .windows and os != .macos) return error.InvalidServerOptions;
+    if (options.protocol != .postgres or options.mysql_port != null or options.mssql_port != null or
+        options.database_cluster or options.max_prepared_transactions != 0) return error.InvalidServerOptions;
+}
+
+fn waitServer(listener: tcp.Socket, sockets: []const tcp.Socket, read: []bool, write: []bool, timeout_ms: u32) !bool {
+    if (comptime capacity <= standard_capacity) return tcp.waitMasked(listener, sockets, read, write, timeout_ms);
+    if (sockets.len <= tcp.max_clients) return tcp.waitMasked(listener, sockets, read, write, timeout_ms);
+    var scratch: [capacity + 3]tcp.WaitDescriptor = undefined;
+    return tcp.waitMaskedWithScratch(listener, sockets, read, write, timeout_ms, &scratch);
 }
 
 const Reactor = struct {
@@ -872,6 +1108,7 @@ const Reactor = struct {
             var writable: [capacity]bool = @splat(false);
             var active: usize = 0;
             var buffered = false;
+            var poll_timeout_ms: u32 = 10;
             const now = sig.os.clockMonotonicNs();
             // Shared store state, timers and cancellation are read only while
             // holding the same mutex used for execution and disconnection.
@@ -905,36 +1142,30 @@ const Reactor = struct {
             while (slot < clients.len) : (slot += reactor_count) {
                 const client = &clients[slot];
                 if (client.state.load(.acquire) != 2) continue;
+                client.expireSessionTimeout(now);
+                if (client.state.load(.acquire) != 2) continue;
                 if (client.blocked) client.touched = now;
                 if (now-client.touched >= @as(i64,self.idle_ms)*1000000) { client.close(); continue; }
                 if (client.serve()) buffered = true;
                 if (client.state.load(.acquire) != 2) continue;
+                if (client.sessionDeadline()) |due| poll_timeout_ms = deadlinePollMs(monotonicClock(), due, poll_timeout_ms);
                 sockets[slot] = client.socket;
-                readable[slot] = client.output_len == 0 and client.input_len < client.input.len;
-                writable[slot] = client.output_len != 0;
+                readable[slot] = client.wantsRead();
+                writable[slot] = client.wantsWrite();
                 active += 1;
             }
             if (active == 0) { self.reader.close();self.signal.wait(epoch, 100); continue; }
             // Finite poll bounds new admission, cancellation and shutdown
             // latency without introducing a second socket wakeup protocol.
-            _ = try tcp.waitMasked(tcp.invalid_socket, &sockets, &readable, &writable, if (buffered) 0 else 10);
+            const poll_count = if (comptime capacity <= standard_capacity) capacity else clients.len;
+            _ = try waitServer(tcp.invalid_socket, sockets[0..poll_count], readable[0..poll_count], writable[0..poll_count], if (buffered) 0 else poll_timeout_ms);
             slot = self.index;
             while (slot < clients.len) : (slot += reactor_count) {
                 const client = &clients[slot];
                 if (client.state.load(.acquire) != 2) continue;
                 if (writable[slot]) client.flush() catch { client.close(); continue; };
                 if (client.state.load(.acquire) != 2) continue;
-                if (readable[slot] and client.output_len == 0) {
-                    if (client.input_start != 0) {
-                        for (0..client.input_len) |offset| client.input[offset] = client.input[client.input_start+offset];
-                        client.input_start = 0;
-                    }
-                    if (tcp.recv(client.socket,client.input[client.input_len..]) catch { client.close(); continue; }) |received| {
-                        if (received == 0) { client.close(); continue; }
-                        client.input_len += received;
-                        client.touched = sig.os.clockMonotonicNs();
-                    }
-                }
+                if (readable[slot]) client.receive() catch client.close();
             }
         }
     }
@@ -949,13 +1180,16 @@ fn runParallel(options: Options, listeners: []const tcp.Socket, protocols: []con
         for (reactors[0..started]) |*reactor| reactor.signal.notify();
         for (reactors[0..started]) |*reactor| reactor.thread.join() catch @panic("cannot release live reactor ownership");
     }
-    for (reactors[0..reactor_count],0..) |*reactor,index| {
-        reactor.* = .{ .index=index, .idle_ms=options.idle_ms };
+    for (reactors[0..reactor_count], 0..) |*reactor, index| {
+        reactor.* = .{ .index = index, .idle_ms = options.idle_ms };
+    }
+    for (reactors[0..reactor_count]) |*reactor| {
         try reactor.thread.start(&Reactor.entry, reactor);
         started += 1;
     }
+    if (tls_slots.len != 0) return runTlsAcceptor(listeners[0], options.max_clients);
     while (!reactor_stop.load(.acquire)) {
-        for (listeners,protocols) |listener,protocol| try acceptConnections(listener,protocol,options.max_clients,capacity);
+        for (listeners,protocols) |listener,protocol| try acceptConnections(listener,protocol,options.max_clients,capacity,null);
         pollOverflowCancels(sig.os.clockMonotonicNs());
         var sockets: [2]tcp.Socket = @splat(tcp.invalid_socket);
         var readable: [2]bool = @splat(false);
@@ -966,21 +1200,76 @@ fn runParallel(options: Options, listeners: []const tcp.Socket, protocols: []con
     if (reactor_failed.load(.acquire)) return error.ReactorFailed;
 }
 
+fn runTlsAcceptor(listener: tcp.Socket, max_clients: usize) !void {
+    var pending: TlsAdmissions = @splat(null);
+    while (!reactor_stop.load(.acquire)) {
+        try acceptConnections(listener, .postgres, max_clients, capacity, &pending);
+        var sockets: [capacity]tcp.Socket = @splat(tcp.invalid_socket);
+        var readable: [capacity]bool = @splat(false);
+        var writable: [capacity]bool = @splat(false);
+        const now = monotonicClock();
+        var buffered = false;
+        for (pending[0..max_clients], 0..) |*deadline, slot| {
+            const due = deadline.* orelse continue;
+            const client = &clients[slot];
+            if (now >= due) {
+                client.close();
+                deadline.* = null;
+                continue;
+            }
+            driveTlsAdmission(client, slot, deadline) catch {
+                client.close();
+                deadline.* = null;
+                continue;
+            };
+            if (deadline.* == null) continue;
+            sockets[slot] = client.socket;
+            readable[slot] = client.wantsRead();
+            writable[slot] = client.wantsWrite();
+            const transport = client.transport.?;
+            if (transport.more and !transport.needsWrite()) buffered = true;
+        }
+        _ = try waitServer(listener, sockets[0..max_clients], readable[0..max_clients], writable[0..max_clients], if (buffered) 0 else 10);
+        for (pending[0..max_clients], 0..) |*deadline, slot| {
+            if (deadline.* == null) continue;
+            const client = &clients[slot];
+            if (writable[slot]) client.flush() catch client.close();
+            if (client.socket != tcp.invalid_socket and readable[slot]) client.receive() catch client.close();
+            if (client.socket == tcp.invalid_socket) deadline.* = null;
+        }
+    }
+    if (reactor_failed.load(.acquire)) return error.ReactorFailed;
+}
+
 const ReadCachePlan = struct {
     bytes: usize = 0,
     region_bytes: u64 = 0,
     entries: usize = 0,
     rows: usize = 0,
+    small_offset: usize = 0,
+    small_bytes: usize = 0,
+    projected_bytes: usize = 0,
+    projected_entries: usize = 0,
+    projected_rows: usize = 0,
 };
 const read_cache_key_bytes = 1024;
+const projected_cache_min_scan_rows = 65536;
 
-fn planReadCache(options: Options) !ReadCachePlan {
+fn planReadCache(options: Options, has_large_projection: bool) !ReadCachePlan {
     if (options.read_cache_bytes == 0) return .{};
     if (options.protocol != .postgres or options.database_cluster or options.workers == 1) return error.InvalidServerOptions;
     const rows = @min(@as(usize, 128), options.result_rows);
-    const layout = Raw.ReadResultCache.layoutForBytes(options.read_cache_bytes, read_cache_key_bytes, rows) catch return error.InvalidServerOptions;
+    const projected_rows = if (has_large_projection) @min(@as(usize, 2048), options.result_rows) else 0;
+    const layout = Raw.ReadResultCache.tieredLayoutForBytes(options.read_cache_bytes, read_cache_key_bytes, rows, projected_rows) catch return error.InvalidServerOptions;
     const charges = machine_capacity.startupCharges(&.{layout.bytes}, 0) catch return error.InvalidServerOptions;
-    return .{ .bytes = layout.bytes, .region_bytes = charges.rounded, .entries = layout.entries, .rows = rows };
+    const projected_bytes = if (layout.projected) |medium| medium.bytes else 0;
+    const projected_entries = if (layout.projected) |medium| medium.entries else 0;
+    return .{
+        .bytes=layout.bytes, .region_bytes=charges.rounded, .entries=layout.small.entries, .rows=rows,
+        .small_offset=layout.small_offset, .small_bytes=layout.small.bytes,
+        .projected_bytes=projected_bytes, .projected_entries=projected_entries,
+        .projected_rows=if (projected_entries == 0) 0 else projected_rows,
+    };
 }
 
 const StoragePlan = struct {
@@ -996,6 +1285,11 @@ const StoragePlan = struct {
 };
 
 fn storagePlan(options: Options) !StoragePlan {
+    if ((options.tls_certificate_file == null) != (options.tls_key_file == null)) return error.InvalidServerOptions;
+    if (options.tls_certificate_file != null and (options.protocol != .postgres or options.database_cluster or
+        options.mysql_port != null or options.mssql_port != null or options.insecure_local or
+        options.read_cache_bytes != 0 or
+        (options.auth_verifier_file == null and options.auth_credentials_file == null))) return error.InvalidServerOptions;
     if (options.database_cluster and (options.memory or options.protocol != .postgres or
         options.mysql_port != null or options.mssql_port != null or options.auth_catalog_role or options.auth_credentials_file != null)) return error.InvalidServerOptions;
     if (options.max_prepared_transactions >= Store.prepared_capacity or (options.memory and options.max_prepared_transactions != 0)) return error.InvalidServerOptions;
@@ -1008,6 +1302,7 @@ fn storagePlan(options: Options) !StoragePlan {
     var budgets: [profile.tables]Raw.TableBudget = undefined;
     var max_rows: usize = 0; var max_versions: usize = 0;
     var typed_banks = false;
+    var has_large_projection = false;
     for (&budgets,0..) |*budget,index| {
         const rows = if (options.table_rows) |values| values[index] else options.storage_rows;
         if (rows == 0 or rows > 0x3fffffff) return error.InvalidServerOptions;
@@ -1024,6 +1319,7 @@ fn storagePlan(options: Options) !StoragePlan {
                 budget.secondary_hashes = 0;
             }
         }
+        if (!budget.omit_compact_scan and rows >= projected_cache_min_scan_rows) has_large_projection = true;
         max_rows=@max(max_rows,rows); max_versions=@max(max_versions,versions);
     }
     if (options.typed_bank_memory_profile and !typed_banks) return error.InvalidServerOptions;
@@ -1033,7 +1329,7 @@ fn storagePlan(options: Options) !StoragePlan {
         .workspace_bytes = Raw.queryWorkspaceBytes(options.work_rows) catch return error.InvalidServerOptions,
         .result_bytes = Raw.Result.rowBytes(options.result_rows) catch return error.InvalidServerOptions,
         .response_bytes = responseBytes(options.result_rows) catch return error.InvalidServerOptions,
-        .read_cache = try planReadCache(options),
+        .read_cache = try planReadCache(options, has_large_projection),
     };
 }
 
@@ -1044,10 +1340,10 @@ fn readContextPayload(options: Options, plan: *const StoragePlan) !usize {
 }
 
 fn writeStorageDetails(out: sig.io.File, options: Options, plan: *const StoragePlan, read_payload: usize) !void {
-    var buffer: [384]u8 = undefined;
+    var buffer: [512]u8 = undefined;
     try out.writeStreamingAll(.{}, try std.fmt.bufPrint(&buffer,
-        ",\"typed_bank_memory_profile\":{s},\"query_refs\":{d},\"query_reference_bytes\":{d},\"read_context_payload_bytes_per_worker\":{d},\"max_prepared_transactions\":{d},\"prepared_transactions_ceiling\":{d},\"database_cluster\":{s},\"cluster_database_ceiling\":{d},\"table_storage\":[",
-        .{ if (options.typed_bank_memory_profile) "true" else "false", plan.refs, plan.refs * @sizeOf(u32), read_payload, options.max_prepared_transactions, Store.prepared_capacity - 1, if (options.database_cluster) "true" else "false", cluster_capacity }));
+        ",\"typed_bank_memory_profile\":{s},\"query_refs\":{d},\"query_reference_bytes\":{d},\"read_context_payload_bytes_per_worker\":{d},\"max_prepared_transactions\":{d},\"prepared_transactions_ceiling\":{d},\"database_cluster\":{s},\"cluster_database_ceiling\":{d},\"compact_version_stamps\":{s},\"storage_version_bytes\":{d},\"table_storage\":[",
+        .{ if (options.typed_bank_memory_profile) "true" else "false", plan.refs, plan.refs * @sizeOf(u32), read_payload, options.max_prepared_transactions, Store.prepared_capacity - 1, if (options.database_cluster) "true" else "false", cluster_capacity, if (profile.compact_version_stamps) "true" else "false", @sizeOf(Raw.StorageVersion) }));
     for (plan.budgets, 0..) |budget, index| {
         if (index != 0) try out.writeStreamingAll(.{}, ",");
         const scan = config.compact_integral_scans and config.columns <= 64 and !budget.omit_compact_scan;
@@ -1056,18 +1352,47 @@ fn writeStorageDetails(out: sig.io.File, options: Options, plan: *const StorageP
             .{ budget.rows, budget.versions, budget.integral_row_words, if (scan) "true" else "false", budget.secondary_hashes orelse config.external_indexes }));
     }
     try out.writeStreamingAll(.{}, try std.fmt.bufPrint(&buffer,
-        "],\"read_cache_bytes\":{d},\"read_cache_region_bytes\":{d},\"read_cache_entries\":{d},\"read_cache_rows_per_entry\":{d}}}\n",
-        .{ plan.read_cache.bytes, plan.read_cache.region_bytes, plan.read_cache.entries, plan.read_cache.rows }));
+        "],\"read_cache_bytes\":{d},\"read_cache_region_bytes\":{d},\"read_cache_entries\":{d},\"read_cache_rows_per_entry\":{d}," ++
+        "\"read_cache_projected_bytes\":{d},\"read_cache_projected_entries\":{d},\"read_cache_projected_rows_per_entry\":{d}}}\n",
+        .{ plan.read_cache.bytes, plan.read_cache.region_bytes, plan.read_cache.entries, plan.read_cache.rows,
+            plan.read_cache.projected_bytes, plan.read_cache.projected_entries, plan.read_cache.projected_rows }));
 }
 
 fn storageCharges(options: Options, plan: *const StoragePlan, worker_bytes: u64) !machine_capacity.StartupCharges {
-    const regions = [_]usize{ plan.bytes, plan.workspace_bytes, options.max_clients * @sizeOf(Client), plan.read_cache.bytes };
-    return machine_capacity.startupCharges(regions[0..if (plan.read_cache.bytes == 0) 3 else 4], worker_bytes);
+    var regions = [_]usize{ plan.bytes, plan.workspace_bytes, options.max_clients * @sizeOf(Client), 0, 0 };
+    var count: usize = 3;
+    if (plan.read_cache.bytes != 0) {
+        regions[count] = plan.read_cache.bytes;
+        count += 1;
+    }
+    if (options.tls_certificate_file != null) {
+        regions[count] = options.max_clients * @sizeOf(postgres_tls.Slot);
+        count += 1;
+    }
+    return machine_capacity.startupCharges(regions[0..count], worker_bytes);
+}
+
+/// Bound the existing lazily mapped arenas and fixed hosted state for expanded
+/// admission. The conservative static allowance can include resident pages.
+fn expandedClientCharge(options: Options, plan: *const StoragePlan, startup: machine_capacity.StartupCharges) !u64 {
+    const client = try machine_capacity.startupCharges(&.{ plan.result_bytes, plan.response_bytes }, 0);
+    const client_total = try std.math.mul(u64, client.rounded, options.max_clients);
+    const worker_total = if (options.workers <= 1) 0 else blk: {
+        const scratch = try Raw.ReadContext.backingBytesFor(options.work_rows, plan.refs);
+        const worker = try machine_capacity.startupCharges(&.{ @sizeOf(Raw.ReadContext), scratch }, 0);
+        break :blk try std.math.mul(u64, worker.rounded, options.workers);
+    };
+    const fixed = try machine_capacity.startupCharges(&.{
+        @sizeOf(Store), @sizeOf(Persistence), @sizeOf(@TypeOf(recovery_buffer)), @sizeOf(@TypeOf(overflow_cancels)),
+        @sizeOf(@TypeOf(reactors)), @sizeOf(@TypeOf(memory_slots)),
+    }, 0);
+    const live_regions = try std.math.add(u64, client_total, worker_total);
+    return std.math.add(u64, try std.math.add(u64, startup.rounded, fixed.rounded), live_regions);
 }
 
 fn chooseWorkers(options: Options, plan: *const StoragePlan, observed: machine_capacity.Sample) !usize {
     if (options.workers != 0) return options.workers;
-    if (!threads.available or options.protocol != .postgres or options.database_cluster) return 1;
+    if (!threads.available or options.protocol != .postgres or options.database_cluster or options.tls_certificate_file != null) return 1;
     const max_cpu = @min(options.max_clients, max_reactors, @as(usize, observed.plan.cpu_workers));
     if (max_cpu <= 1) return 1;
     const fixed = try storageCharges(options, plan, 0);
@@ -1080,7 +1405,8 @@ fn chooseWorkers(options: Options, plan: *const StoragePlan, observed: machine_c
 
 pub fn describe(requested: Options) !void {
     var options = requested;
-    if (options.max_clients == 0 or options.max_clients > capacity or options.idle_ms == 0) return error.InvalidServerOptions;
+    try validateClientLimit(options);
+    if (options.idle_ms == 0) return error.InvalidServerOptions;
     const plan = try storagePlan(options);
     if (options.workers == 0) options.workers = if (!threads.available or options.protocol != .postgres or options.max_clients == 1) 1
         else try chooseWorkers(options, &plan, try machine_capacity.sample(options.memory_budget, options.os_headroom, 0));
@@ -1088,11 +1414,13 @@ pub fn describe(requested: Options) !void {
     const read_payload = try readContextPayload(options, &plan);
     var buffer: [4096]u8 = undefined;
     const message = try sig.fmt.bufPrint(&buffer,
-        "{{\"schema\":1,\"version\":\"{s}\",\"release_stage\":\"beta\",\"production_ready\":false,\"default_protocol\":\"postgres\",\"bind\":\"127.0.0.1\",\"tls\":false,\"roles\":false,\"isolation\":\"read_committed\",\"workers\":{d},\"sql_execution_workers\":{d},\"exclusive_sql_workers\":1,\"parallel_simple_reads\":{s},\"native_workers_available\":{s},\"libc_linked\":{s},\"cpu_model\":\"{s}\",\"build_mode\":\"{s}\",\"rows_per_table\":{d},\"versions_per_table\":{d},\"tables\":{d},\"columns\":{d},\"result_rows\":{d},\"work_rows\":{d},\"text_bytes\":{d},\"name_bytes\":{d},\"clients\":{d},\"compiled_clients\":{d},\"transaction_bytes\":{d},\"tx_writes\":{d},\"row_locks\":{d},\"predicates\":{d},\"expr_nodes\":{d},\"expr_depth\":{d},\"relations\":{d},\"subqueries\":{d},\"ctes\":{d},\"savepoints\":{d},\"sequences\":{d},\"numeric_digits\":{d},\"json_depth\":{d},\"copy_line_bytes\":{d},\"pg_packet_bytes\":{d},\"pg_prepared_sql_bytes\":{d},\"pg_statements\":{d},\"pg_portals\":{d},\"pg_parameters\":{d},\"input_bytes\":{d},\"output_bytes_per_client\":{d},\"backing_bytes\":{d},\"query_workspace_bytes\":{d},\"result_bytes_per_client\":{d},\"client_metadata_bytes\":{d},\"summary_groups\":{d},\"compact_integral_scans\":{s},\"wal_checkpointing\":false,\"mysql_tds_authentication\":false}}\n",
-        .{ @import("ramsql").version, options.workers, options.workers, if(options.workers>1) "true" else "false", if (threads.available) "true" else "false", if (@import("builtin").link_libc) "true" else "false", @import("builtin").cpu.model.name, @tagName(@import("builtin").mode), plan.max_rows, plan.versions, config.tables, config.columns, options.result_rows, options.work_rows, config.text_bytes, config.name_bytes, options.max_clients, capacity, profile.transaction_bytes, config.tx_writes, config.row_locks, config.predicates, config.expr_nodes, config.expr_depth, config.relations, config.subqueries, config.ctes, config.savepoints, config.sequences, config.numeric_digits, config.json_depth, config.copy_line_bytes, pg.max_packet, pg.sql_capacity, pg.statement_capacity, pg.portal_capacity, pg.parameter_capacity, input_capacity, plan.response_bytes, plan.bytes, plan.workspace_bytes, plan.result_bytes, options.max_clients * @sizeOf(Client), config.summary_groups, if(config.compact_integral_scans and config.columns <= 64) "true" else "false" });
+        "{{\"schema\":1,\"version\":\"{s}\",\"release_stage\":\"beta\",\"production_ready\":false,\"default_protocol\":\"postgres\",\"bind\":\"127.0.0.1\",\"tls\":{s},\"roles\":false,\"isolation\":\"read_committed\",\"workers\":{d},\"sql_execution_workers\":{d},\"exclusive_sql_workers\":1,\"parallel_simple_reads\":{s},\"native_workers_available\":{s},\"libc_linked\":{s},\"cpu_model\":\"{s}\",\"build_mode\":\"{s}\",\"rows_per_table\":{d},\"versions_per_table\":{d},\"tables\":{d},\"columns\":{d},\"result_rows\":{d},\"work_rows\":{d},\"text_bytes\":{d},\"name_bytes\":{d},\"clients\":{d},\"compiled_clients\":{d},\"transaction_bytes\":{d},\"tx_writes\":{d},\"row_locks\":{d},\"predicates\":{d},\"expr_nodes\":{d},\"expr_depth\":{d},\"relations\":{d},\"subqueries\":{d},\"ctes\":{d},\"savepoints\":{d},\"sequences\":{d},\"numeric_digits\":{d},\"json_depth\":{d},\"copy_line_bytes\":{d},\"pg_packet_bytes\":{d},\"pg_prepared_sql_bytes\":{d},\"pg_statements\":{d},\"pg_portals\":{d},\"pg_parameters\":{d},\"input_bytes\":{d},\"output_bytes_per_client\":{d},\"backing_bytes\":{d},\"query_workspace_bytes\":{d},\"result_bytes_per_client\":{d},\"client_metadata_bytes\":{d},\"summary_groups\":{d},\"compact_integral_scans\":{s},\"wal_checkpointing\":false,\"mysql_tds_authentication\":false}}\n",
+        .{ @import("ramsql").version, if (options.tls_certificate_file == null) "false" else "true", options.workers, options.workers, if(options.workers>1) "true" else "false", if (threads.available) "true" else "false", if (@import("builtin").link_libc) "true" else "false", @import("builtin").cpu.model.name, @tagName(@import("builtin").mode), plan.max_rows, plan.versions, config.tables, config.columns, options.result_rows, options.work_rows, config.text_bytes, config.name_bytes, options.max_clients, capacity, profile.transaction_bytes, config.tx_writes, config.row_locks, config.predicates, config.expr_nodes, config.expr_depth, config.relations, config.subqueries, config.ctes, config.savepoints, config.sequences, config.numeric_digits, config.json_depth, config.copy_line_bytes, pg.max_packet, pg.sql_capacity, pg.statement_capacity, pg.portal_capacity, pg.parameter_capacity, input_capacity, plan.response_bytes, plan.bytes, plan.workspace_bytes, plan.result_bytes, options.max_clients * @sizeOf(Client), config.summary_groups, if(config.compact_integral_scans and config.columns <= 64) "true" else "false" });
     const out = sig.io.File.stdout();
     try out.writeStreamingAll(.{}, message[0..message.len-2]);
     var number: [32]u8 = undefined;
+    try out.writeStreamingAll(.{}, ",\"postgres_tls_bytes_per_client\":");
+    try out.writeStreamingAll(.{}, try sig.fmt.bufPrint(&number, "{d}", .{if (options.tls_certificate_file == null) @as(usize, 0) else @sizeOf(postgres_tls.Slot)}));
     try out.writeStreamingAll(.{}, ",\"postgres_scram_catalog_roles\":true,\"postgres_scram_credential_limit\":");
     try out.writeStreamingAll(.{}, try sig.fmt.bufPrint(&number, "{d}", .{config.catalog_objects}));
     try out.writeStreamingAll(.{}, ",\"table_rows\":[");
@@ -1120,7 +1448,7 @@ pub fn describe(requested: Options) !void {
 
 pub fn describeMachine(requested:Options) !void {
     var options = requested;
-    if(options.max_clients==0 or options.max_clients>capacity) return error.InvalidServerOptions;
+    try validateClientLimit(options);
     const plan=try storagePlan(options);
     const observed = try machine_capacity.sample(options.memory_budget, options.os_headroom, 0);
     options.workers = try chooseWorkers(options, &plan, observed);
@@ -1136,6 +1464,13 @@ pub fn describeMachine(requested:Options) !void {
     const out = sig.io.File.stdout();
     try out.writeStreamingAll(.{}, machine[0..machine.len - 2]);
     try out.writeStreamingAll(.{}, memory);
+    if (options.max_clients > standard_capacity) {
+        const charge = try expandedClientCharge(options, &plan, startup);
+        var expanded: [192]u8 = undefined;
+        try out.writeStreamingAll(.{}, try std.fmt.bufPrint(&expanded,
+            ",\"expanded_client_peak_bytes\":{d},\"expanded_client_peak_fits\":{s},\"transaction_slots\":{d}",
+            .{ charge, if (charge <= observed.new_region_bytes) "true" else "false", profile.transactions }));
+    }
     try writeStorageDetails(out, options, &plan, read_payload);
 }
 /// Absolute spelling of a data path for operator messages; the file need not
@@ -1433,12 +1768,18 @@ pub fn run(requested: Options) !void {
     bind_catalog_role = options.auth_catalog_role or options.auth_credentials_file != null;
     if (bind_catalog_role and (options.insecure_local or options.memory or options.create_data or
         (options.auth_verifier_file == null and options.auth_credentials_file == null))) return error.InvalidServerOptions;
-    if (options.max_clients == 0 or options.max_clients > capacity or options.idle_ms == 0) return error.InvalidServerOptions;
+    try validateClientLimit(options);
+    if (options.idle_ms == 0) return error.InvalidServerOptions;
     if (options.workers != 0) try validateWorkers(options);
     const plan = try storagePlan(options);
     const observed = try initializeMemory(options);
     options.workers = try chooseWorkers(options, &plan, observed);
     try validateWorkers(options);
+    if (options.max_clients > standard_capacity) {
+        const worker_bytes = if (options.workers > 1) options.workers * worker_budget_each else 0;
+        const startup = try storageCharges(options, &plan, worker_bytes);
+        if (try expandedClientCharge(options, &plan, startup) > observed.new_region_bytes) return error.BudgetExceeded;
+    }
     parallel = options.workers > 1;
     cluster_options = options;
     defer clearAuthentication();
@@ -1470,6 +1811,18 @@ pub fn run(requested: Options) !void {
     zones.in_use = &zoneInUse;
     configureStore(&store, options);
     try loadAuthentication(options);
+    var tls_memory: owned_pages.Region = .{};
+    defer {
+        tls_slots = &.{};
+        tls_credentials.close();
+        tls_memory.close() catch @panic("lost TLS transport ownership");
+    }
+    if (options.tls_certificate_file) |certificate| {
+        try tls_credentials.load(certificate, options.tls_key_file.?);
+        try tls_memory.reserve(&memory_ledger, options.max_clients * @sizeOf(postgres_tls.Slot));
+        tls_slots = try tls_memory.memory.view(postgres_tls.Slot, 0, options.max_clients);
+    }
+
     var cache_region: owned_pages.Region = .{};
     defer cache_region.close() catch @panic("lost result cache memory ownership");
     if (plan.read_cache.entries != 0) try cache_region.reserve(&memory_ledger, plan.read_cache.bytes);
@@ -1486,7 +1839,13 @@ pub fn run(requested: Options) !void {
     } else if (bind_catalog_role and store.database.authenticatedRole(verifier.?.identity()) == null) return error.AuthenticationFailed;
     var read_cache: Raw.ReadResultCache = undefined;
     if (plan.read_cache.entries != 0) {
-        try read_cache.bindMemory(&store.database, cache_region.memory.bytes, plan.read_cache.entries, read_cache_key_bytes, plan.read_cache.rows);
+        const cache_bytes = cache_region.memory.bytes;
+        try read_cache.bindMemory(&store.database, cache_bytes[plan.read_cache.small_offset..][0..plan.read_cache.small_bytes],
+            plan.read_cache.entries, read_cache_key_bytes, plan.read_cache.rows);
+        if (plan.read_cache.projected_entries != 0) {
+            try read_cache.bindProjectedMemory(cache_bytes[0..plan.read_cache.projected_bytes],
+                plan.read_cache.projected_rows, projected_cache_min_scan_rows);
+        }
         store.read_result_cache = &read_cache;
     }
     defer store.read_result_cache = null;
@@ -1531,7 +1890,7 @@ pub fn run(requested: Options) !void {
     while (true) {
         // Bound accept work so connection churn cannot monopolize the reactor.
         for (listeners[0..count], protocols[0..count], listener_ready[0..count]) |listener, protocol, ready| {
-            if (ready) try acceptConnections(listener, protocol, options.max_clients, capacity);
+            if (ready) try acceptConnections(listener, protocol, options.max_clients, capacity, null);
         }
         pollOverflowCancels(sig.os.clockMonotonicNs());
         var sockets: [capacity + 2]tcp.Socket = @splat(tcp.invalid_socket);
@@ -1561,6 +1920,8 @@ pub fn run(requested: Options) !void {
         }
         for (clients[0..options.max_clients], 0..) |*client, index| {
             if (client.socket == tcp.invalid_socket) continue;
+            client.expireSessionTimeout(now);
+            if (client.socket == tcp.invalid_socket) continue;
             // The idle timeout does not apply while a statement waits.
             if (client.blocked) client.touched = now;
             if (now - client.touched >= @as(i64, options.idle_ms) * 1000000) {
@@ -1570,29 +1931,32 @@ pub fn run(requested: Options) !void {
             if (client.serve()) buffered = true;
             if (client.socket == tcp.invalid_socket) continue;
             sockets[index] = client.socket;
-            readable[index] = client.output_len == 0 and client.input_len < client.input.len;
-            writable[index] = client.output_len != 0;
+            readable[index] = client.wantsRead();
+            writable[index] = client.wantsWrite();
         }
+        const listener_offset = if (comptime capacity <= standard_capacity) capacity else options.max_clients;
         for (1..count) |index| {
-            sockets[capacity + index - 1] = listeners[index];
-            readable[capacity + index - 1] = true;
+            sockets[listener_offset + index - 1] = listeners[index];
+            readable[listener_offset + index - 1] = true;
         }
-        // Poll timeout: the idle bound or the nearest parked-statement timer.
+        // Poll timeout: the nearest session or parked statement deadline.
         var timeout: u32 = @min(options.idle_ms, 1000);
+        const poll_now = monotonicClock();
         for (&overflow_cancels) |*pending| if (pending.socket != tcp.invalid_socket) { timeout = @min(timeout,10); break; };
         for (clients[0..options.max_clients]) |*client| {
-            if (client.socket == tcp.invalid_socket or !client.blocked) continue;
+            if (client.socket == tcp.invalid_socket) continue;
+            if (client.sessionDeadline()) |due| timeout = deadlinePollMs(poll_now, due, timeout);
+            if (!client.blocked) continue;
             if (client.connection.wakeReady()) {
                 timeout = 0;
                 continue;
             }
             const due = client.connection.nextDeadline() orelse continue;
-            const remaining = due - now;
-            const ms: u32 = if (remaining <= 0) 0 else @intCast(@min(@divFloor(remaining + 999999, 1000000), timeout));
-            timeout = @min(timeout, ms);
+            timeout = deadlinePollMs(poll_now, due, timeout);
         }
-        listener_ready[0] = try tcp.waitMasked(listeners[0], &sockets, &readable, &writable, if (buffered) 0 else timeout);
-        for (1..count) |index| listener_ready[index] = readable[capacity + index - 1];
+        const poll_count = if (comptime capacity <= standard_capacity) sockets.len else listener_offset + count - 1;
+        listener_ready[0] = try waitServer(listeners[0], sockets[0..poll_count], readable[0..poll_count], writable[0..poll_count], if (buffered) 0 else timeout);
+        for (1..count) |index| listener_ready[index] = readable[listener_offset + index - 1];
         for (clients[0..options.max_clients], 0..) |*client, index| {
             if (client.socket == tcp.invalid_socket) continue;
             if (writable[index]) {
@@ -1602,31 +1966,14 @@ pub fn run(requested: Options) !void {
                 };
             }
             if (client.socket == tcp.invalid_socket) continue;
-            if (readable[index] and client.output_len == 0) {
-                // Compact once per socket read, not once per pipelined packet.
-                if (client.input_start != 0) {
-                    for (0..client.input_len) |offset| client.input[offset] = client.input[client.input_start + offset];
-                    client.input_start = 0;
-                }
-                if (tcp.recv(client.socket, client.input[client.input_len..]) catch {
-                    client.close();
-                    continue;
-                }) |received| {
-                    if (received == 0) {
-                        client.close();
-                        continue;
-                    }
-                    client.input_len += received;
-                    client.touched = sig.os.clockMonotonicNs();
-                }
-            }
+            if (readable[index]) client.receive() catch client.close();
         }
     }
 }
 
 /// Offline backup validates/replays the existing source before publishing a copy.
 pub fn backup(options: Options, target: []const u8) !void {
-    if (options.memory or options.database_cluster) return error.InvalidServerOptions;
+    if (options.memory or options.database_cluster or options.tls_certificate_file != null or options.tls_key_file != null) return error.InvalidServerOptions;
     _ = try initializeMemory(options);
     var backing:owned_pages.Region=.{};
     try openStorage(options,&backing);
