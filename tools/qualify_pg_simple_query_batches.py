@@ -110,11 +110,12 @@ def scenarios(port, workers):
 
 
 def pressure(port, *, idle_timeout=False, native=False):
-    commands = 192 if idle_timeout else 68
+    commands = 896 if idle_timeout else 68
     row_count = 350
-    idle_seconds = 3
+    idle_seconds = 6
     pause_seconds = idle_seconds + 0.25 if idle_timeout else 0
     query = f"SELECT repeat('x', 96) FROM generate_series(1,{row_count});"
+    assert len(query_packet(query * commands)) < 65536
     with session(port) as client, (session(port) if native and idle_timeout else nullcontext()) as observer:
         if idle_timeout:
             pid = int(rows(client.ok('SELECT pg_backend_pid()'))[0][0])
@@ -123,9 +124,10 @@ def pressure(port, *, idle_timeout=False, native=False):
         client.sock.sendall(query_packet(query * commands) + query_packet('SELECT 999'))
         assert client.message()[0] == b'T'
         if idle_timeout:
-            # More than 6 MiB of output exceeds the receive window and backs
-            # up the sender. The pause crosses an entire idle timeout while
-            # that Query is still active. Both engines must survive it.
+            # More than 32 MiB of output exceeds the negotiated receive
+            # window and the hosted Linux sender buffers. The independent
+            # observer below must prove ClientWrite after a whole idle
+            # timeout has elapsed; a completed Query is not backpressure.
             time.sleep(pause_seconds)
             if observer is not None:
                 observer.ok('SELECT pg_stat_clear_snapshot()')
