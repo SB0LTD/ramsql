@@ -328,6 +328,30 @@ Infrastructure progress on 2026-10-27:
   PostgreSQL or IRDB. Compact SQL storage, intra-query parallelism, automatic
   worker sizing and removal of schema/connection caps remain open.
 
+### Native workers on macOS
+
+RAMSQL's macOS executable uses LibSystem for sockets, clocks and persistence.
+The native worker gate in ZPM currently allows Windows and Linux builds that
+use Sig's direct native threading path. The macOS path stays at one worker.
+The current Sig POSIX thread adapter allocates its launch arguments through
+`std.heap.c_allocator` before `pthread_create`. Wiring `pthread_create` directly
+with a caller-owned stack would still leave the thread control block in a
+separate opaque mapping managed by Apple's libpthread. The current worker
+layer requires control over the storage used to launch workers.
+[ZPM worker implementation](https://github.com/SB0LTD/zpm/blob/e892c3b0/src/platform/worker_thread.sig),
+[Apple libpthread allocation path](https://github.com/apple-oss-distributions/libpthread/blob/main/src/pthread.c#L548-L644).
+
+Apple's public Mach thread primitive can start a raw thread, while the workers
+need valid LibSystem thread state for sockets and error handling. Libpthread
+initializes that state through its own startup and lifecycle machinery. Apple
+provides a public address-based wait interface, which solves the sleeping and
+wake-up part of the worker runtime. A bounded multi-core design within the
+current allocation policy would use separately launched read-only processes
+with caller-sized mappings and a publication protocol. It needs cancellation,
+snapshot ownership and memory-budget proofs before product adoption.
+[Apple libpthread startup](https://github.com/apple-oss-distributions/libpthread/blob/main/src/pthread.c#L1417-L1486),
+[Apple address wait API](https://developer.apple.com/documentation/os/os_sync_wait_on_address).
+
 These changes are outside the published beta.2 dependency pin. Do not attribute
 their behavior or physical-column sizes to the release's inline SQL layout.
 
