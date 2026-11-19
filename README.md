@@ -310,13 +310,14 @@ tracks real load and query gates separately from capacity arithmetic.
 
 The reviewer suite is available as sibling `dbMeter`. CI retains its
 original JDBC drivers, SQL, generated data, correctness checks and reports.
-The most recent recorded full campaign passed every correctness and capacity
-check and met the complete throughput, trial-separation and p99 criteria in
-**11 of 16 cases**. Four prepared-key cases missed the performance criteria.
-The full sales mix with one client was unscored because the PostgreSQL
-reference missed one query in two trials. This comparison used the explicit
-256 MiB RAMSQL read cache. Every result applies to the source and binary
-hashes in that run. [Full CI campaign](https://github.com/benor1470/dbMeter/actions/runs/44231254167)
+The current integration campaign passed every correctness and capacity
+check, led median throughput in all 16 cases, and met the complete throughput,
+trial-separation and p99 criteria in **12 of 16 cases**. All four prepared-key
+cases missed the performance criteria, with 1.08x to 1.54x the PostgreSQL rate.
+The 100K-row eight-client lookup had 94 microseconds p99 against PostgreSQL at
+61 microseconds. This comparison used the explicit 256 MiB RAMSQL read cache.
+Every result applies to the source and binary hashes in the run.
+[Full CI campaign](https://github.com/benor1470/dbMeter/actions/runs/44347340190)
 
 On the isolated packed-filter candidate, the same 256 MiB budget improved
 the original million-row filter from 810 to 8,840 queries/s at one client
