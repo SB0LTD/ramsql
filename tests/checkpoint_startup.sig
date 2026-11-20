@@ -4,7 +4,6 @@ const builtin = @import("builtin");
 const sql = @import("sql");
 const disk = @import("db_file");
 const log = @import("durable_log");
-const snapshot = @import("snapshot_envelope");
 const manifest = @import("checkpoint_manifest");
 const persistence = @import("persistence");
 
@@ -18,11 +17,6 @@ const Persistence = persistence.Persistence(Raw, Store);
 const budgets: [2]Raw.TableBudget = .{
     .{ .rows = 8, .versions = 16, .integral_row_words = 2 },
     .{ .rows = 8, .versions = 16 },
-};
-const Writer = snapshot.Writer(disk.File);
-const Sink = struct {
-    writer: *Writer,
-    pub fn appendAll(self: Sink, bytes: []const u8) !void { try self.writer.append(bytes); }
 };
 const Win = struct {
     extern "kernel32" fn GetCurrentProcessId() callconv(.winapi) u32;
@@ -91,37 +85,9 @@ fn selectManifest(lock_path: []const u8, pending: []const u8, selected: []const 
     try disk.replaceAtomic(pending, selected);
 }
 
-fn buildGeneration(layout: persistence.CheckpointLayout, generation: u64, database: *Raw, sequence: u64) !manifest.Selection {
-    var names: [4][128]u8 = undefined;
-    const image_path = try layout.generationPath(&names[0], generation, .image);
-    const wal_path = try layout.generationPath(&names[1], generation, .wal);
-    const staging_image = try std.fmt.bufPrint(&names[2], "{s}.pending", .{image_path});
-    const staging_wal = try std.fmt.bufPrint(&names[3], "{s}.pending", .{wal_path});
-    var image = try disk.File.createExclusive(staging_image);
-    defer disk.remove(staging_image) catch {};
-    defer image.close();
-    var envelope = try Writer.begin(&image, .{
-        .database_id = identity.database, .generation = generation, .wal_sequence = sequence, .sql_csn = database.csn,
-    });
-    var scratch: [128]u8 = undefined;
-    try Raw.BaseSnapshot.write(database, Sink{ .writer = &envelope }, &scratch);
-    const seal = try envelope.finish();
-    image.close();
-
-    const selection: manifest.Selection = .{
-        .identity = identity, .generation = seal.identity.generation, .base_sequence = seal.identity.wal_sequence,
-        .sql_csn = seal.identity.sql_csn, .image_bytes = seal.payload_bytes, .image_digest = seal.digest,
-        .anchor_offset = 0, .anchor_length = manifest.record_size, .anchor_kind = persistence.checkpoint_anchor_kind,
-    };
-    var wal = try disk.File.createExclusive(staging_wal);
-    defer disk.remove(staging_wal) catch {};
-    defer wal.close();
-    const anchor = try selection.encode();
-    try log.appendKind(&wal, try selection.anchorSequence(), &anchor, persistence.checkpoint_anchor_kind);
-    wal.close();
-    try disk.publishNew(staging_image, image_path);
-    try disk.publishNew(staging_wal, wal_path);
-    return selection;
+fn buildGeneration(layout: persistence.CheckpointLayout, generation: u64, database: *const Raw, sequence: u64) !manifest.Selection {
+    var scratch: [192]u8 = undefined;
+    return persistence.stageCheckpointGeneration(Raw, layout, generation, identity, database, sequence, &scratch);
 }
 
 fn assertData(client: *Store.Connection, label: []const u8) !void {
@@ -167,6 +133,13 @@ pub fn main() !void {
     try writer.execute("INSERT INTO amounts VALUES (1,20),(2,NULL)", &result);
     try writer.execute("INSERT INTO notes VALUES (1,'held')", &result);
     const first_selection = try buildGeneration(layout, 7, &source.database, source_wal.sequence);
+    if (buildGeneration(layout, 7, &source.database, source_wal.sequence)) |_| {
+        return error.ExistingGenerationReplaced;
+    } else |err| try check(err == error.FileRenameFailed);
+    if (buildGeneration(layout, 0, &source.database, source_wal.sequence)) |_| {
+        return error.ZeroGenerationStaged;
+    } else |err| try check(err == error.InvalidCheckpointManifest);
+
     source_wal.close();
     var bootstrap_lock = try disk.File.createExclusive(lock_path);
     bootstrap_lock.close();
