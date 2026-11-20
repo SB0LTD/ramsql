@@ -162,6 +162,7 @@ def main():
     for name, check in (
         ("namespace_acl", lambda db: check_namespaces(binary, db)),
         ("relation_discovery", lambda db: check_relation_discovery(binary, db)),
+        ("function_discovery", lambda db: check_function_discovery(binary, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
     ):
@@ -207,6 +208,46 @@ def check_relation_discovery(binary, native):
             cur = ram.execute(query)
             assert cur.fetchall() == [("accounts", 10, 0, -1, 0, 0, "0", "0", None, 0, None, None)]
             assert [c.type_code for c in cur.description] == [19, 26, 23, 700, 23, 23, 28, 28, 1034, 26, 1009, 19]
+
+
+def check_function_discovery(binary, native):
+    query = """
+        SELECT p.tableoid, p.proname, p.prolang, p.pronargs, p.proargtypes::text,
+               p.prorettype, p.proacl, acldefault('f',p.proowner)::text,
+               p.pronamespace, p.proowner
+        FROM pg_proc p
+        LEFT JOIN pg_init_privs pip ON (p.oid = pip.objoid
+            AND pip.classoid = 'pg_proc'::regclass AND pip.objsubid = 0)
+        WHERE p.proname = 'dump_probe' AND p.prokind <> 'a'
+          AND NOT EXISTS (SELECT 1 FROM pg_depend WHERE classid = 'pg_proc'::regclass
+              AND objid = p.oid AND deptype = 'i')
+          AND (pronamespace != (SELECT oid FROM pg_namespace WHERE nspname = 'pg_catalog')
+              OR EXISTS (SELECT 1 FROM pg_cast WHERE pg_cast.oid > 16383 AND p.oid = pg_cast.castfunc)
+              OR EXISTS (SELECT 1 FROM pg_transform WHERE pg_transform.oid > 16383
+                  AND (p.oid = pg_transform.trffromsql OR p.oid = pg_transform.trftosql))
+              OR p.proacl IS DISTINCT FROM pip.initprivs)
+    """
+    with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
+        with psycopg.connect(**native) as pg, psycopg.connect(**candidate) as ram:
+            for conn in (pg, ram):
+                conn.execute("CREATE FUNCTION dump_probe(x integer) RETURNS integer LANGUAGE SQL AS 'SELECT x + 1'")
+            ref, observed = pg.execute(query), ram.execute(query)
+            ref_rows = ref.fetchall()
+            assert len(ref_rows) == 1 and ref_rows == observed.fetchall(), ref_rows
+            assert [c.type_code for c in ref.description] == [c.type_code for c in observed.description]
+            for conn in (pg, ram):
+                conn.execute("CREATE ROLE dump_executor")
+                conn.execute("REVOKE EXECUTE ON FUNCTION dump_probe(integer) FROM PUBLIC")
+                conn.execute("GRANT EXECUTE ON FUNCTION dump_probe(integer) TO dump_executor")
+            acl = "SELECT proacl::text FROM pg_proc WHERE proname='dump_probe'"
+            assert pg.execute(acl).fetchall() == ram.execute(acl).fetchall()
+
+            cast = "SELECT castsource,casttarget,castfunc,castcontext,castmethod FROM pg_cast WHERE castsource=1043 AND casttarget=25"
+            assert pg.execute(cast).fetchall() == ram.execute(cast).fetchall()
+            transforms = "SELECT oid,trftype,trflang,trffromsql::oid,trftosql::oid FROM pg_transform"
+            ref, observed = pg.execute(transforms), ram.execute(transforms)
+            assert ref.fetchall() == observed.fetchall() == []
+            assert [c.type_code for c in ref.description] == [c.type_code for c in observed.description]
 
 
 if __name__ == "__main__":
