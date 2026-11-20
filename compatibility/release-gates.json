@@ -5,9 +5,10 @@
   "gates": [
     {
       "id": "postgres_compatibility",
-      "status": "failed",
-      "evidence": "compatibility/postgres-report.json",
-      "requirement": "Native PostgreSQL SQL, type/OID, catalog, protocol, transaction and tooling behavior; upstream regression and real application suites"
+      "status": "partial",
+      "evidence": "https://github.com/SB0LTD/ramsql/actions/runs/44655295188",
+      "requirement": "Complete the PostgreSQL feature inventory, upstream and application regressions, and stock tooling round trips.",
+      "qualified": "Packaged Linux passes the PostgreSQL 16 and 18 memory and durable SCRAM lanes, including independent COPY/backpressure tests."
     },
     {
       "id": "implemented_subset_durability",
@@ -18,44 +19,51 @@
     {
       "id": "authentication",
       "status": "partial",
-      "evidence": "tools/test_auth.py",
-      "requirement": "PostgreSQL SCRAM implemented; role authorization and MySQL/TDS credentials missing"
+      "evidence": "tools/test_auth.py and docs/POSTGRES_REQUIRED_TLS.md",
+      "requirement": "Complete role and privilege parity and authenticated MySQL/TDS support.",
+      "qualified": "PostgreSQL SCRAM, SCRAM-PLUS and catalog role credential configurations."
     },
     {
       "id": "transport_security",
-      "status": "failed",
-      "evidence": "tools/test_auth.py reports tls_supported=false",
-      "requirement": "Native TLS and channel binding with authenticated transport tests"
+      "status": "partial",
+      "evidence": "https://github.com/SB0LTD/ramsql/actions/runs/44346300626",
+      "requirement": "Finish exact-artifact TLS qualification across hosted platforms, including documented worker, cluster and listener gaps.",
+      "qualified": "PostgreSQL TLS 1.3 preview with channel binding, encrypted cancellation and explicit native workers qualified with libpq on Linux."
     },
     {
       "id": "capacity_concurrency",
-      "status": "failed",
-      "evidence": "src/server.sig and src/db/store.sig",
-      "requirement": "PostgreSQL-scale data/connections and default READ COMMITTED; bounded page storage/streamed results; concurrent write progress"
+      "status": "partial",
+      "evidence": "https://github.com/SB0LTD/ramsql/actions/runs/44259619802",
+      "requirement": "Qualify wide schemas, multiple 100M-row tables, mixed read/write concurrency and bounded execution.",
+      "qualified": "Runtime table and query budgets, native workers, and a durable 100M-row integral fact table with two dimensions."
     },
     {
       "id": "backup_restore",
       "status": "partial",
-      "evidence": "src/backup.sig and tools/test_persistence.py",
-      "requirement": "Offline whole-WAL copy implemented; online backup, checkpointing, WAL compaction and upgrade migrations missing"
+      "evidence": "https://github.com/SB0LTD/ramsql/actions/runs/44655295188",
+      "requirement": "Full catalog images, online backup, automatic retirement, bounded write stalls and upgrade migration.",
+      "qualified": "Offline whole-WAL copy and opt-in live checkpoint generation publication, WAL handoff and process-crash recovery for supported single-database images."
     },
     {
       "id": "matched_performance",
       "status": "unproven",
-      "evidence": "benchmarks/postgres-comparison.json",
-      "requirement": "Efficiency improvement with equivalent supported semantics, durability, storage and representative workloads"
+      "evidence": "https://github.com/benor1470/dbMeter/actions/runs/44347340190",
+      "requirement": "Four prepared primary-key cases missed the 2x threshold, one also missed p99, and production-like multi-table coverage is incomplete.",
+      "qualified": "Reviewer correctness and capacity checks passed. Twelve of sixteen workloads met the significant-advantage gate."
     },
     {
       "id": "operations",
-      "status": "failed",
-      "evidence": "compatibility/RELEASE.md",
-      "requirement": "Monitoring, cancellation, roles, schema/data migration and tested operational recovery; full supported-platform release matrix"
+      "status": "partial",
+      "evidence": "https://github.com/SB0LTD/ramsql/actions/runs/44655295188",
+      "requirement": "Service lifecycle, deployment monitoring, general migrations and native SB0 hosted-feature parity.",
+      "qualified": "Six hosted packages, native SB0X and SB0K boot qualification, PostgreSQL cancellation and documented checkpoint recovery."
     },
     {
       "id": "storage_power_failure",
       "status": "unverified",
-      "evidence": "tools/test_persistence.py tests process termination and injected I/O failures",
-      "requirement": "Power-loss and filesystem/device fault validation on supported deployment storage"
+      "evidence": "https://github.com/SB0LTD/ramsql/actions/runs/44655295188",
+      "requirement": "Physical power interruption, directory synchronization faults and storage device fault qualification.",
+      "qualified": "Process termination around manifest publication and WAL handoff, and an injected selector rename failure."
     }
   ]
 }
