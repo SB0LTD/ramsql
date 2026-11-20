@@ -161,6 +161,7 @@ def main():
     result = {}
     for name, check in (
         ("namespace_acl", lambda db: check_namespaces(binary, db)),
+        ("relation_discovery", lambda db: check_relation_discovery(binary, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
     ):
@@ -184,6 +185,28 @@ def main():
 def check_namespaces(binary, native):
     with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
         namespace_acl(native, candidate)
+
+
+def check_relation_discovery(binary, native):
+    with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
+        seed(candidate)
+        with psycopg.connect(**native) as pg, psycopg.connect(**candidate) as ram:
+            spaces = "SELECT oid, spcname, spcowner, spcacl IS NULL, spcoptions IS NULL FROM pg_tablespace ORDER BY oid"
+            assert pg.execute(spaces).fetchall() == ram.execute(spaces).fetchall()
+            foreign = "SELECT ftrelid, ftserver, ftoptions FROM pg_foreign_table"
+            ref, observed = pg.execute(foreign), ram.execute(foreign)
+            assert ref.fetchall() == observed.fetchall() == []
+            assert [c.type_code for c in ref.description] == [c.type_code for c in observed.description]
+            query = (
+                "SELECT c.relname, c.relowner, c.relpages, c.reltuples, c.relallvisible, c.relallfrozen, "
+                "c.relfrozenxid, c.relminmxid, c.relacl, c.reltype, "
+                "array_remove(c.reloptions, 'check_option=local'), tsp.spcname "
+                "FROM pg_class c LEFT JOIN pg_tablespace tsp ON tsp.oid=c.reltablespace "
+                "WHERE c.relname='accounts'"
+            )
+            cur = ram.execute(query)
+            assert cur.fetchall() == [("accounts", 10, 0, -1, 0, 0, "0", "0", None, 0, None, None)]
+            assert [c.type_code for c in cur.description] == [19, 26, 23, 700, 23, 23, 28, 28, 1034, 26, 1009, 19]
 
 
 if __name__ == "__main__":

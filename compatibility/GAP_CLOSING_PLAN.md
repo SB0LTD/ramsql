@@ -5,10 +5,12 @@
 The stock tooling workflow verifies schema ACL metadata, plain and custom
 imports in one transaction, constraints after WAL reopen, and outbound
 custom dumps restored by native PostgreSQL. Both PostgreSQL 16 and 18 lanes
-must pass before merging the integration. The outbound table-discovery
-query exceeds the default projection width. Table discovery also needs
-complete relation metadata, catalog joins and ACL defaults for tables and
-sequences.
+must pass before merging the integration. The candidate includes a separate
+48-column SELECT projection limit, built-in tablespace rows, a typed
+foreign-table catalog, and the relation metadata needed by table discovery.
+Local PostgreSQL 16 reaches function discovery on export. The next query
+requires routine ACL metadata and the initial-privilege, cast, and transform
+catalogs. Both stock import formats and WAL reopen pass locally.
 
 ## 20 November 2026 shipped checkpoint
 
