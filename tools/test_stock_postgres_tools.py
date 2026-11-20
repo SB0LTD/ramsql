@@ -2,13 +2,14 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 
 import psycopg
 
 from qualify_postgres import REFERENCES
-from test_postgres_compat import native_postgres, running_ramsql
+from test_postgres_compat import docker, native_postgres, running_ramsql
 from test_persistence import DurableServer
 
 
@@ -47,15 +48,19 @@ class Tools:
         self.image = image
 
     def run(self, label, command, arguments, *options):
+        env = os.environ.copy()
+        env.pop("PGPASSWORD", None)
+        if password := arguments.get("password"):
+            env["PGPASSWORD"] = password
         if self.native_bin:
             launch = [str(self.native_bin / command)]
         else:
             launch = ["docker", "run", "--rm", "--network=host",
                       "--volume", f"{self.root}:/work", "--workdir", "/work",
                       "--user", f"{self.root.stat().st_uid}:{self.root.stat().st_gid}",
-                      self.image, command]
+                      "--env", "PGPASSWORD", self.image, command]
         completed = subprocess.run([*launch, *settings(arguments), *options], cwd=self.root,
-                                   capture_output=True, text=True, timeout=90)
+                                   capture_output=True, text=True, timeout=90, env=env)
         (self.root / f"{label}.stdout").write_text(completed.stdout, encoding="utf-8")
         (self.root / f"{label}.stderr").write_text(completed.stderr, encoding="utf-8")
         if completed.returncode:
@@ -147,6 +152,11 @@ def main():
     root.mkdir(parents=True, exist_ok=True)
     binary = args.binary.resolve()
     image = REFERENCES[args.reference]
+    if not args.postgres_bin:
+        try:
+            docker("image", "inspect", image)
+        except subprocess.CalledProcessError:
+            docker("pull", image)
     tools = Tools(root, args.postgres_bin, image)
     result = {}
     for name, check in (
