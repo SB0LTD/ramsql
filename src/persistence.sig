@@ -50,6 +50,64 @@ pub const CheckpointLayout = struct {
     }
 };
 
+/// Stages an immutable sealed image and its initial WAL. The caller must
+/// freeze the source database and hold its writer lock while sampling the
+/// sequence and writing the image. This function never selects the generation;
+/// the caller can publish its manifest only after coordinating the WAL cut.
+pub fn stageCheckpointGeneration(
+    comptime Raw: type,
+    layout: CheckpointLayout,
+    generation: u64,
+    identity: manifest.DatabaseIdentity,
+    database: *const Raw,
+    sequence: u64,
+    scratch: []u8,
+) !manifest.Selection {
+    if (identity.oid == 0 or generation == 0 or sequence == std.math.maxInt(u64))
+        return error.InvalidCheckpointManifest;
+    const Writer = snapshot.Writer(disk.File);
+    const Sink = struct {
+        writer: *Writer,
+        pub fn appendAll(self: @This(), bytes: []const u8) !void {
+            try self.writer.append(bytes);
+        }
+    };
+    var names: [4][CheckpointLayout.path_capacity]u8 = undefined;
+    const image_path = try layout.generationPath(&names[0], generation, .image);
+    const wal_path = try layout.generationPath(&names[1], generation, .wal);
+    const pending_image = std.fmt.bufPrint(&names[2], "{s}.pending", .{image_path}) catch return error.PathTooLong;
+    const pending_wal = std.fmt.bufPrint(&names[3], "{s}.pending", .{wal_path}) catch return error.PathTooLong;
+
+    var image = try disk.File.createExclusive(pending_image);
+    defer disk.remove(pending_image) catch {};
+    defer image.close();
+    var writer = try Writer.begin(&image, .{
+        .database_id = identity.database, .generation = generation,
+        .wal_sequence = sequence, .sql_csn = database.csn,
+    });
+    try Raw.BaseSnapshot.write(database, Sink{ .writer = &writer }, scratch);
+    const seal = try writer.finish();
+    image.close();
+
+    const selection: manifest.Selection = .{
+        .identity = identity, .generation = generation, .base_sequence = sequence,
+        .sql_csn = database.csn, .image_bytes = seal.payload_bytes, .image_digest = seal.digest,
+        .anchor_offset = 0, .anchor_length = manifest.record_size, .anchor_kind = checkpoint_anchor_kind,
+    };
+    const anchor = try selection.encode();
+    var wal = try disk.File.createExclusive(pending_wal);
+    defer disk.remove(pending_wal) catch {};
+    defer wal.close();
+    try log.appendKind(&wal, try selection.anchorSequence(), &anchor, checkpoint_anchor_kind);
+    wal.close();
+
+    // A later error may leave an unselected image. Never replace an existing
+    // file or remove a final pathname that another operation could own.
+    try disk.publishNew(pending_image, image_path);
+    try disk.publishNew(pending_wal, wal_path);
+    return selection;
+}
+
 const ImagePayload = struct {
     file: *disk.File,
     bytes: u64,
