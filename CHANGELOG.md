@@ -6,6 +6,11 @@ later binary.
 
 ## Unreleased
 
+- Add opt-in live checkpoint rotation for a single durable PostgreSQL
+  database. Bootstrap from an offline WAL, then publish sealed generations
+  and switch the active WAL under the stable writer lock. Release tests
+  kill and reopen the server during checkpoint publication and WAL handoff.
+
 - Add PostgreSQL TLS 1.3 with SCRAM channel binding, encrypted cancellation
   and explicit native workers. Linux x86-64 and ARM64 tests exercise real
   PostgreSQL clients, COPY, prepared SQL, TLS key updates and WAL reopen.

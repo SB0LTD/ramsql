@@ -156,6 +156,8 @@ fn run(init: std.process.Init.Minimal) !u8 {
     _ = try args.next();
     var options: server.Options = .{};
     var data_buffer: [4096]u8 = undefined;
+    var checkpoint_buffer: [4096]u8 = undefined;
+    var checkpoint_bootstrap = false;
     var verifier_buffer: [4096]u8 = undefined;
     var credentials_buffer: [4096]u8 = undefined;
     var tls_certificate_buffer: [4096]u8 = undefined;
@@ -181,6 +183,10 @@ fn run(init: std.process.Init.Minimal) !u8 {
             if (options.memory) return error.InvalidServerOptions;
             options.create_data = true;
             has_server_options = true;
+        } else if (same(arg, "--bootstrap-checkpoint")) {
+            if (checkpoint_bootstrap) return error.InvalidServerOptions;
+            checkpoint_bootstrap = true;
+            has_server_options = true;
         } else if (same(arg, "--database-cluster")) {
             options.database_cluster = true;
             has_server_options = true;
@@ -194,11 +200,28 @@ fn run(init: std.process.Init.Minimal) !u8 {
             options.typed_bank_memory_profile = true;
             has_server_options = true;
         } else {
-            const option: enum { protocol, port, mysql_port, mssql_port, max_clients, workers, idle_ms, max_query_work, max_prepared_transactions, storage_rows, storage_versions, work_rows, result_rows, read_cache_bytes, table_rows, table_versions, table_integral_words, query_refs, data, verifier_file, credentials_file, tls_certificate, tls_key, auth_user, backup_to, timezone_dir, memory_budget, os_headroom } =
-                if(same(arg,"--memory-budget")) .memory_budget else if(same(arg,"--os-headroom")) .os_headroom else if (same(arg, "--workers")) .workers else if (same(arg, "--table-rows")) .table_rows else if (same(arg, "--table-versions")) .table_versions else if (same(arg, "--table-integral-words")) .table_integral_words else if (same(arg, "--query-refs")) .query_refs else if (same(arg, "--work-rows")) .work_rows else if (same(arg, "--result-rows")) .result_rows else if (same(arg, "--read-cache-bytes")) .read_cache_bytes else if (same(arg, "--rows")) .storage_rows else if (same(arg, "--versions")) .storage_versions else if (same(arg, "--protocol")) .protocol else if (same(arg, "--port")) .port else if (same(arg, "--mysql-port")) .mysql_port else if (same(arg, "--mssql-port")) .mssql_port else if (same(arg, "--max-clients")) .max_clients else if (same(arg, "--max-query-work")) .max_query_work else if (same(arg, "--max-prepared-transactions")) .max_prepared_transactions else if (same(arg, "--idle-ms")) .idle_ms else if (same(arg, "--data")) .data else if (same(arg, "--auth-verifier-file")) .verifier_file else if (same(arg, "--auth-credentials-file")) .credentials_file else if (same(arg, "--tls-cert-der")) .tls_certificate else if (same(arg, "--tls-key-raw")) .tls_key else if (same(arg, "--auth-user")) .auth_user else if (same(arg, "--backup-to")) .backup_to else if (same(arg, "--timezone-dir")) .timezone_dir else return error.UnknownArgument;
+            const option: enum { protocol, port, mysql_port, mssql_port, max_clients, workers, idle_ms, max_query_work, max_prepared_transactions, storage_rows, storage_versions, work_rows, result_rows, read_cache_bytes, table_rows, table_versions, table_integral_words, query_refs, data, verifier_file, credentials_file, tls_certificate, tls_key, auth_user, backup_to, timezone_dir, memory_budget, os_headroom, checkpoint_stem, checkpoint_id, checkpoint_every } =
+                if (same(arg, "--checkpoint-stem")) .checkpoint_stem else if (same(arg, "--checkpoint-id")) .checkpoint_id else if (same(arg, "--checkpoint-every")) .checkpoint_every else if(same(arg,"--memory-budget")) .memory_budget else if(same(arg,"--os-headroom")) .os_headroom else if (same(arg, "--workers")) .workers else if (same(arg, "--table-rows")) .table_rows else if (same(arg, "--table-versions")) .table_versions else if (same(arg, "--table-integral-words")) .table_integral_words else if (same(arg, "--query-refs")) .query_refs else if (same(arg, "--work-rows")) .work_rows else if (same(arg, "--result-rows")) .result_rows else if (same(arg, "--read-cache-bytes")) .read_cache_bytes else if (same(arg, "--rows")) .storage_rows else if (same(arg, "--versions")) .storage_versions else if (same(arg, "--protocol")) .protocol else if (same(arg, "--port")) .port else if (same(arg, "--mysql-port")) .mysql_port else if (same(arg, "--mssql-port")) .mssql_port else if (same(arg, "--max-clients")) .max_clients else if (same(arg, "--max-query-work")) .max_query_work else if (same(arg, "--max-prepared-transactions")) .max_prepared_transactions else if (same(arg, "--idle-ms")) .idle_ms else if (same(arg, "--data")) .data else if (same(arg, "--auth-verifier-file")) .verifier_file else if (same(arg, "--auth-credentials-file")) .credentials_file else if (same(arg, "--tls-cert-der")) .tls_certificate else if (same(arg, "--tls-key-raw")) .tls_key else if (same(arg, "--auth-user")) .auth_user else if (same(arg, "--backup-to")) .backup_to else if (same(arg, "--timezone-dir")) .timezone_dir else return error.UnknownArgument;
             const value = try args.next() orelse return error.UnknownArgument;
             has_server_options = true;
             switch (option) {
+                .checkpoint_stem => {
+                    if (options.checkpoint_stem != null or value.len == 0 or value.len > checkpoint_buffer.len)
+                        return error.InvalidServerOptions;
+                    @memcpy(checkpoint_buffer[0..value.len], value);
+                    options.checkpoint_stem = checkpoint_buffer[0..value.len];
+                },
+                .checkpoint_id => {
+                    if (options.checkpoint_id != null or value.len != 32) return error.InvalidServerOptions;
+                    var identity: [16]u8 = undefined;
+                    _ = std.fmt.hexToBytes(&identity, value) catch return error.InvalidServerOptions;
+                    options.checkpoint_id = identity;
+                },
+                .checkpoint_every => {
+                    if (options.checkpoint_every != 0) return error.InvalidServerOptions;
+                    options.checkpoint_every = try fmt.parseInt(u64, value, 10);
+                    if (options.checkpoint_every == 0) return error.InvalidServerOptions;
+                },
                 .backup_to => {
                     if (value.len == 0 or value.len > backup_buffer.len or backup_target != null) return error.InvalidServerOptions;
                     @memcpy(backup_buffer[0..value.len], value);
@@ -269,6 +292,13 @@ fn run(init: std.process.Init.Minimal) !u8 {
     }
     if (has_server_options and mode != .serve and mode != .capabilities and mode != .machine_capacity) return error.UnknownArgument;
     if (options.database_cluster and mode != .serve) return error.InvalidServerOptions;
+    if (checkpoint_bootstrap) {
+        if (mode != .serve or !data_set or backup_target != null) return error.InvalidServerOptions;
+        try server.bootstrapCheckpoint(options);
+        try write("RAMSQL checkpoint bootstrap complete\n");
+        return 0;
+    }
+    if (data_set and options.checkpoint_stem != null) return error.InvalidServerOptions;
     if (backup_target) |target| {
         if (mode != .serve or options.memory or options.create_data or options.database_cluster or options.read_cache_bytes != 0) return error.InvalidServerOptions;
         try server.backup(options, target);
@@ -276,7 +306,7 @@ fn run(init: std.process.Init.Minimal) !u8 {
         return 0;
     }
     switch (mode) {
-        .help => try write("ramsql beta (controlled testing; not production)\nUsage: ramsql [--serve|--demo|--stdin|--version|--capabilities|--machine-capacity|--help]\nServer: --protocol postgres|mysql|mssql --port N --mysql-port N --mssql-port N\n        --max-clients N --workers auto|N (automatic PostgreSQL read workers by default) --idle-ms N --max-query-work N (0: unlimited); default loopback PostgreSQL:5432\nMachine: --machine-capacity (JSON native resources and byte plan; opens no database/listeners)\n         --memory-budget BYTES --os-headroom BYTES (also apply to server region admission)\nRead cache: --read-cache-bytes BYTES (opt-in for parallel PostgreSQL autocommit read results)\nInspect: --capabilities (JSON; accepts runtime capacity options; opens no files/listeners)\nCapacity: --rows N --versions N --work-rows N --result-rows N (independent runtime budgets)\n          --table-rows n,n,... --table-versions n,n,... (one budget per table slot)\n          --table-integral-words n,n,... (experimental build, 0 selects dense storage)\n          --typed-bank-memory-profile [--query-refs N] (typed slots omit optional scan/hash regions)\nPrepared transactions: --max-prepared-transactions N (PostgreSQL durable mode; default 0)\nStorage: --data WAL_PATH (default ramsql.wal; must exist) | --memory\n         --create-data (first start: create a missing WAL; without it a missing WAL fails startup)\n         --database-cluster (durable PostgreSQL, one reactor, four databases)\nBackup: --data EXISTING_WAL --backup-to NEW_PATH (offline)\nAuth: --auth-user USER --auth-verifier-file PATH (PostgreSQL SCRAM verifier)\n      --auth-catalog-role binds USER to an eligible role in an existing durable database\n      --auth-credentials-file PATH authenticates multiple catalog roles in an existing durable database\nTLS: --tls-cert-der PATH --tls-key-raw PATH (authenticated PostgreSQL, auto uses one worker)\nTime zones: --timezone-dir ZONEINFO_DIR (default /usr/share/zoneinfo on Linux/macOS)\n      --insecure-local explicitly enables unauthenticated loopback testing\n--stdin: one SQL statement per line. --demo: run the example and exit.\n"),
+        .help => try write("ramsql beta (controlled testing; not production)\nUsage: ramsql [--serve|--demo|--stdin|--version|--capabilities|--machine-capacity|--help]\nServer: --protocol postgres|mysql|mssql --port N --mysql-port N --mssql-port N\n        --max-clients N --workers auto|N (automatic PostgreSQL read workers by default) --idle-ms N --max-query-work N (0: unlimited); default loopback PostgreSQL:5432\nMachine: --machine-capacity (JSON native resources and byte plan; opens no database/listeners)\n         --memory-budget BYTES --os-headroom BYTES (also apply to server region admission)\nRead cache: --read-cache-bytes BYTES (opt-in for parallel PostgreSQL autocommit read results)\nInspect: --capabilities (JSON; accepts runtime capacity options; opens no files/listeners)\nCapacity: --rows N --versions N --work-rows N --result-rows N (independent runtime budgets)\n          --table-rows n,n,... --table-versions n,n,... (one budget per table slot)\n          --table-integral-words n,n,... (experimental build, 0 selects dense storage)\n          --typed-bank-memory-profile [--query-refs N] (typed slots omit optional scan/hash regions)\nPrepared transactions: --max-prepared-transactions N (PostgreSQL durable mode; default 0)\nStorage: --data WAL_PATH (default ramsql.wal; must exist) | --memory\n         --create-data (first start: create a missing WAL; without it a missing WAL fails startup)\n         --database-cluster (durable PostgreSQL, one reactor, four databases)\nBackup: --data EXISTING_WAL --backup-to NEW_PATH (offline)\nCheckpoint: --data EXISTING_WAL --bootstrap-checkpoint --checkpoint-stem STEM --checkpoint-id HEX32\n            --checkpoint-stem STEM --checkpoint-id HEX32 [--checkpoint-every COMMITS]\nAuth: --auth-user USER --auth-verifier-file PATH (PostgreSQL SCRAM verifier)\n      --auth-catalog-role binds USER to an eligible role in an existing durable database\n      --auth-credentials-file PATH authenticates multiple catalog roles in an existing durable database\nTLS: --tls-cert-der PATH --tls-key-raw PATH (authenticated PostgreSQL, auto uses one worker)\nTime zones: --timezone-dir ZONEINFO_DIR (default /usr/share/zoneinfo on Linux/macOS)\n      --insecure-local explicitly enables unauthenticated loopback testing\n--stdin: one SQL statement per line. --demo: run the example and exit.\n"),
         .version => try write("ramsql " ++ ram.version ++ "\n"),
         .capabilities => try server.describe(options),
         .machine_capacity => try server.describeMachine(options),
