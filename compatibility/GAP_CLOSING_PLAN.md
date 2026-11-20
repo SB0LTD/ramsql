@@ -8,12 +8,13 @@ custom dumps restored by native PostgreSQL. Both PostgreSQL 16 and 18 lanes
 must pass before merging the integration. The candidate includes a separate
 48-column SELECT projection limit, built-in tablespace rows, a typed
 foreign-table catalog, and the relation metadata needed by table discovery.
-On RAMSQL `cec3f10`, both CI lanes pass the catalog checks, plain and
-custom imports, and post-reopen row and constraint checks for the two-table
-fixture. Both outbound dumps reach function discovery and fail with
-`TableNotFound` before producing an archive. The next query requires
-routine ACL metadata and the initial-privilege, cast, and transform catalogs.
-[PostgreSQL 16 and 18 CI](https://github.com/SB0LTD/ramsql/actions/runs/44785147029)
+On RAMSQL `86626c3`, both CI lanes pass table and function discovery
+checks, plain and custom imports, and post-reopen row and constraint checks
+for the two-table fixture. The function probe compares routine ownership,
+default ACLs and explicit EXECUTE grants with native PostgreSQL. Both
+outbound dumps now fail with `ColumnNotFound` in type discovery before
+producing an archive. The type ACL and array-name predicate remain open.
+[PostgreSQL 16 and 18 CI](https://github.com/SB0LTD/ramsql/actions/runs/44803356629)
 
 ## 20 November 2026 shipped checkpoint
 
