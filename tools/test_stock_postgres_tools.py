@@ -249,6 +249,9 @@ def check_function_discovery(binary, native):
             ref, observed = pg.execute(transforms), ram.execute(transforms)
             assert ref.fetchall() == observed.fetchall() == []
             assert [c.type_code for c in ref.description] == [c.type_code for c in observed.description]
+            # Language discovery is the next stock query after type discovery.
+            language_acl = "SELECT lanname, lanowner, lanacl, acldefault('l',lanowner)::text FROM pg_language WHERE lanispl AND lanname='plpgsql'"
+            assert pg.execute(language_acl).fetchall() == ram.execute(language_acl).fetchall()
 
 
 def check_type_discovery(binary, native):
