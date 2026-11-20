@@ -51,6 +51,9 @@ pub const Options = struct {
     workers: usize = 0,
     memory: bool = false,
     data: []const u8 = "ramsql.wal",
+    checkpoint_stem: ?[]const u8 = null,
+    checkpoint_id: ?[16]u8 = null,
+    checkpoint_every: u64 = 0,
     /// Durable startup creates a missing `data` file only when set; otherwise
     /// a missing file is DataFileMissing before any listener opens.
     create_data: bool = false,
@@ -356,7 +359,10 @@ const Client = struct {
         }
         if (!self.queuedSimpleQuery() and try self.dispatchRead()) return;
         lockStore();
-        defer unlockStore();
+        defer {
+            maybeCheckpoint();
+            unlockStore();
+        }
         if (parallel) {
             store.interrupt_context = self;
             pollWorkerInterrupts(self, self.connection.id);
@@ -614,6 +620,22 @@ const Client = struct {
 };
 var store: Store = .{};
 var persistence: Persistence = .{};
+var checkpoint_every: u64 = 0;
+var last_checkpoint_attempt: u64 = 0;
+
+/// Only called with the writer gate held. A failed staging attempt leaves
+/// the old WAL authoritative. An uncertain manifest switch closes writes.
+fn maybeCheckpoint() void {
+    if (checkpoint_every == 0 or store.storage_failed) return;
+    const base = persistence.checkpointBaseSequence() orelse return;
+    const sequence = persistence.sequence;
+    if (sequence -| @max(base, last_checkpoint_attempt) < checkpoint_every) return;
+    last_checkpoint_attempt = sequence;
+    persistence.rotateCheckpoint(&recovery_buffer, null) catch |err| {
+        const line = if (store.storage_failed) " (checkpoint selector uncertain; writes disabled)\n" else " (checkpoint deferred; prior WAL remains active)\n";
+        dataNotice(@errorName(err), line);
+    };
+}
 const cluster_capacity = 4;
 const primary_database = "postgres";
 const cluster_owner: u32 = 10;
@@ -1285,6 +1307,11 @@ const StoragePlan = struct {
 };
 
 fn storagePlan(options: Options) !StoragePlan {
+    if ((options.checkpoint_stem == null) != (options.checkpoint_id == null) or
+        (options.checkpoint_every != 0 and options.checkpoint_stem == null)) return error.InvalidServerOptions;
+    if (options.checkpoint_stem != null and (options.memory or options.create_data or options.database_cluster or
+        options.protocol != .postgres or options.mysql_port != null or options.mssql_port != null or
+        options.max_prepared_transactions != 0)) return error.InvalidServerOptions;
     if ((options.tls_certificate_file == null) != (options.tls_key_file == null)) return error.InvalidServerOptions;
     if (options.tls_certificate_file != null and (options.protocol != .postgres or options.database_cluster or
         options.mysql_port != null or options.mssql_port != null or options.insecure_local or
@@ -1508,7 +1535,18 @@ fn dataNotice(path: []const u8, state: []const u8) void {
 /// new, empty authoritative database: the existing-file open runs first, and
 /// only its FileNotFound plus `create_data` creates. Without `create_data` that
 /// is DataFileMissing and nothing is created; other open failures propagate.
+fn checkpointIdentity(options: Options) @import("persistence.sig").CheckpointIdentity {
+    return .{ .database = options.checkpoint_id.?, .namespace = "ramsql-checkpt-1".*, .oid = store.database_oid };
+}
+
 fn openData(options: Options) !void {
+    if (options.checkpoint_stem) |stem| {
+        _ = try persistence.initCheckpoint(stem, checkpointIdentity(options), &store, &recovery_buffer);
+        checkpoint_every = options.checkpoint_every;
+        last_checkpoint_attempt = persistence.sequence;
+        dataNotice(stem, " (checkpoint generation opened)\n");
+        return;
+    }
     var path_buffer: [4096]u8 = undefined;
     const data_path = absolutePath(options.data, &path_buffer);
     if (persistence.initExisting(options.data, &store, &recovery_buffer)) |_| {
@@ -1972,7 +2010,25 @@ pub fn run(requested: Options) !void {
 }
 
 /// Offline backup validates/replays the existing source before publishing a copy.
+pub fn bootstrapCheckpoint(options: Options) !void {
+    if (options.checkpoint_stem == null or options.checkpoint_id == null or options.checkpoint_every != 0 or
+        options.tls_certificate_file != null or options.tls_key_file != null) return error.InvalidServerOptions;
+    const plan = try storagePlan(options);
+    _ = try initializeMemory(options);
+    var backing: owned_pages.Region = .{};
+    try openStorage(options, &backing);
+    defer backing.close() catch @panic("lost checkpoint storage ownership");
+    var workspace: owned_pages.Region = .{};
+    try workspace.reserve(&memory_ledger, plan.workspace_bytes);
+    defer workspace.close() catch @panic("lost checkpoint workspace ownership");
+    try store.database.bindWorkspaceMemory(workspace.memory.bytes, options.work_rows);
+    _ = try persistence.initExisting(options.data, &store, &recovery_buffer);
+    defer persistence.close();
+    try persistence.bootstrapCheckpoint(options.checkpoint_stem.?, checkpointIdentity(options), &recovery_buffer);
+}
+
 pub fn backup(options: Options, target: []const u8) !void {
+    if (options.checkpoint_stem != null) return error.InvalidServerOptions;
     if (options.memory or options.database_cluster or options.tls_certificate_file != null or options.tls_key_file != null) return error.InvalidServerOptions;
     _ = try initializeMemory(options);
     var backing:owned_pages.Region=.{};

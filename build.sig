@@ -242,7 +242,7 @@ pub fn build(ctx: *sig_build.Build_Context) !void {
         .optimize = ctx.optimize,
         .target = null,
         .imports = &.{
-            importEntry("sql", sql_path), importEntry("db_store", store_path),
+            importEntry("sql", sql_path), importEntry("db_store", store_path), importEntry("sig", runtime_path),
             importEntry("db_file", db_file_path), importEntry("durable_log", durable_log_path),
             importEntry("snapshot_envelope", snapshot_path), importEntry("checkpoint_manifest", manifest_path),
             importEntry("persistence", "src/persistence.sig"),

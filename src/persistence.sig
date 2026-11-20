@@ -1,8 +1,8 @@
 //! Product-owned durable SQL replay and store commit policy.
 //! ZPM owns portable framing, change records and native I/O. The product keeps
-//! a single locked WAL for the server lifetime and publishes commits only after
-//! stable storage. WAL remains authoritative; no unsafe checkpoint/truncate
-//! compaction is used.
+//! a single active WAL and publishes commits only after stable storage.
+//! Checkpoint mode retains its stable writer lock while replacing the manifest
+//! and switching the active WAL. Ordinary WAL mode keeps its original file.
 //!
 //! Payload kinds: 3 is the committed change record, 4 is two-phase state. Legacy
 //! SQL-text kinds are replayed with the alpha grammar only: kind 2 for
@@ -21,13 +21,16 @@ const std = @import("std");
 pub const change_kind: u16 = 3;
 const database_identity_kind: u16 = 8;
 pub const checkpoint_anchor_kind: u16 = 24;
+pub const CheckpointIdentity = manifest.DatabaseIdentity;
+pub const CheckpointPhase = enum { staged, before_selection, after_selection, after_handoff };
+pub const CheckpointObserver = *const fn (CheckpointPhase) void;
 pub const DatabaseIdentity = struct { cluster: [16]u8, oid: u32 };
 
 /// One configured stem owns the fixed writer lock and selector paths. Only the
 /// selection read under that lock supplies a generation for its image and WAL.
 pub const CheckpointLayout = struct {
     pub const path_capacity = 4096;
-    const max_suffix = ".g18446744073709551615.image".len;
+    const max_suffix = ".g18446744073709551615.manifest.pending".len;
     pub const Stable = enum { lock, manifest };
     pub const Generation = enum { image, wal };
 
@@ -108,6 +111,39 @@ pub fn stageCheckpointGeneration(
     return selection;
 }
 
+fn temporaryManifestPath(layout: CheckpointLayout, generation: u64, out: []u8) ![]const u8 {
+    return std.fmt.bufPrint(out, "{s}.g{d}.manifest.pending", .{ layout.stem, generation }) catch return error.PathTooLong;
+}
+
+fn pathOccupied(path: []const u8) !bool {
+    var file = disk.File.openExisting(path) catch |err| switch (err) {
+        error.FileNotFound => return false,
+        error.DataDirectoryBusy => return true,
+        else => return err,
+    };
+    file.close();
+    return true;
+}
+
+fn nextGeneration(layout: CheckpointLayout, active: u64) !u64 {
+    var buffer: [CheckpointLayout.path_capacity]u8 = undefined;
+    var path_buffer: [CheckpointLayout.path_capacity]u8 = undefined;
+    var number = active;
+    // A killed process may leave an unselected file. Skip it without modifying
+    // it, with a bounded lookup even when old files were never collected.
+    for (0..64) |_| {
+        number = std.math.add(u64, number, 1) catch return error.GenerationExhausted;
+        if (try pathOccupied(try temporaryManifestPath(layout, number, &buffer))) continue;
+        for ([_]CheckpointLayout.Generation{ .image, .wal }) |kind| {
+            const path = try layout.generationPath(&path_buffer, number, kind);
+            if (try pathOccupied(path)) break;
+            const pending = std.fmt.bufPrint(&buffer, "{s}.pending", .{path}) catch return error.PathTooLong;
+            if (try pathOccupied(pending)) break;
+        } else return number;
+    }
+    return error.CheckpointGenerationCapacity;
+}
+
 const ImagePayload = struct {
     file: *disk.File,
     bytes: u64,
@@ -146,6 +182,8 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
         active: bool = false,
         expected_identity: ?DatabaseIdentity = null,
         seen_identity: bool = false,
+        checkpoint_layout: ?CheckpointLayout = null,
+        checkpoint_selection: ?manifest.Selection = null,
 
         /// self and all caller storage must retain stable addresses until close.
         /// store must be newly initialized. recovery_buffer must fit the
@@ -279,8 +317,91 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
                 .kind = selection.anchor_kind, .payload_len = selection.anchor_length,
             };
             const recovery = try log.recoverAfterFrame(&self.file, recovery_buffer, anchor, &state, CheckpointReplay.verify, CheckpointReplay.apply, null, @as(u32, 1) << change_kind);
+            self.checkpoint_layout = layout;
+            self.checkpoint_selection = selection;
             self.attach(store, recovery_buffer, recovery, false);
             return recovery;
+        }
+
+        /// Take a checkpoint copy of an ordinary WAL while its handle is held
+        /// exclusively. Used offline before serving from the new stem.
+        pub fn bootstrapCheckpoint(self: *Self, stem: []const u8, identity: CheckpointIdentity, scratch: []u8) !void {
+            const store = self.store orelse return error.PersistenceClosed;
+            if (!self.active or self.file.poisoned or store.storage_failed or self.checkpoint_selection != null or
+                store.database_oid != identity.oid or store.prepared_limit != 0 or store.preparedCount() != 0)
+                return error.InvalidCheckpointStore;
+            const layout = try CheckpointLayout.init(stem);
+            var lock_buffer: [CheckpointLayout.path_capacity]u8 = undefined;
+            var manifest_buffer: [CheckpointLayout.path_capacity]u8 = undefined;
+            var pending_buffer: [CheckpointLayout.path_capacity]u8 = undefined;
+            const lock_path = try layout.stablePath(&lock_buffer, .lock);
+            const target = try layout.stablePath(&manifest_buffer, .manifest);
+            const pending = try temporaryManifestPath(layout, 1, &pending_buffer);
+            if (try pathOccupied(target)) return error.CheckpointAlreadyExists;
+            var lock = try disk.File.createExclusive(lock_path);
+            defer lock.close();
+            try lock.sync();
+            const selected = try stageCheckpointGeneration(Raw, layout, 1, identity, &store.database, self.sequence, scratch);
+            var file = try disk.File.createExclusive(pending);
+            defer disk.remove(pending) catch {};
+            defer file.close();
+            try selected.write(&file);
+            file.close();
+            try disk.publishNew(pending, target);
+        }
+
+        /// Switch an already running checkpoint database to a fresh WAL. The
+        /// caller must hold the same server write gate as commits and prevent
+        /// concurrent reads of the database until the method returns.
+        pub fn rotateCheckpoint(self: *Self, scratch: []u8, observer: ?CheckpointObserver) !void {
+            const layout = self.checkpoint_layout orelse return error.InvalidCheckpointStore;
+            const previous = self.checkpoint_selection orelse return error.InvalidCheckpointStore;
+            const store = self.store orelse return error.PersistenceClosed;
+            if (!self.active or self.file.poisoned or store.storage_failed or store.prepare_fn != null)
+                return error.StorageUnavailable;
+            if (self.sequence >= std.math.maxInt(u64) - 1) return error.GenerationExhausted;
+            if (store.database.csn <= previous.sql_csn) return error.CheckpointNoChanges;
+            const generation = try nextGeneration(layout, previous.generation);
+            var manifest_buffer: [CheckpointLayout.path_capacity]u8 = undefined;
+            var pending_buffer: [CheckpointLayout.path_capacity]u8 = undefined;
+            var wal_buffer: [CheckpointLayout.path_capacity]u8 = undefined;
+            const target = try layout.stablePath(&manifest_buffer, .manifest);
+            const pending = try temporaryManifestPath(layout, generation, &pending_buffer);
+            const wal_path = try layout.generationPath(&wal_buffer, generation, .wal);
+
+            const selected = try stageCheckpointGeneration(Raw, layout, generation, previous.identity, &store.database, self.sequence, scratch);
+            if (observer) |watch| watch(.staged);
+            var next_wal = try disk.File.openExisting(wal_path);
+            errdefer next_wal.close();
+            const next_sequence = try selected.anchorSequence();
+            var file = try disk.File.createExclusive(pending);
+            defer disk.remove(pending) catch {};
+            defer file.close();
+            try selected.write(&file);
+            file.close();
+            if (observer) |watch| watch(.before_selection);
+            disk.replaceAtomic(pending, target) catch |err| {
+                // The rename may have succeeded before sync failed. Appending
+                // to either WAL could lose acknowledgements after recovery.
+                store.storage_failed = true;
+                self.file.poison();
+                return err;
+            };
+            if (observer) |watch| watch(.after_selection);
+
+            // From this point the new generation is authoritative. No
+            // fallible work may separate selector publication from handoff.
+            var old_wal = self.file;
+            self.file = next_wal;
+            self.sequence = next_sequence;
+            self.checkpoint_selection = selected;
+            old_wal.close();
+            if (observer) |watch| watch(.after_handoff);
+        }
+
+        pub fn checkpointBaseSequence(self: *const Self) ?u64 {
+            const selected = self.checkpoint_selection orelse return null;
+            return selected.anchorSequence() catch unreachable;
         }
 
         fn attach(self: *Self, store: *Store, recovery_buffer: []u8, recovery: log.Recovery, allow_prepare: bool) void {
@@ -414,6 +535,8 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
             }
             self.file.close();
             self.writer_lock.close();
+            self.checkpoint_layout = null;
+            self.checkpoint_selection = null;
             self.store = null;
             self.active = false;
         }
