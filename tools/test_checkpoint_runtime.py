@@ -113,6 +113,24 @@ def sequence_recovery(binary, root):
         execute(server, "SELECT nextval('allocated') > (SELECT max(id) FROM reservations)", [["t"]])
 
 
+def sequence_only_rotation(binary, root):
+    original = root / "sequence-only.wal"
+    stem = root / "sequence-only"
+    with DurableServer(binary, original, create=True, storage_options=("--workers", "1")) as server:
+        execute(server, "CREATE SEQUENCE ticket START 20")
+    bootstrap = subprocess.run(
+        [str(binary), "--data", str(original), "--bootstrap-checkpoint",
+         "--checkpoint-stem", str(stem), "--checkpoint-id", IDENTITY],
+        capture_output=True, text=True, timeout=40,
+    )
+    assert bootstrap.returncode == 0, bootstrap.stderr
+    with CheckpointServer(binary, stem, storage_options=("--workers", "1", "--checkpoint-every", "1")) as server:
+        execute(server, "SELECT nextval('ticket')", [["20"]])
+        assert selector(stem) == 2
+    with CheckpointServer(binary, stem, storage_options=("--workers", "1")) as server:
+        execute(server, "SELECT nextval('ticket') > 20", [["t"]])
+
+
 def concurrent_writers(binary, root):
     original = root / "workers.wal"
     stem = root / "workers"
@@ -187,6 +205,7 @@ def main():
     output = Path(tempfile.mkdtemp(prefix="ramsql-checkpoint-"))
     server_crashes(options.binary.resolve(), output)
     sequence_recovery(options.binary.resolve(), output)
+    sequence_only_rotation(options.binary.resolve(), output)
     if options.concurrent:
         concurrent_writers(options.binary.resolve(), output)
     if options.fixture:

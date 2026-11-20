@@ -360,7 +360,10 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
             if (!self.active or self.file.poisoned or store.storage_failed or store.prepare_fn != null)
                 return error.StorageUnavailable;
             if (self.sequence >= std.math.maxInt(u64) - 1) return error.GenerationExhausted;
-            if (store.database.csn <= previous.sql_csn) return error.CheckpointNoChanges;
+            if (store.database.csn < previous.sql_csn) return error.InvalidCheckpointStore;
+            // Sequence reservations can add WAL records without publishing
+            // a row/catalog transaction or advancing the SQL snapshot clock.
+            if (self.sequence <= try previous.anchorSequence()) return error.CheckpointNoChanges;
             const generation = try nextGeneration(layout, previous.generation);
             var manifest_buffer: [CheckpointLayout.path_capacity]u8 = undefined;
             var pending_buffer: [CheckpointLayout.path_capacity]u8 = undefined;
