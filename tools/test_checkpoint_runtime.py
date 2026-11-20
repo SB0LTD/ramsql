@@ -75,7 +75,7 @@ def server_crashes(binary, root):
         execute(server, "SELECT id FROM journal ORDER BY id", [["1"], ["2"], ["3"], ["4"], ["5"]])
 
     with CheckpointServer(binary, stem, storage_options=("--workers", "1", "--checkpoint-every", "1")) as server:
-        execute(server, "CREATE SEQUENCE unsupported_by_image")
+        execute(server, "CREATE SCHEMA unsupported_by_image")
         assert selector(stem) == 3
         execute(server, "INSERT INTO journal VALUES (6)")
         assert selector(stem) == 3
@@ -87,6 +87,48 @@ def server_crashes(binary, root):
     missed = subprocess.run(CheckpointServer(binary, stem).command(), capture_output=True, text=True, timeout=40)
     assert missed.returncode != 0 and "FileNotFound" in missed.stderr and "RAMSQL postgres" not in missed.stdout
     assert original.read_bytes() == original_bytes and before.read_bytes() == old_wal
+
+
+def sequence_recovery(binary, root):
+    original = root / "sequence.wal"
+    stem = root / "sequence"
+    with DurableServer(binary, original, create=True, storage_options=("--workers", "1")) as server:
+        execute(server, "CREATE SEQUENCE allocated START 10 INCREMENT 2 CACHE 4")
+        execute(server, "SELECT nextval('allocated')", [["10"]])
+        execute(server, "CREATE TABLE reservations (id INT PRIMARY KEY)")
+        execute(server, "INSERT INTO reservations VALUES (10)")
+    bootstrap = subprocess.run(
+        [str(binary), "--data", str(original), "--bootstrap-checkpoint",
+         "--checkpoint-stem", str(stem), "--checkpoint-id", IDENTITY],
+        capture_output=True, text=True, timeout=40,
+    )
+    assert bootstrap.returncode == 0, bootstrap.stderr
+
+    with CheckpointServer(binary, stem, storage_options=("--workers", "1", "--checkpoint-every", "1")) as server:
+        execute(server, "INSERT INTO reservations SELECT nextval('allocated')::int4")
+        assert selector(stem) >= 2
+        execute(server, "INSERT INTO reservations SELECT nextval('allocated')::int4")
+    with CheckpointServer(binary, stem, storage_options=("--workers", "1")) as server:
+        execute(server, "SELECT count(*) = 3 AND max(id) > 16 FROM reservations", [["t"]])
+        execute(server, "SELECT nextval('allocated') > (SELECT max(id) FROM reservations)", [["t"]])
+
+
+def sequence_only_rotation(binary, root):
+    original = root / "sequence-only.wal"
+    stem = root / "sequence-only"
+    with DurableServer(binary, original, create=True, storage_options=("--workers", "1")) as server:
+        execute(server, "CREATE SEQUENCE ticket START 20")
+    bootstrap = subprocess.run(
+        [str(binary), "--data", str(original), "--bootstrap-checkpoint",
+         "--checkpoint-stem", str(stem), "--checkpoint-id", IDENTITY],
+        capture_output=True, text=True, timeout=40,
+    )
+    assert bootstrap.returncode == 0, bootstrap.stderr
+    with CheckpointServer(binary, stem, storage_options=("--workers", "1", "--checkpoint-every", "1")) as server:
+        execute(server, "SELECT nextval('ticket')", [["20"]])
+        assert selector(stem) == 2
+    with CheckpointServer(binary, stem, storage_options=("--workers", "1")) as server:
+        execute(server, "SELECT nextval('ticket') > 20", [["t"]])
 
 
 def concurrent_writers(binary, root):
@@ -162,12 +204,15 @@ def main():
     options = args.parse_args()
     output = Path(tempfile.mkdtemp(prefix="ramsql-checkpoint-"))
     server_crashes(options.binary.resolve(), output)
+    sequence_recovery(options.binary.resolve(), output)
+    sequence_only_rotation(options.binary.resolve(), output)
     if options.concurrent:
         concurrent_writers(options.binary.resolve(), output)
     if options.fixture:
         boundary_crashes(options.fixture.resolve(), output)
         selector_failure(options.fixture.resolve(), output)
     print(json.dumps({"suite": "checkpoint_runtime", "pass": True, "server_crashes": 6,
+                      "sequence_recovery_tested": True,
                       "publication_boundary_crashes": len(PHASES) if options.fixture else 0,
                       "concurrent_writers": 4 if options.concurrent else 0,
                       "selector_failure_tested": options.fixture is not None,

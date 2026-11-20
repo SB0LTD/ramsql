@@ -1,5 +1,16 @@
 # RAMSQL gap-closing plan
 
+## 20 November 2026 shipped checkpoint
+
+The [beta.3 prerelease](https://github.com/SB0LTD/ramsql/releases/tag/ci-v0.3.0-beta.3-run.44655295188.1) passed the [complete release matrix](https://github.com/SB0LTD/ramsql/actions/runs/44655295188)
+and matches the merged source tree. The new checkpoint lane verifies an
+acknowledged WAL suffix across manifest publication and the handoff, including
+writer fencing on selector rename error. Native SB0X/SB0K and COPY qualification
+now pass. The [production gates](release-gates.json) track the remaining scope
+for PostgreSQL, security, capacity, backup, operations and physical storage faults.
+The cross-engine 118-program smoke result and the 16-case reviewer performance
+decision retain their original revision and scope.
+
 ## 19 November 2026 integration and benchmark checkpoint
 
 The latest full reviewer dbMeter run passed all original correctness and

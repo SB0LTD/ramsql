@@ -78,6 +78,17 @@ CASES = (
     Case("integer_negative_overflow", "32-bit INTEGER range", setup=(CREATE,), statements=("INSERT INTO compat VALUES (-2147483649, TRUE, 'overflow')",)),
     Case("bigint", "64-bit BIGINT type", setup=("CREATE TABLE compat (id BIGINT PRIMARY KEY, label TEXT)",), statements=("INSERT INTO compat VALUES (9223372036854775807, 'max')", "SELECT id FROM compat")),
     Case("numeric", "exact NUMERIC type", setup=("CREATE TABLE compat (id INTEGER PRIMARY KEY, amount NUMERIC(18,4))",), statements=("INSERT INTO compat VALUES (1, 12.3456)", "SELECT amount FROM compat")),
+    Case("degree_trig", "degree trigonometry and float8 metadata", setup=(), statements=(
+        "SELECT pg_catalog.sind(30) AS s, cosd(120) AS c, cosd(270) AS axis",
+        "SELECT sind('-0'::float8)::text AS signed_zero, sind(-360)::text AS wrapped_zero",
+        "SELECT sind('NaN'::float8)::text AS special, cosd(NULL::float8) AS absent",
+        "SELECT abs(sind(720.25) - 0.004363309284746572::float8) < 1e-15::float8 AS sine, "
+        "abs(cosd(720.25) - 0.9999904807207345::float8) < 1e-15::float8 AS cosine",
+    )),
+    Case("degree_sine_infinity", "infinite degree input SQLSTATE 22003", setup=(),
+         statements=("SELECT sind('Infinity'::float8)",)),
+    Case("degree_cosine_infinity", "infinite degree input SQLSTATE 22003", setup=(),
+         statements=("SELECT cosd('-Infinity'::float8)",)),
     Case("timestamp", "TIMESTAMPTZ type", setup=("CREATE TABLE compat (id INTEGER PRIMARY KEY, happened TIMESTAMPTZ)",), statements=("INSERT INTO compat VALUES (1, '2026-10-22T12:00:00Z')", "SELECT happened FROM compat")),
     Case("jsonb", "JSONB type and operators", setup=("CREATE TABLE compat (id INTEGER PRIMARY KEY, payload JSONB)",), statements=("INSERT INTO compat VALUES (1, '{\"kind\":\"event\"}')", "SELECT payload ->> 'kind' FROM compat")),
     Case("null_ascending", "default NULLS LAST for ASC", statements=("SELECT label FROM compat ORDER BY label ASC",)),
