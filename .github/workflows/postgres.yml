@@ -10,6 +10,10 @@ on:
       revision:
         type: string
         default: ''
+      stock_tooling_only:
+        description: Build and exercise only the stock dump and restore boundary
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -23,7 +27,7 @@ jobs:
       fail-fast: false
       matrix:
         reference: ['16', '18']
-        mode: [memory, durable-scram]
+        mode: ${{ fromJSON(inputs.stock_tooling_only && '["stock-tooling"]' || '["memory","durable-scram"]') }}
     env:
       SOURCE_REVISION: ${{ inputs.revision || github.sha }}
       TZ: UTC
@@ -71,10 +75,25 @@ jobs:
         if: inputs.artifact_name == ''
         run: '"$SIG" build -Doptimize=ReleaseSafe -j2'
       - name: Require complete differential, isolation, COPY and crash evidence
+        if: matrix.mode != 'stock-tooling'
         run: |
           python tools/qualify_postgres.py run --reference '${{ matrix.reference }}' --mode '${{ matrix.mode }}' \
             --revision "$SOURCE_REVISION" --binary sig-out/bin/ramsql --pull-reference \
             --output 'qualification/pg${{ matrix.reference }}-${{ matrix.mode }}'
+      - name: Require stock PostgreSQL round trips in both directions
+        if: matrix.mode != 'memory'
+        run: |
+          set +e
+          python tools/test_stock_postgres_tools.py --reference '${{ matrix.reference }}' \
+            --binary sig-out/bin/ramsql --work-dir "$RUNNER_TEMP/stock-tooling"
+          status=$?
+          set -e
+          destination="qualification/stock-pg${{ matrix.reference }}"
+          mkdir -p "$destination"
+          for evidence in "$RUNNER_TEMP"/stock-tooling/{stock-tooling.json,*.stderr}; do
+            if [[ -f "$evidence" ]]; then cp "$evidence" "$destination/"; fi
+          done
+          exit "$status"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -1,5 +1,15 @@
 # RAMSQL gap-closing plan
 
+## Stock migration acceptance
+
+The stock tooling workflow verifies schema ACL metadata, plain and custom
+imports in one transaction, constraints after WAL reopen, and outbound
+custom dumps restored by native PostgreSQL. Both PostgreSQL 16 and 18 lanes
+must pass before merging the integration. The outbound table-discovery
+query exceeds the default projection width. Table discovery also needs
+complete relation metadata, catalog joins and ACL defaults for tables and
+sequences.
+
 ## 20 November 2026 shipped checkpoint
 
 The [beta.3 prerelease](https://github.com/SB0LTD/ramsql/releases/tag/ci-v0.3.0-beta.3-run.44655295188.1) passed the [complete release matrix](https://github.com/SB0LTD/ramsql/actions/runs/44655295188)
