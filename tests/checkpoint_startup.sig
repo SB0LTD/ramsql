@@ -1,5 +1,6 @@
 //! Product persistence against two manifest-selected native checkpoint generations.
 const std = @import("std");
+const sig = @import("sig");
 const builtin = @import("builtin");
 const sql = @import("sql");
 const disk = @import("db_file");
@@ -97,7 +98,102 @@ fn assertData(client: *Store.Connection, label: []const u8) !void {
     try check(result.row_count == 2 and std.mem.eql(u8, result.rows[1].cells[0].text.slice(), label));
 }
 
-pub fn main() !void {
+var crash_phase: persistence.CheckpointPhase = undefined;
+var pending_selector: []const u8 = &.{};
+
+fn removePendingSelector(phase: persistence.CheckpointPhase) void {
+    if (phase == .before_selection) disk.remove(pending_selector) catch @panic("failed to inject selector rename error");
+}
+
+fn crashBoundary(phase: persistence.CheckpointPhase) void {
+    if (phase != crash_phase) return;
+    std.debug.print("CHECKPOINT_CRASH_BOUNDARY {s}\n", .{@tagName(phase)});
+    // The supervising process kills this child without running cleanup.
+    while (true) std.atomic.spinLoopHint();
+}
+
+fn crashFixture(action: []const u8, stem: []const u8, phase_name: []const u8) !void {
+    if (std.mem.eql(u8, action, "seed")) {
+        var source_path: [4096]u8 = undefined;
+        const legacy = try std.fmt.bufPrint(&source_path, "{s}.legacy", .{stem});
+        var file = try disk.File.createExclusive(legacy);
+        file.close();
+        try bind(&source, 0);
+        _ = try source_wal.initExisting(legacy, &source, &buffers[0]);
+        defer source_wal.close();
+        var sql_client: Store.Connection = .{ .store = &source, .id = 1 };
+        try sql_client.execute("CREATE TABLE journal (id INT PRIMARY KEY)", &result);
+        try sql_client.execute("INSERT INTO journal VALUES (1)", &result);
+        try source_wal.bootstrapCheckpoint(stem, identity, &buffers[0]);
+        return;
+    }
+    crash_phase = std.meta.stringToEnum(persistence.CheckpointPhase, phase_name) orelse return error.InvalidFixturePhase;
+    try bind(&staged, 1);
+    const opened = try durable.initCheckpoint(stem, identity, &staged, &buffers[1]);
+    defer durable.close();
+    var sql_client: Store.Connection = .{ .store = &staged, .id = 2 };
+    if (std.mem.eql(u8, action, "fault")) {
+        try sql_client.execute("INSERT INTO journal VALUES (2)", &result);
+        try durable.rotateCheckpoint(&buffers[1], &crashBoundary);
+        return error.CrashBoundaryNotReached;
+    }
+    if (std.mem.eql(u8, action, "fail_selection")) {
+        try sql_client.execute("INSERT INTO journal VALUES (2)", &result);
+        var pending_buffer: [persistence.CheckpointLayout.path_capacity]u8 = undefined;
+        pending_selector = try std.fmt.bufPrint(&pending_buffer, "{s}.g2.manifest.pending", .{stem});
+        defer pending_selector = &.{};
+        if (durable.rotateCheckpoint(&buffers[1], &removePendingSelector)) |_| {
+            return error.CheckpointShouldHaveFailed;
+        } else |err| try check(err == error.FileRenameFailed);
+        try check(staged.storage_failed and durable.file.poisoned and durable.sequence == 4);
+        if (sql_client.execute("INSERT INTO journal VALUES (3)", &result)) |_| {
+            return error.CheckpointWriterShouldBeFenced;
+        } else |err| try check(err == error.StorageUnavailable);
+        try sql_client.execute("SELECT id FROM journal ORDER BY id", &result);
+        try check(result.row_count == 2 and result.rows[1].cells[0].integer == 2);
+        return;
+    }
+    if (!std.mem.eql(u8, action, "verify")) return error.InvalidFixtureMode;
+    const selected_new = crash_phase == .after_selection or crash_phase == .after_handoff;
+    // WAL sequence 3 is the first anchor, 4 is the acknowledged DML, and
+    // 5 is the replacement anchor. Physical slot allocation must not matter.
+    try check(opened.sequence == if (selected_new) @as(u64, 5) else 4);
+    try sql_client.execute("SELECT id FROM journal ORDER BY id", &result);
+    try check(result.row_count == 2 and result.rows[0].cells[0].integer == 1 and result.rows[1].cells[0].integer == 2);
+    try sql_client.execute("INSERT INTO journal VALUES (3)", &result);
+    // A failed process may have left an unselected generation 2. Skip it.
+    try durable.rotateCheckpoint(&buffers[1], null);
+    try sql_client.execute("INSERT INTO journal VALUES (4)", &result);
+    const sequence = durable.sequence;
+    durable.close();
+    try bind(&staged, 1);
+    const reopened = try durable.initCheckpoint(stem, identity, &staged, &buffers[1]);
+    try check(reopened.sequence == sequence and !reopened.truncated_tail);
+    sql_client = .{ .store = &staged, .id = 3 };
+    try sql_client.execute("SELECT id FROM journal ORDER BY id", &result);
+    try check(result.row_count == 4);
+    for (0..4) |i| try check(result.rows[i].cells[0].integer == @as(i64, @intCast(i + 1)));
+    std.debug.print("CHECKPOINT_CRASH_RECOVERED {s} {d} assertions\n", .{@tagName(crash_phase), assertions});
+}
+
+pub fn main(init: std.process.Init.Minimal) !void {
+    var args_buffer: [8192]u8 = undefined;
+    var args = sig.process.Argv_Iterator.init(init.args.vector, &args_buffer);
+    _ = try args.next();
+    if (try args.next()) |argument| {
+        // On Windows the iterator reuses its decode buffer for each argument.
+        var action_buffer: [16]u8 = undefined;
+        if (argument.len > action_buffer.len) return error.InvalidFixtureMode;
+        const action = action_buffer[0..argument.len];
+        @memcpy(action, argument);
+        var stem_buffer: [persistence.CheckpointLayout.path_capacity]u8 = undefined;
+        const stem_argument = (try args.next()) orelse return error.InvalidFixtureMode;
+        if (stem_argument.len > stem_buffer.len) return error.InvalidFixtureMode;
+        const stem = stem_buffer[0..stem_argument.len];
+        @memcpy(stem, stem_argument);
+        const phase = (try args.next()) orelse return error.InvalidFixtureMode;
+        return crashFixture(action, stem, phase);
+    }
     const pid: u32 = if (builtin.os.tag == .windows) Win.GetCurrentProcessId() else if (builtin.os.tag == .macos) @intCast(std.c.getpid()) else @intCast(std.os.linux.getpid());
     var names: [12][128]u8 = undefined;
     const stem = try std.fmt.bufPrint(&names[0], "sig-out/ram-checkpoint-{d}", .{pid});

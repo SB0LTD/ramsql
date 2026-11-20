@@ -135,8 +135,58 @@ With the writer stopped:
 Backup acquires the writer lock, validates/replays the source and publishes a
 flushed whole-WAL copy; existing destinations are refused. Keep copies on
 separate storage and test restore. Do not edit/truncate a WAL to bypass errors.
-There is no online backup, WAL compaction, pg_dump/pg_basebackup equivalence,
-replication or point-in-time recovery facility.
+There is no online backup, pg_dump/pg_basebackup equivalence, replication or
+point-in-time recovery facility.
+
+### Live checkpoint generations
+
+Checkpoint mode is opt-in for a single durable PostgreSQL database. Stop the
+server and bootstrap a fresh checkpoint stem from its existing WAL. Generate
+a database identity with Python or another source of 16 random bytes. Save the
+resulting 32 hexadecimal characters with the service's storage configuration.
+Use the same storage capacity flags when bootstrapping and restarting.
+
+```sh
+RAMSQL_CHECKPOINT_ID=$(python -c "import secrets; print(secrets.token_hex(16))")
+./ramsql --data ramsql.wal --bootstrap-checkpoint \
+  --checkpoint-stem /srv/ramsql/checkpoint --checkpoint-id "$RAMSQL_CHECKPOINT_ID"
+./ramsql --checkpoint-stem /srv/ramsql/checkpoint \
+  --checkpoint-id "$RAMSQL_CHECKPOINT_ID" --checkpoint-every 10000 \
+  --insecure-local
+```
+
+The last command uses loopback-only unauthenticated access for evaluation. Use
+the authentication and listener flags described above for your deployment.
+Once checkpoint mode is serving, archive the original WAL and route all
+restarts through the checkpoint stem. Each later commit belongs to the selected
+generation, so restarting from the original WAL would serve stale data.
+Omit `--checkpoint-every` to resume the selected WAL with automatic rotation
+disabled. Rotation counts newly appended WAL records from startup or the last
+rotation attempt, including batches recorded as one WAL entry.
+
+The server holds its database write gate while sealing the image and handing
+off to the new WAL. This can stall queries in proportion to database size.
+The stable `STEM.lock` excludes a second writer for the entire server lifetime.
+The manifest selects exactly one `STEM.gN.image` and `STEM.gN.wal` pair. The new
+image, WAL anchor and selector are synchronized before the switch. An
+uncertain selector write disables further durable writes until restart.
+Startup requires a valid manifest and matching artifacts.
+
+Keep the manifest, lock, and selected pair on the same local filesystem. Old
+generations and files left by an interrupted checkpoint are retained. Checkpoint
+mode searches up to 64 subsequent generation slots for unused filenames. To
+reclaim space, stop the server, back up the manifest and its selected pair,
+and confirm that the selected generation restores before removing retired
+files. Do not delete the stable lock file. If the initial bootstrap was
+interrupted before publication, use a fresh stem and preserve the source WAL.
+
+The base-image format requires a committed table and no active transaction.
+Custom schemas, sequences, views and other catalog objects, routines, triggers
+and rules prevent checkpointing. A staging error leaves the current WAL
+authoritative and logs a diagnostic. Checkpoint mode
+requires prepared transactions, multi-database routing and secondary wire
+protocols to be disabled. The current test matrix kills processes around the
+publication boundary and checks acknowledged writes after restart.
 
 Current commits use typed kind-3 records inside version-1 framing. Frozen legacy
 kind-1/2 SQL logs have restricted recovery support; old binaries cannot read

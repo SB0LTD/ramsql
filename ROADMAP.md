@@ -31,12 +31,13 @@ cancellation of an active query and reciprocal TLS key updates. Windows TLS
 and all-hosted release integration remain qualification work.
 [Native client evidence](https://github.com/SB0LTD/ramsql/actions/runs/44295501326)
 
-Checkpoint generation selection and existing-lock recovery passed on Linux,
-macOS and Windows in an isolated stack. Porting that stack onto the current
-catalog and constraint state is in progress. Snapshot export still has
-explicit unsupported-state checks. Online checkpoint publication, WAL
-rotation, full catalog snapshots and power-loss qualification remain open.
-[Recovery evidence](https://github.com/SB0LTD/ramsql/actions/runs/44289970826)
+Durable single-database PostgreSQL mode supports live checkpoint publication
+and WAL rotation for the supported base-image state. The release matrix
+requires process-kill recovery before and after manifest selection and WAL
+handoff. Checkpointing holds the write gate during image creation and retains
+retired generations. Full catalog snapshots, online backup, automated
+retirement and power-loss qualification remain open.
+[Checkpoint setup and recovery](OPERATIONS.md#live-checkpoint-generations)
 
 ## Production graduation gates
 

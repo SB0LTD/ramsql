@@ -143,8 +143,12 @@ cancellation needs a free client slot. The preview currently excludes the
 shared read cache, cluster mode and secondary protocol listeners. See the
 [TLS configuration and tested scope](docs/POSTGRES_REQUIRED_TLS.md).
 
-MySQL and TDS require explicit insecure-local mode. Checkpointing, WAL compaction,
-online backup, replication and upgrade migration remain production blockers.
+MySQL and TDS require explicit insecure-local mode. Durable single-database
+PostgreSQL mode supports opt-in checkpoint publication and WAL rotation.
+[Checkpoint setup, scope and recovery](OPERATIONS.md#live-checkpoint-generations)
+
+Retired generations require offline cleanup. Online backup, replication and
+upgrade migration remain open.
 
 To run the PostgreSQL listener under a catalog role, create a `LOGIN` role and
 grant its privileges using the bootstrap connection. Stop the server, then
