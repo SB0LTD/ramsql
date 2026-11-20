@@ -6,6 +6,11 @@ later binary.
 
 ## Unreleased
 
+- Preserve standalone sequence definitions and their WAL reservation
+  boundary across checkpoint publication and crash recovery. Existing
+  table-only images retain their original format.
+- Add PostgreSQL float8 degree trigonometry with `sind` and `cosd`.
+
 - Add opt-in live checkpoint rotation for a single durable PostgreSQL
   database. Bootstrap from an offline WAL, then publish sealed generations
   and switch the active WAL under the stable writer lock. Release tests
@@ -238,7 +243,7 @@ later binary.
   cost rises from 14 to 27 microseconds/query. This is an outstanding efficiency
   cost, not evidence of PostgreSQL/IRDB superiority or 100M-row SQL readiness.
 
-## 0.3.0-beta.2 — 2026-10-27
+## 0.3.0-beta.2 â€” 2026-10-27
 
 - Bind query scratch and per-client result/response storage from caller-owned OS
   page regions. Runtime `--work-rows` and `--result-rows` no longer require rebuilds
