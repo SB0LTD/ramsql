@@ -163,6 +163,7 @@ def main():
         ("namespace_acl", lambda db: check_namespaces(binary, db)),
         ("relation_discovery", lambda db: check_relation_discovery(binary, db)),
         ("function_discovery", lambda db: check_function_discovery(binary, db)),
+        ("type_discovery", lambda db: check_type_discovery(binary, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
     ):
@@ -248,6 +249,42 @@ def check_function_discovery(binary, native):
             ref, observed = pg.execute(transforms), ram.execute(transforms)
             assert ref.fetchall() == observed.fetchall() == []
             assert [c.type_code for c in ref.description] == [c.type_code for c in observed.description]
+
+
+def check_type_discovery(binary, native):
+    # Preserve the catalog joins and predicates used by pg_dump. Compare
+    # link presence for user types whose OIDs differ across the two instances.
+    query = """
+        SELECT tableoid, typname, typnamespace, typacl, acldefault('T',typowner)::text,
+               typowner, typelem <> 0, typrelid <> 0, typarray <> 0,
+               CASE WHEN typrelid = 0 THEN ' '::"char"
+                    ELSE (SELECT relkind FROM pg_class WHERE oid = typrelid) END,
+               typtype, typisdefined,
+               typname[0] = '_' AND typelem != 0
+                 AND (SELECT typarray FROM pg_type te WHERE oid = pg_type.typelem) = oid AS isarray
+        FROM pg_type
+        WHERE typname IN ('int4','_int4','int4range','_int4range',
+                          'dump_enum','_dump_enum','dump_domain','_dump_domain',
+                          'dump_composite','_dump_composite')
+        ORDER BY typname COLLATE "C"
+    """
+    subscripts = """
+        SELECT ('abc'::name)[0], ('abc'::name)[2], ('abc'::name)[3],
+               ('abc'::name)[63], ('abc'::name)[64], ('abc'::name)[-1],
+               ('abc'::name)[NULL], ('abc'::name)[0][1],
+               ('é'::name)[0]::int, ('é'::name)[1]::int
+    """
+    with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
+        with psycopg.connect(**native) as pg, psycopg.connect(**candidate) as ram:
+            for conn in (pg, ram):
+                conn.execute("CREATE TYPE dump_enum AS ENUM ('one','two')")
+                conn.execute("CREATE DOMAIN dump_domain AS integer")
+                conn.execute("CREATE TYPE dump_composite AS (value integer)")
+            for sql, count in ((query, 10), (subscripts, 1)):
+                ref, observed = pg.execute(sql), ram.execute(sql)
+                expected, actual = ref.fetchall(), observed.fetchall()
+                assert len(expected) == count and expected == actual, (expected, actual)
+                assert [c.type_code for c in ref.description] == [c.type_code for c in observed.description]
 
 
 if __name__ == "__main__":
