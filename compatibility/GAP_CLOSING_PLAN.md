@@ -7,7 +7,7 @@ The separate whole-database follow-up, RAMSQL `f051b2e`, passed all
 ownership, grants, a table comment, rows and defaults in both directions,
 and repeats the import assertions after WAL reopen. Large-object creation,
 data, ownership and privilege restoration remain open.
-[Whole-database qualification](https://github.com/SB0LTD/ramsql/actions/runs/44929034456)
+[Whole-database qualification](https://github.com/SB0LTD/ramsql/actions/runs/44958574825)
 
 The scoped identity follow-up passed 28 checks on PG16 and PG18. It compares
 sequence names across schemas, starting values, catalog OIDs, and recovery
@@ -15,9 +15,16 @@ after reopening the WAL. It checks that dropping one schema leaves the other
 sequence intact. The next candidate exposes live sequence state and supports
 adding an identity to an existing NOT NULL integer column. Its local change
 log suite passed 1,109 assertions, covering rollback, existing rows and WAL
-replay. Stock archives with identity state and post-restore inserts are now
-separate checks in both directions.
+replay. Local stock PG16 passed all 30 checks at RAMSQL `453d4d1`, including
+identity archives in both directions, primary-key enforcement and the next
+generated value after WAL reopen. PG16 and PG18 CI must qualify that fixture.
 [Scoped identity qualification](https://github.com/SB0LTD/ramsql/actions/runs/44958119185)
+
+Scoped standalone sequence DDL now has separate WAL coverage for equal
+names in different schemas, cached values, ALTER, explicit DROP and
+schema CASCADE. Local stock PG16 passed all 32 checks with ZPM
+`2efbbcc3`. The added tests verify standalone sequence values after WAL
+reopen and exercise stored generated columns in both directions.
 
 The first full release run passed COPY, native SB0X and SB0K, all hosted
 builds and the PostgreSQL release-artifact lanes. Its ARM macOS wire test
@@ -119,7 +126,7 @@ Immediate acceptance work:
 | Interactive simple-query COPY | Original COPY IN/OUT cases, transaction/error-tail semantics, proven slow-reader boundary and actual SB0 stream execution on the exact composed source |
 | Typed bounded text | Current-main composition of PR #270, malformed UTF-8/NUL rejection, raw internal-char casts retained, dense/typed copy and WAL replay |
 | Checkpoint startup | Current table, primary-index and constraint identities/counters preserved; native generation selection and existing-writer-lock recovery; explicit rejection of unsupported catalog state |
-| Stock PostgreSQL migration | Remaining namespace ACL projections and full outbound dump/restore; single-transaction and general late/composite key restoration |
+| Stock PostgreSQL migration | Expand the qualified fixtures to large objects, general late/composite keys, dependent schema objects, and full database and cluster migration |
 | Prepared-key performance | Four unchanged reviewer cases pass all trial separation, 2x and p99 requirements in CI, with correctness still green |
 
 The production gate remains open for sustained wide-schema/mixed-write scale,

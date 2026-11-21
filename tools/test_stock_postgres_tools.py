@@ -241,6 +241,7 @@ def main():
         ("ramsql_identity_archive_to_native", lambda db: export_identity_archive(binary, tools, db)),
         ("native_identity_archive_to_ramsql", lambda db: import_identity_archive(binary, tools, db)),
         ("scoped_sequence_archives", lambda db: check_sequence_archives(binary, tools, db)),
+        ("stored_generated_archives", lambda db: check_generated_archives(binary, tools, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
         ("ramsql_database_dump_to_native", lambda db: export_archive(binary, tools, db, table_options=(), label="whole-database")),
@@ -1227,6 +1228,45 @@ def check_sequence_archives(binary, tools, native):
     tools.run("sequence-outbound-restore", "pg_restore", native, "--single-transaction",
               "--exit-on-error", "--no-owner", "--no-acl", outbound)
     verify(native, "ramsql_side", increment=True)
+
+
+def check_generated_archives(binary, tools, native):
+    def populate(endpoint, schema):
+        with psycopg.connect(**endpoint) as db:
+            db.execute(f"CREATE SCHEMA {schema}")
+            db.execute(f"CREATE TABLE {schema}.invoice (net int NOT NULL, tax int DEFAULT 2, "
+                       "total int GENERATED ALWAYS AS (net + tax) STORED)")
+            db.execute(f"INSERT INTO {schema}.invoice(net) VALUES (17)")
+
+    def verify(endpoint, schema):
+        with psycopg.connect(**endpoint) as db:
+            assert db.execute(f"SELECT net,tax,total FROM {schema}.invoice").fetchall() == [(17, 2, 19)]
+            with db.transaction(force_rollback=True):
+                assert db.execute(f"INSERT INTO {schema}.invoice(net,tax) VALUES (6,3) RETURNING total").fetchone() == (9,)
+                assert db.execute(f"UPDATE {schema}.invoice SET tax=4 WHERE net=17 RETURNING total").fetchone() == (21,)
+
+    inbound = "generated-inbound.dump"
+    outbound = "generated-outbound.dump"
+    wal = tools.root / "generated.wal"
+    storage = ("--workers", "1")
+    populate(native, "native_generated")
+    tools.run("generated-inbound-dump", "pg_dump", native, "--no-owner", "--no-acl",
+              "--format=custom", f"--file={inbound}")
+    with DurableServer(binary, wal, create=True, storage_options=storage) as server:
+        candidate = ramsql_settings(server)
+        tools.run("generated-inbound-restore", "pg_restore", candidate, "--single-transaction",
+                  "--exit-on-error", "--no-owner", "--no-acl", inbound)
+        verify(candidate, "native_generated")
+    with DurableServer(binary, wal, storage_options=storage) as reopened:
+        verify(ramsql_settings(reopened), "native_generated")
+
+    with running_ramsql(binary, extra_arguments=storage) as candidate:
+        populate(candidate, "ramsql_generated")
+        tools.run("generated-outbound-dump", "pg_dump", candidate, "--no-owner", "--no-acl",
+                  "--format=custom", f"--file={outbound}")
+    tools.run("generated-outbound-restore", "pg_restore", native, "--single-transaction",
+              "--exit-on-error", "--no-owner", "--no-acl", outbound)
+    verify(native, "ramsql_generated")
 
 
 if __name__ == "__main__":
