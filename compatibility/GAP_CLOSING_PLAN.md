@@ -2,6 +2,13 @@
 
 ## Stock migration acceptance
 
+The whole-database follow-up exercises unfiltered archives, including a
+named schema with an owner, a separate reader, ACLs and a table comment.
+The native PostgreSQL 16 probe reached missing large-object discovery
+on export and a missing schema ownership command on restore. The
+candidate implements both in ZPM and verifies the resulting catalog and
+reader access after a WAL reopen. Qualification is pending.
+
 The stock tooling workflow verifies schema ACL metadata, plain and custom
 imports in one transaction, constraints after WAL reopen, and outbound
 custom dumps restored by native PostgreSQL. Both PostgreSQL 16 and 18 lanes

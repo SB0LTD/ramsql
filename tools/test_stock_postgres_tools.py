@@ -144,6 +144,58 @@ def export_archive(binary, tools, native, table_options=TABLES, label="outbound"
     verify(native)
 
 
+def whole_database_ownership(binary, tools, native, inbound):
+    def roles(endpoint):
+        with psycopg.connect(**endpoint) as db:
+            db.execute("CREATE ROLE archive_owner")
+            db.execute("CREATE ROLE archive_reader")
+
+    def populate(endpoint):
+        with psycopg.connect(**endpoint) as db:
+            db.execute("CREATE SCHEMA migration")
+            db.execute("CREATE TABLE migration.items (id int PRIMARY KEY, label text DEFAULT 'open')")
+            db.execute("ALTER SCHEMA migration OWNER TO archive_owner")
+            db.execute("GRANT USAGE ON SCHEMA migration TO archive_reader")
+            db.execute("GRANT SELECT ON migration.items TO archive_reader")
+            db.execute("COMMENT ON TABLE migration.items IS 'archive fixture'")
+            db.execute("INSERT INTO migration.items(id) VALUES (1),(2)")
+
+    def verify_archive(endpoint):
+        with psycopg.connect(**endpoint) as db:
+            assert db.execute(
+                "SELECT r.rolname,n.nspacl::text FROM pg_namespace n "
+                "JOIN pg_roles r ON r.oid=n.nspowner WHERE n.nspname='migration'"
+            ).fetchone() == ("archive_owner", "{archive_owner=UC/archive_owner,archive_reader=U/archive_owner}")
+            assert db.execute(
+                "SELECT obj_description('migration.items'::regclass,'pg_class')"
+            ).fetchone() == ("archive fixture",)
+            db.execute("SET ROLE archive_reader")
+            assert db.execute("SELECT * FROM migration.items ORDER BY id").fetchall() == [(1, "open"), (2, "open")]
+
+    label = "owned-inbound" if inbound else "owned-outbound"
+    archive = f"{label}.dump"
+    roles(native)
+    if inbound:
+        populate(native)
+        wal = tools.root / f"{label}.wal"
+        storage = ("--workers", "1")
+        with DurableServer(binary, wal, create=True, storage_options=storage) as server:
+            candidate = ramsql_settings(server)
+            roles(candidate)
+            tools.run(f"{label}-dump", "pg_dump", native, "--format=custom", f"--file={archive}")
+            tools.run(f"{label}-restore", "pg_restore", candidate, "--single-transaction", "--exit-on-error", archive)
+            verify_archive(candidate)
+        with DurableServer(binary, wal, storage_options=storage) as reopened:
+            verify_archive(ramsql_settings(reopened))
+    else:
+        with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
+            roles(candidate)
+            populate(candidate)
+            tools.run(f"{label}-dump", "pg_dump", candidate, "--format=custom", f"--file={archive}")
+        tools.run(f"{label}-restore", "pg_restore", native, "--single-transaction", "--exit-on-error", archive)
+        verify_archive(native)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, required=True)
@@ -188,6 +240,8 @@ def main():
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
         ("ramsql_database_dump_to_native", lambda db: export_archive(binary, tools, db, table_options=(), label="whole-database")),
+        ("native_database_with_acl_to_ramsql", lambda db: whole_database_ownership(binary, tools, db, inbound=True)),
+        ("ramsql_database_with_acl_to_native", lambda db: whole_database_ownership(binary, tools, db, inbound=False)),
     ):
         try:
             with native_postgres(image, psycopg, binary_directory=args.postgres_bin,
