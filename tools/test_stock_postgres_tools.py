@@ -243,6 +243,7 @@ def main():
         ("scoped_sequence_archives", lambda db: check_sequence_archives(binary, tools, db)),
         ("stored_generated_archives", lambda db: check_generated_archives(binary, tools, db)),
         ("view_archives", lambda db: check_view_archives(binary, tools, db)),
+        ("composite_primary_key_archives", lambda db: check_composite_key_archives(binary, tools, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
         ("ramsql_database_dump_to_native", lambda db: export_archive(binary, tools, db, table_options=(), label="whole-database")),
@@ -1274,6 +1275,29 @@ def check_view_archives(binary, tools, native):
             assert db.execute(f"SELECT id FROM {schema}.d_cte").fetchall() == [(6,)]
 
     check_schema_archives(binary, tools, native, "view", populate, verify)
+
+
+def check_composite_key_archives(binary, tools, native):
+    def populate(endpoint, schema):
+        with psycopg.connect(**endpoint) as db:
+            db.execute(f"CREATE SCHEMA {schema}")
+            db.execute(f"CREATE TABLE {schema}.items (shard int, id int, label text, PRIMARY KEY (shard,id))")
+            db.execute(f"INSERT INTO {schema}.items VALUES (1,2,'a'),(2,2,'b')")
+
+    def verify(endpoint, schema):
+        with psycopg.connect(**endpoint) as db:
+            assert db.execute(f"SELECT * FROM {schema}.items ORDER BY shard").fetchall() == [(1, 2, "a"), (2, 2, "b")]
+            for values, error_type in (("1,2,'duplicate'", psycopg.errors.UniqueViolation),
+                                       ("NULL,3,'null'", psycopg.errors.NotNullViolation)):
+                try:
+                    with db.transaction():
+                        db.execute(f"INSERT INTO {schema}.items VALUES ({values})")
+                except error_type:
+                    pass
+                else:
+                    raise AssertionError(f"restored primary key accepted {values}")
+
+    check_schema_archives(binary, tools, native, "composite", populate, verify)
 
 
 def check_schema_archives(binary, tools, native, fixture, populate, verify):
