@@ -1251,18 +1251,19 @@ def check_generated_archives(binary, tools, native):
 
 def check_view_archives(binary, tools, native):
     def populate(endpoint, schema):
+        public_table = "nv" if schema == "native_view" else "rv"
         with psycopg.connect(**endpoint) as db:
             db.execute(f"CREATE SCHEMA {schema}")
             db.execute(f"CREATE TABLE {schema}.z_source (id int NOT NULL, amount int)")
             db.execute(f"CREATE VIEW {schema}.a_positive AS SELECT id,amount FROM {schema}.z_source WHERE amount > 0")
             db.execute(f"CREATE VIEW {schema}.b_amounts AS SELECT amount FROM {schema}.a_positive")
             db.execute(f"INSERT INTO {schema}.z_source VALUES (1,20),(2,-1)")
-            db.execute(f'CREATE TABLE public."{schema}_public" (id int)')
-            db.execute(f'INSERT INTO public."{schema}_public" VALUES (8)')
-            db.execute(f'CREATE VIEW {schema}.c_public AS SELECT id FROM "{schema}_public"')
+            db.execute(f'CREATE TABLE public."{public_table}" (id int)')
+            db.execute(f'INSERT INTO public."{public_table}" VALUES (8)')
+            db.execute(f'CREATE VIEW {schema}.c_public AS SELECT id FROM "{public_table}"')
             db.execute(
-                f"CREATE VIEW {schema}.d_cte AS WITH {schema}_public AS (SELECT 6 AS id) "
-                f"SELECT c.id FROM {schema}_public c CROSS JOIN public.{schema}_public p"
+                f"CREATE VIEW {schema}.d_cte AS WITH {public_table} AS (SELECT 6 AS id) "
+                f"SELECT c.id FROM {public_table} c CROSS JOIN public.{public_table} p"
             )
 
     def verify(endpoint, schema):

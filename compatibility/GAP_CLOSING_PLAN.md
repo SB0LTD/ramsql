@@ -31,7 +31,10 @@ restores chained views after their base tables and verifies their rows
 after WAL reopen. The next candidate expands that fixture to public
 relations originally referenced without a schema and to CTE names
 that shadow a public relation. General view and rewrite-rule deparsing
-remain open.
+remain open. Stock PG16 and PG18 both exposed a 128-byte stored view
+definition limit in the default profile when PostgreSQL expanded a
+short CTE query. The release needs bounded variable-length definition
+storage and wire output that do not enlarge every stored data cell.
 
 The first full release run passed COPY, native SB0X and SB0K, all hosted
 builds and the PostgreSQL release-artifact lanes. Its ARM macOS wire test
