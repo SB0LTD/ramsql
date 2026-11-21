@@ -2,6 +2,20 @@
 
 ## Stock migration acceptance
 
+The separate whole-database follow-up, RAMSQL `f051b2e`, passed all
+27 stock checks on PostgreSQL 16 and 18. Its fixture preserves schema
+ownership, grants, a table comment, rows and defaults in both directions,
+and repeats the import assertions after WAL reopen. Large objects and
+identity sequences outside public still need implementation and coverage.
+[Whole-database qualification](https://github.com/SB0LTD/ramsql/actions/runs/44929034456)
+
+The first full release run passed COPY, native SB0X and SB0K, all hosted
+builds and the PostgreSQL release-artifact lanes. Its ARM macOS wire test
+failed while filling the connection pool. The revised suite tests the full
+slot limit with a smaller per-connection result grant. The separate
+machine-capacity test still exercises live SQLSTATE 53200 memory rejection.
+[Release matrix](https://github.com/SB0LTD/ramsql/actions/runs/44926870854)
+
 The stock tooling workflow verifies schema ACL metadata, plain and custom
 imports in one transaction, constraints after WAL reopen, and outbound
 custom dumps restored by native PostgreSQL. Both PostgreSQL 16 and 18 lanes
