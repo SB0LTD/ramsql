@@ -240,6 +240,7 @@ def main():
         ("scoped_identity_sequences", lambda db: check_scoped_identities(binary, tools, db)),
         ("ramsql_identity_archive_to_native", lambda db: export_identity_archive(binary, tools, db)),
         ("native_identity_archive_to_ramsql", lambda db: import_identity_archive(binary, tools, db)),
+        ("scoped_sequence_archives", lambda db: check_sequence_archives(binary, tools, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
         ("ramsql_database_dump_to_native", lambda db: export_archive(binary, tools, db, table_options=(), label="whole-database")),
@@ -1189,6 +1190,43 @@ def import_identity_archive(binary, tools, native):
                 pass
             else:
                 raise AssertionError("restored primary key accepted a duplicate")
+
+
+def check_sequence_archives(binary, tools, native):
+    def populate(endpoint, schema):
+        with psycopg.connect(**endpoint) as db:
+            db.execute(f"CREATE SCHEMA {schema}")
+            db.execute(f"CREATE SEQUENCE {schema}.ticket_ids AS integer INCREMENT BY 3 START WITH 17")
+            db.execute(f"SELECT setval('{schema}.ticket_ids',20,true)")
+
+    def verify(endpoint, schema, *, increment=False):
+        with psycopg.connect(**endpoint) as db:
+            assert db.execute(f"SELECT last_value,is_called FROM {schema}.ticket_ids").fetchone() == (20, True)
+            if increment:
+                assert db.execute(f"SELECT nextval('{schema}.ticket_ids')").fetchone() == (23,)
+
+    inbound = "standalone-sequence-inbound.dump"
+    outbound = "standalone-sequence-outbound.dump"
+    wal = tools.root / "standalone-sequence.wal"
+    storage = ("--workers", "1")
+    populate(native, "native_side")
+    tools.run("sequence-inbound-dump", "pg_dump", native, "--no-owner", "--no-acl",
+              "--format=custom", f"--file={inbound}")
+    with DurableServer(binary, wal, create=True, storage_options=storage) as server:
+        candidate = ramsql_settings(server)
+        tools.run("sequence-inbound-restore", "pg_restore", candidate, "--single-transaction",
+                  "--exit-on-error", "--no-owner", "--no-acl", inbound)
+        verify(candidate, "native_side")
+    with DurableServer(binary, wal, storage_options=storage) as reopened:
+        verify(ramsql_settings(reopened), "native_side", increment=True)
+
+    with running_ramsql(binary, extra_arguments=storage) as candidate:
+        populate(candidate, "ramsql_side")
+        tools.run("sequence-outbound-dump", "pg_dump", candidate, "--no-owner", "--no-acl",
+                  "--format=custom", f"--file={outbound}")
+    tools.run("sequence-outbound-restore", "pg_restore", native, "--single-transaction",
+              "--exit-on-error", "--no-owner", "--no-acl", outbound)
+    verify(native, "ramsql_side", increment=True)
 
 
 if __name__ == "__main__":
