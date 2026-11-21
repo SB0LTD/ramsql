@@ -133,13 +133,14 @@ def import_dumps(binary, tools, native):
             verify(ramsql_settings(reopened))
 
 
-def export_archive(binary, tools, native):
+def export_archive(binary, tools, native, table_options=TABLES, label="outbound"):
+    artifact = f"{label}.dump"
     with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
         seed(candidate)
-        tools.run("outbound-dump", "pg_dump", candidate, *TABLES, "--no-owner", "--no-acl",
-                  "--format=custom", "--file=outbound.dump")
-    tools.run("outbound-restore", "pg_restore", native, "--exit-on-error",
-              "--single-transaction", "--no-owner", "--no-acl", "outbound.dump")
+        tools.run(f"{label}-dump", "pg_dump", candidate, *table_options, "--no-owner", "--no-acl",
+                  "--format=custom", f"--file={artifact}")
+    tools.run(f"{label}-restore", "pg_restore", native, "--exit-on-error",
+              "--single-transaction", "--no-owner", "--no-acl", artifact)
     verify(native)
 
 
@@ -186,6 +187,7 @@ def main():
         ("archive_metadata", lambda db: check_archive_metadata(binary, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
+        ("ramsql_database_dump_to_native", lambda db: export_archive(binary, tools, db, table_options=(), label="whole-database")),
     ):
         try:
             with native_postgres(image, psycopg, binary_directory=args.postgres_bin,
