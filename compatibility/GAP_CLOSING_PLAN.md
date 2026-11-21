@@ -5,15 +5,19 @@
 The separate whole-database follow-up, RAMSQL `f051b2e`, passed all
 27 stock checks on PostgreSQL 16 and 18. Its fixture preserves schema
 ownership, grants, a table comment, rows and defaults in both directions,
-and repeats the import assertions after WAL reopen. Large objects and
-identity sequences outside public still need implementation and coverage.
+and repeats the import assertions after WAL reopen. Large-object creation,
+data, ownership and privilege restoration remain open.
 [Whole-database qualification](https://github.com/SB0LTD/ramsql/actions/runs/44929034456)
 
-The scoped identity follow-up adds a native differential for matching
-identity sequence names across schemas, starting values, catalog OIDs,
-and recovery after reopening the WAL. It also checks that dropping one
-schema leaves the other sequence intact. Stock archives containing
-these identities still need qualification.
+The scoped identity follow-up passed 28 checks on PG16 and PG18. It compares
+sequence names across schemas, starting values, catalog OIDs, and recovery
+after reopening the WAL. It checks that dropping one schema leaves the other
+sequence intact. The next candidate exposes live sequence state and supports
+adding an identity to an existing NOT NULL integer column. Its local change
+log suite passed 1,109 assertions, covering rollback, existing rows and WAL
+replay. Stock archives with identity state and post-restore inserts are now
+separate checks in both directions.
+[Scoped identity qualification](https://github.com/SB0LTD/ramsql/actions/runs/44958119185)
 
 The first full release run passed COPY, native SB0X and SB0K, all hosted
 builds and the PostgreSQL release-artifact lanes. Its ARM macOS wire test

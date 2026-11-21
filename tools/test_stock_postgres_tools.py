@@ -1165,7 +1165,7 @@ def import_identity_archive(binary, tools, native):
     storage = ("--workers", "1")
     with psycopg.connect(**native) as pg:
         pg.execute("CREATE SCHEMA migration")
-        pg.execute("CREATE TABLE migration.items (id int NOT NULL, label text)")
+        pg.execute("CREATE TABLE migration.items (id int PRIMARY KEY, label text)")
         pg.execute("ALTER TABLE migration.items ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY "
                    "(SEQUENCE NAME migration.item_ids START WITH 20 INCREMENT BY 2)")
         assert pg.execute("INSERT INTO migration.items(label) VALUES ('first') RETURNING id").fetchone() == (20,)
@@ -1182,6 +1182,13 @@ def import_identity_archive(binary, tools, native):
         with psycopg.connect(**ramsql_settings(reopened)) as ram:
             assert ram.execute("SELECT id,label FROM migration.items").fetchall() == [(20, "first")]
             assert ram.execute("INSERT INTO migration.items(label) VALUES ('next') RETURNING id").fetchone() == (22,)
+            try:
+                with ram.transaction():
+                    ram.execute("INSERT INTO migration.items OVERRIDING SYSTEM VALUE VALUES (20, 'duplicate')")
+            except psycopg.errors.UniqueViolation:
+                pass
+            else:
+                raise AssertionError("restored primary key accepted a duplicate")
 
 
 if __name__ == "__main__":
