@@ -9,13 +9,13 @@ must pass before merging the integration. The candidate includes a separate
 48-column SELECT projection limit, built-in tablespace rows, a typed
 foreign-table catalog, and the relation metadata needed by table discovery.
 
-On RAMSQL `c6b7c51` with ZPM `393f4b0b`, both CI lanes pass discovery
-for the six supported range types and verify the multirange OIDs used
-by the stock cast scan. Plain and custom imports pass post-reopen row
-and constraint checks for the two-table fixture. Both outbound dumps
-pass the cast scan and fail with `TableNotFound` on the
-`pg_event_trigger` discovery query before producing an archive.
-[PostgreSQL 16 and 18 CI](https://github.com/SB0LTD/ramsql/actions/runs/44920438148)
+On RAMSQL `2294b9b` with ZPM `935daea0`, both CI lanes pass event-trigger
+discovery and the correlated tag query using `unnest`. Plain and custom
+imports pass post-reopen row and constraint checks for the two-table
+fixture. Both outbound dumps pass event-trigger discovery and fail with
+`ColumnNotFound` during the `pg_attribute` and `pg_type` column discovery
+query before producing an archive.
+[PostgreSQL 16 and 18 CI](https://github.com/SB0LTD/ramsql/actions/runs/44920992058)
 
 ## 20 November 2026 shipped checkpoint
 
