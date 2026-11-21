@@ -165,6 +165,7 @@ def main():
         ("function_discovery", lambda db: check_function_discovery(binary, db)),
         ("type_discovery", lambda db: check_type_discovery(binary, db)),
         ("operator_discovery", lambda db: check_operator_discovery(binary, db)),
+        ("access_method_discovery", lambda db: check_access_method_discovery(binary, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
     ):
@@ -345,8 +346,12 @@ def check_operator_discovery(binary, native):
             assert [col.type_code for col in actual.description] == [col.type_code for col in expected.description]
             assert operators == expected.fetchall()
 
-            routines = ram.execute(f"SELECT {procedure_fields} FROM pg_proc WHERE pronamespace=11 ORDER BY oid").fetchall()
-            procedure_oids = sorted({row[-1] for row in operators})
+            routine_oids = {row[-1] for row in operators}
+            routines = [
+                row for row in ram.execute(f"SELECT {procedure_fields} FROM pg_proc WHERE pronamespace=11 ORDER BY oid")
+                if row[0] in routine_oids
+            ]
+            procedure_oids = sorted(routine_oids)
             assert [row[0] for row in routines] == procedure_oids
             # The implementation is internal to Sig even for signatures
             # implemented by SQL wrappers in PostgreSQL.
@@ -367,6 +372,46 @@ def check_operator_discovery(binary, native):
                 ref, observed = pg.execute(query), ram.execute(query)
                 assert ref.description[0].type_code == observed.description[0].type_code == result_oid, (oid, query)
                 assert ref.fetchall() == observed.fetchall(), (oid, query)
+
+
+def check_access_method_discovery(binary, native):
+    projection = """
+        SELECT tableoid, oid, amname, amtype, amhandler::pg_catalog.regproc AS amhandler
+        FROM pg_am WHERE amname IN ('heap','btree') ORDER BY oid
+    """
+    handlers = """
+        SELECT a.amname,p.oid,p.proname,p.prolang,p.proretType,t.typname,p.proargtypes::text
+        FROM pg_am a JOIN pg_proc p ON p.oid=a.amhandler::oid JOIN pg_type t ON t.oid=p.prorettype
+        WHERE a.amname IN ('heap','btree') ORDER BY a.oid
+    """
+    aliases = """
+        SELECT to_regproc(' PG_CATALOG . "bthandler" ')::oid,
+               'heap_tableam_handler'::regproc::text, 330::regproc::text,
+               '4000000000'::regproc::text, '-'::regproc::text,
+               to_regproc('missing_access_probe'), pg_typeof(NULL::regproc)::text
+    """
+    with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
+        with psycopg.connect(**native) as pg, psycopg.connect(**candidate) as ram:
+            for query in (projection, handlers, aliases):
+                ref, actual = pg.execute(query), ram.execute(query)
+                assert ref.fetchall() == actual.fetchall(), query
+                assert [c.type_code for c in ref.description] == [c.type_code for c in actual.description], query
+            assert ram.execute("SELECT COUNT(*) FROM pg_am").fetchone() == (2,)
+            binary_query = "SELECT amhandler FROM pg_am WHERE amname IN ('heap','btree') ORDER BY oid"
+            ref, actual = pg.execute(binary_query, binary=True), ram.execute(binary_query, binary=True)
+            assert ref.description[0].type_code == actual.description[0].type_code == 24
+            assert ref.fetchall() == actual.fetchall()
+            for conn in (pg, ram):
+                conn.execute("CREATE FUNCTION access_probe(integer) RETURNS integer LANGUAGE SQL AS 'SELECT 1'")
+                assert conn.execute("SELECT to_regproc('public.access_probe')::text").fetchone() == ("access_probe",)
+                conn.execute("CREATE FUNCTION access_probe(text) RETURNS integer LANGUAGE SQL AS 'SELECT 2'")
+                assert conn.execute("SELECT to_regproc('access_probe')").fetchone() == (None,)
+                try:
+                    conn.execute("SELECT 'access_probe'::regproc")
+                except psycopg.Error as err:
+                    assert err.sqlstate == "42725", err
+                else:
+                    raise AssertionError("regproc accepted an overloaded routine name")
 
 
 if __name__ == "__main__":
