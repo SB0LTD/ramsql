@@ -375,6 +375,16 @@ def check_operator_discovery(binary, native):
 
 
 def check_access_method_discovery(binary, native):
+    class RegprocOid(int):
+        pass
+
+    class RegprocDumper(psycopg.adapt.Dumper):
+        oid = 24
+        format = psycopg.pq.Format.BINARY
+
+        def dump(self, value):
+            return value.to_bytes(4, "big")
+
     projection = """
         SELECT tableoid, oid, amname, amtype, amhandler::pg_catalog.regproc AS amhandler
         FROM pg_am WHERE amname IN ('heap','btree') ORDER BY oid
@@ -402,8 +412,13 @@ def check_access_method_discovery(binary, native):
             assert ref.description[0].type_code == actual.description[0].type_code == 24
             assert ref.fetchall() == actual.fetchall()
             for conn in (pg, ram):
+                conn.adapters.register_dumper(RegprocOid, RegprocDumper)
+                conn.execute("CREATE FUNCTION bthandler(integer) RETURNS integer LANGUAGE SQL AS 'SELECT 0'")
+                assert conn.execute("SELECT to_regproc('bthandler')").fetchone() == (None,)
+                assert conn.execute("SELECT %b::oid", (RegprocOid(330),)).fetchone() == (330,)
                 conn.execute("CREATE FUNCTION access_probe(integer) RETURNS integer LANGUAGE SQL AS 'SELECT 1'")
                 assert conn.execute("SELECT to_regproc('public.access_probe')::text").fetchone() == ("access_probe",)
+                assert conn.execute("SELECT %s::regproc::text", ("public.access_probe",)).fetchone() == ("access_probe",)
                 conn.execute("CREATE FUNCTION access_probe(text) RETURNS integer LANGUAGE SQL AS 'SELECT 2'")
                 assert conn.execute("SELECT to_regproc('access_probe')").fetchone() == (None,)
                 try:
