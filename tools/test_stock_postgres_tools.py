@@ -172,6 +172,7 @@ def main():
         ("text_search_dictionary_discovery", lambda db: check_text_search_dictionary(binary, db)),
         ("text_search_configuration_discovery", lambda db: check_text_search_configuration(binary, db)),
         ("foreign_data_wrapper_discovery", lambda db: check_foreign_data_wrapper(binary, db)),
+        ("default_acl_discovery", lambda db: check_default_acl(binary, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
     ):
@@ -688,6 +689,44 @@ def check_foreign_data_wrapper(binary, native):
             compare("SELECT id," + format_options
                     + " FROM (VALUES (1,%s::text[]),(2,%s::text[]),(3,NULL::text[])) AS f(id,fdwoptions) ORDER BY id",
                     (["Mixed Case=don't", "_plain=a=b"], ["select=\\path", "empty="]))
+
+
+def check_default_acl(binary, native):
+    baseline = (
+        "CASE WHEN defaclnamespace = 0 THEN acldefault(CASE WHEN defaclobjtype = 'S' "
+        "THEN 's'::\"char\" ELSE defaclobjtype END, defaclrole) ELSE '{}' END"
+    )
+    stock_query = (
+        "SELECT oid, tableoid, defaclrole, defaclnamespace, defaclobjtype, defaclacl, "
+        + baseline + " AS acldefault FROM pg_default_acl"
+    )
+    fixtures = (
+        "SELECT (" + baseline + ")::text FROM (VALUES "
+        "(0::oid,'S'::\"char\",10::oid),(0::oid,'f'::\"char\",10::oid),"
+        "(0::oid,'T'::\"char\",10::oid),(0::oid,'L'::\"char\",10::oid),"
+        "(0::oid,'n'::\"char\",10::oid),(11::oid,'f'::\"char\",10::oid)) "
+        "AS entries(defaclnamespace,defaclobjtype,defaclrole)"
+    )
+    with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
+        with psycopg.connect(**native) as pg, psycopg.connect(**candidate) as ram:
+            for db in (pg, ram):
+                cursor = db.execute(stock_query)
+                assert [col.type_code for col in cursor.description] == [26, 26, 26, 26, 18, 1034, 1034]
+                assert cursor.fetchall() == []
+                assert db.execute("SELECT 'pg_catalog.pg_default_acl'::regclass::oid").fetchone() == (826,)
+            expected = pg.execute(fixtures).fetchall()
+            assert expected[-1] == ("{}",)
+            assert ram.execute(fixtures).fetchall() == expected
+            for kind in "cdfLlnpstFST":
+                query = "SELECT acldefault(%s::\"char\",10::oid)::text"
+                expected = pg.execute(query, (kind,)).fetchone()
+                assert ram.execute(query, (kind,)).fetchone() == expected, (kind, expected)
+            relation = "SELECT acldefault('r',10::oid)::text"
+            native_bits = "arwdDxtm" if pg.info.server_version >= 170000 else "arwdDxt"
+            assert pg.execute(relation).fetchone() == (f"{{ramsql={native_bits}/ramsql}}",)
+            assert ram.execute(relation).fetchone() == ("{ramsql=arwdDxt/ramsql}",)
+            strict = "SELECT acldefault(NULL,10::oid) IS NULL, acldefault('n',NULL) IS NULL"
+            assert ram.execute(strict).fetchone() == pg.execute(strict).fetchone() == (True, True)
 
 
 if __name__ == "__main__":
