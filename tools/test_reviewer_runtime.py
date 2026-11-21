@@ -81,23 +81,25 @@ def main():
             except psycopg.Error as error:
                 assert error.sqlstate=='54000',error
             assert db.execute('SELECT 7',prepare=False).fetchone()==(7,)
-        with ExitStack() as stack:
-            clients=[stack.enter_context(psycopg.connect(**conn)) for _ in range(32)]
-            for db in clients:
-                db.execute('BEGIN')
-                assert db.execute('SELECT 1').fetchone()==(1,)
-            for negotiate in (None,80877103,80877104):
-                raw=PG(socket.create_connection((conn['host'],conn['port']),timeout=5))
-                try:
-                    if negotiate:
-                        raw.sock.sendall(struct.pack('!II',8,negotiate))
-                        assert raw.exact(1)==b'N'
-                    raw.sock.sendall(startup_packet())
-                    tag,body=raw.message()
-                    assert tag==b'E'
-                    expect_error([(tag,body)],'53300')
-                finally:
-                    raw.close(False)
+    # Keep the 32-slot protocol assertion independent of the large result
+    # window used above. The memory admission test covers resource pressure.
+    with running_ramsql(binary, extra_arguments=("--max-clients", "32", "--result-rows", "128")) as conn, ExitStack() as stack:
+        clients=[stack.enter_context(psycopg.connect(**conn)) for _ in range(32)]
+        for db in clients:
+            db.execute('BEGIN')
+            assert db.execute('SELECT 1').fetchone()==(1,)
+        for negotiate in (None,80877103,80877104):
+            raw=PG(socket.create_connection((conn['host'],conn['port']),timeout=5))
+            try:
+                if negotiate:
+                    raw.sock.sendall(struct.pack('!II',8,negotiate))
+                    assert raw.exact(1)==b'N'
+                raw.sock.sendall(startup_packet())
+                tag,body=raw.message()
+                assert tag==b'E'
+                expect_error([(tag,body)],'53300')
+            finally:
+                raw.close(False)
     bank_args=('--table-rows','6000,16,64,1,1,1,1,1','--work-rows','128','--result-rows','4096')
     with tempfile.TemporaryDirectory(prefix='ramsql-reviewer-bank-') as directory:
         wal=Path(directory)/'bank.wal'

@@ -1,5 +1,96 @@
 # RAMSQL gap-closing plan
 
+## Stock migration acceptance
+
+The separate whole-database follow-up, RAMSQL `f051b2e`, passed all
+27 stock checks on PostgreSQL 16 and 18. Its fixture preserves schema
+ownership, grants, a table comment, rows and defaults in both directions,
+and repeats the import assertions after WAL reopen. Large-object creation,
+data, ownership and privilege restoration remain open.
+[Whole-database qualification](https://github.com/SB0LTD/ramsql/actions/runs/44958574825)
+
+The scoped identity follow-up passed 28 checks on PG16 and PG18. It compares
+sequence names across schemas, starting values, catalog OIDs, and recovery
+after reopening the WAL. It checks that dropping one schema leaves the other
+sequence intact. The next candidate exposes live sequence state and supports
+adding an identity to an existing NOT NULL integer column. Its local change
+log suite passed 1,109 assertions, covering rollback, existing rows and WAL
+replay. Local stock PG16 passed all 30 checks at RAMSQL `453d4d1`, including
+identity archives in both directions, primary-key enforcement and the next
+generated value after WAL reopen. PG16 and PG18 CI must qualify that fixture.
+[Scoped identity qualification](https://github.com/SB0LTD/ramsql/actions/runs/44958119185)
+
+Scoped standalone sequence DDL now has separate WAL coverage for equal
+names in different schemas, cached values, ALTER, explicit DROP and
+schema CASCADE. Local stock PG16 passed all 32 checks with ZPM
+`2efbbcc3`. The added tests verify standalone sequence values after WAL
+reopen and exercise stored generated columns in both directions.
+
+Local stock PG16 passed 33 checks at `5a60637`. The additional view fixture
+restores chained views after their base tables and verifies their rows
+after WAL reopen. The next candidate expands that fixture to public
+relations originally referenced without a schema and to CTE names
+that shadow a public relation. General view and rewrite-rule deparsing
+remain open. Stock PG16 and PG18 both exposed a 128-byte stored view
+definition limit in the default profile when PostgreSQL expanded a
+short CTE query. The release needs bounded variable-length definition
+storage and wire output that do not enlarge every stored data cell.
+
+The composite-key follow-up passed all 34 checks on PG16 and PG18 CI.
+Stock restore applies the composite primary key after COPY in the same
+transaction. The fixture checks row equality and rejection of duplicate
+and NULL key values after WAL reopen. General late composite-key changes
+to existing tables remain open.
+[Stock PG16 and PG18 composite-key qualification](https://github.com/SB0LTD/ramsql/actions/runs/44962030582)
+
+The first full release run passed COPY, native SB0X and SB0K, all hosted
+builds and the PostgreSQL release-artifact lanes. Its ARM macOS wire test
+failed while filling the connection pool. The revised suite tests the full
+slot limit with a smaller per-connection result grant. The separate
+machine-capacity test still exercises live SQLSTATE 53200 memory rejection.
+[Release matrix](https://github.com/SB0LTD/ramsql/actions/runs/44926870854)
+
+The combined candidate `ac6bd49` passed all 27 stock checks on
+PostgreSQL 16 and 18. ARM macOS then passed the wire suite and failed the
+separate 32-client reviewer test when a full slot pool and memory pressure
+coincided. The revised admission reports SQLSTATE 53300 for a full pool
+and SQLSTATE 53200 when a free slot lacks memory for its buffers.
+[Combined stock CI](https://github.com/SB0LTD/ramsql/actions/runs/44957490888) ·
+[ARM macOS release check](https://github.com/SB0LTD/ramsql/actions/runs/44957495974)
+
+The stock tooling workflow verifies schema ACL metadata, plain and custom
+imports in one transaction, constraints after WAL reopen, and outbound
+custom dumps restored by native PostgreSQL. Both PostgreSQL 16 and 18 lanes
+must pass before merging the integration. The candidate includes a separate
+48-column SELECT projection limit, built-in tablespace rows, a typed
+foreign-table catalog, and the relation metadata needed by table discovery.
+
+RAMSQL `d1ddbe5` with ZPM `ed00a0a1` passed all 24 stock tooling
+checks on both PostgreSQL 16 and 18. It imported native plain and custom
+dumps and restored its own custom archive on native PostgreSQL. Each
+direction verified rows, defaults, primary keys, foreign keys, CHECK
+and NOT NULL. Imports passed the same checks after reopening the WAL.
+The selected two-table fixture uses `--no-owner --no-acl`. Whole-database
+archive coverage, ACL and ownership restore, and application conformance
+remain open.
+[PG16 and PG18 stock round trips](https://github.com/SB0LTD/ramsql/actions/runs/44926381895)
+
+On RAMSQL `c175b9f` with ZPM `c8b764ab`, both CI lanes pass
+column defaults, stored generated expressions, CHECK and index metadata,
+and range and list partition discovery. Plain and custom imports pass
+post-reopen row, default and constraint checks on the two-table fixture.
+Both outbound dumps passed partition discovery. RAMSQL `ea70fda` then
+passed the stock subscription query and reached the operator-family
+dependency queries. Its separate subscription probe caught a standalone
+database name mismatch with connection aliases. The follow-up fixes that
+name mapping and adds the dependency catalogs and custom archive metadata.
+On RAMSQL `af7af9a`, outbound dump progressed to target-list
+`unnest(setconfig)` for database settings. The next candidate adds
+typed row expansion after filtering.
+[Partition CI](https://github.com/SB0LTD/ramsql/actions/runs/44924845762) ·
+[Subscription CI](https://github.com/SB0LTD/ramsql/actions/runs/44925395409) ·
+[Archive metadata CI](https://github.com/SB0LTD/ramsql/actions/runs/44925969411)
+
 ## 20 November 2026 shipped checkpoint
 
 The [beta.3 prerelease](https://github.com/SB0LTD/ramsql/releases/tag/ci-v0.3.0-beta.3-run.44655295188.1) passed the [complete release matrix](https://github.com/SB0LTD/ramsql/actions/runs/44655295188)
@@ -60,7 +151,7 @@ Immediate acceptance work:
 | Interactive simple-query COPY | Original COPY IN/OUT cases, transaction/error-tail semantics, proven slow-reader boundary and actual SB0 stream execution on the exact composed source |
 | Typed bounded text | Current-main composition of PR #270, malformed UTF-8/NUL rejection, raw internal-char casts retained, dense/typed copy and WAL replay |
 | Checkpoint startup | Current table, primary-index and constraint identities/counters preserved; native generation selection and existing-writer-lock recovery; explicit rejection of unsupported catalog state |
-| Stock PostgreSQL migration | Remaining namespace ACL projections and full outbound dump/restore; single-transaction and general late/composite key restoration |
+| Stock PostgreSQL migration | Expand the qualified fixtures to large objects, general late/composite keys, dependent schema objects, and full database and cluster migration |
 | Prepared-key performance | Four unchanged reviewer cases pass all trial separation, 2x and p99 requirements in CI, with correctness still green |
 
 The production gate remains open for sustained wide-schema/mixed-write scale,
