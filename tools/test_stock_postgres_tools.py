@@ -182,6 +182,7 @@ def main():
         ("column_default_discovery", lambda db: check_column_defaults(binary, db)),
         ("constraint_and_index_discovery", lambda db: check_constraints_and_indexes(binary, db)),
         ("partition_discovery", lambda db: check_partitions(binary, db)),
+        ("subscription_discovery", lambda db: check_subscriptions(binary, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
     ):
@@ -995,6 +996,18 @@ def check_partitions(binary, native):
             for db in (pg, ram):
                 db.execute("DROP TABLE dump_parts_other")
                 assert db.execute("SELECT partdefid FROM pg_partitioned_table WHERE partrelid='dump_parts'::regclass").fetchone() == (0,)
+
+
+def check_subscriptions(binary, native):
+    database_oid = "SELECT oid FROM pg_database WHERE datname = current_database()"
+    count = f"SELECT count(*) FROM pg_subscription WHERE subdbid = ({database_oid})"
+    with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
+        with psycopg.connect(**native) as pg, psycopg.connect(**candidate) as ram:
+            for db in (pg, ram):
+                rows = db.execute(database_oid).fetchall()
+                assert len(rows) == 1 and rows[0][0] > 0, rows
+                assert db.execute(count).fetchone() == (0,)
+                assert db.execute("SELECT 'pg_catalog.pg_subscription'::regclass::oid").fetchone() == (6100,)
 
 
 if __name__ == "__main__":

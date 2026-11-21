@@ -9,14 +9,14 @@ must pass before merging the integration. The candidate includes a separate
 48-column SELECT projection limit, built-in tablespace rows, a typed
 foreign-table catalog, and the relation metadata needed by table discovery.
 
-On RAMSQL `9e4bfa6` with ZPM `7a160f13`, both CI lanes pass column
-discovery through `pg_attribute` and `pg_type`. The check compares
-storage, inheritance, type names and typed missing values with native
-PostgreSQL. Plain and custom imports pass post-reopen row and
-constraint checks for the two-table fixture. Both outbound dumps
-pass column discovery and fail with `ColumnNotFound` on the
-`pg_attrdef` query for column defaults before producing an archive.
-[PostgreSQL 16 and 18 CI](https://github.com/SB0LTD/ramsql/actions/runs/44921924815)
+On RAMSQL `c175b9f` with ZPM `c8b764ab`, both CI lanes pass
+column defaults, stored generated expressions, CHECK and index metadata,
+and range and list partition discovery. Plain and custom imports pass
+post-reopen row, default and constraint checks on the two-table fixture.
+Both outbound dumps reach the `pg_subscription` query and fail with
+`TableNotFound` before creating a restorable archive. The next candidate
+exposes subscription discovery and the standalone server's database row.
+[PostgreSQL 16 and 18 CI](https://github.com/SB0LTD/ramsql/actions/runs/44924845762)
 
 ## 20 November 2026 shipped checkpoint
 

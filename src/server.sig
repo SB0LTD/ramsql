@@ -1689,6 +1689,11 @@ fn databaseCatalogRow(_: ?*const anyopaque, index: usize) ?sql.DatabaseCatalogRo
     return .{ .oid = entry.oid, .owner = entry.owner, .name = entry.name };
 }
 
+fn standaloneDatabaseCatalogRow(_: ?*const anyopaque, index: usize) ?sql.DatabaseCatalogRow {
+    if (index != 0) return null;
+    return .{ .oid = store.database_oid, .owner = cluster_owner, .name = primary_database };
+}
+
 fn clusterAdmit(context: *anyopaque, connection: *DB, request: pg.StartupAdmission) anyerror!void {
     const client: *Client = @ptrCast(@alignCast(context));
     if (cluster_catalog.failed) return error.WriterPoisoned;
@@ -1747,6 +1752,8 @@ fn configureStore(target: *Store, options: Options) void {
     if (options.database_cluster) {
         target.prepared_check = &checkClusterPrepared;
         target.database.setDatabaseCatalog(.{ .capacity = cluster_capacity, .row = &databaseCatalogRow });
+    } else {
+        target.database.setDatabaseCatalog(.{ .capacity = 1, .row = &standaloneDatabaseCatalogRow });
     }
 }
 
