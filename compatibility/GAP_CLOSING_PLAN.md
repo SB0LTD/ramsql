@@ -9,14 +9,13 @@ must pass before merging the integration. The candidate includes a separate
 48-column SELECT projection limit, built-in tablespace rows, a typed
 foreign-table catalog, and the relation metadata needed by table discovery.
 
-On RAMSQL `d921dd3` with ZPM `9c4e83bb`, both CI lanes pass conversion
-discovery and UTF-8 text and binary round trips. The conversion catalog
-has the expected column types and no entries for UTF-8 identity transfer.
-Plain and custom imports pass post-reopen row and constraint checks for
-the two-table fixture. Both outbound dumps pass conversion discovery
-and fail with `TableNotFound` on the `pg_range` subquery in the `pg_cast`
-scan before producing an archive.
-[PostgreSQL 16 and 18 CI](https://github.com/SB0LTD/ramsql/actions/runs/44919740184)
+On RAMSQL `c6b7c51` with ZPM `393f4b0b`, both CI lanes pass discovery
+for the six supported range types and verify the multirange OIDs used
+by the stock cast scan. Plain and custom imports pass post-reopen row
+and constraint checks for the two-table fixture. Both outbound dumps
+pass the cast scan and fail with `TableNotFound` on the
+`pg_event_trigger` discovery query before producing an archive.
+[PostgreSQL 16 and 18 CI](https://github.com/SB0LTD/ramsql/actions/runs/44920438148)
 
 ## 20 November 2026 shipped checkpoint
 
