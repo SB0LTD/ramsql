@@ -173,6 +173,7 @@ def main():
         ("text_search_configuration_discovery", lambda db: check_text_search_configuration(binary, db)),
         ("foreign_data_wrapper_discovery", lambda db: check_foreign_data_wrapper(binary, db)),
         ("default_acl_discovery", lambda db: check_default_acl(binary, db)),
+        ("conversion_discovery", lambda db: check_conversion(binary, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
     ):
@@ -727,6 +728,41 @@ def check_default_acl(binary, native):
             assert ram.execute(relation).fetchone() == ("{ramsql=arwdDxt/ramsql}",)
             strict = "SELECT acldefault(NULL,10::oid) IS NULL, acldefault('n',NULL) IS NULL"
             assert ram.execute(strict).fetchone() == pg.execute(strict).fetchone() == (True, True)
+
+
+def check_conversion(binary, native):
+    stock_projection = "SELECT tableoid,oid,conname,connamespace,conowner FROM pg_conversion"
+    full_projection = (
+        "SELECT tableoid,oid,conname,connamespace,conowner,conforencoding,contoencoding,conproc,condefault "
+        "FROM pg_catalog.pg_conversion"
+    )
+    with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
+        with psycopg.connect(**native) as pg, psycopg.connect(**candidate) as ram:
+            for db in (pg, ram):
+                assert db.execute("SELECT 'pg_catalog.pg_conversion'::regclass::oid").fetchone() == (2607,)
+            for query, types in (
+                (stock_projection, [26, 26, 19, 26, 26]),
+                (full_projection, [26, 26, 19, 26, 26, 23, 23, 24, 16]),
+            ):
+                ref = pg.execute(query + " WHERE conforencoding = 6 AND contoencoding = 6")
+                actual = ram.execute(query)
+                assert [col.type_code for col in ref.description] == [col.type_code for col in actual.description] == types
+                assert ref.fetchall() == actual.fetchall() == []
+
+            query = "SELECT %s::text, octet_length(%s::text)"
+            sample = "café Ελληνικά 日本語 😀"
+            for binary_output in (False, True):
+                expected = pg.execute(query, (sample, sample), binary=binary_output).fetchone()
+                assert expected == (sample, len(sample.encode("utf-8")))
+                assert ram.execute(query, (sample, sample), binary=binary_output).fetchone() == expected
+            try:
+                ram.execute("SET client_encoding TO 'LATIN1'")
+            except psycopg.Error as error:
+                assert error.sqlstate == "22023", (error.sqlstate, str(error))
+            else:
+                raise AssertionError("RamSQL accepted an unsupported client encoding")
+            assert ram.execute("SHOW client_encoding").fetchone() == ("UTF8",)
+            assert ram.execute("SHOW server_encoding").fetchone() == ("UTF8",)
 
 
 if __name__ == "__main__":
