@@ -9,6 +9,16 @@ must pass before merging the integration. The candidate includes a separate
 48-column SELECT projection limit, built-in tablespace rows, a typed
 foreign-table catalog, and the relation metadata needed by table discovery.
 
+RAMSQL `d1ddbe5` with ZPM `ed00a0a1` passed all 24 stock tooling
+checks on both PostgreSQL 16 and 18. It imported native plain and custom
+dumps and restored its own custom archive on native PostgreSQL. Each
+direction verified rows, defaults, primary keys, foreign keys, CHECK
+and NOT NULL. Imports passed the same checks after reopening the WAL.
+The selected two-table fixture uses `--no-owner --no-acl`. Whole-database
+archive coverage, ACL and ownership restore, and application conformance
+remain open.
+[PG16 and PG18 stock round trips](https://github.com/SB0LTD/ramsql/actions/runs/44926381895)
+
 On RAMSQL `c175b9f` with ZPM `c8b764ab`, both CI lanes pass
 column defaults, stored generated expressions, CHECK and index metadata,
 and range and list partition discovery. Plain and custom imports pass
