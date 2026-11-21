@@ -176,6 +176,7 @@ def main():
         ("conversion_discovery", lambda db: check_conversion(binary, db)),
         ("range_discovery", lambda db: check_ranges(binary, db)),
         ("event_trigger_discovery", lambda db: check_event_triggers(binary, db)),
+        ("column_metadata_discovery", lambda db: check_column_metadata(binary, db, args.reference)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
     ):
@@ -850,6 +851,51 @@ def check_event_triggers(binary, native):
                 assert compare("SELECT * FROM unnest(%s::text[]) WITH ORDINALITY", (["x", "x", None],)) == [
                     ("x", 1), ("x", 2), (None, 3),
                 ]
+
+
+def check_column_metadata(binary, native, version):
+    notnull = "a.attnotnull,"
+    pg18_notnull = (
+        "CASE WHEN a.attnotnull THEN '' ELSE NULL END AS notnull_name,"
+        "NULL AS notnull_comment,NULL AS notnull_invalidoid,false AS notnull_noinherit,"
+        "CASE WHEN a.attislocal THEN true WHEN a.attnotnull AND NOT a.attislocal THEN true "
+        "ELSE false END AS notnull_islocal,"
+    )
+    if version == "18":
+        notnull = ""
+    query = (
+        "SELECT a.attrelid,a.attnum,a.attname,a.attstattarget,a.attstorage,t.typstorage,"
+        + notnull
+        + "a.atthasdef,a.attisdropped,a.attlen,a.attalign,a.attislocal,"
+        "pg_catalog.format_type(t.oid,a.atttypmod) AS atttypname,"
+        "array_to_string(a.attoptions,', ') AS attoptions,"
+        "CASE WHEN a.attcollation<>t.typcollation THEN a.attcollation ELSE 0 END AS attcollation,"
+        "pg_catalog.array_to_string(ARRAY(SELECT pg_catalog.quote_ident(option_name) || ' ' || "
+        "pg_catalog.quote_literal(option_value) FROM pg_catalog.pg_options_to_table(attfdwoptions) "
+        "ORDER BY option_name),E',\\n    ') AS attfdwoptions,"
+        + (pg18_notnull if version == "18" else "")
+        + "a.attcompression,a.attidentity,CASE WHEN a.atthasmissing AND NOT a.attisdropped "
+        "THEN a.attmissingval ELSE NULL END AS attmissingval,a.attgenerated "
+        "FROM unnest('{%d}'::pg_catalog.oid[]) AS src(tbloid) "
+        "JOIN pg_catalog.pg_attribute a ON src.tbloid=a.attrelid "
+        "LEFT JOIN pg_catalog.pg_type t ON a.atttypid=t.oid "
+        "WHERE a.attnum>0::pg_catalog.int2 ORDER BY a.attrelid,a.attnum"
+    )
+    with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
+        with psycopg.connect(**native) as pg, psycopg.connect(**candidate) as ram:
+            reports = []
+            for db in (pg, ram):
+                db.execute("CREATE TABLE attr_parent (id integer NOT NULL, amount numeric(10,2))")
+                db.execute("CREATE TABLE attr_child (label varchar(12) DEFAULT 'x', tags text[]) INHERITS (attr_parent)")
+                oid = db.execute("SELECT 'attr_child'::regclass::oid").fetchone()[0]
+                cursor = db.execute(query % oid)
+                codes = [col.type_code for col in cursor.description]
+                assert codes[-2] == 2277, codes
+                rows = [(row[1], row[2], -1 if row[3] is None else row[3], *row[4:]) for row in cursor.fetchall()]
+                assert len(rows) == 4, rows
+                assert [row[3:5] for row in rows] == [("p", "p"), ("m", "m"), ("x", "x"), ("x", "x")], rows
+                reports.append((codes, rows))
+            assert reports[0] == reports[1], reports
 
 
 if __name__ == "__main__":
