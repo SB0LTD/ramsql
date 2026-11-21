@@ -9,6 +9,12 @@ and repeats the import assertions after WAL reopen. Large objects and
 identity sequences outside public still need implementation and coverage.
 [Whole-database qualification](https://github.com/SB0LTD/ramsql/actions/runs/44929034456)
 
+The scoped identity follow-up adds a native differential for matching
+identity sequence names across schemas, starting values, catalog OIDs,
+and recovery after reopening the WAL. It also checks that dropping one
+schema leaves the other sequence intact. Stock archives containing
+these identities still need qualification.
+
 The first full release run passed COPY, native SB0X and SB0K, all hosted
 builds and the PostgreSQL release-artifact lanes. Its ARM macOS wire test
 failed while filling the connection pool. The revised suite tests the full
