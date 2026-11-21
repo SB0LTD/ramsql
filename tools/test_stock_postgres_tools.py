@@ -174,6 +174,7 @@ def main():
         ("foreign_data_wrapper_discovery", lambda db: check_foreign_data_wrapper(binary, db)),
         ("default_acl_discovery", lambda db: check_default_acl(binary, db)),
         ("conversion_discovery", lambda db: check_conversion(binary, db)),
+        ("range_discovery", lambda db: check_ranges(binary, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
     ):
@@ -763,6 +764,46 @@ def check_conversion(binary, native):
                 raise AssertionError("RamSQL accepted an unsupported client encoding")
             assert ram.execute("SHOW client_encoding").fetchone() == ("UTF8",)
             assert ram.execute("SHOW server_encoding").fetchone() == ("UTF8",)
+
+
+def check_ranges(binary, native):
+    projection = (
+        "SELECT r.tableoid,r.rngtypid,r.rngsubtype,r.rngmultitypid,r.rngcollation,c.opcname,c.opcintype,"
+        "r.rngcanonical,r.rngsubdiff::oid FROM pg_range r JOIN pg_opclass c ON c.oid=r.rngsubopc "
+        "ORDER BY r.rngtypid"
+    )
+    canonical = (
+        "SELECT p.oid,p.proname,p.pronamespace,p.prolang,p.provolatile,p.proisstrict,p.pronargs,p.prorettype,p.proargtypes::text "
+        "FROM pg_proc p JOIN pg_range r ON r.rngcanonical::oid=p.oid ORDER BY p.oid"
+    )
+    cast_columns = "SELECT tableoid, oid, castsource, casttarget, castfunc, castcontext, castmethod FROM pg_cast c"
+    cast_filter = " WHERE NOT EXISTS (SELECT 1 FROM pg_range r WHERE c.castsource=r.rngtypid AND c.casttarget=r.rngmultitypid)"
+    probe = (
+        "SELECT c.castsource,c.casttarget FROM (VALUES (3904::oid,4451::oid),(3904::oid,4532::oid)) "
+        "AS c(castsource,casttarget)" + cast_filter
+    )
+    values = (
+        "SELECT '(1,4]'::int4range,'(4,8]'::int8range,'(1.5,2.5]'::numrange,"
+        "'(2026-01-01,2026-01-03]'::daterange,"
+        "'[2026-01-01 12:00:00,2026-01-02 01:00:00)'::tsrange,"
+        "'[2026-01-01 12:00:00+00,2026-01-02 01:00:00+00)'::tstzrange"
+    )
+    with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
+        with psycopg.connect(**native) as pg, psycopg.connect(**candidate) as ram:
+            for db in (pg, ram):
+                assert db.execute("SELECT 'pg_catalog.pg_range'::regclass::oid").fetchone() == (3541,)
+            for binary_output in (False, True):
+                ref = pg.execute(projection, binary=binary_output)
+                actual = ram.execute(projection, binary=binary_output)
+                assert [col.type_code for col in ref.description] == [col.type_code for col in actual.description]
+                expected = [(*row[:-1], 0) for row in ref.fetchall()]
+                assert len(expected) == 6 and actual.fetchall() == expected
+                assert ram.execute(values, binary=binary_output).fetchone() == pg.execute(values, binary=binary_output).fetchone()
+            expected = pg.execute(canonical).fetchall()
+            assert len(expected) == 3 and ram.execute(canonical).fetchall() == expected
+            assert ram.execute(probe).fetchall() == pg.execute(probe).fetchall() == [(3904, 4532)]
+            filtered = ram.execute(cast_columns + cast_filter + " ORDER BY 3,4").fetchall()
+            assert filtered and filtered == ram.execute(cast_columns + " ORDER BY 3,4").fetchall()
 
 
 if __name__ == "__main__":
