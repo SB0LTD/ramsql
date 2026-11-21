@@ -9,14 +9,15 @@ must pass before merging the integration. The candidate includes a separate
 48-column SELECT projection limit, built-in tablespace rows, a typed
 foreign-table catalog, and the relation metadata needed by table discovery.
 
-On RAMSQL `10930e2` with ZPM `ec6015d3`, both CI lanes pass text-search
-parser, template, dictionary and configuration discovery. The configuration
-projection matches native text and binary results and links the `simple`
-configuration to its owner, namespace and parser. Plain and custom imports
-pass post-reopen row and constraint checks for the two-table fixture. Both
-outbound dumps pass configuration discovery and fail with `UndefinedFunction`
-on the `pg_foreign_data_wrapper` query before producing an archive.
-[PostgreSQL 16 and 18 CI](https://github.com/SB0LTD/ramsql/actions/runs/44912646310)
+On RAMSQL `0757df8` with ZPM `aaf1faa1`, both CI lanes pass foreign
+data wrapper discovery. The stock projection matches native results
+for a newly created wrapper, including its default ACL. Both lanes
+also compare parameterized option expansion and SQL quoting against
+native PostgreSQL. Plain and custom imports pass post-reopen row and
+constraint checks for the two-table fixture. Both outbound dumps
+pass the wrapper query and fail with `TableNotFound` on
+`pg_default_acl` before producing an archive.
+[PostgreSQL 16 and 18 CI](https://github.com/SB0LTD/ramsql/actions/runs/44918456811)
 
 ## 20 November 2026 shipped checkpoint
 
