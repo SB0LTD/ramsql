@@ -26,12 +26,27 @@ schema CASCADE. Local stock PG16 passed all 32 checks with ZPM
 `2efbbcc3`. The added tests verify standalone sequence values after WAL
 reopen and exercise stored generated columns in both directions.
 
+Local stock PG16 passed 33 checks at `5a60637`. The additional view fixture
+restores chained views after their base tables and verifies their rows
+after WAL reopen. The next candidate expands that fixture to public
+relations originally referenced without a schema and to CTE names
+that shadow a public relation. General view and rewrite-rule deparsing
+remain open.
+
 The first full release run passed COPY, native SB0X and SB0K, all hosted
 builds and the PostgreSQL release-artifact lanes. Its ARM macOS wire test
 failed while filling the connection pool. The revised suite tests the full
 slot limit with a smaller per-connection result grant. The separate
 machine-capacity test still exercises live SQLSTATE 53200 memory rejection.
 [Release matrix](https://github.com/SB0LTD/ramsql/actions/runs/44926870854)
+
+The combined candidate `ac6bd49` passed all 27 stock checks on
+PostgreSQL 16 and 18. ARM macOS then passed the wire suite and failed the
+separate 32-client reviewer test when a full slot pool and memory pressure
+coincided. The revised admission reports SQLSTATE 53300 for a full pool
+and SQLSTATE 53200 when a free slot lacks memory for its buffers.
+[Combined stock CI](https://github.com/SB0LTD/ramsql/actions/runs/44957490888) ·
+[ARM macOS release check](https://github.com/SB0LTD/ramsql/actions/runs/44957495974)
 
 The stock tooling workflow verifies schema ACL metadata, plain and custom
 imports in one transaction, constraints after WAL reopen, and outbound
