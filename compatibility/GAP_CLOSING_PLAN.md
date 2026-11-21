@@ -13,10 +13,13 @@ On RAMSQL `c175b9f` with ZPM `c8b764ab`, both CI lanes pass
 column defaults, stored generated expressions, CHECK and index metadata,
 and range and list partition discovery. Plain and custom imports pass
 post-reopen row, default and constraint checks on the two-table fixture.
-Both outbound dumps reach the `pg_subscription` query and fail with
-`TableNotFound` before creating a restorable archive. The next candidate
-exposes subscription discovery and the standalone server's database row.
-[PostgreSQL 16 and 18 CI](https://github.com/SB0LTD/ramsql/actions/runs/44924845762)
+Both outbound dumps passed partition discovery. RAMSQL `ea70fda` then
+passed the stock subscription query and reached the operator-family
+dependency queries. Its separate subscription probe caught a standalone
+database name mismatch with connection aliases. The follow-up fixes that
+name mapping and adds the dependency catalogs and custom archive metadata.
+[Partition CI](https://github.com/SB0LTD/ramsql/actions/runs/44924845762) ·
+[Subscription CI](https://github.com/SB0LTD/ramsql/actions/runs/44925395409)
 
 ## 20 November 2026 shipped checkpoint
 

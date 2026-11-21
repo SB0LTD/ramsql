@@ -1753,7 +1753,7 @@ fn configureStore(target: *Store, options: Options) void {
         target.prepared_check = &checkClusterPrepared;
         target.database.setDatabaseCatalog(.{ .capacity = cluster_capacity, .row = &databaseCatalogRow });
     } else {
-        target.database.setDatabaseCatalog(.{ .capacity = 1, .row = &standaloneDatabaseCatalogRow });
+        target.database.setDatabaseCatalog(.{ .capacity = 1, .row = &standaloneDatabaseCatalogRow, .use_session_database_name = true });
     }
 }
 

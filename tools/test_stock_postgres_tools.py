@@ -183,6 +183,7 @@ def main():
         ("constraint_and_index_discovery", lambda db: check_constraints_and_indexes(binary, db)),
         ("partition_discovery", lambda db: check_partitions(binary, db)),
         ("subscription_discovery", lambda db: check_subscriptions(binary, db)),
+        ("archive_metadata", lambda db: check_archive_metadata(binary, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
     ):
@@ -1008,6 +1009,29 @@ def check_subscriptions(binary, native):
                 assert len(rows) == 1 and rows[0][0] > 0, rows
                 assert db.execute(count).fetchone() == (0,)
                 assert db.execute("SELECT 'pg_catalog.pg_subscription'::regclass::oid").fetchone() == (6100,)
+
+
+def check_archive_metadata(binary, native):
+    strategy = (
+        "SELECT amopstrategy,amopopr FROM pg_amop "
+        "WHERE amopfamily=1976 AND amoplefttype=23 AND amoprighttype=23 ORDER BY amopstrategy"
+    )
+    with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
+        with psycopg.connect(**native) as pg, psycopg.connect(**candidate) as ram:
+            expected = pg.execute(strategy).fetchall()
+            assert len(expected) == 5 and ram.execute(strategy).fetchall() == expected, expected
+            for db in (pg, ram):
+                assert db.execute("SELECT pg_encoding_to_char(6),pg_encoding_to_char(-1)").fetchone() == ("UTF8", "")
+                assert db.execute("SELECT label,provider FROM pg_seclabels").fetchall() == []
+                assert db.execute("SELECT unnest(setconfig) FROM pg_db_role_setting").fetchall() == []
+                db.execute("SET search_path TO public,pg_catalog")
+                assert db.execute("SELECT current_schemas(false)").fetchone() == (["public", "pg_catalog"],)
+                db.execute("SELECT set_config('search_path','',false)")
+                assert db.execute("SELECT current_schemas(false),current_schemas(true)").fetchone() == ([], ["pg_catalog"])
+            assert ram.execute(
+                "SELECT tableoid,datname,pg_encoding_to_char(encoding),datcollate,datctype,datlocprovider,dattablespace "
+                "FROM pg_database WHERE datname=current_database()"
+            ).fetchone() == (1262, candidate["dbname"], "UTF8", "C", "C", "c", 1663)
 
 
 if __name__ == "__main__":
