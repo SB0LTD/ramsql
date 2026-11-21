@@ -166,6 +166,7 @@ def main():
         ("type_discovery", lambda db: check_type_discovery(binary, db)),
         ("operator_discovery", lambda db: check_operator_discovery(binary, db)),
         ("access_method_discovery", lambda db: check_access_method_discovery(binary, db)),
+        ("operator_class_discovery", lambda db: check_operator_class_discovery(binary, db, args.reference)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
     ):
@@ -427,6 +428,76 @@ def check_access_method_discovery(binary, native):
                     assert err.sqlstate == "42725", err
                 else:
                     raise AssertionError("regproc accepted an overloaded routine name")
+
+
+def check_operator_class_discovery(binary, native, reference):
+    fields = (
+        "c.tableoid,c.oid,c.opcmethod,c.opcname,c.opcnamespace,c.opcowner,"
+        "c.opcfamily,c.opcintype,c.opcdefault,c.opckeytype,"
+        "a.amname,t.typname,f.opfname,f.opfmethod"
+    )
+    joins = (
+        "FROM pg_opclass c LEFT JOIN pg_am a ON a.oid=c.opcmethod "
+        "LEFT JOIN pg_type t ON t.oid=c.opcintype LEFT JOIN pg_opfamily f ON f.oid=c.opcfamily"
+    )
+    family_fields = "tableoid,oid,opfmethod,opfname,opfnamespace,opfowner"
+    with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
+        with psycopg.connect(**native) as pg, psycopg.connect(**candidate) as ram:
+            actual = ram.execute(f"SELECT {fields} {joins}")
+            classes = sorted(actual.fetchall(), key=lambda row: row[3])
+            assert len(classes) == 26, len(classes)
+            assert len({row[1] for row in classes}) == len(classes)
+            names = [row[3] for row in classes]
+            ref = pg.execute(f"SELECT {fields} {joins} WHERE c.opcmethod=403 AND c.opcname::text=ANY(%s)", (names,))
+            assert [c.type_code for c in ref.description] == [c.type_code for c in actual.description]
+            native_classes = sorted(ref.fetchall(), key=lambda row: row[3])
+            assert len(native_classes) == len(classes)
+            for observed, expected in zip(classes, native_classes):
+                # PostgreSQL assigns most class OIDs during bootstrap. The
+                # candidate advertises a PostgreSQL 16 server catalog.
+                if reference == "16" or observed[1] < 10000:
+                    assert observed[1] == expected[1], (observed, expected)
+                assert observed[:1] + observed[2:] == expected[:1] + expected[2:], (observed, expected)
+
+            family_oids = sorted({row[6] for row in classes})
+            actual = ram.execute(f"SELECT {family_fields} FROM pg_opfamily ORDER BY oid")
+            families = actual.fetchall()
+            assert [row[1] for row in families] == family_oids
+            ref = pg.execute(
+                f"SELECT {family_fields} FROM pg_opfamily WHERE oid=ANY(%s) ORDER BY oid", (family_oids,)
+            )
+            assert [c.type_code for c in ref.description] == [c.type_code for c in actual.description]
+            assert ref.fetchall() == families
+
+            native_oids = {row[3]: row[1] for row in native_classes}
+            for _, _, method, name, _, _, _, input_oid, default, key_oid, am, type_name, family, family_am in classes:
+                assert am == "btree" and default and key_oid == 0 and family and method == family_am, name
+                cast = {"char": '"char"', "bit": "bit(5)"}.get(type_name, type_name)
+                first, second = (operator_operand(type_name, side, "=", type_name) for side in (0, 1))
+                reads = []
+                for conn in (pg, ram):
+                    conn.execute(f"CREATE TABLE class_probe (v {cast})")
+                    conn.execute("CREATE UNIQUE INDEX class_probe_uq ON class_probe USING btree (v)")
+                    if conn is pg:
+                        selected = pg.execute(
+                            "SELECT indclass[0] FROM pg_index WHERE indexrelid='class_probe_uq'::regclass"
+                        ).fetchone()
+                        assert selected == (native_oids[name],), (name, selected)
+                    conn.execute(f"INSERT INTO class_probe VALUES ({second}),({first})")
+                    # Each iteration recreates the column with a new type.
+                    ordered = conn.execute("SELECT v FROM class_probe ORDER BY v", prepare=False)
+                    assert ordered.description[0].type_code == input_oid, name
+                    matched = conn.execute(f"SELECT v FROM class_probe WHERE v={first}", prepare=False)
+                    reads.append((ordered.fetchall(), matched.fetchall()))
+                    try:
+                        conn.execute(f"INSERT INTO class_probe VALUES ({first})")
+                    except psycopg.Error as error:
+                        assert error.sqlstate == "23505", (name, error)
+                        conn.rollback()
+                    else:
+                        raise AssertionError(f"{name} unique index accepted a duplicate")
+                    conn.execute("DROP TABLE class_probe")
+                assert reads[0] == reads[1], (name, reads)
 
 
 if __name__ == "__main__":
