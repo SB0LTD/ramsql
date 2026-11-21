@@ -635,8 +635,11 @@ def check_foreign_data_wrapper(binary, native):
     with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
         with psycopg.connect(**native) as pg, psycopg.connect(**candidate) as ram:
             def compare(query, params=(), *, binary_output=False, normalize=lambda rows: rows):
-                ref = pg.execute(query, params, binary=binary_output)
-                actual = ram.execute(query, params, binary=binary_output)
+                try:
+                    ref = pg.execute(query, params, binary=binary_output)
+                    actual = ram.execute(query, params, binary=binary_output)
+                except psycopg.Error as error:
+                    raise AssertionError(f"{query} ({error.sqlstate}): {error}") from error
                 expected_types = [col.type_code for col in ref.description]
                 observed_types = [col.type_code for col in actual.description]
                 assert expected_types == observed_types, (query, expected_types, observed_types)
@@ -672,7 +675,7 @@ def check_foreign_data_wrapper(binary, native):
                 try:
                     db.execute(options_query, ([None],)).fetchall()
                 except psycopg.Error as error:
-                    assert error.sqlstate == "22004", error
+                    assert error.sqlstate == "22004", (options_query, error.sqlstate, str(error))
                 else:
                     raise AssertionError("pg_options_to_table accepted a NULL array element")
 
