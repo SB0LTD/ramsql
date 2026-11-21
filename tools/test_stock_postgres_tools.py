@@ -938,7 +938,7 @@ def check_column_metadata(binary, native, version):
         "ORDER BY option_name),E',\\n    ') AS attfdwoptions,"
         + (pg18_notnull if version == "18" else "")
         + "a.attcompression,a.attidentity,CASE WHEN a.atthasmissing AND NOT a.attisdropped "
-        "THEN a.attmissingval ELSE NULL END AS attmissingval,a.attgenerated "
+        "THEN a.attmissingval ELSE NULL END AS attmissingval,a.attgenerated,a.attacl "
         "FROM unnest('{%d}'::pg_catalog.oid[]) AS src(tbloid) "
         "JOIN pg_catalog.pg_attribute a ON src.tbloid=a.attrelid "
         "LEFT JOIN pg_catalog.pg_type t ON a.atttypid=t.oid "
@@ -953,7 +953,7 @@ def check_column_metadata(binary, native, version):
                 oid = db.execute("SELECT 'attr_child'::regclass::oid").fetchone()[0]
                 cursor = db.execute(query % oid)
                 codes = [col.type_code for col in cursor.description]
-                assert codes[-2] == 2277, codes
+                assert codes[-3] == 2277 and codes[-1] == 1034, codes
                 rows = [(row[1], row[2], -1 if row[3] is None else row[3], *row[4:]) for row in cursor.fetchall()]
                 assert len(rows) == 4, rows
                 assert [row[3:5] for row in rows] == [("p", "p"), ("m", "m"), ("x", "x"), ("x", "x")], rows

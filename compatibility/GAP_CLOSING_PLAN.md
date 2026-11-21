@@ -6,8 +6,11 @@ The whole-database follow-up exercises unfiltered archives, including a
 named schema with an owner, a separate reader, ACLs and a table comment.
 The native PostgreSQL 16 probe reached missing large-object discovery
 on export and a missing schema ownership command on restore. The
-candidate implements both in ZPM and verifies the resulting catalog and
-reader access after a WAL reopen. Qualification is pending.
+candidate implements both in ZPM. The local PostgreSQL 16 run on
+`1253dc6` passed 26 of 27 checks, including owner and ACL restore after
+WAL reopen and whole-database export with owner and ACL output disabled.
+The remaining check, export with ACLs enabled, reached
+`pg_attribute.attacl`. The next candidate supplies the typed metadata.
 
 The stock tooling workflow verifies schema ACL metadata, plain and custom
 imports in one transaction, constraints after WAL reopen, and outbound
