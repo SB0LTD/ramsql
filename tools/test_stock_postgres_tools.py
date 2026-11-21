@@ -1257,11 +1257,20 @@ def check_view_archives(binary, tools, native):
             db.execute(f"CREATE VIEW {schema}.a_positive AS SELECT id,amount FROM {schema}.z_source WHERE amount > 0")
             db.execute(f"CREATE VIEW {schema}.b_amounts AS SELECT amount FROM {schema}.a_positive")
             db.execute(f"INSERT INTO {schema}.z_source VALUES (1,20),(2,-1)")
+            db.execute(f'CREATE TABLE public."{schema}_public" (id int)')
+            db.execute(f'INSERT INTO public."{schema}_public" VALUES (8)')
+            db.execute(f'CREATE VIEW {schema}.c_public AS SELECT id FROM "{schema}_public"')
+            db.execute(
+                f"CREATE VIEW {schema}.d_cte AS WITH {schema}_public AS (SELECT 6 AS id) "
+                f"SELECT c.id FROM {schema}_public c CROSS JOIN public.{schema}_public p"
+            )
 
     def verify(endpoint, schema):
         with psycopg.connect(**endpoint) as db:
             assert db.execute(f"SELECT id,amount FROM {schema}.a_positive").fetchall() == [(1, 20)]
             assert db.execute(f"SELECT amount FROM {schema}.b_amounts").fetchall() == [(20,)]
+            assert db.execute(f"SELECT id FROM {schema}.c_public").fetchall() == [(8,)]
+            assert db.execute(f"SELECT id FROM {schema}.d_cte").fetchall() == [(6,)]
 
     check_schema_archives(binary, tools, native, "view", populate, verify)
 
