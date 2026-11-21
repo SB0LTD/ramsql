@@ -164,6 +164,7 @@ def main():
         ("relation_discovery", lambda db: check_relation_discovery(binary, db)),
         ("function_discovery", lambda db: check_function_discovery(binary, db)),
         ("type_discovery", lambda db: check_type_discovery(binary, db)),
+        ("operator_discovery", lambda db: check_operator_discovery(binary, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
     ):
@@ -288,6 +289,84 @@ def check_type_discovery(binary, native):
                 expected, actual = ref.fetchall(), observed.fetchall()
                 assert len(expected) == count and expected == actual, (expected, actual)
                 assert [c.type_code for c in ref.description] == [c.type_code for c in observed.description]
+
+
+OPERATOR_OPERANDS = {
+    "int2": ("13", "3"), "int4": ("13", "3"), "int8": ("13", "3"),
+    "float4": ("13.5", "2.5"), "float8": ("13.5", "2.5"), "numeric": ("13.25", "2.75"),
+    "bool": ("true", "false"), "oid": ("1000", "26"), "char": ("a", "b"),
+    "name": ("alpha", "beta"), "text": ("alpha", "beta"), "bpchar": ("alpha ", "beta"),
+    "bytea": (r"\xAB12", r"\xBA11"),
+    "uuid": ("00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"),
+    "date": ("2022-01-03", "2021-12-20"), "timestamp": ("2022-01-03 01:02:03", "2021-12-20 15:01:08"),
+    "timestamptz": ("2022-01-03 01:02:03+00", "2021-12-20 15:01:08+00"),
+    "time": ("01:02:03", "00:01:08"), "timetz": ("01:02:03+00", "00:01:08+00"), "interval": ("3 days", "2 days"),
+    "inet": ("10.0.0.0/24", "10.0.0.0/8"), "macaddr": ("00:00:00:00:00:02", "00:00:00:00:00:01"),
+    "bit": ("10101", "11001"), "varbit": ("10101", "11001"),
+    "json": ('{"alpha":13,"beta":2}', "[13,14,15]"), "jsonb": ('{"alpha":13,"beta":2}', '{"alpha":13}'),
+    "tsvector": ("alpha beta", "alpha"), "tsquery": ("alpha", "beta"),
+    "point": ("(1,2)", "(2,3)"), "box": ("(4,4),(1,1)", "(3,3),(2,2)"),
+    "money": ("10.50", "2.25"), "pg_lsn": ("0/20", "0/10"),
+    "_text": ("{alpha,beta}", "{alpha}"), "jsonpath": ("$.alpha", "$.alpha == 13"),
+}
+OPERATOR_TOKENS = frozenset(
+    "= <> < <= > >= + - * / % & | # ~ << >> || @> <@ && <<= >>= <-> ~= -> ->> #> #>> ? ?| ?& @? @@ #- ~* !~ !~*".split()
+)
+
+
+def operator_operand(type_name, side, operator, other_type):
+    value = OPERATOR_OPERANDS[type_name][side]
+    if side == 1 and type_name in ("int2", "int4", "int8") and operator in ("<<", ">>", "->", "->>", "-"):
+        value = "1"
+    if side == 0 and type_name in ("json", "jsonb") and other_type == "int4" and operator in ("->", "->>"):
+        value = "[11,12,13]"
+    if side == 1 and type_name == "text" and operator in ("~", "~*", "!~", "!~*"):
+        value = "^a"
+    cast = {"char": '"char"', "_text": "text[]", "bit": "bit(5)"}.get(type_name, type_name)
+    value = value.replace("'", "''")
+    return f"('{value}'::{cast})"
+
+
+def check_operator_discovery(binary, native):
+    operator_fields = (
+        "tableoid,oid,oprname,oprnamespace,oprowner,oprkind,"
+        "oprleft,oprright,oprresult,oprcode::oid"
+    )
+    procedure_fields = "oid,proname,pronamespace,provolatile,proisstrict,pronargs,prorettype,proargtypes::text"
+    with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
+        with psycopg.connect(**native) as pg, psycopg.connect(**candidate) as ram:
+            actual = ram.execute(f"SELECT {operator_fields} FROM pg_catalog.pg_operator ORDER BY oid")
+            operators = actual.fetchall()
+            assert len(operators) >= 400, len(operators)
+            oids = [row[1] for row in operators]
+            expected = pg.execute(
+                f"SELECT {operator_fields} FROM pg_catalog.pg_operator WHERE oid=ANY(%s) ORDER BY oid", (oids,)
+            )
+            assert [col.type_code for col in actual.description] == [col.type_code for col in expected.description]
+            assert operators == expected.fetchall()
+
+            routines = ram.execute(f"SELECT {procedure_fields} FROM pg_proc WHERE pronamespace=11 ORDER BY oid").fetchall()
+            procedure_oids = sorted({row[-1] for row in operators})
+            assert [row[0] for row in routines] == procedure_oids
+            # The implementation is internal to Sig even for signatures
+            # implemented by SQL wrappers in PostgreSQL.
+            assert ram.execute("SELECT DISTINCT prolang FROM pg_proc WHERE pronamespace=11").fetchall() == [(12,)]
+            native_routines = pg.execute(
+                f"SELECT {procedure_fields} FROM pg_proc WHERE oid=ANY(%s) ORDER BY oid", (procedure_oids,)
+            ).fetchall()
+            assert len(routines) == len(native_routines)
+            for observed_proc, expected_proc in zip(routines, native_routines):
+                assert observed_proc == expected_proc, (observed_proc, expected_proc)
+            types = dict(ram.execute("SELECT oid,typname FROM pg_type").fetchall())
+            for _, oid, symbol, _, _, _, left_oid, right_oid, result_oid, _ in operators:
+                assert symbol in OPERATOR_TOKENS, symbol
+                lhs_type, rhs_type = types.get(left_oid), types[right_oid]
+                lhs = operator_operand(lhs_type, 0, symbol, rhs_type) if lhs_type else ""
+                rhs = operator_operand(rhs_type, 1, symbol, lhs_type)
+                query = f"SELECT {lhs} {symbol} {rhs}"
+                ref, observed = pg.execute(query), ram.execute(query)
+                assert ref.description[0].type_code == observed.description[0].type_code == result_oid, (oid, query)
+                assert ref.fetchall() == observed.fetchall(), (oid, query)
 
 
 if __name__ == "__main__":
