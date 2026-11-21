@@ -175,6 +175,7 @@ def main():
         ("default_acl_discovery", lambda db: check_default_acl(binary, db)),
         ("conversion_discovery", lambda db: check_conversion(binary, db)),
         ("range_discovery", lambda db: check_ranges(binary, db)),
+        ("event_trigger_discovery", lambda db: check_event_triggers(binary, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
     ):
@@ -804,6 +805,51 @@ def check_ranges(binary, native):
             assert ram.execute(probe).fetchall() == pg.execute(probe).fetchall() == [(3904, 4532)]
             filtered = ram.execute(cast_columns + cast_filter + " ORDER BY 3,4").fetchall()
             assert filtered and filtered == ram.execute(cast_columns + " ORDER BY 3,4").fetchall()
+
+
+def check_event_triggers(binary, native):
+    tags = "array_to_string(array(select quote_literal(x) from unnest(evttags) as t(x)), ', ')"
+    stock_query = (
+        "SELECT e.tableoid,e.oid,evtname,evtenabled,evtevent,evtowner," + tags
+        + " as evttags,e.evtfoid::regproc as evtfname FROM pg_event_trigger e ORDER BY e.oid"
+    )
+    catalog = "SELECT oid,evtname,evtevent,evtowner,evtfoid,evtenabled,evttags FROM pg_catalog.pg_event_trigger"
+    correlated = (
+        "SELECT id," + tags + " FROM (VALUES (1,%s::text[]),(2,%s::text[]),(3,NULL::text[]),"
+        "(4,ARRAY[]::text[])) AS e(id,evttags) ORDER BY id"
+    )
+    array_rows = "SELECT * FROM pg_catalog.unnest(%s::int[]) WITH ORDINALITY AS u(value,position)"
+    with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
+        with psycopg.connect(**native) as pg, psycopg.connect(**candidate) as ram:
+            for db in (pg, ram):
+                assert db.execute("SELECT 'pg_catalog.pg_event_trigger'::regclass::oid").fetchone() == (3466,)
+                for query, types in (
+                    (stock_query, [26, 26, 19, 18, 19, 26, 25, 24]),
+                    (catalog, [26, 19, 19, 26, 26, 18, 1009]),
+                ):
+                    cursor = db.execute(query)
+                    assert [col.type_code for col in cursor.description] == types
+                    assert cursor.fetchall() == []
+            for binary_output in (False, True):
+                def compare(query, params):
+                    ref = pg.execute(query, params, binary=binary_output)
+                    actual = ram.execute(query, params, binary=binary_output)
+                    assert [col.type_code for col in ref.description] == [col.type_code for col in actual.description]
+                    expected, observed = ref.fetchall(), actual.fetchall()
+                    assert observed == expected, (query, expected, observed)
+                    return observed
+
+                assert compare(correlated, (["ALTER TABLE", "DROP TABLE"], ["can't", None])) == [
+                    (1, "'ALTER TABLE', 'DROP TABLE'"), (2, "'can''t'"), (3, ""), (4, ""),
+                ]
+                assert compare(array_rows, ("[0:1][4:5]={{1,NULL},{3,4}}",)) == [
+                    (1, 1), (None, 2), (3, 3), (4, 4),
+                ]
+                for empty in (None, "{}"):
+                    assert compare(array_rows, (empty,)) == []
+                assert compare("SELECT * FROM unnest(%s::text[]) WITH ORDINALITY", (["x", "x", None],)) == [
+                    ("x", 1), ("x", 2), (None, 3),
+                ]
 
 
 if __name__ == "__main__":
