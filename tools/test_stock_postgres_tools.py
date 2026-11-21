@@ -242,6 +242,7 @@ def main():
         ("native_identity_archive_to_ramsql", lambda db: import_identity_archive(binary, tools, db)),
         ("scoped_sequence_archives", lambda db: check_sequence_archives(binary, tools, db)),
         ("stored_generated_archives", lambda db: check_generated_archives(binary, tools, db)),
+        ("view_archives", lambda db: check_view_archives(binary, tools, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
         ("ramsql_database_dump_to_native", lambda db: export_archive(binary, tools, db, table_options=(), label="whole-database")),
@@ -1245,28 +1246,51 @@ def check_generated_archives(binary, tools, native):
                 assert db.execute(f"INSERT INTO {schema}.invoice(net,tax) VALUES (6,3) RETURNING total").fetchone() == (9,)
                 assert db.execute(f"UPDATE {schema}.invoice SET tax=4 WHERE net=17 RETURNING total").fetchone() == (21,)
 
-    inbound = "generated-inbound.dump"
-    outbound = "generated-outbound.dump"
-    wal = tools.root / "generated.wal"
+    check_schema_archives(binary, tools, native, "generated", populate, verify)
+
+
+def check_view_archives(binary, tools, native):
+    def populate(endpoint, schema):
+        with psycopg.connect(**endpoint) as db:
+            db.execute(f"CREATE SCHEMA {schema}")
+            db.execute(f"CREATE TABLE {schema}.z_source (id int NOT NULL, amount int)")
+            db.execute(f"CREATE VIEW {schema}.a_positive AS SELECT id,amount FROM {schema}.z_source WHERE amount > 0")
+            db.execute(f"CREATE VIEW {schema}.b_amounts AS SELECT amount FROM {schema}.a_positive")
+            db.execute(f"INSERT INTO {schema}.z_source VALUES (1,20),(2,-1)")
+
+    def verify(endpoint, schema):
+        with psycopg.connect(**endpoint) as db:
+            assert db.execute(f"SELECT id,amount FROM {schema}.a_positive").fetchall() == [(1, 20)]
+            assert db.execute(f"SELECT amount FROM {schema}.b_amounts").fetchall() == [(20,)]
+
+    check_schema_archives(binary, tools, native, "view", populate, verify)
+
+
+def check_schema_archives(binary, tools, native, fixture, populate, verify):
+    inbound = f"{fixture}-inbound.dump"
+    outbound = f"{fixture}-outbound.dump"
+    native_schema = f"native_{fixture}"
+    ramsql_schema = f"ramsql_{fixture}"
+    wal = tools.root / f"{fixture}.wal"
     storage = ("--workers", "1")
-    populate(native, "native_generated")
-    tools.run("generated-inbound-dump", "pg_dump", native, "--no-owner", "--no-acl",
+    populate(native, native_schema)
+    tools.run(f"{fixture}-inbound-dump", "pg_dump", native, "--no-owner", "--no-acl",
               "--format=custom", f"--file={inbound}")
     with DurableServer(binary, wal, create=True, storage_options=storage) as server:
         candidate = ramsql_settings(server)
-        tools.run("generated-inbound-restore", "pg_restore", candidate, "--single-transaction",
+        tools.run(f"{fixture}-inbound-restore", "pg_restore", candidate, "--single-transaction",
                   "--exit-on-error", "--no-owner", "--no-acl", inbound)
-        verify(candidate, "native_generated")
+        verify(candidate, native_schema)
     with DurableServer(binary, wal, storage_options=storage) as reopened:
-        verify(ramsql_settings(reopened), "native_generated")
+        verify(ramsql_settings(reopened), native_schema)
 
     with running_ramsql(binary, extra_arguments=storage) as candidate:
-        populate(candidate, "ramsql_generated")
-        tools.run("generated-outbound-dump", "pg_dump", candidate, "--no-owner", "--no-acl",
+        populate(candidate, ramsql_schema)
+        tools.run(f"{fixture}-outbound-dump", "pg_dump", candidate, "--no-owner", "--no-acl",
                   "--format=custom", f"--file={outbound}")
-    tools.run("generated-outbound-restore", "pg_restore", native, "--single-transaction",
+    tools.run(f"{fixture}-outbound-restore", "pg_restore", native, "--single-transaction",
               "--exit-on-error", "--no-owner", "--no-acl", outbound)
-    verify(native, "ramsql_generated")
+    verify(native, ramsql_schema)
 
 
 if __name__ == "__main__":
