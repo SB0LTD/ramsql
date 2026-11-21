@@ -6,8 +6,13 @@ The separate whole-database follow-up, RAMSQL `f051b2e`, passed all
 27 stock checks on PostgreSQL 16 and 18. Its fixture preserves schema
 ownership, grants, a table comment, rows and defaults in both directions,
 and repeats the import assertions after WAL reopen. Large objects and
-identity sequences outside public still need implementation and coverage.
+stock restoration of schemas with identity sequences are open.
 [Whole-database qualification](https://github.com/SB0LTD/ramsql/actions/runs/44929034456)
+
+The separate scoped identity candidate `b3e33ea` passed 28 stock and
+differential checks on both PostgreSQL versions. It verifies independently
+named identity sequences, stable OIDs, WAL reopen and schema cascade.
+[Scoped identity qualification](https://github.com/SB0LTD/ramsql/actions/runs/44958119185)
 
 The first full release run passed COPY, native SB0X and SB0K, all hosted
 builds and the PostgreSQL release-artifact lanes. Its ARM macOS wire test
@@ -15,6 +20,14 @@ failed while filling the connection pool. The revised suite tests the full
 slot limit with a smaller per-connection result grant. The separate
 machine-capacity test still exercises live SQLSTATE 53200 memory rejection.
 [Release matrix](https://github.com/SB0LTD/ramsql/actions/runs/44926870854)
+
+The combined candidate `ac6bd49` passed all 27 stock checks on
+PostgreSQL 16 and 18. ARM macOS then passed the wire suite and failed the
+separate 32-client reviewer test when a full slot pool and memory pressure
+coincided. The revised admission reports SQLSTATE 53300 for a full pool
+and SQLSTATE 53200 when a free slot lacks memory for its buffers.
+[Combined stock CI](https://github.com/SB0LTD/ramsql/actions/runs/44957490888) ·
+[ARM macOS release check](https://github.com/SB0LTD/ramsql/actions/runs/44957495974)
 
 The stock tooling workflow verifies schema ACL metadata, plain and custom
 imports in one transaction, constraints after WAL reopen, and outbound

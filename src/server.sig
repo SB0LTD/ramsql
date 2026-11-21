@@ -798,6 +798,8 @@ var admission_timeout_ns: i64 = 1000000000;
 // A bounded control/admission queue preserves cancellation when the SQL pool is
 // full, negotiates SSL/GSS refusal, and returns a real 53300 startup error.
 const OverflowCancel = struct {
+    const Admission = enum { handled, connection_limit, memory_limit };
+
     socket: tcp.Socket = tcp.invalid_socket,
     bytes: [pg.max_packet]u8 = undefined,
     used: usize = 0,
@@ -812,24 +814,21 @@ const OverflowCancel = struct {
         self.socket = tcp.invalid_socket;
     }
 
-    fn handOff(self: *OverflowCancel) bool {
-        if (!clientMemoryAvailable()) return false;
+    fn handOff(self: *OverflowCancel) Admission {
         for (clients,0..) |*client,slot| if (client.state.load(.acquire) == 0) {
+            if (!clientMemoryAvailable()) return .memory_limit;
             const socket = self.socket;
             configureClient(socket,.postgres,slot,self.bytes[0..self.used],false) catch |err| {
                 switch(err) {
-                    error.BudgetExceeded,error.TokenCapacity,error.MemoryReservationFailed=>{
-                        self.output_len=pg.memoryLimitError(&self.output) catch {self.close();return true;};
-                        self.output_sent=0;self.closing=true;
-                    },
+                    error.BudgetExceeded,error.TokenCapacity,error.MemoryReservationFailed=>return .memory_limit,
                     else=>self.close(),
                 }
-                return true;
+                return .handled;
             };
             self.socket = tcp.invalid_socket;
-            return true;
+            return .handled;
         };
-        return false;
+        return .connection_limit;
     }
 
     fn poll(self: *OverflowCancel, now: i64) void {
@@ -850,7 +849,7 @@ const OverflowCancel = struct {
                 .incomplete => |target| {
                     // Transfer a short declared frame after its length, as before.
                     if (self.used >= 4 and target < 8) {
-                        if (!self.handOff()) self.close();
+                        if (self.handOff() != .handled) self.close();
                         return;
                     }
                     if (reads == 4) return;
@@ -872,16 +871,21 @@ const OverflowCancel = struct {
                 },
                 .startup => {
                     // A free SQL slot validates the StartupMessage parameters.
-                    if (self.handOff()) return;
-                    self.output_len = (if (!clientMemoryAvailable()) pg.memoryLimitError(&self.output) else pg.connectionLimitError(&self.output)) catch {
+                    const response = switch (self.handOff()) {
+                        .handled => return,
+                        .connection_limit => pg.connectionLimitError(&self.output),
+                        .memory_limit => pg.memoryLimitError(&self.output),
+                    };
+                    self.output_len = response catch {
                         self.close();
                         return;
                     };
+                    self.output_sent = 0;
                     self.closing = true;
                     return;
                 },
                 .invalid_length, .protocol_violation, .unsupported_protocol => {
-                    if (!self.handOff()) self.close();
+                    if (self.handOff() != .handled) self.close();
                     return;
                 },
             }

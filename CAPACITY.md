@@ -97,8 +97,10 @@ stream. Authenticated SQL Q/P/B frames exceeding the buffer are drained with
 bounded storage up to 16 MiB, then return SQLSTATE 54000; simple queries remain
 usable and extended queries recover at Sync. Larger, malformed or unauthenticated
 frames can close with a protocol error. A full SQL pool returns PostgreSQL FATAL
-53300 through a separate bounded startup/cancel queue; saturating that queue can
-still cause connection rejection. Budget errors generally use SQLSTATE 54000/54001/53200; overlong
+53300 through a separate bounded startup/cancel queue, including under
+simultaneous memory pressure. A free slot with insufficient memory returns
+53200. Saturating the startup/cancel queue can still cause connection rejection.
+Budget errors generally use SQLSTATE 54000/54001/53200. Overlong
 typed values may use their type-specific state. Statement rollback and ownership
 must remain intact on SQL errors. These limits can reject valid native-PostgreSQL
 workloads and are production blockers, not only documentation details.
