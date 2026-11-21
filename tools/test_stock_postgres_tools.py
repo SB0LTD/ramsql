@@ -168,6 +168,7 @@ def main():
         ("access_method_discovery", lambda db: check_access_method_discovery(binary, db)),
         ("operator_class_discovery", lambda db: check_operator_class_discovery(binary, db, args.reference)),
         ("text_search_parser_discovery", lambda db: check_text_search_parser(binary, db)),
+        ("text_search_template_discovery", lambda db: check_text_search_template(binary, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
     ):
@@ -532,6 +533,43 @@ def check_text_search_parser(binary, native):
                 query = "SELECT to_tsvector('pg_catalog.simple',%s)::text"
                 expected = pg.execute(query, (sample,)).fetchone()
                 assert ram.execute(query, (sample,)).fetchone() == expected, (sample, expected)
+
+
+def check_text_search_template(binary, native):
+    stock_projection = (
+        "SELECT tableoid,oid,tmplname,tmplnamespace,tmplinit::oid,tmpllexize::oid "
+        "FROM pg_ts_template WHERE tmplname='simple'"
+    )
+    typed_callbacks = "SELECT tmplinit,tmpllexize FROM pg_ts_template WHERE tmplname='simple'"
+    implementations = (
+        "SELECT oid,proname,pronamespace,prolang,provolatile,proisstrict,pronargs,prorettype,proargtypes::text "
+        "FROM pg_proc WHERE oid IN (3725,3726) ORDER BY oid"
+    )
+    with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
+        with psycopg.connect(**native) as pg, psycopg.connect(**candidate) as ram:
+            for query, binary_output, count in (
+                (stock_projection, False, 1), (typed_callbacks, False, 1),
+                (typed_callbacks, True, 1), (implementations, False, 2),
+            ):
+                ref = pg.execute(query, binary=binary_output)
+                actual = ram.execute(query, binary=binary_output)
+                assert [col.type_code for col in ref.description] == [col.type_code for col in actual.description]
+                expected, observed = ref.fetchall(), actual.fetchall()
+                assert len(expected) == count and observed == expected, (query, expected, observed)
+            assert ram.execute("SELECT COUNT(*) FROM pg_ts_template").fetchone() == (1,)
+            assert ram.execute(
+                "SELECT to_regproc('pg_catalog.dsimple_init')::oid,to_regproc('dsimple_lexize')::oid"
+            ).fetchone() == (3725, 3726)
+            assert pg.execute("SELECT dicttemplate FROM pg_ts_dict WHERE dictname='simple'").fetchone() == (3727,)
+
+            # The default simple dictionary folds ASCII and keeps words such
+            # as "the" and "running" without a custom stop list or stemmer.
+            for sample in ("The", "RUNNING", "MixEd123"):
+                lexemes = pg.execute("SELECT ts_lexize('pg_catalog.simple',%s)", (sample,)).fetchone()[0]
+                assert lexemes == [sample.lower()], (sample, lexemes)
+                query = "SELECT to_tsvector('pg_catalog.simple',%s)::text,plainto_tsquery('pg_catalog.simple',%s)::text"
+                args = (sample, sample)
+                assert ram.execute(query, args).fetchone() == pg.execute(query, args).fetchone(), sample
 
 
 if __name__ == "__main__":
