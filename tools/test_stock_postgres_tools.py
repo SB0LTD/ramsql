@@ -644,21 +644,30 @@ def check_foreign_data_wrapper(binary, native):
                 assert observed == expected, (query, expected, observed)
                 return expected
 
-            assert compare(stock_query) == []
+            rows = compare(stock_query)
+            assert rows == [], rows
             for db in (pg, ram):
                 db.execute("CREATE FOREIGN DATA WRAPPER dump_wrapper")
             # Object OIDs are allocated independently by the two engines.
-            rows = compare(stock_query, normalize=lambda rows: [(row[0], *row[2:]) for row in rows])
-            assert rows == [(2328, "dump_wrapper", 10, "-", "-", None, "{ramsql=U/ramsql}", "")]
+            normalize_oid = lambda rows: [(row[0], *row[2:]) for row in rows]
+            compare(stock_query, normalize=normalize_oid)
+            text_query = (
+                "SELECT tableoid,fdwname,fdwowner,fdwhandler::regproc::text,fdwvalidator::regproc::text,"
+                "fdwacl IS NULL,acldefault('F',fdwowner)::text," + format_options + " FROM pg_foreign_data_wrapper"
+            )
+            rows = compare(text_query)
+            assert rows == [(2328, "dump_wrapper", 10, "-", "-", True, "{ramsql=U/ramsql}", "")], rows
 
             options_query = "SELECT * FROM pg_catalog.pg_options_to_table(%s::text[]) WITH ORDINALITY"
             for binary_output in (False, True):
                 sample = ["x=a=b", "empty=", "flag", "=value", "x=two"]
-                assert compare(options_query, (sample,), binary_output=binary_output) == [
+                rows = compare(options_query, (sample,), binary_output=binary_output)
+                assert rows == [
                     ("x", "a=b", 1), ("empty", "", 2), ("flag", None, 3), ("", "value", 4), ("x", "two", 5),
-                ]
+                ], rows
                 for empty in (None, []):
-                    assert compare(options_query, (empty,), binary_output=binary_output) == []
+                    rows = compare(options_query, (empty,), binary_output=binary_output)
+                    assert rows == [], rows
             for db in (pg, ram):
                 try:
                     db.execute(options_query, ([None],)).fetchall()
