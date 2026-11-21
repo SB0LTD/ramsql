@@ -171,6 +171,7 @@ def main():
         ("text_search_template_discovery", lambda db: check_text_search_template(binary, db)),
         ("text_search_dictionary_discovery", lambda db: check_text_search_dictionary(binary, db)),
         ("text_search_configuration_discovery", lambda db: check_text_search_configuration(binary, db)),
+        ("foreign_data_wrapper_discovery", lambda db: check_foreign_data_wrapper(binary, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
     ):
@@ -619,6 +620,62 @@ def check_text_search_configuration(binary, native):
             assert ram.execute(linked_objects).fetchall() == pg.execute(linked_objects).fetchall() == [
                 ("pg_catalog", 10, "default", 3717)
             ]
+
+
+def check_foreign_data_wrapper(binary, native):
+    format_options = (
+        "array_to_string(ARRAY(SELECT quote_ident(option_name) || ' ' || quote_literal(option_value) "
+        "FROM pg_options_to_table(fdwoptions) ORDER BY option_name), E',\\n    ')"
+    )
+    stock_query = (
+        "SELECT tableoid, oid, fdwname, fdwowner, fdwhandler::pg_catalog.regproc, "
+        "fdwvalidator::pg_catalog.regproc, fdwacl, acldefault('F', fdwowner) AS acldefault, "
+        + format_options + " AS fdwoptions FROM pg_foreign_data_wrapper"
+    )
+    with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
+        with psycopg.connect(**native) as pg, psycopg.connect(**candidate) as ram:
+            def compare(query, params=(), *, binary_output=False, normalize=lambda rows: rows):
+                ref = pg.execute(query, params, binary=binary_output)
+                actual = ram.execute(query, params, binary=binary_output)
+                expected_types = [col.type_code for col in ref.description]
+                observed_types = [col.type_code for col in actual.description]
+                assert expected_types == observed_types, (query, expected_types, observed_types)
+                expected, observed = normalize(ref.fetchall()), normalize(actual.fetchall())
+                assert observed == expected, (query, expected, observed)
+                return expected
+
+            assert compare(stock_query) == []
+            for db in (pg, ram):
+                db.execute("CREATE FOREIGN DATA WRAPPER dump_wrapper")
+            # Object OIDs are allocated independently by the two engines.
+            rows = compare(stock_query, normalize=lambda rows: [(row[0], *row[2:]) for row in rows])
+            assert rows == [(2328, "dump_wrapper", 10, "-", "-", None, "{ramsql=U/ramsql}", "")]
+
+            options_query = "SELECT * FROM pg_catalog.pg_options_to_table(%s::text[]) WITH ORDINALITY"
+            for binary_output in (False, True):
+                sample = ["x=a=b", "empty=", "flag", "=value", "x=two"]
+                assert compare(options_query, (sample,), binary_output=binary_output) == [
+                    ("x", "a=b", 1), ("empty", "", 2), ("flag", None, 3), ("", "value", 4), ("x", "two", 5),
+                ]
+                for empty in (None, []):
+                    assert compare(options_query, (empty,), binary_output=binary_output) == []
+            for db in (pg, ram):
+                try:
+                    db.execute(options_query, ([None],)).fetchall()
+                except psycopg.Error as error:
+                    assert error.sqlstate == "22004", error
+                else:
+                    raise AssertionError("pg_options_to_table accepted a NULL array element")
+
+            words = ("_bare", "select", "between", "authorization", "value", "A\"B", "a.b", "café", "", None)
+            quoting = "SELECT pg_catalog.quote_ident(%s::text),pg_catalog.quote_literal(%s::text)"
+            for word in words:
+                compare(quoting, (word, word))
+            compare(quoting, ("a dollar $", "O'Brien\\a\nline"))
+            compare("SELECT quote_literal(42),quote_literal(true)")
+            compare("SELECT id," + format_options
+                    + " FROM (VALUES (1,%s::text[]),(2,%s::text[]),(3,NULL::text[])) AS f(id,fdwoptions) ORDER BY id",
+                    (["Mixed Case=don't", "_plain=a=b"], ["select=\\path", "empty="]))
 
 
 if __name__ == "__main__":
