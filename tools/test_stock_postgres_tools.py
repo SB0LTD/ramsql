@@ -238,6 +238,7 @@ def main():
         ("subscription_discovery", lambda db: check_subscriptions(binary, db)),
         ("archive_metadata", lambda db: check_archive_metadata(binary, db)),
         ("scoped_identity_sequences", lambda db: check_scoped_identities(binary, tools, db)),
+        ("ramsql_identity_archive_to_native", lambda db: export_identity_archive(binary, tools, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
         ("ramsql_database_dump_to_native", lambda db: export_archive(binary, tools, db, table_options=(), label="whole-database")),
@@ -1120,8 +1121,12 @@ def check_scoped_identities(binary, tools, native):
             for db in (pg, ram):
                 for statement in setup:
                     db.execute(statement)
+                for sequence, initial in zip(sequence_names, (1, 20), strict=True):
+                    assert db.execute(f"SELECT last_value,is_called FROM {sequence}").fetchone() == (initial, False)
                 for table, expected in zip(qualified, (1, 20), strict=True):
                     assert db.execute(f"INSERT INTO {table}(note) VALUES ('first') RETURNING id").fetchone() == (expected,)
+                for sequence, current in zip(sequence_names, (1, 20), strict=True):
+                    assert db.execute(f"SELECT last_value,is_called FROM {sequence}").fetchone() == (current, True)
                 sequence_metadata(db)
             committed_oids = sequence_metadata(ram)
 
@@ -1134,6 +1139,22 @@ def check_scoped_identities(binary, tools, native):
             ram.execute("DROP SCHEMA early_orders CASCADE")
             assert ram.execute("SELECT to_regclass('early_orders.orders_id_seq') IS NULL").fetchone() == (True,)
             assert ram.execute("SELECT 'later_orders.orders_id_seq'::regclass::oid").fetchone() == (committed_oids[1],)
+
+
+def export_identity_archive(binary, tools, native):
+    archive = "identity-outbound.dump"
+    with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
+        with psycopg.connect(**candidate) as ram:
+            ram.execute("CREATE SCHEMA migration")
+            ram.execute("CREATE TABLE migration.items (id int GENERATED ALWAYS AS IDENTITY PRIMARY KEY, label text)")
+            assert ram.execute("INSERT INTO migration.items(label) VALUES ('first') RETURNING id").fetchone() == (1,)
+        tools.run("identity-outbound-dump", "pg_dump", candidate, "--no-owner", "--no-acl",
+                  "--format=custom", f"--file={archive}")
+    tools.run("identity-outbound-restore", "pg_restore", native, "--single-transaction",
+              "--exit-on-error", "--no-owner", "--no-acl", archive)
+    with psycopg.connect(**native) as pg:
+        assert pg.execute("SELECT id,label FROM migration.items").fetchall() == [(1, "first")]
+        assert pg.execute("INSERT INTO migration.items(label) VALUES ('next') RETURNING id").fetchone() == (2,)
 
 
 if __name__ == "__main__":
