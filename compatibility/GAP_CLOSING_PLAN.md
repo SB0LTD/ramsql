@@ -8,12 +8,12 @@ custom dumps restored by native PostgreSQL. Both PostgreSQL 16 and 18 lanes
 must pass before merging the integration. The candidate includes a separate
 48-column SELECT projection limit, built-in tablespace rows, a typed
 foreign-table catalog, and the relation metadata needed by table discovery.
-On RAMSQL `1de34ce`, both CI lanes pass operator discovery and verify 427
-published operator signatures against native PostgreSQL. Plain and custom
+On RAMSQL `459011f`, both CI lanes pass access-method discovery, including
+typed handler references and bound `regproc` parameters. Plain and custom
 imports pass post-reopen row and constraint checks for the two-table fixture.
-Both outbound dumps pass operator discovery and fail with `UndefinedObject`
-on `pg_am.amhandler::pg_catalog.regproc` before producing an archive.
-[PostgreSQL 16 and 18 CI](https://github.com/SB0LTD/ramsql/actions/runs/44894008040)
+Both outbound dumps pass access-method discovery and fail with
+`TableNotFound` on `pg_opclass` before producing an archive.
+[PostgreSQL 16 and 18 CI](https://github.com/SB0LTD/ramsql/actions/runs/44897386171)
 
 ## 20 November 2026 shipped checkpoint
 
