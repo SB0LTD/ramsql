@@ -1024,6 +1024,11 @@ def check_archive_metadata(binary, native):
                 assert db.execute("SELECT pg_encoding_to_char(6),pg_encoding_to_char(-1)").fetchone() == ("UTF8", "")
                 assert db.execute("SELECT label,provider FROM pg_seclabels").fetchall() == []
                 assert db.execute("SELECT unnest(setconfig) FROM pg_db_role_setting").fetchall() == []
+                assert db.execute(
+                    "SELECT v.id, pg_catalog.unnest(v.a) AS item FROM "
+                    "(VALUES (1,ARRAY[3,NULL,2]),(2,ARRAY[]::integer[]),(3,NULL::integer[]),(4,ARRAY[7])) v(id,a) "
+                    "WHERE v.id < 4 ORDER BY item NULLS LAST"
+                ).fetchall() == [(1, 2), (1, 3), (1, None)]
                 db.execute("SET search_path TO public,pg_catalog")
                 assert db.execute("SELECT current_schemas(false)").fetchone() == (["public", "pg_catalog"],)
                 db.execute("SELECT set_config('search_path','',false)")

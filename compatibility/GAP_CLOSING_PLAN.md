@@ -18,8 +18,12 @@ passed the stock subscription query and reached the operator-family
 dependency queries. Its separate subscription probe caught a standalone
 database name mismatch with connection aliases. The follow-up fixes that
 name mapping and adds the dependency catalogs and custom archive metadata.
+On RAMSQL `af7af9a`, outbound dump progressed to target-list
+`unnest(setconfig)` for database settings. The next candidate adds
+typed row expansion after filtering.
 [Partition CI](https://github.com/SB0LTD/ramsql/actions/runs/44924845762) ·
-[Subscription CI](https://github.com/SB0LTD/ramsql/actions/runs/44925395409)
+[Subscription CI](https://github.com/SB0LTD/ramsql/actions/runs/44925395409) ·
+[Archive metadata CI](https://github.com/SB0LTD/ramsql/actions/runs/44925969411)
 
 ## 20 November 2026 shipped checkpoint
 
