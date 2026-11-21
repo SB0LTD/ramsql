@@ -854,10 +854,16 @@ def main():
                      test_fragmented_and_coalesced, test_ssl_negotiation,
                      test_half_close_and_partial_reads,
                      test_protocol_errors, test_fatal_frames, test_truncated_disconnect,
-                     test_transactions_and_disconnect, test_slow_reader_fairness, test_pool_exhaustion):
+                     test_transactions_and_disconnect, test_slow_reader_fairness):
             test(server)
             check(server.process.poll() is None, f"server exited after {test.__name__}: {list(server.errors)!r}")
             cases += 1
+    # Exercise all connection slots independently of the machine's transient
+    # memory headroom. test_machine_capacity checks the budget rejection path.
+    with Server(binary, extra_arguments=("--result-rows", "128")) as pool_server:
+        test_pool_exhaustion(pool_server)
+        check(pool_server.process.poll() is None, f"pool server exited: {list(pool_server.errors)!r}")
+        cases += 1
     test_idle_expiry(binary)
     cases += 1
     test_temporal_read_routing(binary)
