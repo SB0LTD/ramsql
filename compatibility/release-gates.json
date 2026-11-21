@@ -7,9 +7,9 @@
       "id": "postgres_compatibility",
       "status": "partial",
       "evidence": "https://github.com/SB0LTD/ramsql/actions/runs/44655295188",
-      "stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/44926381895",
+      "stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/44929034456",
       "requirement": "Complete the PostgreSQL feature inventory, upstream and application regressions, and stock tooling round trips.",
-      "qualified": "Packaged Linux passes PostgreSQL 16 and 18 memory and durable SCRAM lanes, including independent COPY/backpressure tests. The stock-tooling candidate passes both directions on PostgreSQL 16 and 18 for two selected tables, with rows, defaults, constraints and WAL reopen verified."
+      "qualified": "Packaged Linux passes PostgreSQL 16 and 18 memory and durable SCRAM lanes, including independent COPY/backpressure tests. A stock-tooling candidate passes both directions on PostgreSQL 16 and 18, with selected-table and whole-database fixtures covering rows, defaults, constraints, ownership, ACLs and WAL reopen."
     },
     {
       "id": "implemented_subset_durability",
