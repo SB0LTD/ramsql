@@ -177,6 +177,7 @@ def main():
         ("range_discovery", lambda db: check_ranges(binary, db)),
         ("event_trigger_discovery", lambda db: check_event_triggers(binary, db)),
         ("column_metadata_discovery", lambda db: check_column_metadata(binary, db, args.reference)),
+        ("column_default_discovery", lambda db: check_column_defaults(binary, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
     ):
@@ -895,6 +896,32 @@ def check_column_metadata(binary, native, version):
                 assert len(rows) == 4, rows
                 assert [row[3:5] for row in rows] == [("p", "p"), ("m", "m"), ("x", "x"), ("x", "x")], rows
                 reports.append((codes, rows))
+            assert reports[0] == reports[1], reports
+
+
+def check_column_defaults(binary, native):
+    query = (
+        "SELECT a.tableoid,a.oid,adrelid,adnum,pg_catalog.pg_get_expr(adbin,adrelid) AS adsrc "
+        "FROM unnest('{%d}'::pg_catalog.oid[]) AS src(tbloid) "
+        "JOIN pg_catalog.pg_attrdef a ON src.tbloid=a.adrelid ORDER BY a.adrelid,a.adnum"
+    )
+    with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
+        with psycopg.connect(**native) as pg, psycopg.connect(**candidate) as ram:
+            reports = []
+            for db in (pg, ram):
+                db.execute("CREATE TABLE dump_defaults (id integer DEFAULT 7, label text DEFAULT 'ready', "
+                           "next_id integer GENERATED ALWAYS AS (id + 1) STORED)")
+                oid = db.execute("SELECT 'dump_defaults'::regclass::oid").fetchone()[0]
+                cursor = db.execute(query % oid)
+                assert [col.type_code for col in cursor.description] == [26, 26, 26, 21, 25]
+                rows = cursor.fetchall()
+                assert len(rows) == 3 and len({row[1] for row in rows}) == 3, rows
+                assert all(row[0] == 2604 and row[1] > 0 and row[2] == oid for row in rows), rows
+                reports.append([(row[3], row[4]) for row in rows])
+                db.execute("ALTER TABLE dump_defaults RENAME COLUMN next_id TO computed_id")
+                assert db.execute(query % oid).fetchall() == rows
+                db.execute("INSERT INTO dump_defaults DEFAULT VALUES")
+                assert db.execute("SELECT * FROM dump_defaults").fetchone() == (7, "ready", 8)
             assert reports[0] == reports[1], reports
 
 
