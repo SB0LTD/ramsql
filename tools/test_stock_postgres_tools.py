@@ -239,6 +239,7 @@ def main():
         ("archive_metadata", lambda db: check_archive_metadata(binary, db)),
         ("scoped_identity_sequences", lambda db: check_scoped_identities(binary, tools, db)),
         ("ramsql_identity_archive_to_native", lambda db: export_identity_archive(binary, tools, db)),
+        ("native_identity_archive_to_ramsql", lambda db: import_identity_archive(binary, tools, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
         ("ramsql_database_dump_to_native", lambda db: export_archive(binary, tools, db, table_options=(), label="whole-database")),
@@ -1155,6 +1156,32 @@ def export_identity_archive(binary, tools, native):
     with psycopg.connect(**native) as pg:
         assert pg.execute("SELECT id,label FROM migration.items").fetchall() == [(1, "first")]
         assert pg.execute("INSERT INTO migration.items(label) VALUES ('next') RETURNING id").fetchone() == (2,)
+
+
+def import_identity_archive(binary, tools, native):
+    label = "identity-inbound"
+    archive = f"{label}.dump"
+    wal = tools.root / f"{label}.wal"
+    storage = ("--workers", "1")
+    with psycopg.connect(**native) as pg:
+        pg.execute("CREATE SCHEMA migration")
+        pg.execute("CREATE TABLE migration.items (id int NOT NULL, label text)")
+        pg.execute("ALTER TABLE migration.items ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY "
+                   "(SEQUENCE NAME migration.item_ids START WITH 20 INCREMENT BY 2)")
+        assert pg.execute("INSERT INTO migration.items(label) VALUES ('first') RETURNING id").fetchone() == (20,)
+    tools.run(f"{label}-dump", "pg_dump", native, "--no-owner", "--no-acl",
+              "--format=custom", f"--file={archive}")
+    with DurableServer(binary, wal, create=True, storage_options=storage) as server:
+        candidate = ramsql_settings(server)
+        tools.run(f"{label}-restore", "pg_restore", candidate, "--single-transaction",
+                  "--exit-on-error", "--no-owner", "--no-acl", archive)
+        with psycopg.connect(**candidate) as ram:
+            assert ram.execute("SELECT id,label FROM migration.items").fetchall() == [(20, "first")]
+            assert ram.execute("SELECT last_value,is_called FROM migration.item_ids").fetchone() == (20, True)
+    with DurableServer(binary, wal, storage_options=storage) as reopened:
+        with psycopg.connect(**ramsql_settings(reopened)) as ram:
+            assert ram.execute("SELECT id,label FROM migration.items").fetchall() == [(20, "first")]
+            assert ram.execute("INSERT INTO migration.items(label) VALUES ('next') RETURNING id").fetchone() == (22,)
 
 
 if __name__ == "__main__":
