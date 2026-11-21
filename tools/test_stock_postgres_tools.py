@@ -170,6 +170,7 @@ def main():
         ("text_search_parser_discovery", lambda db: check_text_search_parser(binary, db)),
         ("text_search_template_discovery", lambda db: check_text_search_template(binary, db)),
         ("text_search_dictionary_discovery", lambda db: check_text_search_dictionary(binary, db)),
+        ("text_search_configuration_discovery", lambda db: check_text_search_configuration(binary, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
     ):
@@ -594,6 +595,29 @@ def check_text_search_dictionary(binary, native):
                 assert observed == expected, (expected, observed)
             assert ram.execute(linked_objects).fetchall() == pg.execute(linked_objects).fetchall() == [
                 ("pg_catalog", 10, "simple", 3725, 3726)
+            ]
+
+
+def check_text_search_configuration(binary, native):
+    stock_projection = "SELECT tableoid,oid,cfgname,cfgnamespace,cfgowner,cfgparser FROM pg_ts_config"
+    linked_objects = (
+        "SELECT n.nspname,r.oid,p.prsname,p.prsstart::oid "
+        "FROM pg_catalog.pg_ts_config c JOIN pg_namespace n ON n.oid=c.cfgnamespace "
+        "JOIN pg_roles r ON r.oid=c.cfgowner JOIN pg_ts_parser p ON p.oid=c.cfgparser "
+        "WHERE c.cfgname='simple' AND n.nspname='pg_catalog'"
+    )
+    with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
+        with psycopg.connect(**native) as pg, psycopg.connect(**candidate) as ram:
+            for binary_output in (False, True):
+                ref = pg.execute(stock_projection, binary=binary_output)
+                actual = ram.execute(stock_projection, binary=binary_output)
+                assert [col.type_code for col in ref.description] == [col.type_code for col in actual.description]
+                expected = [row for row in ref.fetchall() if row[2:4] == ("simple", 11)]
+                observed = actual.fetchall()
+                assert expected == [(3602, 3748, "simple", 11, 10, 3722)]
+                assert observed == expected, (expected, observed)
+            assert ram.execute(linked_objects).fetchall() == pg.execute(linked_objects).fetchall() == [
+                ("pg_catalog", 10, "default", 3717)
             ]
 
 
