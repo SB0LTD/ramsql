@@ -167,6 +167,7 @@ def main():
         ("operator_discovery", lambda db: check_operator_discovery(binary, db)),
         ("access_method_discovery", lambda db: check_access_method_discovery(binary, db)),
         ("operator_class_discovery", lambda db: check_operator_class_discovery(binary, db, args.reference)),
+        ("text_search_parser_discovery", lambda db: check_text_search_parser(binary, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
     ):
@@ -498,6 +499,39 @@ def check_operator_class_discovery(binary, native, reference):
                         raise AssertionError(f"{name} unique index accepted a duplicate")
                     conn.execute("DROP TABLE class_probe")
                 assert reads[0] == reads[1], (name, reads)
+
+
+def check_text_search_parser(binary, native):
+    stock_projection = (
+        "SELECT tableoid,oid,prsname,prsnamespace,prsstart::oid,prstoken::oid,"
+        "prsend::oid,prsheadline::oid,prslextype::oid FROM pg_ts_parser ORDER BY oid"
+    )
+    typed_callbacks = "SELECT prsstart,prstoken,prsend,prsheadline,prslextype FROM pg_ts_parser"
+    implementation = (
+        "SELECT oid,proname,pronamespace,prolang,provolatile,proisstrict,pronargs,"
+        "prorettype,proargtypes::text FROM pg_proc WHERE oid IN (3717,3718,3719,3721) ORDER BY oid"
+    )
+    with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
+        with psycopg.connect(**native) as pg, psycopg.connect(**candidate) as ram:
+            for query, absent_headline in ((stock_projection, 0), (typed_callbacks, "-")):
+                ref, actual = pg.execute(query), ram.execute(query)
+                assert [col.type_code for col in ref.description] == [col.type_code for col in actual.description]
+                expected, observed = ref.fetchone(), actual.fetchone()
+                assert expected and observed and ref.fetchone() is None and actual.fetchone() is None
+                # The Sig tokenizer has no headline generator.
+                assert observed == expected[:-2] + (absent_headline, expected[-1]), (expected, observed)
+            ref, actual = pg.execute(implementation), ram.execute(implementation)
+            assert [col.type_code for col in ref.description] == [col.type_code for col in actual.description]
+            expected, observed = ref.fetchall(), actual.fetchall()
+            assert len(expected) == 4 and observed == expected
+            assert ram.execute("SELECT to_regproc('pg_catalog.prsd_end')::oid").fetchone() == (3719,)
+            assert ram.execute("SELECT to_regproc('prsd_headline')").fetchone() == (None,)
+            assert pg.execute("SELECT cfgparser FROM pg_ts_config WHERE cfgname='simple'").fetchone() == (3722,)
+
+            for sample in ("foo-bar-beta1", "http://example.com/a", "<b>Foo</b> &amp; BAR", "foo@example.com -1234 8.3.0"):
+                query = "SELECT to_tsvector('pg_catalog.simple',%s)::text"
+                expected = pg.execute(query, (sample,)).fetchone()
+                assert ram.execute(query, (sample,)).fetchone() == expected, (sample, expected)
 
 
 if __name__ == "__main__":
