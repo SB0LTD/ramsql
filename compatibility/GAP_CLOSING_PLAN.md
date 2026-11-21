@@ -1,5 +1,40 @@
 # RAMSQL gap-closing plan
 
+## Stock migration acceptance
+
+The stock tooling workflow verifies schema ACL metadata, plain and custom
+imports in one transaction, constraints after WAL reopen, and outbound
+custom dumps restored by native PostgreSQL. Both PostgreSQL 16 and 18 lanes
+must pass before merging the integration. The candidate includes a separate
+48-column SELECT projection limit, built-in tablespace rows, a typed
+foreign-table catalog, and the relation metadata needed by table discovery.
+
+RAMSQL `d1ddbe5` with ZPM `ed00a0a1` passed all 24 stock tooling
+checks on both PostgreSQL 16 and 18. It imported native plain and custom
+dumps and restored its own custom archive on native PostgreSQL. Each
+direction verified rows, defaults, primary keys, foreign keys, CHECK
+and NOT NULL. Imports passed the same checks after reopening the WAL.
+The selected two-table fixture uses `--no-owner --no-acl`. Whole-database
+archive coverage, ACL and ownership restore, and application conformance
+remain open.
+[PG16 and PG18 stock round trips](https://github.com/SB0LTD/ramsql/actions/runs/44926381895)
+
+On RAMSQL `c175b9f` with ZPM `c8b764ab`, both CI lanes pass
+column defaults, stored generated expressions, CHECK and index metadata,
+and range and list partition discovery. Plain and custom imports pass
+post-reopen row, default and constraint checks on the two-table fixture.
+Both outbound dumps passed partition discovery. RAMSQL `ea70fda` then
+passed the stock subscription query and reached the operator-family
+dependency queries. Its separate subscription probe caught a standalone
+database name mismatch with connection aliases. The follow-up fixes that
+name mapping and adds the dependency catalogs and custom archive metadata.
+On RAMSQL `af7af9a`, outbound dump progressed to target-list
+`unnest(setconfig)` for database settings. The next candidate adds
+typed row expansion after filtering.
+[Partition CI](https://github.com/SB0LTD/ramsql/actions/runs/44924845762) ·
+[Subscription CI](https://github.com/SB0LTD/ramsql/actions/runs/44925395409) ·
+[Archive metadata CI](https://github.com/SB0LTD/ramsql/actions/runs/44925969411)
+
 ## 20 November 2026 shipped checkpoint
 
 The [beta.3 prerelease](https://github.com/SB0LTD/ramsql/releases/tag/ci-v0.3.0-beta.3-run.44655295188.1) passed the [complete release matrix](https://github.com/SB0LTD/ramsql/actions/runs/44655295188)

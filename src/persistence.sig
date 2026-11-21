@@ -170,7 +170,7 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
         writer_lock: disk.WriterLock = .{},
         store: ?*Store = null,
         replay_result: Raw.Result = .{},
-        legacy_rows: [if (Raw.Result.external_rows) 1 else 0]Raw.Row = undefined,
+        legacy_rows: [if (Raw.Result.external_rows) 1 else 0]Raw.Result.ResultRow = undefined,
         /// Bounded overlay that validates each whole change record first.
         replay_scratch: Raw.ReplayScratch = .{},
         recovery_payload: []u8 = &.{},

@@ -14,7 +14,8 @@ query planner, RSS forecast or admission guarantee for every SQL statement.
 | Returned rows per statement | 8,192 | Runtime `--result-rows`; separately page-backed per accepted client |
 | Query workspace rows | 4,096 | Runtime `--work-rows`; shared execution scratch, not disk-spilled or embedded in executable |
 | Tables | 8 | Build `-Dtables` (SQL catalog maximum 255) |
-| Columns per table/result | 8 | Build `-Dcolumns` (maximum 255); larger schemas are not silently truncated |
+| Stored columns per table | 8 | Build `-Dcolumns` (maximum 255) |
+| SELECT result columns | 48 | Build `-Dprojection-columns` (between the stored width and 255); wider results increase per-client result backing |
 | TEXT/JSON/encoded JSONB bytes | 128 | Build `-Dtext-bytes` (1..65,535); bytes, not Unicode characters |
 | Identifier bytes | 63 | Fixed server policy |
 | Client slots | 16 | Runtime `--max-clients` 1..60; build `-Dclients` changes the default |
@@ -25,7 +26,7 @@ query planner, RSS forecast or admission guarantee for every SQL statement.
 | Explicit row locks, server-wide | 256 | Build `-Drow-locks`; 8 SHARE holders per row remain fixed |
 | WHERE boolean leaf predicates | 8 | Build `-Dpredicates` |
 | Statement expression nodes | 8,192 | Build `-Dexpr-nodes`; parser depth remains 64 |
-| FROM items per query block | 4 | Build `-Drelations` |
+| FROM items per query block | 8 | Build `-Drelations` |
 | Query blocks / CTEs per statement | 16 / 4 | Current SQL Config defaults, not server CLI controls |
 | Savepoints per transaction | 32 | Current SQL Config default |
 | Sequences | 16 | Current SQL Config default |
