@@ -178,6 +178,7 @@ def main():
         ("event_trigger_discovery", lambda db: check_event_triggers(binary, db)),
         ("column_metadata_discovery", lambda db: check_column_metadata(binary, db, args.reference)),
         ("column_default_discovery", lambda db: check_column_defaults(binary, db)),
+        ("constraint_and_index_discovery", lambda db: check_constraints_and_indexes(binary, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
     ):
@@ -923,6 +924,37 @@ def check_column_defaults(binary, native):
                 db.execute("INSERT INTO dump_defaults DEFAULT VALUES")
                 assert db.execute("SELECT * FROM dump_defaults").fetchone() == (7, "ready", 8)
             assert reports[0] == reports[1], reports
+
+
+def check_constraints_and_indexes(binary, native):
+    checks = (
+        "SELECT c.tableoid,c.oid,conrelid,conname,pg_catalog.pg_get_constraintdef(c.oid) AS consrc,"
+        "conislocal,convalidated FROM unnest('{%d}'::pg_catalog.oid[]) AS src(tbloid) "
+        "JOIN pg_catalog.pg_constraint c ON src.tbloid=c.conrelid WHERE contype='c' ORDER BY c.conrelid,c.conname"
+    )
+    indexes = (
+        "SELECT c.relname,i.indkey::text,i.indisvalid,i.indisready,i.indnkeyatts,i.indnatts,"
+        "i.indnullsnotdistinct,i.indexprs IS NULL FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid "
+        "WHERE i.indrelid='dump_idx'::regclass ORDER BY i.indisprimary DESC"
+    )
+    with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
+        with psycopg.connect(**native) as pg, psycopg.connect(**candidate) as ram:
+            reports = []
+            for db in (pg, ram):
+                db.execute("CREATE TABLE dump_parent (id int, CONSTRAINT dump_parent_check CHECK (id > 0))")
+                db.execute("CREATE TABLE dump_child (label text) INHERITS (dump_parent)")
+                db.execute("CREATE TABLE dump_idx (id int PRIMARY KEY, lookup int, detail text)")
+                db.execute("CREATE UNIQUE INDEX dump_idx_cover ON dump_idx (lookup) INCLUDE (detail) NULLS NOT DISTINCT")
+                oid = db.execute("SELECT 'dump_child'::regclass::oid").fetchone()[0]
+                rows = db.execute(checks % oid).fetchall()
+                assert len(rows) == 1 and rows[0][0] == 2606 and rows[0][2] == oid, rows
+                assert rows[0][3] == "dump_parent_check" and rows[0][5:] == (False, True), rows
+                assert rows[0][4].startswith("CHECK"), rows
+                reports.append(db.execute(indexes).fetchall())
+            assert reports[0] == reports[1] == [
+                ("dump_idx_pkey", "1", True, True, 1, 1, False, True),
+                ("dump_idx_cover", "2 3", True, True, 1, 2, True, True),
+            ], reports
 
 
 if __name__ == "__main__":
