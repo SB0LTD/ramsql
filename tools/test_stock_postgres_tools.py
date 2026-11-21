@@ -83,6 +83,8 @@ def verify(arguments):
                 db.rollback()
             else:
                 raise AssertionError(f"restored constraint accepted {statement}")
+        assert db.execute("INSERT INTO public.accounts(id) VALUES (3) RETURNING label").fetchone() == ("ready",)
+        db.execute("DELETE FROM public.accounts WHERE id = 3")
         assert db.execute(QUERY).fetchall() == EXPECTED
 
 
@@ -179,6 +181,7 @@ def main():
         ("column_metadata_discovery", lambda db: check_column_metadata(binary, db, args.reference)),
         ("column_default_discovery", lambda db: check_column_defaults(binary, db)),
         ("constraint_and_index_discovery", lambda db: check_constraints_and_indexes(binary, db)),
+        ("partition_discovery", lambda db: check_partitions(binary, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
     ):
@@ -906,6 +909,11 @@ def check_column_defaults(binary, native):
         "FROM unnest('{%d}'::pg_catalog.oid[]) AS src(tbloid) "
         "JOIN pg_catalog.pg_attrdef a ON src.tbloid=a.adrelid ORDER BY a.adrelid,a.adnum"
     )
+    dependencies = (
+        "SELECT a.adnum,d.refobjsubid,d.deptype FROM pg_attrdef a JOIN pg_depend d "
+        "ON d.classid=a.tableoid AND d.objid=a.oid WHERE a.adrelid='dump_defaults'::regclass "
+        "ORDER BY a.adnum,d.refobjsubid"
+    )
     with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
         with psycopg.connect(**native) as pg, psycopg.connect(**candidate) as ram:
             reports = []
@@ -918,6 +926,7 @@ def check_column_defaults(binary, native):
                 rows = cursor.fetchall()
                 assert len(rows) == 3 and len({row[1] for row in rows}) == 3, rows
                 assert all(row[0] == 2604 and row[1] > 0 and row[2] == oid for row in rows), rows
+                assert db.execute(dependencies).fetchall() == [(1, 1, "a"), (2, 2, "a"), (3, 1, "n"), (3, 3, "i")]
                 reports.append([(row[3], row[4]) for row in rows])
                 db.execute("ALTER TABLE dump_defaults RENAME COLUMN next_id TO computed_id")
                 assert db.execute(query % oid).fetchall() == rows
@@ -955,6 +964,37 @@ def check_constraints_and_indexes(binary, native):
                 ("dump_idx_pkey", "1", True, True, 1, 1, False, True),
                 ("dump_idx_cover", "2 3", True, True, 1, 2, True, True),
             ], reports
+
+
+def check_partitions(binary, native):
+    enum_hash = (
+        "SELECT partrelid FROM pg_partitioned_table WHERE "
+        "(SELECT c.oid FROM pg_opclass c JOIN pg_am a ON c.opcmethod=a.oid "
+        "WHERE opcname='enum_ops' AND opcnamespace='pg_catalog'::regnamespace AND amname='hash')=ANY(partclass)"
+    )
+    ddl = (
+        "CREATE TABLE dump_parts (id int, bucket text) PARTITION BY LIST (bucket)",
+        "CREATE TABLE dump_parts_other PARTITION OF dump_parts DEFAULT",
+        "CREATE TABLE dump_ranges (id int) PARTITION BY RANGE (id)",
+        "CREATE TABLE dump_range_low PARTITION OF dump_ranges FOR VALUES FROM (0) TO (10)",
+    )
+    fields = (
+        "SELECT p.tableoid,t.relname,p.partstrat,p.partnatts, COALESCE(d.relname::text,''),"
+        "p.partattrs::smallint[],p.partclass::oid[],p.partcollation::oid[],p.partexprs IS NULL "
+        "FROM pg_partitioned_table p JOIN pg_class t ON t.oid=p.partrelid "
+        "LEFT JOIN pg_class d ON d.oid=p.partdefid ORDER BY t.relname"
+    )
+    with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
+        with psycopg.connect(**native) as pg, psycopg.connect(**candidate) as ram:
+            for db in (pg, ram):
+                for statement in ddl:
+                    db.execute(statement)
+                assert db.execute(enum_hash).fetchall() == []
+            expected = pg.execute(fields).fetchall()
+            assert len(expected) == 2 and ram.execute(fields).fetchall() == expected, expected
+            for db in (pg, ram):
+                db.execute("DROP TABLE dump_parts_other")
+                assert db.execute("SELECT partdefid FROM pg_partitioned_table WHERE partrelid='dump_parts'::regclass").fetchone() == (0,)
 
 
 if __name__ == "__main__":
