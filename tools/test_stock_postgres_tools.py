@@ -169,6 +169,7 @@ def main():
         ("operator_class_discovery", lambda db: check_operator_class_discovery(binary, db, args.reference)),
         ("text_search_parser_discovery", lambda db: check_text_search_parser(binary, db)),
         ("text_search_template_discovery", lambda db: check_text_search_template(binary, db)),
+        ("text_search_dictionary_discovery", lambda db: check_text_search_dictionary(binary, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
     ):
@@ -560,8 +561,6 @@ def check_text_search_template(binary, native):
             assert ram.execute(
                 "SELECT to_regproc('pg_catalog.dsimple_init')::oid,to_regproc('dsimple_lexize')::oid"
             ).fetchone() == (3725, 3726)
-            assert pg.execute("SELECT dicttemplate FROM pg_ts_dict WHERE dictname='simple'").fetchone() == (3727,)
-
             # The default simple dictionary folds ASCII and keeps words such
             # as "the" and "running" without a custom stop list or stemmer.
             for sample in ("The", "RUNNING", "MixEd123"):
@@ -570,6 +569,32 @@ def check_text_search_template(binary, native):
                 query = "SELECT to_tsvector('pg_catalog.simple',%s)::text,plainto_tsquery('pg_catalog.simple',%s)::text"
                 args = (sample, sample)
                 assert ram.execute(query, args).fetchone() == pg.execute(query, args).fetchone(), sample
+
+
+def check_text_search_dictionary(binary, native):
+    stock_projection = (
+        "SELECT tableoid,oid,dictname,dictnamespace,dictowner,dicttemplate,dictinitoption "
+        "FROM pg_ts_dict"
+    )
+    linked_objects = (
+        "SELECT n.nspname,r.oid,t.tmplname,t.tmplinit::oid,t.tmpllexize::oid "
+        "FROM pg_catalog.pg_ts_dict d JOIN pg_namespace n ON n.oid=d.dictnamespace "
+        "JOIN pg_roles r ON r.oid=d.dictowner JOIN pg_ts_template t ON t.oid=d.dicttemplate "
+        "WHERE d.dictname='simple'"
+    )
+    with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
+        with psycopg.connect(**native) as pg, psycopg.connect(**candidate) as ram:
+            for binary_output in (False, True):
+                ref = pg.execute(stock_projection, binary=binary_output)
+                actual = ram.execute(stock_projection, binary=binary_output)
+                assert [col.type_code for col in ref.description] == [col.type_code for col in actual.description]
+                expected = [row for row in ref.fetchall() if row[2] == "simple"]
+                observed = actual.fetchall()
+                assert expected == [(3600, 3765, "simple", 11, 10, 3727, None)]
+                assert observed == expected, (expected, observed)
+            assert ram.execute(linked_objects).fetchall() == pg.execute(linked_objects).fetchall() == [
+                ("pg_catalog", 10, "simple", 3725, 3726)
+            ]
 
 
 if __name__ == "__main__":
