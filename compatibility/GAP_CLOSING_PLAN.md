@@ -69,8 +69,10 @@ The separate 118-program smoke audit matched all 106 PostgreSQL programs
 against native PG18.3 with XML support. Database lifecycle, prepared
 transactions and maintenance ran on separate disposable instances. The
 audit compares allocated type identities through the live catalog and
-preserves raw OIDs in its evidence. Twelve MySQL and T-SQL programs and
-the broader 755-record PostgreSQL inventory remain open.
+preserves raw OIDs in its evidence. All six MySQL programs matched
+native MySQL 8.0.36. All six T-SQL programs returned the expected rows
+through python-tds. Native SQL Server comparison and the broader
+755-record PostgreSQL inventory remain open.
 
 The first full release run passed COPY, native SB0X and SB0K, all hosted
 builds and the PostgreSQL release-artifact lanes. Its ARM macOS wire test
