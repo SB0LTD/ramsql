@@ -41,10 +41,17 @@ without enlarging every stored data cell.
 
 The view-column follow-up preserves quoted and computed output names from a
 view's column list when stock tools serialize supported simple projections.
-The new dependent-view fixture passed both directions on local PostgreSQL
-16 and 18 and checks column names, values and WAL reopen. Hosted
-qualification is pending. General view deparsing and CREATE OR REPLACE VIEW
-parity remain open.
+The released artifacts passed 39 stock checks in both directions in
+PostgreSQL 16 and 18 CI. The dependent-view fixture checks column names,
+values and WAL reopen. The qualified source is on both main branches.
+General view deparsing and CREATE OR REPLACE VIEW parity remain open.
+[Exact release qualification](https://github.com/SB0LTD/ramsql/actions/runs/45051553539)
+
+The materialized-view candidate permits definitions over unpopulated
+sources during stock restore. The dependent view becomes readable after
+the archive refreshes its source. The local stock PostgreSQL 16 and 18
+fixture preserves rows, deliberately unpopulated views and WAL replay in
+both directions. Hosted qualification is pending.
 
 The composite-key follow-up passed all 34 checks on PG16 and PG18 CI.
 Stock restore applies the composite primary key after COPY in the same
@@ -71,8 +78,9 @@ Separate SERIAL fixtures passed both directions with local stock PG16 and
 PG18 in `public` and in named schemas. Each fixture restores two owned
 sequences, their column defaults and state, and repeats those checks after
 WAL reopen. The fixtures exposed missing transactional sequence ownership
-and missing catalog dependencies from a default to its sequence. Hosted
-archive qualification is pending.
+and missing catalog dependencies from a default to its sequence. The
+candidate passed all 38 stock checks in hosted PG16 and PG18.
+[SERIAL archive qualification](https://github.com/SB0LTD/ramsql/actions/runs/45044007672)
 
 In two separate hosted profiles of one-million-row prepared lookups,
 the eight-client CPU sample share for buffer-overlap validation fell
@@ -1215,10 +1223,10 @@ visibility, errors and durable replay agree with the reference.
 **Status:** Partial (flag F10). Stock PG16 and PG18 archives round-trip ordinary
 defaults, stored generated columns, scoped identity and standalone sequences.
 Stock archives also exercise multiple identity columns on one table.
-The replay suite exercises a cached scoped sequence with `CACHE 2`. Local
-stock fixtures cover common `SERIAL` and `BIGSERIAL` archives with two owned
-sequences. Hosted qualification, broader sequence DDL and privilege
-parity, and clean-shutdown sequence continuity remain open. **Owner:** ZPM
+The replay suite exercises a cached scoped sequence with `CACHE 2`. Stock
+PG16 and PG18 CI covers common `SERIAL` and `BIGSERIAL` archives with two owned
+sequences. Broader sequence DDL and privilege parity and clean-shutdown
+sequence continuity remain open. **Owner:** ZPM
 schema, execution and transactions. RAMSQL persists lifecycle state.
 
 - [x] Store and evaluate defaults and stored generated-column expressions in the qualified subset.
@@ -1440,8 +1448,10 @@ The next checkpoint candidate includes supported tables and sequences
 in named schemas owned by the bootstrap role. The local Sig suite passed
 147 assertions and the Linux server recovered committed writes after a
 process kill. Schema and relation OIDs, same-named sequences, defaults
-and ownership are preserved. Catalog images for roles, grants, views
-and other schema objects remain open. Hosted qualification is pending.
+and ownership are preserved. The full hosted release matrix passed and
+the qualified source merged. Catalog images for roles, grants, views
+and other schema objects remain open.
+[Named-schema checkpoint qualification](https://github.com/SB0LTD/ramsql/actions/runs/45050702452)
 
 - [ ] Write a complete validated snapshot with a durable sequence anchor.
 - [ ] Publish it atomically, persist directory changes, then retire only log segments the checkpoint safely covers.
