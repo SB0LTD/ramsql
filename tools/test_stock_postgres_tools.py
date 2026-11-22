@@ -247,6 +247,7 @@ def main():
         ("stored_generated_archives", lambda db: check_generated_archives(binary, tools, db)),
         ("view_archives", lambda db: check_view_archives(binary, tools, db)),
         ("view_column_name_archives", lambda db: check_view_column_name_archives(binary, tools, db)),
+        ("materialized_view_archives", lambda db: check_materialized_view_archives(binary, tools, db)),
         ("composite_primary_key_archives", lambda db: check_composite_key_archives(binary, tools, db)),
         ("late_composite_primary_key", lambda db: check_late_composite_key(binary, tools, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
@@ -1365,6 +1366,35 @@ def check_view_column_name_archives(binary, tools, native):
                 assert [column.name for column in result.description] == ["Item", 'a"b', "total"]
 
     check_schema_archives(binary, tools, native, "viewnames", populate, verify)
+
+
+def check_materialized_view_archives(binary, tools, native):
+    def populate(endpoint, schema):
+        with psycopg.connect(**endpoint) as db:
+            db.execute(f"CREATE SCHEMA {schema}")
+            db.execute(f"CREATE TABLE {schema}.t (region int, amount int)")
+            db.execute(f"INSERT INTO {schema}.t VALUES (1,2),(1,3),(2,4)")
+            query = f"SELECT region,sum(amount) AS total FROM {schema}.t GROUP BY region"
+            db.execute(f"CREATE MATERIALIZED VIEW {schema}.totals AS {query}")
+            db.execute(f"CREATE MATERIALIZED VIEW {schema}.pending AS {query} WITH NO DATA")
+            db.execute(f"CREATE VIEW {schema}.report AS SELECT region,total FROM {schema}.totals")
+
+    def verify(endpoint, schema):
+        with psycopg.connect(**endpoint) as db:
+            assert db.execute(f"SELECT * FROM {schema}.report ORDER BY region").fetchall() == [(1, 5), (2, 4)]
+            assert db.execute(
+                "SELECT matviewname,ispopulated FROM pg_matviews WHERE schemaname=%s ORDER BY matviewname",
+                (schema,),
+            ).fetchall() == [("pending", False), ("totals", True)]
+            try:
+                with db.transaction():
+                    db.execute(f"SELECT * FROM {schema}.pending")
+            except psycopg.errors.ObjectNotInPrerequisiteState:
+                pass
+            else:
+                raise AssertionError("unpopulated materialized view was readable")
+
+    check_schema_archives(binary, tools, native, "matviews", populate, verify)
 
 
 def check_composite_key_archives(binary, tools, native):
