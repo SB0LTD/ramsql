@@ -65,7 +65,7 @@ PG18 in `public` and in named schemas. Each fixture restores two owned
 sequences, their column defaults and state, and repeats those checks after
 WAL reopen. The fixtures exposed missing transactional sequence ownership
 and missing catalog dependencies from a default to its sequence. Hosted
-qualification and checkpoint coverage for owned sequences remain open.
+archive qualification is pending.
 
 In two separate hosted profiles of one-million-row prepared lookups,
 the eight-client CPU sample share for buffer-overlap validation fell
@@ -1420,6 +1420,14 @@ Windows and macOS each passed 16 checkpoint, 119 ordinary persistence and
 identity for standalone files, a common lock across the legacy and generation
 layouts, and interruption-safe publication and retirement of generations.
 [Hosted checkpoint startup proof](https://github.com/SB0LTD/ramsql/actions/runs/44234918499)
+
+The owned-sequence candidate checkpoints supported public tables with
+ordinary defaults, identity and SERIAL columns. The Sig image contract
+passed 136 assertions, including malformed ownership and valid WAL
+suffix replay. The local Linux server retained the sequence ownership
+and allocation state through rotation, a process kill and recovery of
+new writes in the selected WAL. Full CI and catalog images for named
+schemas remain open.
 
 - [ ] Write a complete validated snapshot with a durable sequence anchor.
 - [ ] Publish it atomically, persist directory changes, then retire only log segments the checkpoint safely covers.
