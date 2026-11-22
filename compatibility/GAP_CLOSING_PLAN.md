@@ -31,10 +31,13 @@ restores chained views after their base tables and verifies their rows
 after WAL reopen. The next candidate expands that fixture to public
 relations originally referenced without a schema and to CTE names
 that shadow a public relation. General view and rewrite-rule deparsing
-remain open. Stock PG16 and PG18 both exposed a 128-byte stored view
-definition limit in the default profile when PostgreSQL expanded a
-short CTE query. The release needs bounded variable-length definition
-storage and wire output that do not enlarge every stored data cell.
+remain open. Stock PG16 and PG18 both exposed the 128-byte stored view
+definition limit when PostgreSQL added formatting around a short CTE.
+The compact-view candidate passed that original fixture locally on both
+versions by reducing lexical whitespace and comments when needed. It
+preserves string and identifier spelling. Definitions whose SQL tokens
+exceed the budget still need variable-length storage and wire output
+without enlarging every stored data cell.
 
 The composite-key follow-up passed all 34 checks on PG16 and PG18 CI.
 Stock restore applies the composite primary key after COPY in the same
@@ -42,6 +45,34 @@ transaction. The fixture checks row equality and rejection of duplicate
 and NULL key values after WAL reopen. General late composite-key changes
 to existing tables remain open.
 [Stock PG16 and PG18 composite-key qualification](https://github.com/SB0LTD/ramsql/actions/runs/44962030582)
+
+The next candidate adds a late composite key to an already populated
+dense table in a separate transaction. It validates existing rows with
+an empty index bank and checks equals on hash collisions. Both PG16 and
+PG18 CI passed all 35 checks, covering duplicate rejection during the
+alter, successful retry, enforcement and WAL recovery. Integral-bank
+rewrites and indexed composite-key lookups at production scale remain open.
+[Late composite-key qualification](https://github.com/SB0LTD/ramsql/actions/runs/44962874305)
+
+In two separate hosted profiles of one-million-row prepared lookups,
+the eight-client CPU sample share for buffer-overlap validation fell
+from 15.49% to 0.31% after avoiding table-span scans for disjoint
+buffers. The hosted samples recorded 199,358 and 227,063 queries/s
+with eight clients. The parallel-read contract passed 144 assertions
+and 2,400 concurrent queries, including real buffer alias rejection.
+The separate runs are diagnostic. The repeated three-engine gate
+still determines whether performance qualifies.
+[Baseline CPU profile](https://github.com/benor1470/dbMeter/actions/runs/45014975747) ·
+[Candidate CPU profile](https://github.com/benor1470/dbMeter/actions/runs/45015989385)
+
+The separate 118-program smoke audit matched all 106 PostgreSQL programs
+against native PG18.3 with XML support. Database lifecycle, prepared
+transactions and maintenance ran on separate disposable instances. The
+audit compares allocated type identities through the live catalog and
+preserves raw OIDs in its evidence. All six MySQL programs matched
+native MySQL 8.0.36. All six T-SQL programs returned the expected rows
+through python-tds. Native SQL Server comparison and the broader
+755-record PostgreSQL inventory remain open.
 
 The first full release run passed COPY, native SB0X and SB0K, all hosted
 builds and the PostgreSQL release-artifact lanes. Its ARM macOS wire test
@@ -1161,14 +1192,18 @@ visibility, errors and durable replay agree with the reference.
 
 ### Q10 — Defaults, identity and sequences
 
-**Status:** Partial (flag F10). Defaults, identity, stored generated columns and sequences with PostgreSQL's log-ahead, `defaults` and `identity` probes `match: true (PG18+PG16, memory and durable+SCRAM)`, suite q10 and crash cases CR1/CR2 match; one identity column per table, CACHE > 1 and SERIAL unsupported, clean-shutdown continuity not comparable (no graceful shutdown, O04). [Evidence](#gap-closing-run-evidence-24-october-2026). **Owner:** ZPM schema/execution/transactions; RAMSQL persists lifecycle state.
+**Status:** Partial (flag F10). Stock PG16 and PG18 archives round-trip ordinary
+defaults, stored generated columns, scoped identity and standalone sequences.
+The replay suite exercises a cached scoped sequence with `CACHE 2`. One
+identity column per table, full `SERIAL` migration, privilege coverage and
+clean-shutdown sequence continuity remain open. **Owner:** ZPM
+schema, execution and transactions. RAMSQL persists lifecycle state.
 
-Omitted values currently become NULL. Applications expect column defaults and
-generated identifiers with particular concurrency and rollback behavior.
+- [x] Store and evaluate defaults and stored generated-column expressions in the qualified subset.
+- [x] Implement identity definitions and sequence reads, with persisted start and current values.
+- [ ] Complete sequence privilege, lifecycle and concurrent-allocation parity across supported deployments.
 
-- [ ] Store/evaluate defaults and generated-column expressions.
-- [ ] Implement identity definitions, sequence objects and nextval/currval/setval behavior.
-- [ ] Define durable sequence state, restart behavior, exhaustion and concurrent allocation without assuming generated numbers roll back like ordinary rows.
+[Stock migration qualification](https://github.com/SB0LTD/ramsql/actions/runs/44962030582)
 
 **Closed when:** omitted/explicit DEFAULT values, ALWAYS/BY DEFAULT identity,
 rollback gaps, session sequence state and crash/restart match native PostgreSQL.
@@ -1177,12 +1212,15 @@ rollback gaps, session sequence state and crash/restart match native PostgreSQL.
 
 **Status:** Partial. **Owner:** ZPM schemas/catalog/storage; RAMSQL migration integration.
 
-CREATE/DROP plus one primary key and NOT NULL cannot run ordinary migrations.
-Changing columns or enforcing relationships requires real schema management.
+Stock PG16 and PG18 restore schema ownership, table definitions and
+constraints in one transaction. The fixtures verify supported check and
+foreign-key behavior, and include composite primary keys on newly
+restored tables.
 
-- [ ] Implement schemas, ALTER TABLE, rename, TRUNCATE and schema-qualified objects.
-- [ ] Add composite keys, UNIQUE, CHECK, foreign keys, referential actions and required deferrable constraints.
-- [ ] Make DDL transactional where PostgreSQL is transactional; coordinate schema locks and prepared-plan invalidation.
+- [x] Implement the qualified subset of schemas, ALTER TABLE, rename, TRUNCATE and qualification.
+- [x] Enforce the tested primary key, UNIQUE, CHECK and foreign key forms.
+- [ ] Extend physical index and referential-action parity, including additional deferrability and integral-bank DDL.
+- [ ] Complete transactional DDL parity, schema locks and prepared-plan invalidation.
 - [ ] Version persisted schema definitions and support validated schema changes during recovery/upgrades.
 
 **Closed when:** representative migrations run forward/backward, concurrent DDL
@@ -1190,18 +1228,14 @@ and queries behave correctly, and failure cannot leave half-applied schema/index
 
 #### Database lifecycle and isolation
 
-The PostgreSQL wire startup database currently supplies a session name within
-one shared store. `CREATE DATABASE` therefore requires a cluster registry and
-real routing before the inventory probe can pass.
+The hosted release matrix verifies separate stores selected by the
+PostgreSQL startup database, isolation and restart. The cluster registry
+is persisted for the implemented create and drop paths.
 
-- [ ] Give each database an owned store and stable ID. After credential proof,
-  admission resolves the startup database, checks `CONNECT` and binds the
-  session before ReadyForQuery. Each worker uses the selected store for SQL,
-  cursors, notifications and lock waits.
-- [ ] Add database create/drop records and a database ID to per-store WAL
-  records. Recover the cluster registry and data together before accepting
-  clients. Keep the original single-database WAL readable and make any format
-  upgrade explicit. Use the same registry for `pg_database` and backups.
+- [x] Route the qualified startup-database connections to separate stores.
+- [x] Recover the qualified registry and stores from WAL after restart.
+- [ ] Close cluster-wide backup and restore, catalog privileges, and routing
+  parity for cursors, notifications and lock waits.
 - [ ] Implement ownership, transaction-block rejection, an initial template
   policy and in-use checks for DROP. Cover identifier reuse, reconnect races,
   cross-database isolation, prior data recovery and create/drop crash edges.
@@ -1227,7 +1261,11 @@ must not substitute for three compatible dialects.
 
 ### Q13 — Functions, views, triggers and extensions
 
-**Status:** Missing/unverified. **Owner:** Reusable language/execution support in ZPM; RAMSQL selects supported facilities.
+**Status:** Partial. **Owner:** ZPM language and execution. RAMSQL selects
+supported facilities. Ordinary dependent views round-trip in the qualified
+stock archive fixture. Routine and rule tests cover supported execution
+and WAL replay. Extensions and arbitrary stored definitions require
+further implementation and qualification.
 
 Applications call built-in functions and can rely on views, triggers, procedures
 and extensions. Protocol support alone cannot execute that application logic.
