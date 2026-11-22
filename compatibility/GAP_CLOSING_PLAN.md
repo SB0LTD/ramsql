@@ -60,6 +60,13 @@ identity columns in both directions. It verifies the rows and both
 owned sequences' values and called flags, including after WAL reopen.
 [Multiple-identity qualification](https://github.com/SB0LTD/ramsql/actions/runs/45018672015)
 
+Separate SERIAL fixtures passed both directions with local stock PG16 and
+PG18 in `public` and in named schemas. Each fixture restores two owned
+sequences, their column defaults and state, and repeats those checks after
+WAL reopen. The fixtures exposed missing transactional sequence ownership
+and missing catalog dependencies from a default to its sequence. Hosted
+qualification and checkpoint coverage for owned sequences remain open.
+
 In two separate hosted profiles of one-million-row prepared lookups,
 the eight-client CPU sample share for buffer-overlap validation fell
 from 15.49% to 0.31% after avoiding table-span scans for disjoint
@@ -1201,9 +1208,10 @@ visibility, errors and durable replay agree with the reference.
 **Status:** Partial (flag F10). Stock PG16 and PG18 archives round-trip ordinary
 defaults, stored generated columns, scoped identity and standalone sequences.
 Stock archives also exercise multiple identity columns on one table.
-The replay suite exercises a cached scoped sequence with `CACHE 2`. Full
-`SERIAL` migration, privilege coverage and
-clean-shutdown sequence continuity remain open. **Owner:** ZPM
+The replay suite exercises a cached scoped sequence with `CACHE 2`. Local
+stock fixtures cover common `SERIAL` and `BIGSERIAL` archives with two owned
+sequences. Hosted qualification, broader sequence DDL and privilege
+parity, and clean-shutdown sequence continuity remain open. **Owner:** ZPM
 schema, execution and transactions. RAMSQL persists lifecycle state.
 
 - [x] Store and evaluate defaults and stored generated-column expressions in the qualified subset.

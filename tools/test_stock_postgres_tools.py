@@ -241,6 +241,8 @@ def main():
         ("ramsql_identity_archive_to_native", lambda db: export_identity_archive(binary, tools, db)),
         ("native_identity_archive_to_ramsql", lambda db: import_identity_archive(binary, tools, db)),
         ("multiple_identity_archives", lambda db: check_multiple_identities(binary, tools, db)),
+        ("serial_archives", lambda db: check_serial_archives(binary, tools, db)),
+        ("public_serial_archives", lambda db: check_serial_archives(binary, tools, db, scoped=False)),
         ("scoped_sequence_archives", lambda db: check_sequence_archives(binary, tools, db)),
         ("stored_generated_archives", lambda db: check_generated_archives(binary, tools, db)),
         ("view_archives", lambda db: check_view_archives(binary, tools, db)),
@@ -1218,6 +1220,46 @@ def check_multiple_identities(binary, tools, native):
                 assert db.execute(f"SELECT last_value,is_called FROM {schema}.items_{column}_seq").fetchone() == (current, True)
 
     check_schema_archives(binary, tools, native, "identities", populate, verify)
+
+
+def check_serial_archives(binary, tools, native, *, scoped=True):
+    def table_for(schema):
+        return f"{schema}.items" if scoped else f"public.{schema}"
+
+    def populate(endpoint, schema):
+        table = table_for(schema)
+        with psycopg.connect(**endpoint) as db:
+            if scoped:
+                db.execute(f"CREATE SCHEMA {schema}")
+            db.execute(f"CREATE TABLE {table} (id serial PRIMARY KEY, ordinal bigserial, label text)")
+            assert db.execute(
+                f"INSERT INTO {table}(label) VALUES ('initial') RETURNING id,ordinal"
+            ).fetchone() == (1, 1)
+            db.execute(f"SELECT setval('{table}_ordinal_seq',20,true)")
+
+    def verify(endpoint, schema):
+        table = table_for(schema)
+        with psycopg.connect(**endpoint) as db:
+            assert db.execute(f"SELECT * FROM {table} ORDER BY id").fetchall() == [(1, 1, "initial")]
+            for column, value in (("id", 1), ("ordinal", 20)):
+                sequence = f"{table}_{column}_seq"
+                assert db.execute(
+                    "SELECT pg_get_serial_sequence(%s,%s)", (table, column)
+                ).fetchone() == (sequence,)
+                assert db.execute(
+                    f"SELECT last_value,is_called FROM {sequence}"
+                ).fetchone() == (value, True)
+            db.execute("SET search_path TO ''")
+            assert db.execute(
+                "SELECT pg_get_expr(adbin,adrelid) FROM pg_attrdef "
+                "WHERE adrelid = to_regclass(%s) ORDER BY adnum", (table,)
+            ).fetchall() == [
+                (f"nextval('{table}_id_seq'::regclass)",),
+                (f"nextval('{table}_ordinal_seq'::regclass)",),
+            ]
+
+    fixture = "serials" if scoped else "public_serials"
+    check_schema_archives(binary, tools, native, fixture, populate, verify)
 
 
 def check_sequence_archives(binary, tools, native):
