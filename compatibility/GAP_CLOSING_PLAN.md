@@ -1429,6 +1429,13 @@ and allocation state through rotation, a process kill and recovery of
 new writes in the selected WAL. Full CI and catalog images for named
 schemas remain open.
 
+The next checkpoint candidate includes supported tables and sequences
+in named schemas owned by the bootstrap role. The local Sig suite passed
+147 assertions and the Linux server recovered committed writes after a
+process kill. Schema and relation OIDs, same-named sequences, defaults
+and ownership are preserved. Catalog images for roles, grants, views
+and other schema objects remain open. Hosted qualification is pending.
+
 - [ ] Write a complete validated snapshot with a durable sequence anchor.
 - [ ] Publish it atomically, persist directory changes, then retire only log segments the checkpoint safely covers.
 - [ ] Retain a separate database lock across file replacement and define recovery for every interrupted transition.

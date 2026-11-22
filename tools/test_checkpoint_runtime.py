@@ -75,7 +75,7 @@ def server_crashes(binary, root):
         execute(server, "SELECT id FROM journal ORDER BY id", [["1"], ["2"], ["3"], ["4"], ["5"]])
 
     with CheckpointServer(binary, stem, storage_options=("--workers", "1", "--checkpoint-every", "1")) as server:
-        execute(server, "CREATE SCHEMA unsupported_by_image")
+        execute(server, "CREATE ROLE unsupported_by_image")
         assert selector(stem) == 3
         execute(server, "INSERT INTO journal VALUES (6)")
         assert selector(stem) == 3
@@ -131,17 +131,22 @@ def sequence_only_rotation(binary, root):
         execute(server, "SELECT nextval('ticket') > 20", [["t"]])
 
 
-def owned_sequence_recovery(binary, root):
-    original = root / "owned-sequence.wal"
-    stem = root / "owned-sequence"
+def owned_sequence_recovery(binary, root, *, named=False):
+    fixture = "named-owned-sequence" if named else "owned-sequence"
+    original = root / f"{fixture}.wal"
+    stem = root / fixture
+    schema = "archive" if named else "public"
+    table = f"{schema}.orders"
     with DurableServer(binary, original, create=True, storage_options=("--workers", "1")) as server:
+        if named:
+            execute(server, f"CREATE SCHEMA {schema}")
         execute(
-            server, "CREATE TABLE orders "
+            server, f"CREATE TABLE {table} "
             "(id INT GENERATED ALWAYS AS IDENTITY (START 7 CACHE 4) PRIMARY KEY, "
             "ordinal SERIAL, label TEXT DEFAULT 'ready')",
         )
-        execute(server, "INSERT INTO orders DEFAULT VALUES RETURNING id,ordinal,label", [["7", "1", "ready"]])
-        execute(server, "SELECT setval('orders_ordinal_seq',20,true)", [["20"]])
+        execute(server, f"INSERT INTO {table} DEFAULT VALUES RETURNING id,ordinal,label", [["7", "1", "ready"]])
+        execute(server, f"SELECT setval('{table}_ordinal_seq',20,true)", [["20"]])
     original_bytes = original.read_bytes()
     bootstrap = subprocess.run(
         [str(binary), "--data", str(original), "--bootstrap-checkpoint",
@@ -151,18 +156,18 @@ def owned_sequence_recovery(binary, root):
     assert bootstrap.returncode == 0, bootstrap.stderr
     assert selector(stem) == 1 and original.read_bytes() == original_bytes
     with CheckpointServer(binary, stem, storage_options=("--workers", "1", "--checkpoint-every", "1")) as server:
-        execute(server, "INSERT INTO orders DEFAULT VALUES")
+        execute(server, f"INSERT INTO {table} DEFAULT VALUES")
         assert selector(stem) == 2
     with CheckpointServer(binary, stem, storage_options=("--workers", "1")) as server:
-        execute(server, "SELECT count(*)=2 AND min(id)=7 AND max(ordinal)=21 FROM orders", [["t"]])
-        execute(server, "INSERT INTO orders DEFAULT VALUES")
+        execute(server, f"SELECT count(*)=2 AND min(id)=7 AND max(ordinal)=21 FROM {table}", [["t"]])
+        execute(server, f"INSERT INTO {table} DEFAULT VALUES")
         assert selector(stem) == 2
     with CheckpointServer(binary, stem, storage_options=("--workers", "1")) as server:
-        execute(server, "SELECT count(*)=3 AND count(DISTINCT ordinal)=3 FROM orders", [["t"]])
-        execute(server, "SELECT pg_get_serial_sequence('orders','id')", [["public.orders_id_seq"]])
-        execute(server, "SELECT pg_get_serial_sequence('orders','ordinal')", [["public.orders_ordinal_seq"]])
-        execute(server, "INSERT INTO orders DEFAULT VALUES")
-        execute(server, "SELECT count(*)=4 AND count(DISTINCT ordinal)=4 AND min(label)='ready' FROM orders", [["t"]])
+        execute(server, f"SELECT count(*)=3 AND count(DISTINCT ordinal)=3 FROM {table}", [["t"]])
+        execute(server, f"SELECT pg_get_serial_sequence('{table}','id')", [[f"{table}_id_seq"]])
+        execute(server, f"SELECT pg_get_serial_sequence('{table}','ordinal')", [[f"{table}_ordinal_seq"]])
+        execute(server, f"INSERT INTO {table} DEFAULT VALUES")
+        execute(server, f"SELECT count(*)=4 AND count(DISTINCT ordinal)=4 AND min(label)='ready' FROM {table}", [["t"]])
 
 
 def concurrent_writers(binary, root):
@@ -241,6 +246,7 @@ def main():
     sequence_recovery(options.binary.resolve(), output)
     sequence_only_rotation(options.binary.resolve(), output)
     owned_sequence_recovery(options.binary.resolve(), output)
+    owned_sequence_recovery(options.binary.resolve(), output, named=True)
     if options.concurrent:
         concurrent_writers(options.binary.resolve(), output)
     if options.fixture:
@@ -249,6 +255,7 @@ def main():
     print(json.dumps({"suite": "checkpoint_runtime", "pass": True, "server_crashes": 6,
                       "sequence_recovery_tested": True,
                       "owned_sequence_recovery_tested": True,
+                      "named_schema_recovery_tested": True,
                       "publication_boundary_crashes": len(PHASES) if options.fixture else 0,
                       "concurrent_writers": 4 if options.concurrent else 0,
                       "selector_failure_tested": options.fixture is not None,
