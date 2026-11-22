@@ -1,6 +1,7 @@
 """Independent DB-API clients against all three live RAMSQL listeners."""
 import argparse
 from contextlib import contextmanager
+from datetime import date
 import os
 from pathlib import Path
 import queue
@@ -91,6 +92,16 @@ def main():
             else: raise AssertionError('MySQL SQL error accepted')
             cur.execute('SELECT id FROM clients WHERE id = 2')
             assert cur.fetchone()==(2,)
+            cur.execute('CREATE TABLE mysql_ids (id INT AUTO_INCREMENT PRIMARY KEY, v BIGINT UNSIGNED)')
+            cur.execute('INSERT INTO mysql_ids(v) VALUES (18446744073709551615)')
+            cur.execute('INSERT INTO mysql_ids(v) VALUES (9)')
+            cur.execute('REPLACE INTO mysql_ids(id,v) VALUES (2,7)')
+            assert cur.rowcount == 2
+            cur.execute('SELECT id AS `key`, v FROM mysql_ids ORDER BY id LIMIT 0,2')
+            assert cur.description[0][0] == 'key'
+            assert cur.fetchall() == ((1, 18446744073709551615), (2, 7))
+            cur.execute("SELECT IFNULL(NULL,2), DATE_ADD('2025-01-01', INTERVAL 1 DAY)")
+            assert cur.fetchone() == (2, '2025-01-02')
         mysql.begin()
         with mysql.cursor() as cur: cur.execute("UPDATE clients SET label = 'rollback' WHERE id = 2")
         mysql.rollback()
@@ -114,6 +125,19 @@ def main():
         with tds.cursor() as cur:
             cur.execute('SELECT label FROM clients WHERE id = 3')
             assert cur.fetchone()==('SQL Server',)
+            cur.execute('SELECT TOP (2) id AS [key] FROM clients ORDER BY id')
+            assert cur.description[0][0] == 'key'
+            assert cur.fetchall() == [(1,), (2,)]
+            cur.execute("UPDATE clients SET label='SQL Server' OUTPUT inserted.id WHERE id=3")
+            assert cur.fetchall() == [(3,)]
+            cur.execute('SELECT a.id, x.v FROM clients a CROSS APPLY (SELECT a.id+1 AS v) x ORDER BY a.id')
+            assert cur.fetchall() == [(1, 2), (2, 3), (3, 4)]
+            cur.execute("SELECT ISNULL(NULL,2), DATEADD(day,1,CAST('2025-01-01' AS date))")
+            assert cur.fetchone() == (2, date(2025, 1, 2))
+            cur.execute('DECLARE @x INT=1; SELECT @x')
+            while cur.description is None and cur.nextset():
+                pass
+            assert cur.fetchall() == [(1,)]
         with pg.cursor() as cur:
             cur.execute('SELECT id FROM clients ORDER BY id')
             assert cur.fetchall()==[(1,),(2,),(3,)]
