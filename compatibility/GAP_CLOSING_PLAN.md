@@ -39,6 +39,13 @@ preserves string and identifier spelling. Definitions whose SQL tokens
 exceed the budget still need variable-length storage and wire output
 without enlarging every stored data cell.
 
+The view-column follow-up preserves quoted and computed output names from a
+view's column list when stock tools serialize supported simple projections.
+The new dependent-view fixture passed both directions on local PostgreSQL
+16 and 18 and checks column names, values and WAL reopen. Hosted
+qualification is pending. General view deparsing and CREATE OR REPLACE VIEW
+parity remain open.
+
 The composite-key follow-up passed all 34 checks on PG16 and PG18 CI.
 Stock restore applies the composite primary key after COPY in the same
 transaction. The fixture checks row equality and rejection of duplicate
@@ -53,6 +60,19 @@ PG18 CI passed all 35 checks, covering duplicate rejection during the
 alter, successful retry, enforcement and WAL recovery. Integral-bank
 rewrites and indexed composite-key lookups at production scale remain open.
 [Late composite-key qualification](https://github.com/SB0LTD/ramsql/actions/runs/44962874305)
+
+The multiple-identity candidate passed all 36 stock checks on PG16 and
+PG18. The new fixture restores a table with ALWAYS and BY DEFAULT
+identity columns in both directions. It verifies the rows and both
+owned sequences' values and called flags, including after WAL reopen.
+[Multiple-identity qualification](https://github.com/SB0LTD/ramsql/actions/runs/45018672015)
+
+Separate SERIAL fixtures passed both directions with local stock PG16 and
+PG18 in `public` and in named schemas. Each fixture restores two owned
+sequences, their column defaults and state, and repeats those checks after
+WAL reopen. The fixtures exposed missing transactional sequence ownership
+and missing catalog dependencies from a default to its sequence. Hosted
+archive qualification is pending.
 
 In two separate hosted profiles of one-million-row prepared lookups,
 the eight-client CPU sample share for buffer-overlap validation fell
@@ -1194,16 +1214,18 @@ visibility, errors and durable replay agree with the reference.
 
 **Status:** Partial (flag F10). Stock PG16 and PG18 archives round-trip ordinary
 defaults, stored generated columns, scoped identity and standalone sequences.
-The replay suite exercises a cached scoped sequence with `CACHE 2`. One
-identity column per table, full `SERIAL` migration, privilege coverage and
-clean-shutdown sequence continuity remain open. **Owner:** ZPM
+Stock archives also exercise multiple identity columns on one table.
+The replay suite exercises a cached scoped sequence with `CACHE 2`. Local
+stock fixtures cover common `SERIAL` and `BIGSERIAL` archives with two owned
+sequences. Hosted qualification, broader sequence DDL and privilege
+parity, and clean-shutdown sequence continuity remain open. **Owner:** ZPM
 schema, execution and transactions. RAMSQL persists lifecycle state.
 
 - [x] Store and evaluate defaults and stored generated-column expressions in the qualified subset.
 - [x] Implement identity definitions and sequence reads, with persisted start and current values.
 - [ ] Complete sequence privilege, lifecycle and concurrent-allocation parity across supported deployments.
 
-[Stock migration qualification](https://github.com/SB0LTD/ramsql/actions/runs/44962030582)
+[Stock migration qualification](https://github.com/SB0LTD/ramsql/actions/runs/45018672015)
 
 **Closed when:** omitted/explicit DEFAULT values, ALWAYS/BY DEFAULT identity,
 rollback gaps, session sequence state and crash/restart match native PostgreSQL.
@@ -1405,6 +1427,21 @@ Windows and macOS each passed 16 checkpoint, 119 ordinary persistence and
 identity for standalone files, a common lock across the legacy and generation
 layouts, and interruption-safe publication and retirement of generations.
 [Hosted checkpoint startup proof](https://github.com/SB0LTD/ramsql/actions/runs/44234918499)
+
+The owned-sequence candidate checkpoints supported public tables with
+ordinary defaults, identity and SERIAL columns. The Sig image contract
+passed 136 assertions, including malformed ownership and valid WAL
+suffix replay. The local Linux server retained the sequence ownership
+and allocation state through rotation, a process kill and recovery of
+new writes in the selected WAL. Full CI and catalog images for named
+schemas remain open.
+
+The next checkpoint candidate includes supported tables and sequences
+in named schemas owned by the bootstrap role. The local Sig suite passed
+147 assertions and the Linux server recovered committed writes after a
+process kill. Schema and relation OIDs, same-named sequences, defaults
+and ownership are preserved. Catalog images for roles, grants, views
+and other schema objects remain open. Hosted qualification is pending.
 
 - [ ] Write a complete validated snapshot with a durable sequence anchor.
 - [ ] Publish it atomically, persist directory changes, then retire only log segments the checkpoint safely covers.
