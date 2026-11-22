@@ -246,6 +246,7 @@ def main():
         ("scoped_sequence_archives", lambda db: check_sequence_archives(binary, tools, db)),
         ("stored_generated_archives", lambda db: check_generated_archives(binary, tools, db)),
         ("view_archives", lambda db: check_view_archives(binary, tools, db)),
+        ("view_column_name_archives", lambda db: check_view_column_name_archives(binary, tools, db)),
         ("composite_primary_key_archives", lambda db: check_composite_key_archives(binary, tools, db)),
         ("late_composite_primary_key", lambda db: check_late_composite_key(binary, tools, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
@@ -1342,6 +1343,28 @@ def check_view_archives(binary, tools, native):
             assert db.execute(f"SELECT id FROM {schema}.d_cte").fetchall() == [(6,)]
 
     check_schema_archives(binary, tools, native, "view", populate, verify)
+
+
+def check_view_column_name_archives(binary, tools, native):
+    def populate(endpoint, schema):
+        with psycopg.connect(**endpoint) as db:
+            db.execute(f"CREATE SCHEMA {schema}")
+            db.execute(f"CREATE TABLE {schema}.t (id int, n int)")
+            db.execute(f"INSERT INTO {schema}.t VALUES (1,20)")
+            db.execute(
+                f'CREATE VIEW {schema}.v ("Item", "a""b", total) AS '
+                f'SELECT id, n AS "old""name", n+1 FROM {schema}.t'
+            )
+            db.execute(f'CREATE VIEW {schema}.w AS SELECT "Item", "a""b", total FROM {schema}.v')
+
+    def verify(endpoint, schema):
+        with psycopg.connect(**endpoint) as db:
+            for view in ("v", "w"):
+                result = db.execute(f'SELECT "Item", "a""b", total FROM {schema}.{view}')
+                assert result.fetchall() == [(1,20,21)]
+                assert [column.name for column in result.description] == ["Item", 'a"b', "total"]
+
+    check_schema_archives(binary, tools, native, "viewnames", populate, verify)
 
 
 def check_composite_key_archives(binary, tools, native):

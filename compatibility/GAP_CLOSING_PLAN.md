@@ -39,6 +39,13 @@ preserves string and identifier spelling. Definitions whose SQL tokens
 exceed the budget still need variable-length storage and wire output
 without enlarging every stored data cell.
 
+The view-column follow-up preserves quoted and computed output names from a
+view's column list when stock tools serialize supported simple projections.
+The new dependent-view fixture passed both directions on local PostgreSQL
+16 and 18 and checks column names, values and WAL reopen. Hosted
+qualification is pending. General view deparsing and CREATE OR REPLACE VIEW
+parity remain open.
+
 The composite-key follow-up passed all 34 checks on PG16 and PG18 CI.
 Stock restore applies the composite primary key after COPY in the same
 transaction. The fixture checks row equality and rejection of duplicate
