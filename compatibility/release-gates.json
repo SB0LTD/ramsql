@@ -9,7 +9,7 @@
       "evidence": "https://github.com/SB0LTD/ramsql/actions/runs/44655295188",
       "stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/44962874305",
       "requirement": "Complete the PostgreSQL feature inventory, upstream and application regressions, and stock tooling round trips.",
-      "qualified": "Packaged Linux passes PostgreSQL 16 and 18 memory and durable SCRAM lanes, including independent COPY/backpressure tests. A candidate passes 34 stock-tooling checks on each version, including whole-database ownership and ACLs, identity and standalone sequences, stored generated columns, dependent views, and fresh-table composite primary keys with WAL reopen."
+      "qualified": "Packaged Linux passes PostgreSQL 16 and 18 memory and durable SCRAM lanes, including independent COPY/backpressure tests. The published prerelease passed 34 stock-tooling checks per version. The next candidate passed 35, adding a late composite primary key on an already populated dense table to the whole-database archives, sequence, generated-column, dependent-view and WAL-reopen fixtures."
     },
     {
       "id": "implemented_subset_durability",
