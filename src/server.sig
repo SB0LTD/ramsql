@@ -1130,9 +1130,10 @@ const Reactor = struct {
         defer self.reader.close();
         while (!reactor_stop.load(.acquire)) {
             const epoch = self.signal.epoch.load(.acquire);
-            var sockets: [capacity]tcp.Socket = @splat(tcp.invalid_socket);
-            var readable: [capacity]bool = @splat(false);
-            var writable: [capacity]bool = @splat(false);
+            var sockets: [capacity]tcp.Socket = undefined;
+            var readable: [capacity]bool = undefined;
+            var writable: [capacity]bool = undefined;
+            var owners: [capacity]usize = undefined;
             var active: usize = 0;
             var buffered = false;
             var poll_timeout_ms: u32 = 10;
@@ -1141,24 +1142,35 @@ const Reactor = struct {
             // holding the same mutex used for execution and disconnection.
             var woken: [capacity]usize = undefined;
             var woken_count: usize = 0;
+            var check_waiters = false;
             var slot = self.index;
             while (slot < clients.len) : (slot += reactor_count) {
                 const client = &clients[slot];
-                if (client.state.load(.acquire) == 3) client.state.store(0, .release);
+                switch (client.state.load(.acquire)) {
+                    2 => check_waiters = check_waiters or client.blocked or client.cancel_request.load(.acquire) != 0,
+                    3 => client.state.store(0, .release),
+                    else => {},
+                }
             }
-            if (store_mutex.tryLock()) {
-            store.now_ns = now;
-            slot = self.index;
-            while (slot < clients.len) : (slot += reactor_count) {
-                const client = &clients[slot];
-                if (client.state.load(.acquire) != 2) continue;
-                pollWorkerInterrupts(client, client.connection.id);
-                if (!client.blocked or !client.connection.wakeReady()) continue;
-                var position = woken_count;
-                while (position != 0 and clients[woken[position-1]].connection.waitStart() > client.connection.waitStart()) : (position -= 1) woken[position] = woken[position-1];
-                woken[position] = slot; woken_count += 1;
-            }
-            store_mutex.unlock();
+            // Runnable connections handle interrupts during dispatch. Only a
+            // blocked connection or an already published cancel needs a pass
+            // under the shared store lock before processing socket traffic.
+            if (check_waiters and store_mutex.tryLock()) {
+                store.now_ns = now;
+                slot = self.index;
+                while (slot < clients.len) : (slot += reactor_count) {
+                    const client = &clients[slot];
+                    if (client.state.load(.acquire) != 2) continue;
+                    if (client.cancel_request.load(.acquire) != 0)
+                        pollWorkerInterrupts(client, client.connection.id);
+                    if (!client.blocked or !client.connection.wakeReady()) continue;
+                    var position = woken_count;
+                    while (position != 0 and clients[woken[position - 1]].connection.waitStart() > client.connection.waitStart()) : (position -= 1)
+                        woken[position] = woken[position - 1];
+                    woken[position] = slot;
+                    woken_count += 1;
+                }
+                store_mutex.unlock();
             }
             for (woken[0..woken_count]) |index| {
                 const client = &clients[index];
@@ -1176,23 +1188,23 @@ const Reactor = struct {
                 if (client.serve()) buffered = true;
                 if (client.state.load(.acquire) != 2) continue;
                 if (client.sessionDeadline()) |due| poll_timeout_ms = deadlinePollMs(monotonicClock(), due, poll_timeout_ms);
-                sockets[slot] = client.socket;
-                readable[slot] = client.wantsRead();
-                writable[slot] = client.wantsWrite();
+                sockets[active] = client.socket;
+                readable[active] = client.wantsRead();
+                writable[active] = client.wantsWrite();
+                owners[active] = slot;
                 active += 1;
             }
             if (active == 0) { self.reader.close();self.signal.wait(epoch, 100); continue; }
             // Finite poll bounds new admission, cancellation and shutdown
             // latency without introducing a second socket wakeup protocol.
-            const poll_count = if (comptime capacity <= standard_capacity) capacity else clients.len;
-            _ = try waitServer(tcp.invalid_socket, sockets[0..poll_count], readable[0..poll_count], writable[0..poll_count], if (buffered) 0 else poll_timeout_ms);
-            slot = self.index;
-            while (slot < clients.len) : (slot += reactor_count) {
-                const client = &clients[slot];
+            _ = try waitServer(tcp.invalid_socket, sockets[0..active], readable[0..active], writable[0..active], if (buffered) 0 else poll_timeout_ms);
+            // A reactor owns these slots through the wait. Newly admitted
+            // clients have no readiness result until the next iteration.
+            for (owners[0..active], readable[0..active], writable[0..active]) |owner, can_read, can_write| {
+                const client = &clients[owner];
+                if (can_write) client.flush() catch { client.close(); continue; };
                 if (client.state.load(.acquire) != 2) continue;
-                if (writable[slot]) client.flush() catch { client.close(); continue; };
-                if (client.state.load(.acquire) != 2) continue;
-                if (readable[slot]) client.receive() catch client.close();
+                if (can_read) client.receive() catch client.close();
             }
         }
     }
