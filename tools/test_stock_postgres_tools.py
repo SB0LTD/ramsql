@@ -244,6 +244,7 @@ def main():
         ("stored_generated_archives", lambda db: check_generated_archives(binary, tools, db)),
         ("view_archives", lambda db: check_view_archives(binary, tools, db)),
         ("composite_primary_key_archives", lambda db: check_composite_key_archives(binary, tools, db)),
+        ("late_composite_primary_key", lambda db: check_late_composite_key(binary, tools, db)),
         ("native_dump_to_ramsql", lambda db: import_dumps(binary, tools, db)),
         ("ramsql_dump_to_native", lambda db: export_archive(binary, tools, db)),
         ("ramsql_database_dump_to_native", lambda db: export_archive(binary, tools, db, table_options=(), label="whole-database")),
@@ -1298,6 +1299,49 @@ def check_composite_key_archives(binary, tools, native):
                     raise AssertionError(f"restored primary key accepted {values}")
 
     check_schema_archives(binary, tools, native, "composite", populate, verify)
+
+
+def check_late_composite_key(binary, tools, native):
+    def apply(endpoint):
+        with psycopg.connect(**endpoint) as db:
+            db.execute("CREATE TABLE late_key (shard int, id int)")
+            db.execute("INSERT INTO late_key VALUES (1,2),(2,2),(1,2)")
+            try:
+                with db.transaction():
+                    db.execute("ALTER TABLE late_key ADD PRIMARY KEY (shard,id)")
+            except psycopg.errors.UniqueViolation:
+                pass
+            else:
+                raise AssertionError("late primary key accepted duplicate rows")
+            db.execute("DELETE FROM late_key")
+            db.execute("INSERT INTO late_key VALUES (1,2),(2,2)")
+            db.execute("ALTER TABLE late_key ADD CONSTRAINT late_pk PRIMARY KEY (shard,id)")
+
+    def report(endpoint):
+        with psycopg.connect(**endpoint) as db:
+            rows = db.execute("SELECT * FROM late_key ORDER BY shard,id").fetchall()
+            definition = db.execute(
+                "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname='late_pk'"
+            ).fetchone()
+            try:
+                with db.transaction():
+                    db.execute("INSERT INTO late_key VALUES (1,2)")
+            except psycopg.errors.UniqueViolation:
+                pass
+            else:
+                raise AssertionError("late primary key accepted a duplicate insert")
+            return rows, definition
+
+    apply(native)
+    expected = report(native)
+    wal = tools.root / "late-composite.wal"
+    storage = ("--workers", "1")
+    with DurableServer(binary, wal, create=True, storage_options=storage) as server:
+        candidate = ramsql_settings(server)
+        apply(candidate)
+        assert report(candidate) == expected
+    with DurableServer(binary, wal, storage_options=storage) as reopened:
+        assert report(ramsql_settings(reopened)) == expected
 
 
 def check_schema_archives(binary, tools, native, fixture, populate, verify):
