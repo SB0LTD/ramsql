@@ -1253,7 +1253,7 @@ def check_generated_archives(binary, tools, native):
 
 def check_view_archives(binary, tools, native):
     def populate(endpoint, schema):
-        public_table = "nv" if schema == "native_view" else "rv"
+        public_table = f"{schema}_public"
         with psycopg.connect(**endpoint) as db:
             db.execute(f"CREATE SCHEMA {schema}")
             db.execute(f"CREATE TABLE {schema}.z_source (id int NOT NULL, amount int)")
