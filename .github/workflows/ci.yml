@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      stock_tooling_only:
+        description: Run only stock PostgreSQL dump and restore qualification
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       skip_differential:
@@ -17,10 +22,13 @@ permissions:
 
 jobs:
   postgres:
-    if: inputs.skip_differential != true
+    if: inputs.skip_differential != true || inputs.stock_tooling_only == true
     uses: ./.github/workflows/postgres.yml
+    with:
+      stock_tooling_only: ${{ inputs.stock_tooling_only == true }}
 
   native:
+    if: inputs.stock_tooling_only != true
     name: Native Sig (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     # Cold native builds on Windows, macOS and Linux reached 30 minutes.
