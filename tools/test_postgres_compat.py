@@ -363,8 +363,10 @@ def running_ramsql(binary, legacy_cli=False, extra_arguments=(), *, data_path=No
         for line in process.stderr:
             errors.append(line.rstrip())
 
-    threading.Thread(target=read_output, daemon=True).start()
-    threading.Thread(target=read_errors, daemon=True).start()
+    output_reader = threading.Thread(target=read_output, daemon=True)
+    error_reader = threading.Thread(target=read_errors, daemon=True)
+    output_reader.start()
+    error_reader.start()
     try:
         deadline = time.monotonic() + startup_timeout
         port = None
@@ -372,9 +374,16 @@ def running_ramsql(binary, legacy_cli=False, extra_arguments=(), *, data_path=No
             try:
                 line = output.get(timeout=max(0.01, deadline - time.monotonic()))
             except queue.Empty:
-                raise RuntimeError(f"RAMSQL startup/recovery exceeded {startup_timeout}s: " + "; ".join(errors)) from None
+                raise RuntimeError(f"RAMSQL startup/recovery exceeded {startup_timeout}s: " + "; ".join(errors.copy())) from None
             if line is None:
-                raise RuntimeError("RAMSQL exited before startup: " + "; ".join(errors))
+                drain_timeout = max(0, min(1, deadline - time.monotonic()))
+                try:
+                    exit_code = process.wait(timeout=drain_timeout)
+                except subprocess.TimeoutExpired:
+                    raise RuntimeError("RAMSQL closed stdout before startup: " + "; ".join(errors.copy())) from None
+                # stdout EOF and the final stderr line arrive on separate threads.
+                error_reader.join(timeout=drain_timeout)
+                raise RuntimeError(f"RAMSQL exited before startup (status {exit_code}): " + "; ".join(errors.copy()))
             match = re.fullmatch(r"RAMSQL postgres 127\.0\.0\.1:(\d+)\s*", line)
             if match:
                 port = int(match[1])
@@ -384,7 +393,8 @@ def running_ramsql(binary, legacy_cli=False, extra_arguments=(), *, data_path=No
                    sslmode="disable", connect_timeout=3, autocommit=True,
                    application_name="ramsql-postgres-compat", options="-c statement_timeout=4000")
         if process.poll() is not None:
-            raise RuntimeError("RAMSQL exited during differential probes: " + "; ".join(errors))
+            error_reader.join(timeout=1)
+            raise RuntimeError("RAMSQL exited during differential probes: " + "; ".join(errors.copy()))
     finally:
         if process.poll() is None:
             process.terminate()
@@ -393,6 +403,10 @@ def running_ramsql(binary, legacy_cli=False, extra_arguments=(), *, data_path=No
             except subprocess.TimeoutExpired:
                 process.kill()
                 process.wait(timeout=5)
+        for thread, pipe in ((output_reader, process.stdout), (error_reader, process.stderr)):
+            thread.join(timeout=1)
+            if not thread.is_alive():
+                pipe.close()
 
 
 def json_value(value):
