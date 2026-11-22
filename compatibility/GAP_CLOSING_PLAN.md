@@ -43,6 +43,14 @@ and NULL key values after WAL reopen. General late composite-key changes
 to existing tables remain open.
 [Stock PG16 and PG18 composite-key qualification](https://github.com/SB0LTD/ramsql/actions/runs/44962030582)
 
+The next candidate adds a late composite key to an already populated
+dense table in a separate transaction. It validates existing rows with
+an empty index bank and checks equals on hash collisions. Both PG16 and
+PG18 CI passed all 35 checks, covering duplicate rejection during the
+alter, successful retry, enforcement and WAL recovery. Integral-bank
+rewrites and indexed composite-key lookups at production scale remain open.
+[Late composite-key qualification](https://github.com/SB0LTD/ramsql/actions/runs/44962874305)
+
 The first full release run passed COPY, native SB0X and SB0K, all hosted
 builds and the PostgreSQL release-artifact lanes. Its ARM macOS wire test
 failed while filling the connection pool. The revised suite tests the full
