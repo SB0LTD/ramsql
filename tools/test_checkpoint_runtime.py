@@ -131,6 +131,40 @@ def sequence_only_rotation(binary, root):
         execute(server, "SELECT nextval('ticket') > 20", [["t"]])
 
 
+def owned_sequence_recovery(binary, root):
+    original = root / "owned-sequence.wal"
+    stem = root / "owned-sequence"
+    with DurableServer(binary, original, create=True, storage_options=("--workers", "1")) as server:
+        execute(
+            server, "CREATE TABLE orders "
+            "(id INT GENERATED ALWAYS AS IDENTITY (START 7 CACHE 4) PRIMARY KEY, "
+            "ordinal SERIAL, label TEXT DEFAULT 'ready')",
+        )
+        execute(server, "INSERT INTO orders DEFAULT VALUES RETURNING id,ordinal,label", [["7", "1", "ready"]])
+        execute(server, "SELECT setval('orders_ordinal_seq',20,true)", [["20"]])
+    original_bytes = original.read_bytes()
+    bootstrap = subprocess.run(
+        [str(binary), "--data", str(original), "--bootstrap-checkpoint",
+         "--checkpoint-stem", str(stem), "--checkpoint-id", IDENTITY],
+        capture_output=True, text=True, timeout=40,
+    )
+    assert bootstrap.returncode == 0, bootstrap.stderr
+    assert selector(stem) == 1 and original.read_bytes() == original_bytes
+    with CheckpointServer(binary, stem, storage_options=("--workers", "1", "--checkpoint-every", "1")) as server:
+        execute(server, "INSERT INTO orders DEFAULT VALUES")
+        assert selector(stem) == 2
+    with CheckpointServer(binary, stem, storage_options=("--workers", "1")) as server:
+        execute(server, "SELECT count(*)=2 AND min(id)=7 AND max(ordinal)=21 FROM orders", [["t"]])
+        execute(server, "INSERT INTO orders DEFAULT VALUES")
+        assert selector(stem) == 2
+    with CheckpointServer(binary, stem, storage_options=("--workers", "1")) as server:
+        execute(server, "SELECT count(*)=3 AND count(DISTINCT ordinal)=3 FROM orders", [["t"]])
+        execute(server, "SELECT pg_get_serial_sequence('orders','id')", [["public.orders_id_seq"]])
+        execute(server, "SELECT pg_get_serial_sequence('orders','ordinal')", [["public.orders_ordinal_seq"]])
+        execute(server, "INSERT INTO orders DEFAULT VALUES")
+        execute(server, "SELECT count(*)=4 AND count(DISTINCT ordinal)=4 AND min(label)='ready' FROM orders", [["t"]])
+
+
 def concurrent_writers(binary, root):
     original = root / "workers.wal"
     stem = root / "workers"
@@ -206,6 +240,7 @@ def main():
     server_crashes(options.binary.resolve(), output)
     sequence_recovery(options.binary.resolve(), output)
     sequence_only_rotation(options.binary.resolve(), output)
+    owned_sequence_recovery(options.binary.resolve(), output)
     if options.concurrent:
         concurrent_writers(options.binary.resolve(), output)
     if options.fixture:
@@ -213,6 +248,7 @@ def main():
         selector_failure(options.fixture.resolve(), output)
     print(json.dumps({"suite": "checkpoint_runtime", "pass": True, "server_crashes": 6,
                       "sequence_recovery_tested": True,
+                      "owned_sequence_recovery_tested": True,
                       "publication_boundary_crashes": len(PHASES) if options.fixture else 0,
                       "concurrent_writers": 4 if options.concurrent else 0,
                       "selector_failure_tested": options.fixture is not None,
