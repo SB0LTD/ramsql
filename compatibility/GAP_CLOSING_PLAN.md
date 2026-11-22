@@ -54,6 +54,12 @@ alter, successful retry, enforcement and WAL recovery. Integral-bank
 rewrites and indexed composite-key lookups at production scale remain open.
 [Late composite-key qualification](https://github.com/SB0LTD/ramsql/actions/runs/44962874305)
 
+The multiple-identity candidate passed all 36 stock checks on PG16 and
+PG18. The new fixture restores a table with ALWAYS and BY DEFAULT
+identity columns in both directions. It verifies the rows and both
+owned sequences' values and called flags, including after WAL reopen.
+[Multiple-identity qualification](https://github.com/SB0LTD/ramsql/actions/runs/45018672015)
+
 In two separate hosted profiles of one-million-row prepared lookups,
 the eight-client CPU sample share for buffer-overlap validation fell
 from 15.49% to 0.31% after avoiding table-span scans for disjoint
@@ -1194,8 +1200,9 @@ visibility, errors and durable replay agree with the reference.
 
 **Status:** Partial (flag F10). Stock PG16 and PG18 archives round-trip ordinary
 defaults, stored generated columns, scoped identity and standalone sequences.
-The replay suite exercises a cached scoped sequence with `CACHE 2`. One
-identity column per table, full `SERIAL` migration, privilege coverage and
+Stock archives also exercise multiple identity columns on one table.
+The replay suite exercises a cached scoped sequence with `CACHE 2`. Full
+`SERIAL` migration, privilege coverage and
 clean-shutdown sequence continuity remain open. **Owner:** ZPM
 schema, execution and transactions. RAMSQL persists lifecycle state.
 
@@ -1203,7 +1210,7 @@ schema, execution and transactions. RAMSQL persists lifecycle state.
 - [x] Implement identity definitions and sequence reads, with persisted start and current values.
 - [ ] Complete sequence privilege, lifecycle and concurrent-allocation parity across supported deployments.
 
-[Stock migration qualification](https://github.com/SB0LTD/ramsql/actions/runs/44962030582)
+[Stock migration qualification](https://github.com/SB0LTD/ramsql/actions/runs/45018672015)
 
 **Closed when:** omitted/explicit DEFAULT values, ALWAYS/BY DEFAULT identity,
 rollback gaps, session sequence state and crash/restart match native PostgreSQL.
