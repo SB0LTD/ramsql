@@ -34,6 +34,32 @@ def synthetic_bundle(revision, binary_sha):
 
 
 class QualificationContracts(unittest.TestCase):
+    def test_startup_failure_drains_stderr_after_stdout_eof(self):
+        from threading import Event
+        import test_postgres_compat as compat
+
+        exited = Event()
+        process = MagicMock()
+        process.poll.return_value = 1
+
+        def wait(**_):
+            exited.set()
+            return 1
+
+        def stderr():
+            if exited.wait(timeout=3):
+                yield "AuthenticationFailed\n"
+
+        process.wait.side_effect = wait
+        process.stderr.__iter__.side_effect = stderr
+        with patch.object(compat.subprocess, "Popen", return_value=process):
+            try:
+                with self.assertRaisesRegex(RuntimeError, r"status 1.*AuthenticationFailed"):
+                    with compat.running_ramsql("unused"):
+                        self.fail("failed process reported readiness")
+            finally:
+                exited.set()
+
     def test_restart_error_survives_unavailable_cleanup_connection(self):
         import test_postgres_semantics as semantics
         case=semantics.Case("restart_failure","p01",3.9,setup=(),restart=("SELECT 1",))
