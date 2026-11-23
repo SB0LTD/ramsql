@@ -16,6 +16,7 @@
 //! compared in constant time; unknown keys are ignored silently.
 const sig = @import("sig");
 const std = @import("std");
+const linux_warm_receive = @import("builtin").os.tag == .linux;
 const profile = @import("profile");
 const scram = @import("scram");
 const entropy = @import("entropy");
@@ -249,6 +250,8 @@ const Client = struct {
     output_sent: usize = 0,
     closing: bool = false,
     touched: i64 = 0,
+    last_plain_reply: ?i64 = null,
+    short_receive_turns: u2 = 0,
     /// A statement of this client is parked on a lock.
     blocked: bool = false,
     cancel_secret: u32 = 0,
@@ -283,6 +286,7 @@ const Client = struct {
             self.database_binding = null;
         }
         self.state.store(1, .release);
+        if (linux_warm_receive and active and parallel) _ = live_reactor_clients.fetchSub(1, .monotonic);
         if (active) unlockStore();
         if (self.transport) |transport| {
             transport.close();
@@ -530,6 +534,9 @@ const Client = struct {
             if (self.output_sent == self.output_len) {
                 self.output_len = 0;
                 self.output_sent = 0;
+                if (linux_warm_receive and parallel and self.protocol == .postgres and
+                    self.input_len == 0 and self.session.postgres.waiting_for_command)
+                    self.last_plain_reply = self.touched;
             }
         }
         if (self.output_len != 0) return;
@@ -583,6 +590,11 @@ const Client = struct {
             if (received == 0) return error.EndOfStream;
             self.input_len += received;
             self.touched = monotonicClock();
+            if (linux_warm_receive and self.last_plain_reply != null) {
+                const gap = self.touched -| self.last_plain_reply.?;
+                self.short_receive_turns = if (gap < Reactor.max_probe_ns) self.short_receive_turns +| 1 else 0;
+                self.last_plain_reply = null;
+            }
         }
     }
 
@@ -1050,6 +1062,8 @@ fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial:
     client.output_len = 0;
     client.output_sent = 0;
     client.closing = false;
+    client.last_plain_reply = null;
+    client.short_receive_turns = 0;
     client.touched = sig.os.clockMonotonicNs();
     client.output_len = switch (client.session) {
         .postgres => 0,
@@ -1061,6 +1075,7 @@ fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial:
 
 fn publishClient(client: *Client, slot: usize) void {
     if (client.protocol == .postgres) client.cancel_key.store((@as(u64, client.cancel_secret) << 1) | 1, .release);
+    if (linux_warm_receive and parallel) _ = live_reactor_clients.fetchAdd(1, .monotonic);
     client.state.store(2, .release);
     if (parallel) reactors[slot % reactor_count].signal.notify();
 }
@@ -1096,6 +1111,8 @@ fn driveTlsAdmission(client: *Client, slot: usize, deadline: *?i64) !void {
 const max_reactors = capacity;
 var reactor_count: usize = 0;
 var reactor_stop: std.atomic.Value(bool) = .init(false);
+var live_reactor_clients: std.atomic.Value(usize) = .init(0);
+var warm_receive_client_limit: usize = 0;
 /// Committed NOTIFY count as last read under the store lock (any reactor).
 var notification_sequence: std.atomic.Value(u64) = .init(0);
 var reactor_failed: std.atomic.Value(bool) = .init(false);
@@ -1130,6 +1147,39 @@ const Reactor = struct {
     reader:Reader=.{},
     index: usize = 0,
     idle_ms: u32 = 30000,
+    probe_credit_ns: i64 = 0,
+    probe_credit_at: i64 = 0,
+    const max_probe_ns: i64 = 32000;
+
+    /// Briefly probe a learned low-latency peer after flushing a reply. Credit
+    /// refills at one quarter of elapsed time and is bounded independently of
+    /// connection churn. All probing uses the existing nonblocking receive.
+    fn warmReceive(self: *Reactor, client: *Client) bool {
+        if (client.short_receive_turns < 3 or client.transport != null or !client.connection.detachedReadEligible() or
+            live_reactor_clients.load(.monotonic) > warm_receive_client_limit) return false;
+        const reply_at = client.last_plain_reply orelse return false;
+        const start = monotonicClock();
+        if (start -| reply_at >= max_probe_ns) return false;
+        // Only the reactor iteration that flushed this reply may probe.
+        const elapsed = @max(0, start -| self.probe_credit_at);
+        self.probe_credit_ns = @min(max_probe_ns, self.probe_credit_ns +| @divTrunc(elapsed, 4));
+        self.probe_credit_at = start;
+        const grant = @min(self.probe_credit_ns, max_probe_ns - (start -| reply_at));
+        if (grant < 2000) return false;
+        var now = start;
+        for (0..24) |_| {
+            client.receive() catch {
+                client.close();
+                break;
+            };
+            now = monotonicClock();
+            if (client.input_len != 0 or now -| start >= grant) break;
+            std.atomic.spinLoopHint();
+        }
+        self.probe_credit_ns -|= @min(self.probe_credit_ns, @max(0, now -| start));
+        // Failed probes leave the ordinary poll to deliver the next bytes.
+        return client.state.load(.acquire) != 2 or client.input_len != 0;
+    }
 
     fn entry(context: ?*anyopaque) void {
         const self: *Reactor = @ptrCast(@alignCast(context.?));
@@ -1150,6 +1200,7 @@ const Reactor = struct {
             var owners: [capacity]usize = undefined;
             var active: usize = 0;
             var buffered = false;
+            var flushed = false;
             var poll_timeout_ms: u32 = 10;
             const now = sig.os.clockMonotonicNs();
             // Shared store state, timers and cancellation are read only while
@@ -1199,6 +1250,7 @@ const Reactor = struct {
                 if (client.state.load(.acquire) != 2) continue;
                 if (client.blocked) client.touched = now;
                 if (now-client.touched >= @as(i64,self.idle_ms)*1000000) { client.close(); continue; }
+                const touched_before = client.touched;
                 if (client.serve()) buffered = true;
                 if (client.state.load(.acquire) != 2) continue;
                 if (client.sessionDeadline()) |due| poll_timeout_ms = deadlinePollMs(monotonicClock(), due, poll_timeout_ms);
@@ -1206,9 +1258,12 @@ const Reactor = struct {
                 readable[active] = client.wantsRead();
                 writable[active] = client.wantsWrite();
                 owners[active] = slot;
+                if (linux_warm_receive and active == 0) flushed = client.touched != touched_before;
                 active += 1;
             }
             if (active == 0) { self.reader.close();self.signal.wait(epoch, 100); continue; }
+            if (linux_warm_receive and active == 1 and flushed and !buffered and !writable[0] and
+                self.warmReceive(&clients[owners[0]])) continue;
             // Finite poll bounds new admission, cancellation and shutdown
             // latency without introducing a second socket wakeup protocol.
             _ = try waitServer(tcp.invalid_socket, sockets[0..active], readable[0..active], writable[0..active], if (buffered) 0 else poll_timeout_ms);
@@ -1857,6 +1912,10 @@ pub fn run(requested: Options) !void {
         if (try expandedClientCharge(options, &plan, startup) > observed.new_region_bytes) return error.BudgetExceeded;
     }
     parallel = options.workers > 1;
+    if (linux_warm_receive) {
+        live_reactor_clients.store(0, .monotonic);
+        warm_receive_client_limit = @as(usize, observed.plan.cpu_workers) / 2;
+    }
     cluster_options = options;
     defer clearAuthentication();
     selected_work_rows=options.work_rows;selected_read_refs=plan.refs;
