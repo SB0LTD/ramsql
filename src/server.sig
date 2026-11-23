@@ -473,7 +473,10 @@ const Client = struct {
         self.connection.read_context=context;self.connection.running_statement=true;
         defer {self.connection.read_context=null;self.connection.running_statement=false;self.read_deadline=null;}
         const output=self.output[self.output_len..];
-        const reply=try session.handle(&self.connection,input,output);
+        const reply = if (prepared_primary_key)
+            try session.handleDetachedExecuteSync(&self.connection, input, output)
+        else
+            try session.handle(&self.connection, input, output);
         if(reply.consumed>self.input_len or reply.written>output.len or reply.blocked or reply.cancel!=null) return error.InvalidReply;
         if(reply.consumed!=0) self.consume(reply.consumed) else if(self.input_len==self.input.len) return error.RequestTooLarge;
         self.output_len+=reply.written;self.closing=reply.close;
