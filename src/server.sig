@@ -192,6 +192,7 @@ const Reply = struct { consumed: usize, written: usize, close: bool, blocked: bo
 // One execution context per reactor, reused only by its owning native thread.
 // Results remain client-owned; the complete codec call ends before reuse.
 const Reader=struct {
+    lane: usize = 0,
     metadata:owned_pages.Region=.{},
     scratch:owned_pages.Region=.{},
     context:?*Raw.ReadContext=null,
@@ -434,7 +435,9 @@ const Client = struct {
         const reader=self.reader orelse return false;
         if(reader.context==null and monotonicClock()<reader.retry_at) return false;
         reader.provision() catch {reader.retry_at=monotonicClock()+1000000000;return false;};
-        data_gate.lockRead();defer data_gate.unlockRead();
+        const gate = &data_gates[reader.lane].lock;
+        gate.lockRead();
+        defer gate.unlockRead();
         if (store.database.detachedReadsBlocked()) return false;
         const context=reader.context.?;
         // Protocol Describe may lend stack-local interpolation text. No plan
@@ -684,9 +687,26 @@ var selected_work_rows:usize=profile.work_rows;
 var selected_read_refs:usize=0;
 var parallel = false;
 var store_mutex: threads.Mutex = .{};
-var data_gate:threads.RwLock=.{};
-fn lockStore() void { if (parallel) {data_gate.lockWrite();store_mutex.lock();} }
-fn unlockStore() void { if (parallel) {store_mutex.unlock();data_gate.unlockWrite();} }
+const ReactorReadGate = struct { lock: threads.RwLock align(128) = .{} };
+var data_gates: [max_reactors]ReactorReadGate = @splat(.{});
+
+fn lockStore() void {
+    if (!parallel) return;
+    // A detached reader acquires its own reactor's gate. Writers drain every
+    // reactor in the same order before taking ownership of shared store state.
+    for (data_gates[0..reactor_count]) |*gate| gate.lock.lockWrite();
+    store_mutex.lock();
+}
+
+fn unlockStore() void {
+    if (!parallel) return;
+    store_mutex.unlock();
+    var next = reactor_count;
+    while (next != 0) {
+        next -= 1;
+        data_gates[next].lock.unlockWrite();
+    }
+}
 var memory_mutex:threads.Mutex=.{};
 var memory_ledger:resource_budget.Ledger=.{};
 var memory_slots:[capacity*2+max_reactors*2+4]resource_budget.Slot=undefined;
@@ -1223,7 +1243,7 @@ fn runParallel(options: Options, listeners: []const tcp.Socket, protocols: []con
         for (reactors[0..started]) |*reactor| reactor.thread.join() catch @panic("cannot release live reactor ownership");
     }
     for (reactors[0..reactor_count], 0..) |*reactor, index| {
-        reactor.* = .{ .index = index, .idle_ms = options.idle_ms };
+        reactor.* = .{ .index = index, .idle_ms = options.idle_ms, .reader = .{ .lane = index } };
     }
     for (reactors[0..reactor_count]) |*reactor| {
         try reactor.thread.start(&Reactor.entry, reactor);
@@ -1431,7 +1451,7 @@ fn expandedClientCharge(options: Options, plan: *const StoragePlan, startup: mac
     };
     const fixed = try machine_capacity.startupCharges(&.{
         @sizeOf(Store), @sizeOf(Persistence), @sizeOf(@TypeOf(recovery_buffer)), @sizeOf(@TypeOf(overflow_cancels)),
-        @sizeOf(@TypeOf(reactors)), @sizeOf(@TypeOf(memory_slots)),
+        @sizeOf(@TypeOf(reactors)), @sizeOf(@TypeOf(data_gates)), @sizeOf(@TypeOf(memory_slots)),
     }, 0);
     const live_regions = try std.math.add(u64, client_total, worker_total);
     return std.math.add(u64, try std.math.add(u64, startup.rounded, fixed.rounded), live_regions);
