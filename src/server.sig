@@ -301,9 +301,19 @@ const Client = struct {
         self.blocked = false;
         self.idle_transaction_deadline = null;
         self.idle_transaction_after_flush_ms = 0;
-        // The owner publishes a closed slot as free on its next iteration,
-        // after callers of close have stopped inspecting the old connection.
+        // The owner publishes a closed slot as free after callers of close
+        // have stopped inspecting the old connection.
         self.state.store(if (parallel and active) 3 else 0, .release);
+    }
+
+    fn activeAfterService(self: *Client) bool {
+        const state = self.state.load(.acquire);
+        if (state != 3) return state == 2;
+        self.state.store(0, .release);
+        // The acceptor may already be holding a replacement for this slot.
+        // Keep every access to the retired Client before publishing state 0.
+        if (tls_slots.len != 0) tls_retirement.notify();
+        return false;
     }
 
     fn sessionDeadline(self: *const Client) ?i64 {
@@ -944,6 +954,25 @@ fn pollInterrupts(_: ?*anyopaque, _: u64) void {
 // Only the acceptor writes this list. Worker retirement also passes through
 // state 1, so that state alone cannot identify an acceptor-owned client.
 const TlsAdmissions = [capacity]?i64;
+var tls_retirement: threads.Signal = .{};
+
+fn freeTlsSlot(pending: *const TlsAdmissions, max_clients: usize) ?usize {
+    const epoch = tls_retirement.epoch.load(.acquire);
+    var retiring = false;
+    for (clients[0..max_clients], pending[0..max_clients], 0..) |*candidate, deadline, slot| {
+        const state = candidate.state.load(.acquire);
+        if (state == 0) return slot;
+        retiring = retiring or state == 3 or (state == 1 and deadline == null);
+    }
+    if (!retiring) return null;
+    // A worker already owns the close. Give it one normal acceptor poll
+    // interval to hand off the slot, instead of resetting this connection.
+    tls_retirement.wait(epoch, 10);
+    for (clients[0..max_clients], 0..) |*candidate, slot| {
+        if (candidate.state.load(.acquire) == 0) return slot;
+    }
+    return null;
+}
 
 fn acceptConnections(listener: tcp.Socket, protocol: Protocol, max_clients: usize, limit: usize, admissions: ?*TlsAdmissions) !void {
     for (0..limit) |_| {
@@ -952,10 +981,11 @@ fn acceptConnections(listener: tcp.Socket, protocol: Protocol, max_clients: usiz
             if (!queueOverflowCancel(socket)) tcp.close(socket);
             continue;
         }
-        var free: ?usize = null;
-        for (clients[0..max_clients], 0..) |*candidate, index| if (candidate.state.load(.acquire) == 0) {
-            free = index;
-            break;
+        const free: ?usize = if (admissions) |pending| freeTlsSlot(pending, max_clients) else blk: {
+            for (clients[0..max_clients], 0..) |*candidate, index| {
+                if (candidate.state.load(.acquire) == 0) break :blk index;
+            }
+            break :blk null;
         };
         const slot = free orelse {
             // A saturated TLS listener closes without plaintext PG or TLS
@@ -1144,7 +1174,7 @@ const Reactor = struct {
             var slot = self.index;
             while (slot < clients.len) : (slot += reactor_count) {
                 const client = &clients[slot];
-                if (client.state.load(.acquire) == 3) client.state.store(0, .release);
+                _ = client.activeAfterService();
             }
             if (store_mutex.tryLock()) {
             store.now_ns = now;
@@ -1168,13 +1198,17 @@ const Reactor = struct {
             slot = self.index;
             while (slot < clients.len) : (slot += reactor_count) {
                 const client = &clients[slot];
-                if (client.state.load(.acquire) != 2) continue;
+                if (!client.activeAfterService()) continue;
                 client.expireSessionTimeout(now);
-                if (client.state.load(.acquire) != 2) continue;
+                if (!client.activeAfterService()) continue;
                 if (client.blocked) client.touched = now;
-                if (now-client.touched >= @as(i64,self.idle_ms)*1000000) { client.close(); continue; }
+                if (now-client.touched >= @as(i64,self.idle_ms)*1000000) {
+                    client.close();
+                    _ = client.activeAfterService();
+                    continue;
+                }
                 if (client.serve()) buffered = true;
-                if (client.state.load(.acquire) != 2) continue;
+                if (!client.activeAfterService()) continue;
                 if (client.sessionDeadline()) |due| poll_timeout_ms = deadlinePollMs(monotonicClock(), due, poll_timeout_ms);
                 sockets[slot] = client.socket;
                 readable[slot] = client.wantsRead();
@@ -1190,9 +1224,12 @@ const Reactor = struct {
             while (slot < clients.len) : (slot += reactor_count) {
                 const client = &clients[slot];
                 if (client.state.load(.acquire) != 2) continue;
-                if (writable[slot]) client.flush() catch { client.close(); continue; };
-                if (client.state.load(.acquire) != 2) continue;
-                if (readable[slot]) client.receive() catch client.close();
+                if (writable[slot]) client.flush() catch client.close();
+                if (!client.activeAfterService()) continue;
+                if (readable[slot]) client.receive() catch {
+                    client.close();
+                    _ = client.activeAfterService();
+                };
             }
         }
     }
