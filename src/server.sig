@@ -49,6 +49,7 @@ pub const Options = struct {
     /// Reactors and concurrent simple readers; mutations remain exclusive.
     /// Zero selects the native CPU and memory plan.
     workers: usize = 0,
+    linux_direct_receive: bool = false,
     memory: bool = false,
     data: []const u8 = "ramsql.wal",
     checkpoint_stem: ?[]const u8 = null,
@@ -225,6 +226,7 @@ const Client = struct {
     cancel_key: std.atomic.Value(u64) = .init(0),
     cancel_request: std.atomic.Value(u64) = .init(0),
     socket: tcp.Socket = tcp.invalid_socket,
+    timed_receive: enum { untested, unavailable, enabled } = .untested,
     connection: DB = .{ .store = &store, .id = 0 },
     /// The active member of `session`. Tag tests read this field: comparing
     /// the union by value (`session == .postgres`) copies the whole
@@ -582,7 +584,7 @@ const Client = struct {
         return false;
     }
 
-    fn receive(self: *Client) !void {
+    fn receive(self: *Client, comptime wait_for_data: bool) !void {
         if (!self.wantsRead()) return;
         if (self.transport) |transport| {
             if (try transport.receive(self.socket)) self.touched = monotonicClock();
@@ -593,7 +595,9 @@ const Client = struct {
             std.mem.copyForwards(u8, self.input[0..self.input_len], self.input[self.input_start..][0..self.input_len]);
             self.input_start = 0;
         }
-        if (try tcp.recv(self.socket, self.input[self.input_len..])) |received| {
+        const bytes = self.input[self.input_len..];
+        const incoming = if (wait_for_data) try tcp.recvTimed(self.socket, bytes) else try tcp.recv(self.socket, bytes);
+        if (incoming) |received| {
             if (received == 0) return error.EndOfStream;
             self.input_len += received;
             self.touched = monotonicClock();
@@ -603,13 +607,30 @@ const Client = struct {
     /// Readability starts a bounded protocol turn for a single, already
     /// recognized read. The regular reactor retains fragmented and pipelined
     /// exchanges, TLS, and connections with pending session control work.
-    fn receiveReady(self: *Client) !void {
+    fn receiveReady(self: *Client, comptime wait_for_data: bool) !void {
         const empty = self.input_len == 0;
-        try self.receive();
+        try self.receive(wait_for_data);
         if (!empty or self.input_len == 0 or self.transport != null or self.output_len != 0 or
             self.closing or self.blocked or self.cancel_request.load(.acquire) != 0 or self.sessionDeadline() != null)
             return;
         if (try self.dispatchRead(true)) try self.flush();
+    }
+
+    /// Only wait inside recv at an idle PostgreSQL command boundary. Ordinary
+    /// polling, partial reads, and all writes keep their nonblocking behavior.
+    fn directReceive(self: *Client) bool {
+        if (self.transport != null or self.protocol != .postgres or self.blocked or self.closing or
+            self.input_len != 0 or self.output_len != 0 or self.cancel_request.load(.acquire) != 0 or
+            self.sessionDeadline() != null or !self.connection.detachedReadEligible() or
+            !self.session.postgres.idleCommandBoundary()) return false;
+        if (self.timed_receive == .untested) {
+            self.timed_receive = .unavailable;
+            tcp.enableTimedReceive(self.socket, 5) catch return false;
+            self.timed_receive = .enabled;
+        }
+        if (self.timed_receive != .enabled) return false;
+        self.receiveReady(true) catch self.close();
+        return true;
     }
 
     /// Dispatches at most 32 buffered packets, then flushes. Returns true
@@ -1014,6 +1035,7 @@ fn configureClient(socket: tcp.Socket, protocol: Protocol, slot: usize, initial:
     client.cancel_key.store(0, .release);
     client.cancel_request.store(0, .release);
     client.socket = socket;
+    client.timed_receive = .untested;
     client.result_region = .{};
     client.output_region = .{};
     client.startup_region = .{};
@@ -1128,6 +1150,9 @@ var reactor_failed: std.atomic.Value(bool) = .init(false);
 var reactors: [max_reactors]Reactor = @splat(.{});
 
 fn validateWorkers(options: Options) !void {
+    if (options.linux_direct_receive and
+        (!tcp.timed_receive_available or options.protocol != .postgres or options.workers < 2))
+        return error.InvalidServerOptions;
     if (options.workers == 0 or options.workers > max_reactors or options.workers > options.max_clients) return error.InvalidServerOptions;
     if (options.database_cluster and options.workers != 1) return error.InvalidServerOptions;
     if (options.read_cache_bytes != 0 and options.workers < 2) return error.InvalidServerOptions;
@@ -1156,6 +1181,7 @@ const Reactor = struct {
     reader:Reader=.{},
     index: usize = 0,
     idle_ms: u32 = 30000,
+    direct_receive: bool = false,
 
     fn entry(context: ?*anyopaque) void {
         const self: *Reactor = @ptrCast(@alignCast(context.?));
@@ -1235,6 +1261,9 @@ const Reactor = struct {
                 active += 1;
             }
             if (active == 0) { self.reader.close();self.signal.wait(epoch, 100); continue; }
+            if (self.direct_receive and active == 1 and readable[0] and !writable[0] and
+                !buffered and !check_waiters and self.signal.epoch.load(.acquire) == epoch and
+                clients[owners[0]].directReceive()) continue;
             // Finite poll bounds new admission, cancellation and shutdown
             // latency without introducing a second socket wakeup protocol.
             _ = try waitServer(tcp.invalid_socket, sockets[0..active], readable[0..active], writable[0..active], if (buffered) 0 else poll_timeout_ms);
@@ -1244,7 +1273,7 @@ const Reactor = struct {
                 const client = &clients[owner];
                 if (can_write) client.flush() catch { client.close(); continue; };
                 if (client.state.load(.acquire) != 2) continue;
-                if (can_read) client.receiveReady() catch client.close();
+                if (can_read) client.receiveReady(false) catch client.close();
             }
         }
     }
@@ -1260,7 +1289,7 @@ fn runParallel(options: Options, listeners: []const tcp.Socket, protocols: []con
         for (reactors[0..started]) |*reactor| reactor.thread.join() catch @panic("cannot release live reactor ownership");
     }
     for (reactors[0..reactor_count], 0..) |*reactor, index| {
-        reactor.* = .{ .index = index, .idle_ms = options.idle_ms };
+        reactor.* = .{ .index = index, .idle_ms = options.idle_ms, .direct_receive = options.linux_direct_receive };
     }
     for (reactors[0..reactor_count]) |*reactor| {
         try reactor.thread.start(&Reactor.entry, reactor);
@@ -1313,7 +1342,7 @@ fn runTlsAcceptor(listener: tcp.Socket, max_clients: usize) !void {
             if (deadline.* == null) continue;
             const client = &clients[slot];
             if (writable[slot]) client.flush() catch client.close();
-            if (client.socket != tcp.invalid_socket and readable[slot]) client.receive() catch client.close();
+            if (client.socket != tcp.invalid_socket and readable[slot]) client.receive(false) catch client.close();
             if (client.socket == tcp.invalid_socket) deadline.* = null;
         }
     }
@@ -2068,7 +2097,7 @@ pub fn run(requested: Options) !void {
                 };
             }
             if (client.socket == tcp.invalid_socket) continue;
-            if (readable[index]) client.receive() catch client.close();
+            if (readable[index]) client.receive(false) catch client.close();
         }
     }
 }
