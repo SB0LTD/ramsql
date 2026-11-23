@@ -424,7 +424,12 @@ const Client = struct {
         if(!parallel or self.protocol!=.postgres or !self.connection.detachedReadEligible()) return false;
         const session=&self.session.postgres;
         const input=self.input[self.input_start..][0..self.input_len];
-        const candidate=session.detachedCandidate(input) orelse return false;
+        const key_exchange = if (store.max_query_work == 0 and self.connection.settings.statement_timeout_ms == 0)
+            session.detachedKeyExchange(input)
+        else
+            null;
+        const candidate = if (key_exchange != null) PG.DetachedCandidate.metadata else
+            session.detachedCandidate(input) orelse return false;
         const source:?[]const u8=switch(candidate){.metadata=>null,.describe,.execute=>|text|text};
         if(source) |text| {
             if(!Raw.queryCandidate(text)) return false;
@@ -444,7 +449,9 @@ const Client = struct {
         self.connection.execution.reset(store.max_query_work);
         self.connection.execution.context=self;self.connection.execution.poll=pollRead;
         self.read_deadline=if(self.connection.settings.statement_timeout_ms==0) null else monotonicClock()+@as(i64,self.connection.settings.statement_timeout_ms)*1000000;
-        const statement_us=wallClock();
+        // The retained key projection contains only direct columns. Even a
+        // cache miss here hands off an ordinary Bind, which evaluates no SQL.
+        const statement_us = if (key_exchange == null) wallClock() else null;
         context.session=self.connection.detachedReadSession(&self.connection.execution,statement_us);
         context.dialect=.postgres;
         const snapshot: Raw.Snapshot = .{.csn=store.database.csn};
@@ -473,7 +480,11 @@ const Client = struct {
         self.connection.read_context=context;self.connection.running_statement=true;
         defer {self.connection.read_context=null;self.connection.running_statement=false;self.read_deadline=null;}
         const output=self.output[self.output_len..];
-        const reply = if (prepared_primary_key)
+        const fused_reply = if (key_exchange) |exchange|
+            try session.handleDetachedKeyExchange(&self.connection, exchange, output)
+        else
+            null;
+        const reply = if (fused_reply) |completed| completed else if (prepared_primary_key)
             try session.handleDetachedExecuteSync(&self.connection, input, output)
         else
             try session.handle(&self.connection, input, output);
