@@ -63,8 +63,8 @@ def main():
         first, pid = start(server)
         clients = [first]
         try:
-            report['candidate_single_client'] = verify_worker_wait(server, pid, RECVFROM)
             first.ok('SELECT 1', [['1']])
+            report['candidate_single_client'] = verify_worker_wait(server, pid, RECVFROM)
             first.ok('LISTEN direct_wake')
             notifier, _ = start(server)
             clients.append(notifier)
