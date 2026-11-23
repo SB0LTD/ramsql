@@ -50,9 +50,15 @@ def identity(w):
 
 
 class TlsServer(DurableServer):
+    def __init__(self, *args, listen_port=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.listen_port = listen_port
+
     def command(self):
         args = super().command()
         args.remove("--insecure-local")
+        if self.listen_port is not None:
+            args[args.index("--port") + 1] = str(self.listen_port)
         return args
 
 
@@ -171,7 +177,10 @@ def main():
     for name in ("binary", "scratch", "report"):
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--workers", type=int, choices=[2, 4], required=True)
+    parser.add_argument("--port", type=int, help="fixed listener port for transport qualification")
     args = parser.parse_args()
+    if args.port is not None and not 1 <= args.port <= 65535:
+        parser.error("--port must be between 1 and 65535")
     binary = args.binary.resolve(strict=True)
     work = args.scratch.resolve()
     work.mkdir(mode=0o700)
@@ -181,7 +190,8 @@ def main():
     salt = secrets.token_bytes(32)
     verifier.write_bytes(make_verifier(password.encode(), salt) + b"\n")
     verifier.chmod(0o600)
-    options = dict(cwd=work, storage_options=("--workers", str(args.workers), "--max-clients", "4", "--auth-user", "ramsql",
+    options = dict(cwd=work, listen_port=args.port,
+                   storage_options=("--workers", str(args.workers), "--max-clients", "4", "--auth-user", "ramsql",
                    "--auth-verifier-file", str(verifier), "--tls-cert-der", str(cert), "--tls-key-raw", str(key)))
     wal = work / "database.wal"
     evidence = dict(source=subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
@@ -344,6 +354,36 @@ def main():
             record("simultaneous_prepared_round_trips_on_every_worker")
             expect_close(port, SSL_REQUEST)
         record("overload_closes_without_plaintext_response")
+
+        with ExitStack() as stack:
+            for _ in range(3):
+                stack.enter_context(connect_after_retirement(server))
+            context = ssl.create_default_context(cafile=str(ca))
+            context.minimum_version = ssl.TLSVersion.TLSv1_3
+            keys = proof_keys(password.encode(), salt, 4096)
+            # Occupy the last slot repeatedly. Wait for actual EOF before
+            # replacing it and let any admission failure reach the client.
+            for _ in range(16):
+                with socket.create_connection(("127.0.0.1", port), timeout=5) as raw:
+                    raw.sendall(SSL_REQUEST)
+                    assert raw.recv(1) == b"S"
+                    with context.wrap_socket(raw, server_hostname="localhost") as encrypted:
+                        encrypted.sendall(STARTUP)
+                        assert receive(encrypted)[0] == b"R"
+                        bare, server_first, fields, _ = challenge(encrypted)
+                        final, signature = raw_final(bare, server_first, fields, keys)
+                        finish(encrypted, final, signature)
+                        encrypted.sendall(frame(b"X"))
+                        with encrypted.unwrap() as drained:
+                            # The TLS close alert already completed. TCP can
+                            # reset if the server closes before our alert is read.
+                            try:
+                                assert drained.recv(1) == b""
+                            except ConnectionResetError:
+                                pass
+            with psycopg.connect(password=password, **settings(port)) as replacement:
+                assert replacement.execute("SELECT 1").fetchone() == (1,)
+        record("replace_retired_tls_slot_without_retry")
 
     evidence["wal_bytes"] = wal.stat().st_size
     assert evidence["wal_bytes"] > 0
