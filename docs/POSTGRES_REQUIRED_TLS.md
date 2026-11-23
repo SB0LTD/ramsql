@@ -25,6 +25,9 @@ TLS memory is reserved for the configured connection slots at startup and
 charged to the server region ledger. `--capabilities` shows the configured TLS
 policy and TLS bytes per slot. Under overload the server closes new sockets
 without sending plaintext. Encrypted cancellation requires a free slot.
+When a TLS session has closed and its worker is releasing the slot, the acceptor
+can wait one poll interval for that release. The Linux CI test fills a four-slot
+listener and checks immediate authenticated reconnects with two and four workers.
 Encrypted cancellation in multi-worker mode is processed by the acceptor
 independently of SQL worker availability. Additional protocol listeners,
 cluster mode, and the optional shared read cache are outside this TLS preview.
