@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 
 import psycopg
@@ -31,9 +32,12 @@ def seed(arguments):
             db.execute(statement)
 
 
-def settings(arguments):
+def settings(arguments, command):
+    database = arguments["dbname"]
+    if command == "pg_dumpall":
+        database = psycopg.conninfo.make_conninfo(dbname=database)
     return ["--host", arguments["host"], "--port", str(arguments["port"]),
-            "--username", arguments["user"], "--dbname", arguments["dbname"]]
+            "--username", arguments["user"], "--dbname", database]
 
 
 def ramsql_settings(server):
@@ -59,7 +63,7 @@ class Tools:
                       "--volume", f"{self.root}:/work", "--workdir", "/work",
                       "--user", f"{self.root.stat().st_uid}:{self.root.stat().st_gid}",
                       "--env", "PGPASSWORD", self.image, command]
-        completed = subprocess.run([*launch, *settings(arguments), *options], cwd=self.root,
+        completed = subprocess.run([*launch, *settings(arguments, command), *options], cwd=self.root,
                                    capture_output=True, text=True, timeout=90, env=env)
         (self.root / f"{label}.stdout").write_text(completed.stdout, encoding="utf-8")
         (self.root / f"{label}.stderr").write_text(completed.stderr, encoding="utf-8")
@@ -216,6 +220,7 @@ def main():
     result = {}
     for name, check in (
         ("namespace_acl", lambda db: check_namespaces(binary, db)),
+        ("global_role_archives", lambda db: check_global_role_archives(binary, tools, db)),
         ("relation_discovery", lambda db: check_relation_discovery(binary, db)),
         ("function_discovery", lambda db: check_function_discovery(binary, db)),
         ("type_discovery", lambda db: check_type_discovery(binary, db)),
@@ -276,6 +281,61 @@ def main():
 def check_namespaces(binary, native):
     with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
         namespace_acl(native, candidate)
+
+
+def check_global_role_archives(binary, tools, native):
+    """Exercise stock role discovery and passwordless pg_dumpall restore."""
+    def populate(arguments, prefix):
+        with psycopg.connect(**arguments) as db:
+            db.execute(f'CREATE ROLE "{prefix} group" NOLOGIN')
+            db.execute(f'CREATE ROLE "{prefix} login" LOGIN')
+            db.execute(f'CREATE ROLE "{prefix} limited" LOGIN')
+            db.execute(f'GRANT "{prefix} group" TO "{prefix} login" WITH ADMIN OPTION')
+            db.execute(f'GRANT "{prefix} group" TO "{prefix} limited" WITH INHERIT FALSE, SET FALSE')
+
+    def verify_roles(arguments, prefix):
+        with psycopg.connect(**arguments) as db:
+            assert db.execute(
+                "SELECT rolname,rolcanlogin FROM pg_roles WHERE rolname IN (%s,%s,%s) ORDER BY rolname",
+                (prefix + " group", prefix + " limited", prefix + " login"),
+            ).fetchall() == [(prefix + " group", False), (prefix + " limited", True), (prefix + " login", True)]
+            assert db.execute(
+                "SELECT m.rolname,a.admin_option,a.inherit_option,a.set_option,pg_get_userbyid(a.grantor) "
+                "FROM pg_auth_members a JOIN pg_roles r ON r.oid=a.roleid "
+                "JOIN pg_roles m ON m.oid=a.member WHERE r.rolname=%s ORDER BY m.rolname",
+                (prefix + " group",),
+            ).fetchall() == [(prefix + " limited", False, False, False, "ramsql"),
+                             (prefix + " login", True, True, True, "ramsql")]
+
+    def dump(label, arguments):
+        archive = f"{label}.sql"
+        tools.run(label, "pg_dumpall", arguments, "--roles-only", "--no-role-passwords", f"--file={archive}")
+        return archive
+
+    def restore(label, arguments, archive):
+        # Both new servers already have their bootstrap superuser. pg_dumpall
+        # includes its CREATE ROLE and restores the rest of the archive.
+        tools.run(label, "psql", arguments, "-X", "--set=ON_ERROR_STOP=off", "--set=VERBOSITY=verbose",
+                  f"--file={archive}")
+        stderr = (tools.root / f"{label}.stderr").read_text(encoding="utf-8")
+        assert re.findall(r"\bERROR:\s+(\w{5}):", stderr) == ["42710"], stderr
+
+    populate(native, "native archive")
+    inbound = dump("roles-inbound-dump", native)
+    wal = tools.root / "roles-archive.wal"
+    storage = ("--workers", "1")
+    with DurableServer(binary, wal, create=True, storage_options=storage) as server:
+        candidate = ramsql_settings(server)
+        restore("roles-inbound-restore", candidate, inbound)
+        verify_roles(candidate, "native archive")
+    with DurableServer(binary, wal, storage_options=storage) as reopened:
+        verify_roles(ramsql_settings(reopened), "native archive")
+
+    with running_ramsql(binary, extra_arguments=storage) as candidate:
+        populate(candidate, "ramsql archive")
+        outbound = dump("roles-outbound-dump", candidate)
+    restore("roles-outbound-restore", native, outbound)
+    verify_roles(native, "ramsql archive")
 
 
 def check_relation_discovery(binary, native):

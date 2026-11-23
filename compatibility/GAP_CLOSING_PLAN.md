@@ -47,11 +47,19 @@ values and WAL reopen. The qualified source is on both main branches.
 General view deparsing and CREATE OR REPLACE VIEW parity remain open.
 [Exact release qualification](https://github.com/SB0LTD/ramsql/actions/runs/45051553539)
 
-The materialized-view candidate permits definitions over unpopulated
+The released materialized-view fix permits definitions over unpopulated
 sources during stock restore. The dependent view becomes readable after
-the archive refreshes its source. The local stock PostgreSQL 16 and 18
-fixture preserves rows, deliberately unpopulated views and WAL replay in
-both directions. Hosted qualification is pending.
+the archive refreshes its source. All 40 stock checks passed on PostgreSQL
+16 and 18 in hosted CI. The archive fixture preserves rows and deliberately
+unpopulated views in both directions, including after reopening the WAL.
+[Materialized-view release qualification](https://github.com/SB0LTD/ramsql/actions/runs/45085219524)
+
+The global-role follow-up exercises unmodified `pg_dumpall --roles-only
+--no-role-passwords` output with stock `psql`. The fixture checks quoted
+role names, login attributes, grantor names and per-membership ADMIN,
+INHERIT and SET options in both directions and after reopening the RAMSQL
+WAL. Full cluster archives, credential export, role settings and parameter
+grants still need qualification or implementation.
 
 The composite-key follow-up passed all 34 checks on PG16 and PG18 CI.
 Stock restore applies the composite primary key after COPY in the same
