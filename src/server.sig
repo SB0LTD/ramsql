@@ -358,7 +358,7 @@ const Client = struct {
                 cancelBackend(key); self.consume(16); self.closing = true; return;
             }
         }
-        if (!self.queuedSimpleQuery() and try self.dispatchRead()) return;
+        if (!self.queuedSimpleQuery() and try self.dispatchRead(false)) return;
         lockStore();
         defer {
             maybeCheckpoint();
@@ -420,7 +420,7 @@ const Client = struct {
         if(requested!=0 and requested==self.cancel_key.load(.acquire)) return error.QueryCanceled;
         if(self.read_deadline) |deadline| if(monotonicClock()>=deadline) return error.QueryCanceled;
     }
-    fn dispatchRead(self:*Client) !bool {
+    fn dispatchRead(self:*Client, prepared_only: bool) !bool {
         if(!parallel or self.protocol!=.postgres or !self.connection.detachedReadEligible()) return false;
         const session=&self.session.postgres;
         const input=self.input[self.input_start..][0..self.input_len];
@@ -428,6 +428,12 @@ const Client = struct {
             session.detachedKeyExchange(input)
         else
             null;
+        if (prepared_only) {
+            const exchange = key_exchange orelse return false;
+            // A single complete exchange can reply immediately. Leave batches
+            // to serve(), which can combine their replies in one socket write.
+            if (exchange.consumed != input.len) return false;
+        }
         const candidate = if (key_exchange != null) PG.DetachedCandidate.metadata else
             session.detachedCandidate(input) orelse return false;
         const source:?[]const u8=switch(candidate){.metadata=>null,.describe,.execute=>|text|text};
@@ -437,9 +443,16 @@ const Client = struct {
         const required=try session.requiredCapacity();
         if(self.output.len-self.output_len<required) return false;
         const reader=self.reader orelse return false;
-        if(reader.context==null and monotonicClock()<reader.retry_at) return false;
-        reader.provision() catch {reader.retry_at=monotonicClock()+1000000000;return false;};
-        data_gate.lockRead();defer data_gate.unlockRead();
+        if (prepared_only) {
+            // Readiness dispatch never provisions scratch or parks behind a
+            // writer. The owning reactor will retry during normal service.
+            if (reader.context == null or !data_gate.tryLockRead()) return false;
+        } else {
+            if(reader.context==null and monotonicClock()<reader.retry_at) return false;
+            reader.provision() catch {reader.retry_at=monotonicClock()+1000000000;return false;};
+            data_gate.lockRead();
+        }
+        defer data_gate.unlockRead();
         if (store.database.detachedReadsBlocked()) return false;
         const context=reader.context.?;
         // Protocol Describe may lend stack-local interpolation text. No plan
@@ -484,6 +497,7 @@ const Client = struct {
             try session.handleDetachedKeyExchange(&self.connection, exchange, output)
         else
             null;
+        if (prepared_only and fused_reply == null) return false;
         const reply = if (fused_reply) |completed| completed else if (prepared_primary_key)
             try session.handleDetachedExecuteSync(&self.connection, input, output)
         else
@@ -584,6 +598,18 @@ const Client = struct {
             self.input_len += received;
             self.touched = monotonicClock();
         }
+    }
+
+    /// Readability starts a bounded protocol turn for a single, already
+    /// recognized read. The regular reactor retains fragmented and pipelined
+    /// exchanges, TLS, and connections with pending session control work.
+    fn receiveReady(self: *Client) !void {
+        const empty = self.input_len == 0;
+        try self.receive();
+        if (!empty or self.input_len == 0 or self.transport != null or self.output_len != 0 or
+            self.closing or self.blocked or self.cancel_request.load(.acquire) != 0 or self.sessionDeadline() != null)
+            return;
+        if (try self.dispatchRead(true)) try self.flush();
     }
 
     /// Dispatches at most 32 buffered packets, then flushes. Returns true
@@ -1218,7 +1244,7 @@ const Reactor = struct {
                 const client = &clients[owner];
                 if (can_write) client.flush() catch { client.close(); continue; };
                 if (client.state.load(.acquire) != 2) continue;
-                if (can_read) client.receive() catch client.close();
+                if (can_read) client.receiveReady() catch client.close();
             }
         }
     }

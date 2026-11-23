@@ -255,13 +255,16 @@ def test_parameterized_primary_key(server):
     portal = b"\0"
     query = b"SELECT label FROM prepared_rows WHERE id=$1\0"
 
-    def select(pg, value, expected, binary=False, result_formats=(), state=None):
+    def request(value, binary=False, result_formats=()):
         formats = struct.pack("!HHH", 1, int(binary), 1)
         value_length = U32.pack(0xffffffff if value is None else len(value))
         result_layout = struct.pack(f"!{len(result_formats) + 1}H", len(result_formats), *result_formats)
         bind = packet(b"B", portal + statement + formats + value_length + (value or b"") + result_layout)
         execute = packet(b"E", portal + U32.pack(0))
-        pg.sock.sendall(bind + execute + packet(b"S"))
+        return bind + execute + packet(b"S")
+
+    def select(pg, value, expected, binary=False, result_formats=(), state=None):
+        pg.sock.sendall(request(value, binary, result_formats))
         messages = pg.ready()
         if state is not None:
             expect_error(messages, state)
@@ -278,6 +281,11 @@ def test_parameterized_primary_key(server):
         check([tag for tag, _ in reader.ready()] == [b"1", b"Z"])
         select(reader, struct.pack("!q", -9), [["before"]], binary=True)
         select(reader, struct.pack("!q", -9), [["before"]], binary=True, result_formats=(1,))
+        reader.fragments(request(b"-9"), chunks=(1, 3, 2))
+        check(rows(reader.ready()) == [["before"]])
+        reader.sock.sendall(request(b"7") + request(b"-9"))
+        check(rows(reader.ready()) == [["other"]])
+        check(rows(reader.ready()) == [["before"]])
         select(reader, b"7", [], result_formats=(0, 0), state="08P01")
         select(reader, b"+7", [["other"]])
         select(reader, None, [])
