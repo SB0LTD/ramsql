@@ -1596,6 +1596,10 @@ def check_generated_archives(binary, tools, native):
                        "((starts, ends) OVERLAPS (TIME '10:30', TIME '11:30')) STORED)")
             db.execute(f"INSERT INTO {schema}.periods(id,starts,ends) "
                        "VALUES (1,'09:00','11:00'),(2,'11:30','12:00'),(3,NULL,'09:30')")
+            db.execute(f"CREATE TABLE {schema}.events (happened timestamp, "
+                       "bucket timestamp GENERATED ALWAYS AS "
+                       "(date_bin('15 minutes', happened, TIMESTAMP '2000-01-01')) STORED)")
+            db.execute(f"INSERT INTO {schema}.events(happened) VALUES ('1999-12-31 23:44:59.999999'),(NULL)")
 
     def verify(endpoint, schema):
         with psycopg.connect(**endpoint) as db:
@@ -1603,10 +1607,17 @@ def check_generated_archives(binary, tools, native):
             assert db.execute(f"SELECT id,covered FROM {schema}.periods ORDER BY id").fetchall() == [
                 (1, True), (2, False), (3, None),
             ]
+            assert db.execute(f"SELECT bucket::text FROM {schema}.events ORDER BY happened").fetchall() == [
+                ("1999-12-31 23:30:00",), (None,),
+            ]
             with db.transaction(force_rollback=True):
                 assert db.execute(f"INSERT INTO {schema}.invoice(net,tax) VALUES (6,3) RETURNING total").fetchone() == (9,)
                 assert db.execute(f"UPDATE {schema}.invoice SET tax=4 WHERE net=17 RETURNING total").fetchone() == (21,)
                 assert db.execute(f"UPDATE {schema}.periods SET ends='10:30' WHERE id=1 RETURNING covered").fetchone() == (False,)
+                assert db.execute(
+                    f"UPDATE {schema}.events SET happened='1999-12-31 23:45' "
+                    "WHERE happened IS NOT NULL RETURNING bucket::text"
+                ).fetchone() == ("1999-12-31 23:45:00",)
 
     check_schema_archives(binary, tools, native, "generated", populate, verify)
 

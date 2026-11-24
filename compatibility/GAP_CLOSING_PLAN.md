@@ -10,6 +10,13 @@ format, SQLSTATEs for invalid periods, and DST-sensitive interval
 addition. Full coverage of PostgreSQL's temporal types and operators
 is tracked in the SQL conformance inventory.
 
+The time-bucketing candidate adds both PostgreSQL `date_bin` overloads
+with native catalog identities. The wire suite checks a custom origin,
+one-microsecond edges around bucket boundaries, pre-origin timestamps,
+typed prepared input and fixed-width buckets across DST. Stock tools
+round-trip a table with a stored bucket expression and check its values
+and updates after WAL reopen. Infinite interval values remain open.
+
 The PostgreSQL 18.7 tooling fixture uses stock pg_dump's portable
 `attoptions` projection. PostgreSQL stores its own attribute version
 under `pg_attver` and excludes that entry from normal archive options.
@@ -25,6 +32,16 @@ ownership, grants, a table comment, rows and defaults in both directions,
 and repeats the import assertions after WAL reopen. Large-object creation,
 data, ownership and privilege restoration remain open.
 [Whole-database qualification](https://github.com/SB0LTD/ramsql/actions/runs/44958574825)
+
+A stock PostgreSQL 18.7 custom archive containing one 8,194-byte large
+object fails on the first `pg_catalog.lo_create` call. The native fixture
+writes 6,144 data bytes, leaves a 2,048-byte hole and writes two bytes at
+offset 8,192. The plain restore stream then calls `lo_open`, `lowrite`
+and `lo_close` and includes the object's comment. The implementation
+needs caller-backed sparse byte storage and transaction-owned descriptors.
+Qualification must check the hole, content and ownership after archive
+restore, rollback, crash recovery and WAL replay. It must also exercise
+stock exports from RAMSQL and concurrent reads during writes.
 
 The scoped identity follow-up passed 28 checks on PG16 and PG18. It compares
 sequence names across schemas, starting values, catalog OIDs, and recovery
