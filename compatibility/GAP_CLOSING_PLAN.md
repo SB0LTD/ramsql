@@ -82,6 +82,12 @@ with built-in tablespaces, quoted names, passwordless roles, memberships
 and defaults. User-defined tablespaces and full cluster archives remain
 open.
 
+Full PG16 and PG18 cluster archives currently stop at the first connection
+to `template1`. The database-DDL follow-up qualifies the archive's
+UTF-8, C-locale database creation form and the existing owner declaration
+against the durable registry. Database template connections and copying
+remain open.
+
 The composite-key follow-up passed all 34 checks on PG16 and PG18 CI.
 Stock restore applies the composite primary key after COPY in the same
 transaction. The fixture checks row equality and rejection of duplicate

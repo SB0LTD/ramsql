@@ -10,6 +10,7 @@ import subprocess
 import psycopg
 
 from qualify_postgres import REFERENCES
+from test_database_cluster import SMALL_PROFILE
 from test_postgres_compat import docker, native_postgres, running_ramsql
 from test_persistence import DurableServer
 
@@ -223,6 +224,7 @@ def main():
         ("namespace_acl", lambda db: check_namespaces(binary, db)),
         ("global_role_archives", lambda db: check_global_role_archives(binary, tools, db)),
         ("global_archives", lambda db: check_global_role_archives(binary, tools, db, scope="globals")),
+        ("archive_database_ddl", lambda db: check_archive_database_ddl(binary, tools, db)),
         ("quote_all_identifier_archives", lambda db: check_quoted_archives(binary, tools, db)),
         ("relation_discovery", lambda db: check_relation_discovery(binary, db)),
         ("function_discovery", lambda db: check_function_discovery(binary, db)),
@@ -371,6 +373,37 @@ def check_global_role_archives(binary, tools, native, *, scope="roles"):
         outbound = dump(f"{scope}-outbound-dump", candidate)
     restore(f"{scope}-outbound-restore", native, outbound)
     verify_roles(native, "ramsql archive")
+
+
+def check_archive_database_ddl(binary, tools, native):
+    """Exercise stock database declarations separately from template connections."""
+    with psycopg.connect(**native) as db:
+        db.execute('''CREATE DATABASE "Archive Child" WITH TEMPLATE template0 ENCODING 'UTF8'
+                      LOCALE_PROVIDER libc LOCALE 'C' ''')
+    archive = "database-ddl.sql"
+    tools.run("database-ddl-dump", "pg_dumpall", native, "--no-role-passwords",
+              "--quote-all-identifiers", f"--file={archive}")
+    sql = (tools.root / archive).read_text(encoding="utf-8")
+    commands = [line for line in sql.splitlines()
+                if line.startswith(('CREATE DATABASE "Archive Child"', 'ALTER DATABASE "Archive Child" OWNER'))]
+    assert len(commands) == 2, commands
+
+    cluster = tools.root / "database-ddl-cluster"
+    with DurableServer(binary, cluster, create=True, storage_options=SMALL_PROFILE) as server:
+        candidate = ramsql_settings(server) | {"dbname": "postgres"}
+        with psycopg.connect(**candidate) as db:
+            for command in commands:
+                db.execute(command)
+            assert db.execute(
+                "SELECT encoding,datlocprovider,datcollate,datctype FROM pg_database WHERE datname='Archive Child'"
+            ).fetchone() == (6, "c", "C", "C")
+        with psycopg.connect(**(candidate | {"dbname": "Archive Child"})) as child:
+            child.execute("CREATE TABLE archive_rows(id integer PRIMARY KEY)")
+            child.execute("INSERT INTO archive_rows VALUES (97)")
+    with DurableServer(binary, cluster, storage_options=SMALL_PROFILE) as reopened:
+        child = ramsql_settings(reopened) | {"dbname": "Archive Child"}
+        with psycopg.connect(**child) as db:
+            assert db.execute("SELECT id FROM archive_rows").fetchall() == [(97,)]
 
 
 def check_quoted_archives(binary, tools, native):

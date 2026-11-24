@@ -73,8 +73,13 @@ def prove(binary, base):
         primary.ok("BEGIN", status=b"T")
         assert error_code(primary, "CREATE DATABASE forbidden") == "25001"
         primary.ok("ROLLBACK")
-        command(primary, 'CREATE DATABASE "Isolated DB"', "CREATE DATABASE")
+        assert error_code(primary, """CREATE DATABASE unsupported_locale WITH TEMPLATE = template0 LOCALE = 'C.UTF-8'""") == "0A000"
+        primary.ok("SELECT datname FROM pg_database WHERE datname='unsupported_locale'", [])
+        command(primary, """CREATE DATABASE "Isolated DB" WITH TEMPLATE = template0 ENCODING = 'UTF8' LOCALE_PROVIDER = libc LOCALE = 'C'""",
+                "CREATE DATABASE")
         assert error_code(primary, 'CREATE DATABASE "Isolated DB"') == "42P04"
+        command(primary, 'ALTER DATABASE "Isolated DB" OWNER TO "ramsql"', "ALTER DATABASE")
+        assert error_code(primary, 'ALTER DATABASE "Isolated DB" OWNER TO another_owner') == "0A000"
         with connect(live, "Isolated DB") as secondary:
             secondary.ok("SELECT current_database()", [["Isolated DB"]])
             assert error_code(secondary, "SELECT * FROM shared") == "42P01"

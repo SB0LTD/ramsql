@@ -1765,6 +1765,13 @@ fn clusterCommand(context: *anyopaque, connection: *DB, source: []const u8) anye
             try createClusterDatabase(name.slice());
             return "CREATE DATABASE";
         },
+        .alter_owner => |change| {
+            const target = cluster_registry.lookup(change.name.slice()) orelse return error.DatabaseNotFound;
+            // This cluster stores one owner. An archive may restate it.
+            if (target.owner != cluster_owner or !std.mem.eql(u8, change.owner.slice(), sql.bootstrap_role_name))
+                return error.UnsupportedStatement;
+            return "ALTER DATABASE";
+        },
         .drop => |drop| {
             const target = cluster_registry.lookup(drop.name.slice()) orelse return if (drop.if_exists) "DROP DATABASE" else error.DatabaseNotFound;
             if (std.mem.eql(u8, target.name, primary_database) or target.id.index == binding.database.index) return error.DatabaseBusy;
