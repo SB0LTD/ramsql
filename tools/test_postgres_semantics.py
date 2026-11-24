@@ -303,6 +303,32 @@ EVENTS = ("CREATE TABLE compat (id INTEGER PRIMARY KEY, happened TIMESTAMPTZ, lo
           "INSERT INTO compat VALUES (2, '2026-03-08 06:59:59Z', '2026-03-08 02:30', '2026-03-08', '-1 mons')")
 ZONE_CHECK = ("SELECT id, happened, happened::text FROM compat ORDER BY id", "SHOW TimeZone")
 SUITES["q03"] = (
+    Case("q03_overlaps", "q03", 3.2, feature="OVERLAPS endpoints, duration, PostgreSQL overload resolution and binary parameters",
+         setup=("CREATE TABLE compat (id INTEGER PRIMARY KEY, begins TIME, ends TIME)",
+                "INSERT INTO compat VALUES (1,'09:00','11:00'),(2,'12:00','10:30'),(3,NULL,'10:15'),(4,NULL,NULL)"),
+         statements=(
+        "SELECT (DATE '2025-01-01', DATE '2025-02-01') OVERLAPS (DATE '2025-01-15', DATE '2025-03-01')",
+        "SELECT id, (begins,ends) OVERLAPS (TIME '10:30',TIME '11:00') AS matched FROM compat ORDER BY id",
+        "SELECT id FROM compat WHERE (begins,ends) OVERLAPS (TIME '10:30',TIME '11:00') ORDER BY id",
+        "SELECT (TIME '09:00', INTERVAL '90 minutes') OVERLAPS (TIME '10:30', TIME '11:00')",
+        "SELECT (TIME '09:00', INTERVAL '-1 hour') OVERLAPS (TIME '08:30', TIME '09:00')",
+        "SELECT (TIME '23:30', INTERVAL '1 hour') OVERLAPS (TIME '12:00', TIME '13:00')",
+        "SELECT (TIMETZ '10:00+02', TIMETZ '10:00+02') OVERLAPS (TIMETZ '09:00+01', TIMETZ '09:00+01')",
+        "SELECT (TIMETZ '09:00+02', TIMETZ '11:00+02') OVERLAPS (TIMETZ '10:00+03', TIMETZ '12:00+03')",
+        "SELECT (TIME '09:00', TIME '10:00') OVERLAPS (TIMETZ '09:00+00', TIMETZ '10:00+00')",
+        "SELECT (TIMESTAMP '2020-01-01', '2020-01-03') OVERLAPS (TIMESTAMP '2020-01-02', TIMESTAMP '2020-01-04')",
+        "SELECT (NULL,NULL) OVERLAPS (NULL,NULL)",
+        "SELECT (TIME '11:00', NULL) OVERLAPS (TIME '09:30', TIME '11:30')",
+        "SELECT (DATE '2020-01-01', '2020-01-03') OVERLAPS (DATE '2020-01-02', TIMESTAMP '2020-01-04')",
+        "SELECT (TIMETZ '10:00+02', INTERVAL '1 hour') OVERLAPS (TIMETZ '09:00+01', TIMETZ '11:00+01')",
+        "SELECT (TIME '09:00', TIME '11:00') OVERLAPS ROW(TIME '10:00')",
+        ("SELECT id FROM compat WHERE (begins,ends) OVERLAPS (%s::time,%s::interval) ORDER BY id",
+         ("10:30", "1 hour"), {"binary": True, "prepare": True}),
+        "SET TIME ZONE 'America/New_York'",
+        "SELECT (TIMESTAMPTZ '2026-03-07 10:00-05', INTERVAL '1 day') "
+        "OVERLAPS (TIMESTAMPTZ '2026-03-08 14:30+00', INTERVAL '1 minute')",
+        "SELECT (TIMESTAMPTZ '2026-03-07 10:00-05', INTERVAL '24 hours') "
+        "OVERLAPS (TIMESTAMPTZ '2026-03-08 14:30+00', INTERVAL '1 minute')")),
     Case("q03_to_char_templates", "q03", 3.2, feature="temporal to_char calendar/time fields, modifiers and text metadata", statements=(
         "SELECT to_char(DATE '2024-02-29','YYYY-MM-DD'), to_char(TIMESTAMP '1999-12-31 23:59:58.123456','YYYY-MM-DD HH24:MI:SS.MS US')",
         "SELECT to_char(TIMESTAMP '0001-01-01 BC','YYYY BC B.C. CC'), to_char(DATE '2024-02-03','FMMonth FMDDth FMYYYY')",
@@ -1629,9 +1655,11 @@ def run_statements(connection, statements):
             outcome = type_info(connection, sql)
             events.append({"sql": "TypeInfo.fetch(" + sql + ")", "outcome": outcome})
             continue
-        outcome = execute(connection, sql, parameters, binary=bool(options.get("binary")))
+        outcome = execute(connection, sql, parameters, binary=bool(options.get("binary")),
+                          prepare=options.get("prepare"))
         status = {name: connection.info.parameter_status(name) for name in REPORTED}
         events.append({"sql": sql, "parameters": json_value(parameters), "binary": bool(options.get("binary")),
+                       **({"prepare": options["prepare"]} if "prepare" in options else {}),
                        "outcome": outcome, "parameter_status": status})
     return events
 
