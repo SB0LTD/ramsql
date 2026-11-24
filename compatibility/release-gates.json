@@ -7,9 +7,10 @@
       "id": "postgres_compatibility",
       "status": "partial",
       "evidence": "https://github.com/SB0LTD/ramsql/actions/runs/44655295188",
-      "stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45085219524",
+      "stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45270304873",
+      "quoted_stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45282665508",
       "requirement": "Complete the PostgreSQL feature inventory, upstream and application regressions, and stock tooling round trips.",
-      "qualified": "The materialized-view prerelease passed PostgreSQL 16 and 18 memory and durable SCRAM lanes, including independent COPY and backpressure tests. Forty stock-tooling checks per version cover PostgreSQL archives in both directions, including dependent views, populated and unpopulated materialized views, and WAL reopen."
+      "qualified": "The role-archive prerelease passed 41 stock-tooling checks on PostgreSQL 16 and 18, including database and passwordless role archives in both directions and WAL reopen. The quoted-archive candidate passed all 42 stock-tooling checks on both PostgreSQL versions."
     },
     {
       "id": "implemented_subset_durability",

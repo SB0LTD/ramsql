@@ -54,7 +54,7 @@ class Tools:
     def run(self, label, command, arguments, *options):
         env = os.environ.copy()
         env.pop("PGPASSWORD", None)
-        if password := arguments.get("password"):
+        if arguments is not None and (password := arguments.get("password")):
             env["PGPASSWORD"] = password
         if self.native_bin:
             launch = [str(self.native_bin / command)]
@@ -63,7 +63,8 @@ class Tools:
                       "--volume", f"{self.root}:/work", "--workdir", "/work",
                       "--user", f"{self.root.stat().st_uid}:{self.root.stat().st_gid}",
                       "--env", "PGPASSWORD", self.image, command]
-        completed = subprocess.run([*launch, *settings(arguments, command), *options], cwd=self.root,
+        connection = [] if arguments is None else settings(arguments, command)
+        completed = subprocess.run([*launch, *connection, *options], cwd=self.root,
                                    capture_output=True, text=True, timeout=90, env=env)
         (self.root / f"{label}.stdout").write_text(completed.stdout, encoding="utf-8")
         (self.root / f"{label}.stderr").write_text(completed.stderr, encoding="utf-8")
@@ -221,6 +222,7 @@ def main():
     for name, check in (
         ("namespace_acl", lambda db: check_namespaces(binary, db)),
         ("global_role_archives", lambda db: check_global_role_archives(binary, tools, db)),
+        ("quote_all_identifier_archives", lambda db: check_quoted_archives(binary, tools, db)),
         ("relation_discovery", lambda db: check_relation_discovery(binary, db)),
         ("function_discovery", lambda db: check_function_discovery(binary, db)),
         ("type_discovery", lambda db: check_type_discovery(binary, db)),
@@ -309,7 +311,9 @@ def check_global_role_archives(binary, tools, native):
 
     def dump(label, arguments):
         archive = f"{label}.sql"
-        tools.run(label, "pg_dumpall", arguments, "--roles-only", "--no-role-passwords", f"--file={archive}")
+        tools.run(label, "pg_dumpall", arguments, "--roles-only", "--no-role-passwords",
+                  "--quote-all-identifiers", f"--file={archive}")
+        assert 'CREATE ROLE "ramsql";' in (tools.root / archive).read_text(encoding="utf-8")
         return archive
 
     def restore(label, arguments, archive):
@@ -336,6 +340,67 @@ def check_global_role_archives(binary, tools, native):
         outbound = dump("roles-outbound-dump", candidate)
     restore("roles-outbound-restore", native, outbound)
     verify_roles(native, "ramsql archive")
+
+
+def check_quoted_archives(binary, tools, native):
+    def populate(arguments, schema):
+        with psycopg.connect(**arguments) as db:
+            db.execute(f"CREATE SCHEMA {schema}")
+            db.execute(f'CREATE TABLE {schema}.items ("item""id" integer PRIMARY KEY, label text NOT NULL)')
+            db.execute(f"CREATE INDEX label_idx ON {schema}.items (label)")
+            db.execute(f'CREATE TABLE {schema}.lines (pid integer REFERENCES {schema}.items ("item""id"))')
+            db.execute(f'INSERT INTO {schema}.items VALUES (7, %s)', ("it's data",))
+            db.execute(f"INSERT INTO {schema}.lines VALUES (7)")
+
+    def verify_schema(arguments, schema):
+        with psycopg.connect(**arguments) as db:
+            assert db.execute(
+                f'SELECT i."item""id", i.label FROM {schema}.items i JOIN {schema}.lines l ON l.pid = i."item""id"'
+            ).fetchall() == [(7, "it's data")]
+            assert db.execute(
+                "SELECT count(*) FROM pg_indexes WHERE schemaname=%s AND indexname='label_idx'", (schema,)
+            ).fetchone() == (1,)
+            try:
+                db.execute(f"INSERT INTO {schema}.lines VALUES (99)")
+            except psycopg.Error as error:
+                assert error.sqlstate == "23503", error
+            else:
+                raise AssertionError("restored foreign key accepted a missing row")
+
+    def dump(label, arguments, schema):
+        archive = f"{label}.dump"
+        tools.run(label, "pg_dump", arguments, "--quote-all-identifiers", "--format=custom",
+                  f"--schema={schema}", f"--file={archive}")
+        tools.run(f"{label}-sql", "pg_restore", None, "--file=-", archive)
+        source = (tools.root / f"{label}-sql.stdout").read_text(encoding="utf-8")
+        fragments = (
+            '"item""id" integer NOT NULL',
+            '"label" "text" NOT NULL',
+            f'CREATE INDEX "label_idx" ON "{schema}"."items" USING "btree" ("label")',
+            f'FOREIGN KEY ("pid") REFERENCES "{schema}"."items"("item""id")',
+        )
+        for fragment in fragments:
+            assert fragment in source, f"{label} did not emit {fragment!r}"
+        return archive
+
+    def restore(label, arguments, archive):
+        tools.run(label, "pg_restore", arguments, "--single-transaction", "--exit-on-error", archive)
+
+    populate(native, "native_archive")
+    inbound = dump("quote-inbound", native, "native_archive")
+    wal = tools.root / "quoted-archives.wal"
+    with DurableServer(binary, wal, create=True, storage_options=("--workers", "1")) as server:
+        candidate = ramsql_settings(server)
+        restore("quote-inbound-restore", candidate, inbound)
+        verify_schema(candidate, "native_archive")
+    with DurableServer(binary, wal, storage_options=("--workers", "1")) as reopened:
+        verify_schema(ramsql_settings(reopened), "native_archive")
+
+    with running_ramsql(binary, extra_arguments=("--workers", "1")) as candidate:
+        populate(candidate, "ramsql_archive")
+        outbound = dump("quote-outbound", candidate, "ramsql_archive")
+    restore("quote-outbound-restore", native, outbound)
+    verify_schema(native, "ramsql_archive")
 
 
 def check_relation_discovery(binary, native):
