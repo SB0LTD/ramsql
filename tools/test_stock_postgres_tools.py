@@ -287,6 +287,16 @@ def check_namespaces(binary, native):
 
 def check_global_role_archives(binary, tools, native):
     """Exercise stock role discovery and passwordless pg_dumpall restore."""
+    expected_defaults = {
+        "check_function_bodies": "off",
+        "default_transaction_deferrable": "on",
+        "default_transaction_read_only": "off",
+        "quote_all_identifiers": "on",
+        "row_security": "on",
+        "synchronize_seqscans": "off",
+    }
+    expected = sorted(f"{name}={value}" for name, value in expected_defaults.items())
+
     def populate(arguments, prefix):
         with psycopg.connect(**arguments) as db:
             db.execute(f'CREATE ROLE "{prefix} group" NOLOGIN')
@@ -294,6 +304,8 @@ def check_global_role_archives(binary, tools, native):
             db.execute(f'CREATE ROLE "{prefix} limited" LOGIN')
             db.execute(f'GRANT "{prefix} group" TO "{prefix} login" WITH ADMIN OPTION')
             db.execute(f'GRANT "{prefix} group" TO "{prefix} limited" WITH INHERIT FALSE, SET FALSE')
+            for setting, value in expected_defaults.items():
+                db.execute(f"""ALTER ROLE "{prefix} login" SET {setting} TO '{value}'""")
 
     def verify_roles(arguments, prefix):
         with psycopg.connect(**arguments) as db:
@@ -308,12 +320,25 @@ def check_global_role_archives(binary, tools, native):
                 (prefix + " group",),
             ).fetchall() == [(prefix + " limited", False, False, False, "ramsql"),
                              (prefix + " login", True, True, True, "ramsql")]
+            defaults = db.execute(
+                "SELECT unnest(setconfig) FROM pg_db_role_setting WHERE setdatabase=0 "
+                "AND setrole=(SELECT oid FROM pg_roles WHERE rolname=%s)",
+                (prefix + " login",),
+            ).fetchall()
+            assert sorted(value for (value,) in defaults) == expected
+            array = db.execute(
+                "SELECT setconfig FROM pg_db_role_setting WHERE setdatabase=0 "
+                "AND setrole=(SELECT oid FROM pg_roles WHERE rolname=%s)",
+                (prefix + " login",),
+            ).fetchone()
+            assert sorted(array[0]) == expected
 
     def dump(label, arguments):
         archive = f"{label}.sql"
         tools.run(label, "pg_dumpall", arguments, "--roles-only", "--no-role-passwords",
                   "--quote-all-identifiers", f"--file={archive}")
-        assert 'CREATE ROLE "ramsql";' in (tools.root / archive).read_text(encoding="utf-8")
+        source = (tools.root / archive).read_text(encoding="utf-8")
+        assert 'CREATE ROLE "ramsql";' in source and '''SET "quote_all_identifiers" TO 'on';''' in source
         return archive
 
     def restore(label, arguments, archive):
@@ -332,8 +357,13 @@ def check_global_role_archives(binary, tools, native):
         candidate = ramsql_settings(server)
         restore("roles-inbound-restore", candidate, inbound)
         verify_roles(candidate, "native archive")
+        with psycopg.connect(**candidate) as db:
+            db.execute("CREATE TABLE restored_role_defaults AS SELECT setconfig FROM pg_db_role_setting")
     with DurableServer(binary, wal, storage_options=storage) as reopened:
-        verify_roles(ramsql_settings(reopened), "native archive")
+        candidate = ramsql_settings(reopened)
+        verify_roles(candidate, "native archive")
+        with psycopg.connect(**candidate) as db:
+            assert sorted(db.execute("SELECT setconfig FROM restored_role_defaults").fetchone()[0]) == expected
 
     with running_ramsql(binary, extra_arguments=storage) as candidate:
         populate(candidate, "ramsql archive")
