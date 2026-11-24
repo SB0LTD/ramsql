@@ -1,5 +1,32 @@
 # RAMSQL gap-closing plan
 
+## Temporal predicate qualification
+
+The DATE `OVERLAPS` smoke case already worked. The pinned ZPM follow-up
+also binds TIME and TIMETZ periods and resolves unknown endpoints using
+PostgreSQL's overload rules. The differential suite covers row filtering,
+NULL endpoints, reversed periods, prepared parameters with binary result
+format, SQLSTATEs for invalid periods, and DST-sensitive interval
+addition. Full coverage of PostgreSQL's temporal types and operators
+is tracked in the SQL conformance inventory.
+
+The time-bucketing candidate adds both PostgreSQL `date_bin` overloads
+with native catalog identities. The wire suite checks a custom origin,
+one-microsecond edges around bucket boundaries, pre-origin timestamps,
+typed prepared input and fixed-width buckets across DST. Stock tools
+round-trip a table with a stored bucket expression and check its values
+and updates after WAL reopen. Infinite interval values remain open.
+The initial stock export inserted a TEXT cast that prevented PostgreSQL
+from resolving the interval argument. The ZPM expression writer now
+preserves implicit string-literal typing in archived calls.
+
+The PostgreSQL 18.7 tooling fixture uses stock pg_dump's portable
+`attoptions` projection. PostgreSQL stores its own attribute version
+under `pg_attver` and excludes that entry from normal archive options.
+The fixture still compares all portable column options. The consolidated
+candidate also restores legacy archives that contain the reserved option.
+General per-column option DDL remains open.
+
 ## Stock migration acceptance
 
 The separate whole-database follow-up, RAMSQL `f051b2e`, passed all
@@ -8,6 +35,16 @@ ownership, grants, a table comment, rows and defaults in both directions,
 and repeats the import assertions after WAL reopen. Large-object creation,
 data, ownership and privilege restoration remain open.
 [Whole-database qualification](https://github.com/SB0LTD/ramsql/actions/runs/44958574825)
+
+A stock PostgreSQL 18.7 custom archive containing one 8,194-byte large
+object fails on the first `pg_catalog.lo_create` call. The native fixture
+writes 6,144 data bytes, leaves a 2,048-byte hole and writes two bytes at
+offset 8,192. The plain restore stream then calls `lo_open`, `lowrite`
+and `lo_close` and includes the object's comment. The implementation
+needs caller-backed sparse byte storage and transaction-owned descriptors.
+Qualification must check the hole, content and ownership after archive
+restore, rollback, crash recovery and WAL replay. It must also exercise
+stock exports from RAMSQL and concurrent reads during writes.
 
 The scoped identity follow-up passed 28 checks on PG16 and PG18. It compares
 sequence names across schemas, starting values, catalog OIDs, and recovery
@@ -114,6 +151,17 @@ bootstrap-role error.
 Cross-database roles, broader locale and tablespace support, and
 large-object archives remain open.
 [Writable-template qualification](https://github.com/SB0LTD/ramsql/actions/runs/45450269339)
+
+The legacy column-option fixture replays unmodified plain and custom
+archives written by stock `pg_dump` 18.0 against PostgreSQL 18.7.
+The old client includes the backend-owned `pg_attver` option.
+The new restore path accepts that reserved option with the usual ALTER
+permissions, locking and errors. The fixture checks data, primary keys
+and the absence of a portable option after reopening the WAL.
+PG16 `psql` reads the plain archive. The custom archive uses format
+1.16, which requires the PG18 `pg_restore` lane.
+Configurable options such as `n_distinct` remain open.
+[PostgreSQL attribute catalog](https://www.postgresql.org/docs/18/catalog-pg-attribute.html)
 
 The composite-key follow-up passed all 34 checks on PG16 and PG18 CI.
 Stock restore applies the composite primary key after COPY in the same

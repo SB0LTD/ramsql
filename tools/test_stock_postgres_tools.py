@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 
 import psycopg
@@ -150,6 +151,45 @@ def export_archive(binary, tools, native, table_options=TABLES, label="outbound"
     verify(native)
 
 
+def check_legacy_attribute_archives(binary, tools, reference):
+    """Restore raw archives emitted by pg_dump 18.0 against PostgreSQL 18.7."""
+    def verify_restore(endpoint):
+        with psycopg.connect(**endpoint) as db:
+            rows = db.execute('SELECT id,"Payload" FROM public.legacy_attver ORDER BY id').fetchall()
+            assert rows == [(1, "ready"), (2, "copied")], rows
+            options = db.execute(
+                "SELECT attoptions FROM pg_attribute "
+                "WHERE attrelid='public.legacy_attver'::regclass AND attnum>0 ORDER BY attnum"
+            ).fetchall()
+            assert options == [(None,), (None,)], options
+            with db.transaction(force_rollback=True):
+                try:
+                    db.execute("INSERT INTO public.legacy_attver VALUES (1, 'duplicate')")
+                except psycopg.errors.UniqueViolation:
+                    pass
+                else:
+                    raise AssertionError("restored primary key did not reject a duplicate")
+
+    fixtures = Path(__file__).with_name("fixtures")
+    formats = ("sql", "dump") if reference == "18" else ("sql",)
+    storage = ("--workers", "1")
+    for suffix in formats:
+        artifact = f"postgres18-legacy-attver.{suffix}"
+        shutil.copyfile(fixtures / artifact, tools.root / artifact)
+        wal = tools.root / f"legacy-attribute-{suffix}.wal"
+        with DurableServer(binary, wal, create=True, storage_options=storage) as server:
+            candidate = ramsql_settings(server)
+            if suffix == "sql":
+                tools.run("legacy-attribute-psql", "psql", candidate, "--no-psqlrc",
+                          "--single-transaction", "--set=ON_ERROR_STOP=1", f"--file={artifact}")
+            else:
+                tools.run("legacy-attribute-pg-restore", "pg_restore", candidate, "--single-transaction",
+                          "--exit-on-error", "--no-owner", "--no-acl", artifact)
+            verify_restore(candidate)
+        with DurableServer(binary, wal, storage_options=storage) as reopened:
+            verify_restore(ramsql_settings(reopened))
+
+
 def whole_database_ownership(binary, tools, native, inbound):
     def roles(endpoint):
         with psycopg.connect(**endpoint) as db:
@@ -245,6 +285,7 @@ def main():
         ("range_discovery", lambda db: check_ranges(binary, db)),
         ("event_trigger_discovery", lambda db: check_event_triggers(binary, db)),
         ("column_metadata_discovery", lambda db: check_column_metadata(binary, db, args.reference)),
+        ("legacy_attribute_archives", lambda _: check_legacy_attribute_archives(binary, tools, args.reference)),
         ("column_default_discovery", lambda db: check_column_defaults(binary, db)),
         ("constraint_and_index_discovery", lambda db: check_constraints_and_indexes(binary, db)),
         ("partition_discovery", lambda db: check_partitions(binary, db)),
@@ -715,15 +756,14 @@ def check_operator_discovery(binary, native):
             assert operators == expected.fetchall()
 
             routine_oids = {row[-1] for row in operators}
-            routines = [
-                row for row in ram.execute(f"SELECT {procedure_fields} FROM pg_proc WHERE pronamespace=11 ORDER BY oid")
+            operator_routines = [
+                row for row in ram.execute(f"SELECT {procedure_fields},prolang FROM pg_proc WHERE pronamespace=11 ORDER BY oid")
                 if row[0] in routine_oids
             ]
+            assert all(row[-1] == 12 for row in operator_routines)
+            routines = [row[:-1] for row in operator_routines]
             procedure_oids = sorted(routine_oids)
             assert [row[0] for row in routines] == procedure_oids
-            # The implementation is internal to Sig even for signatures
-            # implemented by SQL wrappers in PostgreSQL.
-            assert ram.execute("SELECT DISTINCT prolang FROM pg_proc WHERE pronamespace=11").fetchall() == [(12,)]
             native_routines = pg.execute(
                 f"SELECT {procedure_fields} FROM pg_proc WHERE oid=ANY(%s) ORDER BY oid", (procedure_oids,)
             ).fetchall()
@@ -1225,7 +1265,10 @@ def check_column_metadata(binary, native, version):
         + notnull
         + "a.atthasdef,a.attisdropped,a.attlen,a.attalign,a.attislocal,"
         "pg_catalog.format_type(t.oid,a.atttypmod) AS atttypname,"
-        "array_to_string(a.attoptions,', ') AS attoptions,"
+        # Stock pg_dump removes the backend-owned attribute version from the
+        # options it archives. Keep comparing all portable option values.
+        "array_to_string(ARRAY(SELECT o FROM unnest(a.attoptions) o "
+        "WHERE substr(o,1,10)<>'pg_attver='),', ') AS attoptions,"
         "CASE WHEN a.attcollation<>t.typcollation THEN a.attcollation ELSE 0 END AS attcollation,"
         "pg_catalog.array_to_string(ARRAY(SELECT pg_catalog.quote_ident(option_name) || ' ' || "
         "pg_catalog.quote_literal(option_value) FROM pg_catalog.pg_options_to_table(attfdwoptions) "
@@ -1589,13 +1632,33 @@ def check_generated_archives(binary, tools, native):
             db.execute(f"CREATE TABLE {schema}.invoice (net int NOT NULL, tax int DEFAULT 2, "
                        "total int GENERATED ALWAYS AS (net + tax) STORED)")
             db.execute(f"INSERT INTO {schema}.invoice(net) VALUES (17)")
+            db.execute(f"CREATE TABLE {schema}.periods (id int PRIMARY KEY, starts time, ends time, "
+                       "covered boolean GENERATED ALWAYS AS "
+                       "((starts, ends) OVERLAPS (TIME '10:30', TIME '11:30')) STORED)")
+            db.execute(f"INSERT INTO {schema}.periods(id,starts,ends) "
+                       "VALUES (1,'09:00','11:00'),(2,'11:30','12:00'),(3,NULL,'09:30')")
+            db.execute(f"CREATE TABLE {schema}.events (happened timestamp, "
+                       "bucket timestamp GENERATED ALWAYS AS "
+                       "(date_bin('15 minutes', happened, TIMESTAMP '2000-01-01')) STORED)")
+            db.execute(f"INSERT INTO {schema}.events(happened) VALUES ('1999-12-31 23:44:59.999999'),(NULL)")
 
     def verify(endpoint, schema):
         with psycopg.connect(**endpoint) as db:
             assert db.execute(f"SELECT net,tax,total FROM {schema}.invoice").fetchall() == [(17, 2, 19)]
+            assert db.execute(f"SELECT id,covered FROM {schema}.periods ORDER BY id").fetchall() == [
+                (1, True), (2, False), (3, None),
+            ]
+            assert db.execute(f"SELECT bucket::text FROM {schema}.events ORDER BY happened").fetchall() == [
+                ("1999-12-31 23:30:00",), (None,),
+            ]
             with db.transaction(force_rollback=True):
                 assert db.execute(f"INSERT INTO {schema}.invoice(net,tax) VALUES (6,3) RETURNING total").fetchone() == (9,)
                 assert db.execute(f"UPDATE {schema}.invoice SET tax=4 WHERE net=17 RETURNING total").fetchone() == (21,)
+                assert db.execute(f"UPDATE {schema}.periods SET ends='10:30' WHERE id=1 RETURNING covered").fetchone() == (False,)
+                assert db.execute(
+                    f"UPDATE {schema}.events SET happened='1999-12-31 23:45' "
+                    "WHERE happened IS NOT NULL RETURNING bucket::text"
+                ).fetchone() == ("1999-12-31 23:45:00",)
 
     check_schema_archives(binary, tools, native, "generated", populate, verify)
 

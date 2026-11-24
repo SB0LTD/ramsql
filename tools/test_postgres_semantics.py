@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 import hashlib
+from itertools import product
 import json
 import os
 from pathlib import Path
@@ -302,7 +303,49 @@ EVENTS = ("CREATE TABLE compat (id INTEGER PRIMARY KEY, happened TIMESTAMPTZ, lo
           "INSERT INTO compat VALUES (1, '2026-10-22T12:00:00Z', '2026-10-22 12:00:00.1239', '2026-10-22', '1 day 02:00')",
           "INSERT INTO compat VALUES (2, '2026-03-08 06:59:59Z', '2026-03-08 02:30', '2026-03-08', '-1 mons')")
 ZONE_CHECK = ("SELECT id, happened, happened::text FROM compat ORDER BY id", "SHOW TimeZone")
+OVERLAP_INPUTS = ("NULL", "DATE '2025-01-01'", "TIMESTAMP '2025-01-01 09:00'",
+                  "TIMESTAMPTZ '2025-01-01 10:00+01'", "TIME '09:00'",
+                  "TIMETZ '09:00+00'", "INTERVAL '1 hour'")
 SUITES["q03"] = (
+    Case("q03_overlaps_signature_matrix", "q03", 3.2, setup=(), tables=(),
+         feature="All endpoint and duration type choices for four OVERLAPS positions",
+         statements=tuple(f"SELECT ({start},{end}) OVERLAPS ({other_start},{other_end})"
+                          for start, end, other_start, other_end in product(OVERLAP_INPUTS, repeat=4))),
+    Case("q03_overlaps_routines", "q03", 3.2, setup=(), tables=(),
+         feature="Direct and qualified OVERLAPS calls and native catalog signatures", statements=(
+        "SELECT pg_catalog.overlaps(TIME '09:00', TIME '10:00', TIME '09:30', TIME '11:00')",
+        "SELECT overlaps(TIME '09:00', INTERVAL '1 hour', TIME '10:00', TIME '11:00')",
+        "SELECT \"overlaps\"(TIMETZ '10:00+02', NULL::timetz, TIMETZ '08:30+01', TIMETZ '10:00+01')",
+        "SELECT pg_catalog.overlaps(TIME '09:00', TIME '10:00', TIME '09:30')",
+        "SELECT oid,pronargs,proargtypes::text,prorettype,provolatile,proisstrict,prolang,prosrc::text "
+        "FROM pg_catalog.pg_proc WHERE proname='overlaps' AND pronamespace=11 ORDER BY oid",
+        "SELECT to_regproc('pg_catalog.overlaps')")),
+    Case("q03_overlaps", "q03", 3.2, feature="OVERLAPS endpoints, duration, PostgreSQL overload resolution and binary parameters",
+         setup=("CREATE TABLE compat (id INTEGER PRIMARY KEY, begins TIME, ends TIME)",
+                "INSERT INTO compat VALUES (1,'09:00','11:00'),(2,'12:00','10:30'),(3,NULL,'10:15'),(4,NULL,NULL)"),
+         statements=(
+        "SELECT (DATE '2025-01-01', DATE '2025-02-01') OVERLAPS (DATE '2025-01-15', DATE '2025-03-01')",
+        "SELECT id, (begins,ends) OVERLAPS (TIME '10:30',TIME '11:00') AS matched FROM compat ORDER BY id",
+        "SELECT id FROM compat WHERE (begins,ends) OVERLAPS (TIME '10:30',TIME '11:00') ORDER BY id",
+        "SELECT (TIME '09:00', INTERVAL '90 minutes') OVERLAPS (TIME '10:30', TIME '11:00')",
+        "SELECT (TIME '09:00', INTERVAL '-1 hour') OVERLAPS (TIME '08:30', TIME '09:00')",
+        "SELECT (TIME '23:30', INTERVAL '1 hour') OVERLAPS (TIME '12:00', TIME '13:00')",
+        "SELECT (TIMETZ '10:00+02', TIMETZ '10:00+02') OVERLAPS (TIMETZ '09:00+01', TIMETZ '09:00+01')",
+        "SELECT (TIMETZ '09:00+02', TIMETZ '11:00+02') OVERLAPS (TIMETZ '10:00+03', TIMETZ '12:00+03')",
+        "SELECT (TIME '09:00', TIME '10:00') OVERLAPS (TIMETZ '09:00+00', TIMETZ '10:00+00')",
+        "SELECT (TIMESTAMP '2020-01-01', '2020-01-03') OVERLAPS (TIMESTAMP '2020-01-02', TIMESTAMP '2020-01-04')",
+        "SELECT (NULL,NULL) OVERLAPS (NULL,NULL)",
+        "SELECT (TIME '11:00', NULL) OVERLAPS (TIME '09:30', TIME '11:30')",
+        "SELECT (DATE '2020-01-01', '2020-01-03') OVERLAPS (DATE '2020-01-02', TIMESTAMP '2020-01-04')",
+        "SELECT (TIMETZ '10:00+02', INTERVAL '1 hour') OVERLAPS (TIMETZ '09:00+01', TIMETZ '11:00+01')",
+        "SELECT (TIME '09:00', TIME '11:00') OVERLAPS ROW(TIME '10:00')",
+        ("SELECT id FROM compat WHERE (begins,ends) OVERLAPS (%s::time,%s::interval) ORDER BY id",
+         ("10:30", "1 hour"), {"binary": True, "prepare": True}),
+        "SET TIME ZONE 'America/New_York'",
+        "SELECT (TIMESTAMPTZ '2026-03-07 10:00-05', INTERVAL '1 day') "
+        "OVERLAPS (TIMESTAMPTZ '2026-03-08 14:30+00', INTERVAL '1 minute')",
+        "SELECT (TIMESTAMPTZ '2026-03-07 10:00-05', INTERVAL '24 hours') "
+        "OVERLAPS (TIMESTAMPTZ '2026-03-08 14:30+00', INTERVAL '1 minute')")),
     Case("q03_to_char_templates", "q03", 3.2, feature="temporal to_char calendar/time fields, modifiers and text metadata", statements=(
         "SELECT to_char(DATE '2024-02-29','YYYY-MM-DD'), to_char(TIMESTAMP '1999-12-31 23:59:58.123456','YYYY-MM-DD HH24:MI:SS.MS US')",
         "SELECT to_char(TIMESTAMP '0001-01-01 BC','YYYY BC B.C. CC'), to_char(DATE '2024-02-03','FMMonth FMDDth FMYYYY')",
@@ -387,6 +430,34 @@ SUITES["q03"] = (
         "SELECT '1 year 2 mons 3 days 04:05:06.5'::interval::text, '-1 day 2 hours'::interval::text, '1 day -2 hours'::interval::text, '-1 year -2 mons'::interval::text, '25 hours'::interval::text, '0'::interval::text",
         "SELECT '1.5 days'::interval::text, '1.5 months'::interval::text, '1.5 years'::interval::text, '2 weeks'::interval::text, '@ 1 hour ago'::interval::text, '90 minutes'::interval::text",
         "SELECT -interval '1 day 02:00', interval '1 day' + interval '3 hours', '1 mon'::interval > '29 days'::interval, '1 day'::interval = '24 hours'::interval")),
+    Case("q03_date_bin", "q03", 3.2, setup=(), tables=(),
+         feature="DATE_BIN typed timestamp and zoned overloads, arbitrary origins and boundary errors", statements=(
+        "SELECT date_bin('15 minutes', TIMESTAMP '2020-02-11 15:44:17', TIMESTAMP '2001-01-01 00:02:30')",
+        "SELECT date_bin('15 minutes', TIMESTAMP '1999-12-31 23:45:00', TIMESTAMP '2000-01-01')",
+        "SELECT date_bin('15 minutes', TIMESTAMP '1999-12-31 23:44:59.999999', TIMESTAMP '2000-01-01')",
+        "SELECT date_bin('3 microseconds', TIMESTAMP '1999-12-31 23:59:59.999998', TIMESTAMP '2000-01-01')",
+        "SELECT date_bin('1 day', DATE '2000-01-02', DATE '2000-01-01')",
+        "SELECT date_bin('1 day', DATE '2000-01-02', TIMESTAMP '2000-01-01')",
+        "SELECT pg_catalog.date_bin('1 day', '2000-01-02', '2000-01-01')",
+        "SELECT date_bin('1 day', TIMESTAMPTZ '2000-01-02', TIMESTAMP '2000-01-01')",
+        "SELECT date_bin(TIME '00:20', TIMESTAMP '2000-01-02 00:25', TIMESTAMP '2000-01-01')",
+        "SELECT date_bin('1 day', TIME '12:00', TIME '11:00')",
+        "SELECT date_bin('1 day', '2000-01-01')",
+        "SELECT date_bin('1 month', TIMESTAMP '2025-01-01', TIMESTAMP '2020-01-01')",
+        "SELECT date_bin('0 seconds', TIMESTAMP '2025-01-01', TIMESTAMP '2020-01-01')",
+        "SELECT date_bin('-1 days', TIMESTAMP '2025-01-01', TIMESTAMP '2020-01-01')",
+        "SELECT date_bin('1000000000 days', TIMESTAMP '2025-01-01', TIMESTAMP '2020-01-01')",
+        "SELECT date_bin('1 week', TIMESTAMP '294276-12-30', TIMESTAMP '4713-01-02 BC')::text",
+        "SELECT date_bin('1 day', TIMESTAMP '2025-01-01', TIMESTAMP 'infinity')::text",
+        "SELECT date_bin('1 month', TIMESTAMP 'infinity', TIMESTAMP 'infinity')::text",
+        "SELECT date_bin(NULL::interval, TIMESTAMP 'infinity', TIMESTAMP 'infinity')",
+        ("SELECT date_bin(%s::interval,%s::timestamp,%s::timestamp)",
+         ("15 minutes", "2020-02-11 15:44:17", "2001-01-01 00:02:30"), {"binary": True, "prepare": True}),
+        "SET TIME ZONE 'America/New_York'",
+        "SELECT date_bin('1 day', TIMESTAMPTZ '2026-03-08 20:00-04', TIMESTAMPTZ '2026-03-07 10:00-05'), "
+        "date_bin('24 hours', TIMESTAMPTZ '2026-03-08 20:00-04', TIMESTAMPTZ '2026-03-07 10:00-05')",
+        "SELECT oid,pronargs,proargtypes::text,prorettype,provolatile,proisstrict,prolang,prosrc::text "
+        "FROM pg_catalog.pg_proc WHERE proname='date_bin' AND pronamespace=11 ORDER BY oid")),
     Case("q03_set_time_zone", "q03", 3.2, feature="SET TIME ZONE UTC/offset/number/name", setup=EVENTS, statements=(
         ("SET TIME ZONE 'UTC'",) + ZONE_CHECK + ("SET TIME ZONE '+05:30'",) + ZONE_CHECK + ("SET TIME ZONE 5",) + ZONE_CHECK +
         ("SET TIME ZONE -3.5",) + ZONE_CHECK + ("SET TIME ZONE 'America/New_York'",) + ZONE_CHECK + ("SET TIME ZONE 'UTC+3'",) + ZONE_CHECK +
@@ -1629,9 +1700,11 @@ def run_statements(connection, statements):
             outcome = type_info(connection, sql)
             events.append({"sql": "TypeInfo.fetch(" + sql + ")", "outcome": outcome})
             continue
-        outcome = execute(connection, sql, parameters, binary=bool(options.get("binary")))
+        outcome = execute(connection, sql, parameters, binary=bool(options.get("binary")),
+                          prepare=options.get("prepare"))
         status = {name: connection.info.parameter_status(name) for name in REPORTED}
         events.append({"sql": sql, "parameters": json_value(parameters), "binary": bool(options.get("binary")),
+                       **({"prepare": options["prepare"]} if "prepare" in options else {}),
                        "outcome": outcome, "parameter_status": status})
     return events
 
