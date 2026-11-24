@@ -368,7 +368,7 @@ const Client = struct {
                 cancelBackend(key); self.consume(16); self.closing = true; return;
             }
         }
-        if (!self.queuedSimpleQuery() and try self.dispatchRead()) return;
+        if (!self.queuedSimpleQuery() and try self.dispatchRead(false)) return;
         lockStore();
         defer {
             maybeCheckpoint();
@@ -430,11 +430,22 @@ const Client = struct {
         if(requested!=0 and requested==self.cancel_key.load(.acquire)) return error.QueryCanceled;
         if(self.read_deadline) |deadline| if(monotonicClock()>=deadline) return error.QueryCanceled;
     }
-    fn dispatchRead(self:*Client) !bool {
+    fn dispatchRead(self:*Client, prepared_only: bool) !bool {
         if(!parallel or self.protocol!=.postgres or !self.connection.detachedReadEligible()) return false;
         const session=&self.session.postgres;
         const input=self.input[self.input_start..][0..self.input_len];
-        const candidate=session.detachedCandidate(input) orelse return false;
+        const key_exchange = if (store.max_query_work == 0 and self.connection.settings.statement_timeout_ms == 0)
+            session.detachedKeyExchange(input)
+        else
+            null;
+        if (prepared_only) {
+            const exchange = key_exchange orelse return false;
+            // A single complete exchange can reply immediately. Leave batches
+            // to serve(), which can combine their replies in one socket write.
+            if (exchange.consumed != input.len) return false;
+        }
+        const candidate = if (key_exchange != null) PG.DetachedCandidate.metadata else
+            session.detachedCandidate(input) orelse return false;
         const source:?[]const u8=switch(candidate){.metadata=>null,.describe,.execute=>|text|text};
         if(source) |text| {
             if(!Raw.queryCandidate(text)) return false;
@@ -442,9 +453,16 @@ const Client = struct {
         const required=try session.requiredCapacity();
         if(self.output.len-self.output_len<required) return false;
         const reader=self.reader orelse return false;
-        if(reader.context==null and monotonicClock()<reader.retry_at) return false;
-        reader.provision() catch {reader.retry_at=monotonicClock()+1000000000;return false;};
-        data_gate.lockRead();defer data_gate.unlockRead();
+        if (prepared_only) {
+            // Readiness dispatch never provisions scratch or parks behind a
+            // writer. The owning reactor will retry during normal service.
+            if (reader.context == null or !data_gate.tryLockRead()) return false;
+        } else {
+            if(reader.context==null and monotonicClock()<reader.retry_at) return false;
+            reader.provision() catch {reader.retry_at=monotonicClock()+1000000000;return false;};
+            data_gate.lockRead();
+        }
+        defer data_gate.unlockRead();
         if (store.database.detachedReadsBlocked()) return false;
         const context=reader.context.?;
         // Protocol Describe may lend stack-local interpolation text. No plan
@@ -454,7 +472,9 @@ const Client = struct {
         self.connection.execution.reset(store.max_query_work);
         self.connection.execution.context=self;self.connection.execution.poll=pollRead;
         self.read_deadline=if(self.connection.settings.statement_timeout_ms==0) null else monotonicClock()+@as(i64,self.connection.settings.statement_timeout_ms)*1000000;
-        const statement_us=wallClock();
+        // The retained key projection contains only direct columns. Even a
+        // cache miss here hands off an ordinary Bind, which evaluates no SQL.
+        const statement_us = if (key_exchange == null) wallClock() else null;
         context.session=self.connection.detachedReadSession(&self.connection.execution,statement_us);
         context.dialect=.postgres;
         const snapshot: Raw.Snapshot = .{.csn=store.database.csn};
@@ -483,7 +503,15 @@ const Client = struct {
         self.connection.read_context=context;self.connection.running_statement=true;
         defer {self.connection.read_context=null;self.connection.running_statement=false;self.read_deadline=null;}
         const output=self.output[self.output_len..];
-        const reply=try session.handle(&self.connection,input,output);
+        const fused_reply = if (key_exchange) |exchange|
+            try session.handleDetachedKeyExchange(&self.connection, exchange, output)
+        else
+            null;
+        if (prepared_only and fused_reply == null) return false;
+        const reply = if (fused_reply) |completed| completed else if (prepared_primary_key)
+            try session.handleDetachedExecuteSync(&self.connection, input, output)
+        else
+            try session.handle(&self.connection, input, output);
         if(reply.consumed>self.input_len or reply.written>output.len or reply.blocked or reply.cancel!=null) return error.InvalidReply;
         if(reply.consumed!=0) self.consume(reply.consumed) else if(self.input_len==self.input.len) return error.RequestTooLarge;
         self.output_len+=reply.written;self.closing=reply.close;
@@ -580,6 +608,18 @@ const Client = struct {
             self.input_len += received;
             self.touched = monotonicClock();
         }
+    }
+
+    /// Readability starts a bounded protocol turn for a single, already
+    /// recognized read. The regular reactor retains fragmented and pipelined
+    /// exchanges, TLS, and connections with pending session control work.
+    fn receiveReady(self: *Client) !void {
+        const empty = self.input_len == 0;
+        try self.receive();
+        if (!empty or self.input_len == 0 or self.transport != null or self.output_len != 0 or
+            self.closing or self.blocked or self.cancel_request.load(.acquire) != 0 or self.sessionDeadline() != null)
+            return;
+        if (try self.dispatchRead(true)) try self.flush();
     }
 
     /// Dispatches at most 32 buffered packets, then flushes. Returns true
@@ -1165,9 +1205,10 @@ const Reactor = struct {
         defer self.reader.close();
         while (!reactor_stop.load(.acquire)) {
             const epoch = self.signal.epoch.load(.acquire);
-            var sockets: [capacity]tcp.Socket = @splat(tcp.invalid_socket);
-            var readable: [capacity]bool = @splat(false);
-            var writable: [capacity]bool = @splat(false);
+            var sockets: [capacity]tcp.Socket = undefined;
+            var readable: [capacity]bool = undefined;
+            var writable: [capacity]bool = undefined;
+            var owners: [capacity]usize = undefined;
             var active: usize = 0;
             var buffered = false;
             var poll_timeout_ms: u32 = 10;
@@ -1176,24 +1217,32 @@ const Reactor = struct {
             // holding the same mutex used for execution and disconnection.
             var woken: [capacity]usize = undefined;
             var woken_count: usize = 0;
+            var check_waiters = false;
             var slot = self.index;
             while (slot < clients.len) : (slot += reactor_count) {
                 const client = &clients[slot];
-                _ = client.activeAfterService();
+                if (!client.activeAfterService()) continue;
+                check_waiters = check_waiters or client.blocked or client.cancel_request.load(.acquire) != 0;
             }
-            if (store_mutex.tryLock()) {
-            store.now_ns = now;
-            slot = self.index;
-            while (slot < clients.len) : (slot += reactor_count) {
-                const client = &clients[slot];
-                if (client.state.load(.acquire) != 2) continue;
-                pollWorkerInterrupts(client, client.connection.id);
-                if (!client.blocked or !client.connection.wakeReady()) continue;
-                var position = woken_count;
-                while (position != 0 and clients[woken[position-1]].connection.waitStart() > client.connection.waitStart()) : (position -= 1) woken[position] = woken[position-1];
-                woken[position] = slot; woken_count += 1;
-            }
-            store_mutex.unlock();
+            // Runnable connections handle interrupts during dispatch. Only a
+            // blocked connection or an already published cancel needs a pass
+            // under the shared store lock before processing socket traffic.
+            if (check_waiters and store_mutex.tryLock()) {
+                store.now_ns = now;
+                slot = self.index;
+                while (slot < clients.len) : (slot += reactor_count) {
+                    const client = &clients[slot];
+                    if (client.state.load(.acquire) != 2) continue;
+                    if (client.cancel_request.load(.acquire) != 0)
+                        pollWorkerInterrupts(client, client.connection.id);
+                    if (!client.blocked or !client.connection.wakeReady()) continue;
+                    var position = woken_count;
+                    while (position != 0 and clients[woken[position - 1]].connection.waitStart() > client.connection.waitStart()) : (position -= 1)
+                        woken[position] = woken[position - 1];
+                    woken[position] = slot;
+                    woken_count += 1;
+                }
+                store_mutex.unlock();
             }
             for (woken[0..woken_count]) |index| {
                 const client = &clients[index];
@@ -1215,23 +1264,23 @@ const Reactor = struct {
                 if (client.serve()) buffered = true;
                 if (!client.activeAfterService()) continue;
                 if (client.sessionDeadline()) |due| poll_timeout_ms = deadlinePollMs(monotonicClock(), due, poll_timeout_ms);
-                sockets[slot] = client.socket;
-                readable[slot] = client.wantsRead();
-                writable[slot] = client.wantsWrite();
+                sockets[active] = client.socket;
+                readable[active] = client.wantsRead();
+                writable[active] = client.wantsWrite();
+                owners[active] = slot;
                 active += 1;
             }
             if (active == 0) { self.reader.close();self.signal.wait(epoch, 100); continue; }
             // Finite poll bounds new admission, cancellation and shutdown
             // latency without introducing a second socket wakeup protocol.
-            const poll_count = if (comptime capacity <= standard_capacity) capacity else clients.len;
-            _ = try waitServer(tcp.invalid_socket, sockets[0..poll_count], readable[0..poll_count], writable[0..poll_count], if (buffered) 0 else poll_timeout_ms);
-            slot = self.index;
-            while (slot < clients.len) : (slot += reactor_count) {
-                const client = &clients[slot];
-                if (client.state.load(.acquire) != 2) continue;
-                if (writable[slot]) client.flush() catch client.close();
+            _ = try waitServer(tcp.invalid_socket, sockets[0..active], readable[0..active], writable[0..active], if (buffered) 0 else poll_timeout_ms);
+            // A reactor owns these slots through the wait. Newly admitted
+            // clients have no readiness result until the next iteration.
+            for (owners[0..active], readable[0..active], writable[0..active]) |owner, can_read, can_write| {
+                const client = &clients[owner];
+                if (can_write) client.flush() catch client.close();
                 if (!client.activeAfterService()) continue;
-                if (readable[slot]) client.receive() catch {
+                if (can_read) client.receiveReady() catch {
                     client.close();
                     _ = client.activeAfterService();
                 };
