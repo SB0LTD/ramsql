@@ -9,8 +9,9 @@
       "evidence": "https://github.com/SB0LTD/ramsql/actions/runs/44655295188",
       "stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45270304873",
       "quoted_stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45282665508",
+      "cluster_declaration_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45384730882",
       "requirement": "Complete the PostgreSQL feature inventory, upstream and application regressions, and stock tooling round trips.",
-      "qualified": "The role-archive prerelease passed 41 stock-tooling checks on PostgreSQL 16 and 18, including database and passwordless role archives in both directions and WAL reopen. The quoted-archive candidate passed all 42 stock-tooling checks on both PostgreSQL versions."
+      "qualified": "The role-archive prerelease passed 41 stock-tooling checks on PostgreSQL 16 and 18, including round trips and WAL reopen. The combined candidate passed all 44 stock checks on both versions, including quoted identifiers, role defaults, globals and restoring empty database declarations. Full cluster archives still require database-template support."
     },
     {
       "id": "implemented_subset_durability",
@@ -50,9 +51,9 @@
       "id": "matched_performance",
       "status": "unproven",
       "evidence": "https://github.com/benor1470/dbMeter/actions/runs/44347340190",
-      "focused_evidence": "https://github.com/benor1470/dbMeter/actions/runs/45260687841",
-      "requirement": "Four prepared primary-key cases missed the 2x threshold, one also missed p99, and production-like multi-table coverage is incomplete.",
-      "qualified": "Reviewer correctness and capacity checks passed. Twelve of sixteen workloads met the significant-advantage gate. The separate million-row lookup comparison with an indexed IRDB reference recorded 2.35x at one client and 1.86x at eight on the experimental Linux same-host deployment."
+      "focused_evidence": "https://github.com/benor1470/dbMeter/actions/runs/45382392847",
+      "requirement": "Qualify published artifacts across the original full suite and production-like workloads, including multi-table reads and durable concurrency.",
+      "qualified": "Twelve of sixteen workloads met the significant-advantage gate in the broader reviewer run. Both original million-row lookup cases passed the unchanged per-case thresholds with experimental same-host Linux reply caching and indexed IRDB. RAMSQL reached 2.13x and 2.04x the fastest reference at one and eight clients. The production gate remains unproven."
     },
     {
       "id": "operations",

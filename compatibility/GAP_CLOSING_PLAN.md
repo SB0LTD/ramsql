@@ -76,17 +76,21 @@ supported boolean settings, including `quote_all_identifiers` and
 values on the restored server and after WAL reopen. The SCRAM integration
 tests check role-specific login, client override precedence and RESET.
 Database-specific and non-boolean role settings remain open.
+[PG16 and PG18 role-default qualification](https://github.com/SB0LTD/ramsql/actions/runs/45382103314)
 
 The globals follow-up runs stock `pg_dumpall --globals-only` both ways
 with built-in tablespaces, quoted names, passwordless roles, memberships
-and defaults. User-defined tablespaces and full cluster archives remain
-open.
+and defaults. Both stock versions passed all 43 checks. User-defined
+tablespaces and full cluster archives remain open.
+[PG16 and PG18 globals qualification](https://github.com/SB0LTD/ramsql/actions/runs/45383277235)
 
 Full PG16 and PG18 cluster archives currently stop at the first connection
 to `template1`. The database-DDL follow-up qualifies the archive's
 UTF-8, C-locale database creation form and the existing owner declaration
-against the durable registry. Database template connections and copying
-remain open.
+against the durable registry. Both stock versions passed all 44 checks,
+including verification of the restored child after WAL reopen. The
+database-template connection and copy paths remain open.
+[PG16 and PG18 database declaration qualification](https://github.com/SB0LTD/ramsql/actions/runs/45384730882)
 
 The composite-key follow-up passed all 34 checks on PG16 and PG18 CI.
 Stock restore applies the composite primary key after COPY in the same
@@ -184,6 +188,29 @@ typed row expansion after filtering.
 [Partition CI](https://github.com/SB0LTD/ramsql/actions/runs/44924845762) ·
 [Subscription CI](https://github.com/SB0LTD/ramsql/actions/runs/44925395409) ·
 [Archive metadata CI](https://github.com/SB0LTD/ramsql/actions/runs/44925969411)
+
+## 24 November 2026 million-row lookup qualification
+
+The same-host Linux socket-map experiment passes both original
+one-million-row dbMeter lookup cases in the same hosted run. The opt-in
+transport caches bounded server reply redirects and revalidates every
+client request. It uses ZPM `385d6708`, RAMSQL `6c947808`, and the
+original JDBC inputs, timing, correctness and latency checks. IRDB
+1.10.821 uses its clustered key index.
+
+| Clients | RAMSQL queries/s | PostgreSQL queries/s | IRDB queries/s | RAMSQL / fastest reference |
+| ---: | ---: | ---: | ---: | ---: |
+| 1 | 70,894.85 | 33,270.05 | 989.17 | 2.13× |
+| 8 | 358,236.55 | 175,375.87 | 1,445.96 | 2.04× |
+
+Both cases passed three 60-second trials per engine, the original trial
+separation check, and the p99 threshold. A companion job passed six
+stock TLS test runs with 16 immediate reconnects per run and no retries.
+The benchmark used an experimental build and opt-in read cache.
+The hosted follow-up uses the published image for both TLS checks and
+timings. Remote clients, concurrent writes and analytical workloads
+remain subject to the production performance gate.
+[Original dbMeter cases and TLS qualification](https://github.com/benor1470/dbMeter/actions/runs/45382392847)
 
 ## 20 November 2026 shipped checkpoint
 
