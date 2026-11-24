@@ -121,8 +121,10 @@ inspection remain outside this beta scope.
 Use `--database-cluster` to serve independent PostgreSQL databases. Start with
 `--create-data` and a new data path prefix, then connect to `dbname=postgres`
 with the configured SCRAM login. The mode supports `CREATE DATABASE`,
-`DROP DATABASE` and discovery through `pg_database`. Each database has its own
-WAL and storage budget. This beta mode supports four databases and one reactor.
+`DROP DATABASE`, database creation from a template, and discovery through
+`pg_database`. The four ordinary databases share one reactor and have
+independent WAL and storage budgets. The built-in `template1` has its own
+WAL once opened. Use `TEMPLATE template0` to create a pristine database.
 The single-WAL offline backup command is unavailable in cluster mode.
 [PostgreSQL cluster operations](POSTGRES_CLUSTER.md)
 

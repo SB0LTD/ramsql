@@ -225,6 +225,9 @@ def main():
         ("global_role_archives", lambda db: check_global_role_archives(binary, tools, db)),
         ("global_archives", lambda db: check_global_role_archives(binary, tools, db, scope="globals")),
         ("archive_database_ddl", lambda db: check_archive_database_ddl(binary, tools, db)),
+        ("named_database_template", lambda db: check_named_database_template(binary, tools, db)),
+        ("native_cluster_archive_to_ramsql", lambda db: check_cluster_archive(binary, tools, db, inbound=True)),
+        ("ramsql_cluster_archive_to_native", lambda db: check_cluster_archive(binary, tools, db, inbound=False)),
         ("quote_all_identifier_archives", lambda db: check_quoted_archives(binary, tools, db)),
         ("relation_discovery", lambda db: check_relation_discovery(binary, db)),
         ("function_discovery", lambda db: check_function_discovery(binary, db)),
@@ -408,6 +411,91 @@ def check_archive_database_ddl(binary, tools, native):
         child = ramsql_settings(reopened) | {"dbname": "Archive Child"}
         with psycopg.connect(**child) as db:
             assert db.execute("SELECT id FROM archive_rows").fetchall() == [(97,)]
+
+
+def check_named_database_template(binary, tools, native):
+    def clone(settings):
+        with psycopg.connect(**settings) as db:
+            db.execute('CREATE DATABASE "Archive Seed" WITH TEMPLATE template0')
+        with psycopg.connect(**(settings | {"dbname": "Archive Seed"})) as db:
+            db.execute("CREATE TABLE template_rows(id integer PRIMARY KEY)")
+            db.execute("INSERT INTO template_rows VALUES (4), (15)")
+            db.execute('CREATE DATABASE "Archive Copy" WITH TEMPLATE "Archive Seed"')
+            db.execute("DELETE FROM template_rows WHERE id = 4")
+
+    def contents(settings):
+        result = []
+        for name in ("Archive Seed", "Archive Copy"):
+            with psycopg.connect(**(settings | {"dbname": name})) as db:
+                result.append(db.execute("SELECT id FROM template_rows ORDER BY id").fetchall())
+        return result
+
+    clone(native)
+    expected = contents(native)
+    assert expected == [[(15,)], [(4,), (15,)]]
+    cluster = tools.root / "named-template-cluster"
+    with DurableServer(binary, cluster, create=True, storage_options=SMALL_PROFILE) as server:
+        candidate = ramsql_settings(server) | {"dbname": "postgres"}
+        clone(candidate)
+        assert contents(candidate) == expected
+    with DurableServer(binary, cluster, storage_options=SMALL_PROFILE) as reopened:
+        assert contents(ramsql_settings(reopened)) == expected
+
+
+def check_cluster_archive(binary, tools, native, *, inbound):
+    # The native test harness creates an additional ramsql database in the
+    # container's OS locale. The fixture uses the built-in databases and an
+    # additional UTF-8, C-locale database created explicitly below.
+    databases = (("template1", 8), ("postgres", 15), ("Cluster Archive", 21))
+    options = ("--database-cluster", "--rows", "32", "--versions", "64",
+               "--work-rows", "4096", "--result-rows", "1024")
+
+    def populate(settings):
+        with psycopg.connect(**settings) as db:
+            db.execute('''CREATE DATABASE "Cluster Archive" WITH TEMPLATE template0
+                          ENCODING 'UTF8' LOCALE_PROVIDER libc LOCALE 'C' ''')
+        for name, key in databases:
+            with psycopg.connect(**(settings | {"dbname": name})) as db:
+                db.execute("CREATE TABLE cluster_marker(id integer PRIMARY KEY)")
+                db.execute("INSERT INTO cluster_marker VALUES (%s)", (key,))
+
+    def proof(settings):
+        for name, key in databases:
+            with psycopg.connect(**(settings | {"dbname": name})) as db:
+                assert db.execute("SELECT id FROM cluster_marker").fetchall() == [(key,)], name
+                assert db.execute("SELECT current_database(), (SELECT count(*) FROM pg_database "
+                                  "WHERE datname='template1' AND datistemplate AND datallowconn)").fetchone() == (name, 1)
+
+    label = "cluster-inbound" if inbound else "cluster-outbound"
+    archive = f"{label}.sql"
+
+    def dump(settings, *extra):
+        tools.run(f"{label}-dump", "pg_dumpall", settings, "--no-role-passwords",
+                  "--quote-all-identifiers", *extra, f"--file={archive}")
+
+    def restore(settings):
+        tools.run(f"{label}-restore", "psql", settings, "-X",
+                  "--set=ON_ERROR_STOP=off", "--set=VERBOSITY=verbose", f"--file={archive}")
+        stderr = (tools.root / f"{label}-restore.stderr").read_text(encoding="utf-8")
+        assert re.findall(r"\bERROR:\s+(\w{5}):", stderr) == ["42710"], stderr
+
+    cluster = tools.root / label
+    if inbound:
+        populate(native)
+        dump(native, "--exclude-database=ramsql")
+        with DurableServer(binary, cluster, create=True, storage_options=options) as server:
+            settings = ramsql_settings(server) | {"dbname": "postgres"}
+            restore(settings)
+            proof(settings)
+        with DurableServer(binary, cluster, storage_options=options) as reopened:
+            proof(ramsql_settings(reopened))
+    else:
+        with DurableServer(binary, cluster, create=True, storage_options=options) as server:
+            settings = ramsql_settings(server) | {"dbname": "postgres"}
+            populate(settings)
+            dump(settings)
+        restore(native | {"dbname": "postgres"})
+        proof(native)
 
 
 def check_quoted_archives(binary, tools, native):

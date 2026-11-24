@@ -26,6 +26,43 @@ pub const CheckpointPhase = enum { staged, before_selection, after_selection, af
 pub const CheckpointObserver = *const fn (CheckpointPhase) void;
 pub const DatabaseIdentity = struct { cluster: [16]u8, oid: u32 };
 
+fn databaseIdentityPayload(identity: DatabaseIdentity) [20]u8 {
+    var payload: [20]u8 = undefined;
+    payload[0..16].* = identity.cluster;
+    std.mem.writeInt(u32, payload[16..20], identity.oid, .little);
+    return payload;
+}
+
+fn appendDatabaseIdentity(file: *disk.File, identity: DatabaseIdentity) !void {
+    const payload = databaseIdentityPayload(identity);
+    try log.appendKind(file, 1, &payload, database_identity_kind);
+}
+
+/// Publish only a complete, synced identity. A previously published file
+/// can be reused before the catalog marker only when it is exactly empty.
+pub fn publishEmptyDatabase(path: []const u8, temporary: []const u8, identity: DatabaseIdentity) !void {
+    if (disk.File.openExisting(path)) |opened| {
+        var file = opened;
+        defer file.close();
+        const expected = databaseIdentityPayload(identity);
+        if (try file.length() != log.overhead + expected.len) return error.InvalidDatabaseIdentity;
+        var scratch: [expected.len]u8 = undefined;
+        const payload = try log.readFrame(&file, &scratch, .{
+            .offset = 0, .sequence = 1, .kind = database_identity_kind, .payload_len = expected.len,
+        });
+        if (!std.mem.eql(u8, payload, &expected)) return error.InvalidDatabaseIdentity;
+        return;
+    } else |err| {
+        if (err != error.FileNotFound) return err;
+    }
+    var file = try disk.File.createExclusive(temporary);
+    defer disk.remove(temporary) catch {};
+    defer file.close();
+    try appendDatabaseIdentity(&file, identity);
+    file.close();
+    try disk.publishNew(temporary, path);
+}
+
 /// One configured stem owns the fixed writer lock and selector paths. Only the
 /// selection read under that lock supplies a generation for its image and WAL.
 pub const CheckpointLayout = struct {
@@ -205,6 +242,42 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
             return self.initImpl(path, store, recovery_buffer, if (create) .exclusive else .existing, identity);
         }
 
+        /// Called under cluster ownership with no other source sessions. The
+        /// reserved destination path becomes eligible for catalog publication
+        /// only after the new WAL is synced and replayed into an empty store.
+        pub fn forkDatabase(self: *Self, path: []const u8, identity: DatabaseIdentity, scratch: []u8) !void {
+            const source = self.expected_identity orelse return error.InvalidDatabaseIdentity;
+            if (identity.oid == 0 or source.oid == identity.oid or !std.mem.eql(u8, &source.cluster, &identity.cluster))
+                return error.InvalidDatabaseIdentity;
+            const live = self.store orelse return error.PersistenceClosed;
+            if (!self.active or self.file.poisoned or live.storage_failed) return error.StorageUnavailable;
+            if (live.preparedCount() != 0) return error.DatabaseBusy;
+            var file = try disk.File.createExclusive(path);
+            defer file.close();
+            const kinds = accepted_kinds | (@as(u32, 1) << database_identity_kind);
+            var identities: ForkIdentities = .{ .source = source, .destination = identity.oid };
+            try log.cloneFrames(&self.file, &file, scratch, self.sequence, kinds, &identities, ForkIdentities.rewrite);
+        }
+
+        const ForkIdentities = struct {
+            source: DatabaseIdentity,
+            destination: u32,
+
+            fn rewrite(self: *ForkIdentities, frame: log.Frame, payload: []u8) !void {
+                if (frame.sequence == 1) {
+                    if (frame.kind != database_identity_kind or payload.len != 20 or
+                        !std.mem.eql(u8, payload[0..16], &self.source.cluster) or
+                        std.mem.readInt(u32, payload[16..20], .little) != self.source.oid)
+                        return error.InvalidDatabaseIdentity;
+                    std.mem.writeInt(u32, payload[16..20], self.destination, .little);
+                } else if (frame.kind == database_identity_kind) {
+                    return error.InvalidDatabaseIdentity;
+                } else if (frame.kind == prepare_kind) {
+                    try Raw.PreparedWal.rebindDatabase(payload, self.source.oid, self.destination);
+                }
+            }
+        };
+
         fn requireFresh(self: *Self, store: *Store, recovery_buffer: []u8) !void {
             if (self.active or self.store != null or store.commit_fn != null or store.prepare_fn != null) return error.PersistenceAlreadyOpen;
             if (store.database.csn != 0 or store.database.tableCount() != 0 or store.preparedCount() != 0) return error.PersistenceRequiresEmptyStore;
@@ -236,10 +309,7 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
             }
             if (mode == .exclusive) {
                 const created = identity orelse return error.InvalidDatabaseIdentity;
-                var payload: [20]u8 = undefined;
-                payload[0..16].* = created.cluster;
-                std.mem.writeInt(u32, payload[16..20], created.oid, .little);
-                try log.appendKind(&self.file, 1, &payload, database_identity_kind);
+                try appendDatabaseIdentity(&self.file, created);
             }
             const kinds = accepted_kinds | if (identity != null) @as(u32, 1) << database_identity_kind else @as(u32, 0);
             const recovery = try log.recoverFramesWithFinish(&self.file, recovery_buffer, self, Self.replay, Self.finishRecovery, kinds);

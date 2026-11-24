@@ -84,12 +84,11 @@ and defaults. Both stock versions passed all 43 checks. User-defined
 tablespaces and full cluster archives remain open.
 [PG16 and PG18 globals qualification](https://github.com/SB0LTD/ramsql/actions/runs/45383277235)
 
-Full PG16 and PG18 cluster archives currently stop at the first connection
-to `template1`. The database-DDL follow-up qualifies the archive's
+The original PG16 and PG18 full-cluster restore stopped at its first
+connection to `template1`. The database-DDL follow-up qualified the archive's
 UTF-8, C-locale database creation form and the existing owner declaration
 against the durable registry. Both stock versions passed all 44 checks,
-including verification of the restored child after WAL reopen. The
-database-template connection and copy paths remain open.
+including verification of the restored child after WAL reopen.
 [PG16 and PG18 database declaration qualification](https://github.com/SB0LTD/ramsql/actions/runs/45384730882)
 
 The cluster now exposes the pristine UTF-8, C-locale `template0` as a
@@ -97,8 +96,22 @@ non-connectable template in `pg_database`. CREATE DATABASE explicitly
 selecting the template provisions an independent database without storing
 or replaying an empty template WAL. Existing user databases named
 `template0` keep their original OID, data and admission. Explicit template
-selection fails if that legacy name is occupied. Writable `template1` and
-snapshot cloning are still required for full stock cluster restore.
+selection fails if that legacy name is occupied. A separate candidate
+clones a named, quiescent database using its verified WAL. The destination
+has a distinct identity and becomes visible after the new WAL is flushed
+and replayed. Existing prepared decisions keep their history and live
+prepared transactions fence the copy. PG16 and PG18 each passed all 45
+checks with that candidate.
+[Named-template qualification](https://github.com/SB0LTD/ramsql/actions/runs/45390681198)
+
+The writable `template1` candidate stages its WAL identity on first
+use and recovers a torn catalog publication without accepting an
+unrelated WAL. Local Windows PG18 passed unmodified three-database
+`pg_dumpall` archives both ways, including data in both built-in
+connectable databases. The native fixture excludes its extra harness
+database and checks the single expected duplicate bootstrap-role error.
+Cross-database roles, broader locale and tablespace support, and
+large-object archives remain open.
 
 The composite-key follow-up passed all 34 checks on PG16 and PG18 CI.
 Stock restore applies the composite primary key after COPY in the same
@@ -225,6 +238,13 @@ failed the original capacity probes for 200-byte TEXT, nine columns and
 those capacities after WAL reopen on the exact release image. Dynamic
 schema storage and production performance remain open.
 [Published-image qualification](https://github.com/benor1470/dbMeter/actions/runs/45386009603)
+
+The wider source candidate passed both unchanged hosted cases at 2.22×
+and 2.88× the fastest reference. The exact package has its own benchmark
+run, and the full six-job reviewer workload matrix is tracked separately.
+[Wider candidate CI](https://github.com/benor1470/dbMeter/actions/runs/45389122488) ·
+[Exact published lookup CI](https://github.com/benor1470/dbMeter/actions/runs/45448387443) ·
+[Full reviewer matrix](https://github.com/benor1470/dbMeter/actions/runs/45449777771)
 
 ## 20 November 2026 shipped checkpoint
 

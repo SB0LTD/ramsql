@@ -10,8 +10,9 @@
       "stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45270304873",
       "quoted_stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45282665508",
       "cluster_declaration_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45384730882",
+      "named_template_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45390681198",
       "requirement": "Complete the PostgreSQL feature inventory, upstream and application regressions, and stock tooling round trips.",
-      "qualified": "The role-archive prerelease passed 41 stock-tooling checks on PostgreSQL 16 and 18, including round trips and WAL reopen. The combined candidate passed all 44 stock checks on both versions, including quoted identifiers, role defaults, globals and restoring empty database declarations. Full cluster archives still require database-template support."
+      "qualified": "The latest stock PG16 and PG18 named-template checks passed all 45 cases, including archives and WAL reopen. The writable-template follow-up round-trips the three-database fixture locally on PG18. Shared roles, large objects and the wider application regression suite remain open."
     },
     {
       "id": "implemented_subset_durability",
@@ -53,8 +54,9 @@
       "evidence": "https://github.com/benor1470/dbMeter/actions/runs/44347340190",
       "focused_evidence": "https://github.com/benor1470/dbMeter/actions/runs/45382392847",
       "published_lookup_evidence": "https://github.com/benor1470/dbMeter/actions/runs/45386009603",
+      "wide_lookup_evidence": "https://github.com/benor1470/dbMeter/actions/runs/45389122488",
       "requirement": "Qualify published artifacts across the original full suite and production-like workloads, including multi-table reads and durable concurrency.",
-      "qualified": "Both original million-row lookup cases passed with experimental same-host Linux reply caching and indexed IRDB at 2.13x and 2.04x. The published-image follow-up reached 2.03x and 1.75x and failed the original capacity probes. Twelve of sixteen workloads met the significant-advantage gate in the broader reviewer run."
+      "qualified": "The wider source candidate passed both original million-row cases with same-host Linux reply caching and indexed IRDB at 2.22x and 2.88x. The earlier published image failed the capacity probes. Twelve of sixteen workloads met the significant-advantage gate in the prior broader reviewer run."
     },
     {
       "id": "operations",

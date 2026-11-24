@@ -6,6 +6,10 @@ later binary.
 
 ## Unreleased
 
+- Expose PostgreSQL's pristine `template0` and initialize the writable
+  `template1` on its first connection. Support durable database copies
+  with independent WAL identity and validate stock cluster archive restore.
+
 - Build hosted archives with 32 tables, 9 stored columns per table and
   200-byte text values. Verify these capacities with a client and WAL reopen
   on the exact release binary.
