@@ -368,7 +368,7 @@ const Client = struct {
                 cancelBackend(key); self.consume(16); self.closing = true; return;
             }
         }
-        if (!self.queuedSimpleQuery() and try self.dispatchRead()) return;
+        if (!self.queuedSimpleQuery() and try self.dispatchRead(false)) return;
         lockStore();
         defer {
             maybeCheckpoint();
@@ -430,11 +430,22 @@ const Client = struct {
         if(requested!=0 and requested==self.cancel_key.load(.acquire)) return error.QueryCanceled;
         if(self.read_deadline) |deadline| if(monotonicClock()>=deadline) return error.QueryCanceled;
     }
-    fn dispatchRead(self:*Client) !bool {
+    fn dispatchRead(self:*Client, prepared_only: bool) !bool {
         if(!parallel or self.protocol!=.postgres or !self.connection.detachedReadEligible()) return false;
         const session=&self.session.postgres;
         const input=self.input[self.input_start..][0..self.input_len];
-        const candidate=session.detachedCandidate(input) orelse return false;
+        const key_exchange = if (store.max_query_work == 0 and self.connection.settings.statement_timeout_ms == 0)
+            session.detachedKeyExchange(input)
+        else
+            null;
+        if (prepared_only) {
+            const exchange = key_exchange orelse return false;
+            // A single complete exchange can reply immediately. Leave batches
+            // to serve(), which can combine their replies in one socket write.
+            if (exchange.consumed != input.len) return false;
+        }
+        const candidate = if (key_exchange != null) PG.DetachedCandidate.metadata else
+            session.detachedCandidate(input) orelse return false;
         const source:?[]const u8=switch(candidate){.metadata=>null,.describe,.execute=>|text|text};
         if(source) |text| {
             if(!Raw.queryCandidate(text)) return false;
@@ -442,9 +453,16 @@ const Client = struct {
         const required=try session.requiredCapacity();
         if(self.output.len-self.output_len<required) return false;
         const reader=self.reader orelse return false;
-        if(reader.context==null and monotonicClock()<reader.retry_at) return false;
-        reader.provision() catch {reader.retry_at=monotonicClock()+1000000000;return false;};
-        data_gate.lockRead();defer data_gate.unlockRead();
+        if (prepared_only) {
+            // Readiness dispatch never provisions scratch or parks behind a
+            // writer. The owning reactor will retry during normal service.
+            if (reader.context == null or !data_gate.tryLockRead()) return false;
+        } else {
+            if(reader.context==null and monotonicClock()<reader.retry_at) return false;
+            reader.provision() catch {reader.retry_at=monotonicClock()+1000000000;return false;};
+            data_gate.lockRead();
+        }
+        defer data_gate.unlockRead();
         if (store.database.detachedReadsBlocked()) return false;
         const context=reader.context.?;
         // Protocol Describe may lend stack-local interpolation text. No plan
@@ -454,7 +472,9 @@ const Client = struct {
         self.connection.execution.reset(store.max_query_work);
         self.connection.execution.context=self;self.connection.execution.poll=pollRead;
         self.read_deadline=if(self.connection.settings.statement_timeout_ms==0) null else monotonicClock()+@as(i64,self.connection.settings.statement_timeout_ms)*1000000;
-        const statement_us=wallClock();
+        // The retained key projection contains only direct columns. Even a
+        // cache miss here hands off an ordinary Bind, which evaluates no SQL.
+        const statement_us = if (key_exchange == null) wallClock() else null;
         context.session=self.connection.detachedReadSession(&self.connection.execution,statement_us);
         context.dialect=.postgres;
         const snapshot: Raw.Snapshot = .{.csn=store.database.csn};
@@ -483,7 +503,15 @@ const Client = struct {
         self.connection.read_context=context;self.connection.running_statement=true;
         defer {self.connection.read_context=null;self.connection.running_statement=false;self.read_deadline=null;}
         const output=self.output[self.output_len..];
-        const reply=try session.handle(&self.connection,input,output);
+        const fused_reply = if (key_exchange) |exchange|
+            try session.handleDetachedKeyExchange(&self.connection, exchange, output)
+        else
+            null;
+        if (prepared_only and fused_reply == null) return false;
+        const reply = if (fused_reply) |completed| completed else if (prepared_primary_key)
+            try session.handleDetachedExecuteSync(&self.connection, input, output)
+        else
+            try session.handle(&self.connection, input, output);
         if(reply.consumed>self.input_len or reply.written>output.len or reply.blocked or reply.cancel!=null) return error.InvalidReply;
         if(reply.consumed!=0) self.consume(reply.consumed) else if(self.input_len==self.input.len) return error.RequestTooLarge;
         self.output_len+=reply.written;self.closing=reply.close;
@@ -582,6 +610,18 @@ const Client = struct {
         }
     }
 
+    /// Readability starts a bounded protocol turn for a single, already
+    /// recognized read. The regular reactor retains fragmented and pipelined
+    /// exchanges, TLS, and connections with pending session control work.
+    fn receiveReady(self: *Client) !void {
+        const empty = self.input_len == 0;
+        try self.receive();
+        if (!empty or self.input_len == 0 or self.transport != null or self.output_len != 0 or
+            self.closing or self.blocked or self.cancel_request.load(.acquire) != 0 or self.sessionDeadline() != null)
+            return;
+        if (try self.dispatchRead(true)) try self.flush();
+    }
+
     /// Dispatches at most 32 buffered packets, then flushes. Returns true
     /// when packets remain buffered (the reactor should poll without waiting).
     fn serve(self: *Client) bool {
@@ -648,8 +688,18 @@ fn maybeCheckpoint() void {
     };
 }
 const cluster_capacity = 4;
+const cluster_entries_capacity = cluster_capacity + 1;
 const primary_database = "postgres";
 const cluster_owner: u32 = 10;
+// The pristine template has fixed engine catalogs and no mutable database or WAL.
+const pristine_template: sql.DatabaseCatalogRow = .{
+    .oid = 4, .owner = cluster_owner, .name = "template0",
+    .is_template = true, .allow_connections = false,
+};
+const writable_template: sql.DatabaseCatalogRow = .{
+    .oid = database_catalog.writable_template_oid, .owner = cluster_owner, .name = "template1",
+    .is_template = true,
+};
 const ClusterRegistry = database_registry.Registry(Store, config.name_bytes);
 const ClusterCatalog = database_catalog.Catalog(cluster_capacity, config.name_bytes);
 const ClusterStore = struct { store: Store = .{}, persistence: Persistence = .{} };
@@ -671,10 +721,11 @@ const ClusterSlot = struct {
 };
 var cluster_options: Options = .{};
 var cluster_registry: ClusterRegistry = undefined;
-var cluster_entries: [cluster_capacity]ClusterRegistry.Entry = undefined;
+var cluster_entries: [cluster_entries_capacity]ClusterRegistry.Entry = undefined;
 var cluster_leases: [capacity]ClusterRegistry.LeaseEntry = undefined;
 var cluster_catalog: ClusterCatalog = .{};
-var cluster_slots: [cluster_capacity]ClusterSlot = @splat(.{});
+var cluster_slots: [cluster_entries_capacity]ClusterSlot = @splat(.{});
+var writable_template_id: ?ClusterRegistry.Id = null;
 // profile.transaction_bytes sizes this recovery buffer, which Persistence also
 // hands to the store as the change-record encode buffer: any record written is
 // recoverable.
@@ -1160,9 +1211,10 @@ const Reactor = struct {
         defer self.reader.close();
         while (!reactor_stop.load(.acquire)) {
             const epoch = self.signal.epoch.load(.acquire);
-            var sockets: [capacity]tcp.Socket = @splat(tcp.invalid_socket);
-            var readable: [capacity]bool = @splat(false);
-            var writable: [capacity]bool = @splat(false);
+            var sockets: [capacity]tcp.Socket = undefined;
+            var readable: [capacity]bool = undefined;
+            var writable: [capacity]bool = undefined;
+            var owners: [capacity]usize = undefined;
             var active: usize = 0;
             var buffered = false;
             var poll_timeout_ms: u32 = 10;
@@ -1171,24 +1223,32 @@ const Reactor = struct {
             // holding the same mutex used for execution and disconnection.
             var woken: [capacity]usize = undefined;
             var woken_count: usize = 0;
+            var check_waiters = false;
             var slot = self.index;
             while (slot < clients.len) : (slot += reactor_count) {
                 const client = &clients[slot];
-                _ = client.activeAfterService();
+                if (!client.activeAfterService()) continue;
+                check_waiters = check_waiters or client.blocked or client.cancel_request.load(.acquire) != 0;
             }
-            if (store_mutex.tryLock()) {
-            store.now_ns = now;
-            slot = self.index;
-            while (slot < clients.len) : (slot += reactor_count) {
-                const client = &clients[slot];
-                if (client.state.load(.acquire) != 2) continue;
-                pollWorkerInterrupts(client, client.connection.id);
-                if (!client.blocked or !client.connection.wakeReady()) continue;
-                var position = woken_count;
-                while (position != 0 and clients[woken[position-1]].connection.waitStart() > client.connection.waitStart()) : (position -= 1) woken[position] = woken[position-1];
-                woken[position] = slot; woken_count += 1;
-            }
-            store_mutex.unlock();
+            // Runnable connections handle interrupts during dispatch. Only a
+            // blocked connection or an already published cancel needs a pass
+            // under the shared store lock before processing socket traffic.
+            if (check_waiters and store_mutex.tryLock()) {
+                store.now_ns = now;
+                slot = self.index;
+                while (slot < clients.len) : (slot += reactor_count) {
+                    const client = &clients[slot];
+                    if (client.state.load(.acquire) != 2) continue;
+                    if (client.cancel_request.load(.acquire) != 0)
+                        pollWorkerInterrupts(client, client.connection.id);
+                    if (!client.blocked or !client.connection.wakeReady()) continue;
+                    var position = woken_count;
+                    while (position != 0 and clients[woken[position - 1]].connection.waitStart() > client.connection.waitStart()) : (position -= 1)
+                        woken[position] = woken[position - 1];
+                    woken[position] = slot;
+                    woken_count += 1;
+                }
+                store_mutex.unlock();
             }
             for (woken[0..woken_count]) |index| {
                 const client = &clients[index];
@@ -1210,23 +1270,23 @@ const Reactor = struct {
                 if (client.serve()) buffered = true;
                 if (!client.activeAfterService()) continue;
                 if (client.sessionDeadline()) |due| poll_timeout_ms = deadlinePollMs(monotonicClock(), due, poll_timeout_ms);
-                sockets[slot] = client.socket;
-                readable[slot] = client.wantsRead();
-                writable[slot] = client.wantsWrite();
+                sockets[active] = client.socket;
+                readable[active] = client.wantsRead();
+                writable[active] = client.wantsWrite();
+                owners[active] = slot;
                 active += 1;
             }
             if (active == 0) { self.reader.close();self.signal.wait(epoch, 100); continue; }
             // Finite poll bounds new admission, cancellation and shutdown
             // latency without introducing a second socket wakeup protocol.
-            const poll_count = if (comptime capacity <= standard_capacity) capacity else clients.len;
-            _ = try waitServer(tcp.invalid_socket, sockets[0..poll_count], readable[0..poll_count], writable[0..poll_count], if (buffered) 0 else poll_timeout_ms);
-            slot = self.index;
-            while (slot < clients.len) : (slot += reactor_count) {
-                const client = &clients[slot];
-                if (client.state.load(.acquire) != 2) continue;
-                if (writable[slot]) client.flush() catch client.close();
+            _ = try waitServer(tcp.invalid_socket, sockets[0..active], readable[0..active], writable[0..active], if (buffered) 0 else poll_timeout_ms);
+            // A reactor owns these slots through the wait. Newly admitted
+            // clients have no readiness result until the next iteration.
+            for (owners[0..active], readable[0..active], writable[0..active]) |owner, can_read, can_write| {
+                const client = &clients[owner];
+                if (can_write) client.flush() catch client.close();
                 if (!client.activeAfterService()) continue;
-                if (readable[slot]) client.receive() catch {
+                if (can_read) client.receiveReady() catch {
                     client.close();
                     _ = client.activeAfterService();
                 };
@@ -1615,7 +1675,7 @@ fn clusterWalPath(oid: u32, buffer: []u8) ![]const u8 {
     return sig.fmt.bufPrint(buffer, "{s}.db-{d}.wal", .{ cluster_options.data, oid });
 }
 
-fn clusterStoreOpen(id: ClusterRegistry.Id, oid: u32, name: []const u8, create: bool) !*Store {
+fn clusterStoreOpen(id: ClusterRegistry.Id, oid: u32, name: []const u8, create: bool, template: ?*Persistence) !*Store {
     var path_buffer: [4096]u8 = undefined;
     const path = try clusterWalPath(oid, &path_buffer);
     const identity: @import("persistence.sig").DatabaseIdentity = .{ .cluster = cluster_catalog.identity orelse return error.InvalidDatabaseCatalog, .oid = oid };
@@ -1640,16 +1700,19 @@ fn clusterStoreOpen(id: ClusterRegistry.Id, oid: u32, name: []const u8, create: 
     try slot.log_buffer.reserve(&memory_ledger, profile.transaction_bytes);
     configureStore(&database.store, cluster_options);
     database.store.database_oid = oid;
-    _ = try database.persistence.initDatabase(path, &database.store, slot.log_buffer.memory.bytes[0..profile.transaction_bytes], identity, create);
+    const log_buffer = slot.log_buffer.memory.bytes[0..profile.transaction_bytes];
+    if (template) |source| try source.forkDatabase(path, identity, log_buffer);
+    _ = try database.persistence.initDatabase(path, &database.store, log_buffer, identity, create and template == null);
     return &database.store;
 }
 
-fn createClusterDatabase(name: []const u8) !void {
-    const oid = std.math.add(u32, @max(@as(u32, 4), cluster_catalog.high_water), 1) catch return error.DatabaseCapacity;
+fn createClusterDatabase(name: []const u8, template: ?*Persistence) !void {
+    if (!cluster_catalog.canCreate()) return error.DatabaseCapacity;
+    const oid = std.math.add(u32, @max(pristine_template.oid, cluster_catalog.high_water), 1) catch return error.DatabaseCapacity;
     const id = try cluster_registry.reserve(name, oid, cluster_owner);
     errdefer _ = cluster_registry.abortReservation(id) catch @panic("lost database reservation");
     try cluster_catalog.reserve(oid);
-    const opened = try clusterStoreOpen(id, oid, name, true);
+    const opened = try clusterStoreOpen(id, oid, name, true, template);
     errdefer {
         if (opened == &store) persistence.close() else cluster_slots[id.index].close();
     }
@@ -1669,6 +1732,10 @@ fn openCluster() !void {
         try entropy.fill(&identity);
         try cluster_catalog.initializeIdentity(identity);
     }
+    writable_template_id = for (&cluster_catalog.entries) |*entry| {
+        if (entry.oid != 0 and std.mem.eql(u8, entry.slice(), writable_template.name)) break null;
+    } else try cluster_registry.reserve(writable_template.name, writable_template.oid, writable_template.owner);
+    if (cluster_catalog.writable_template) try ensureWritableTemplate();
     var previous: u32 = 0;
     while (true) {
         var next: ?*const ClusterCatalog.Entry = null;
@@ -1678,21 +1745,47 @@ fn openCluster() !void {
         const entry = next orelse break;
         if (entry.owner != cluster_owner) return error.InvalidDatabaseCatalog;
         const id = try cluster_registry.reserve(entry.slice(), entry.oid, entry.owner);
-        try cluster_registry.stageStore(id, try clusterStoreOpen(id, entry.oid, entry.slice(), false));
+        try cluster_registry.stageStore(id, try clusterStoreOpen(id, entry.oid, entry.slice(), false, null));
         try cluster_registry.publish(id);
         previous = entry.oid;
     }
     cluster_registry.raiseOidHighWater(cluster_catalog.high_water);
     if (cluster_registry.lookup(primary_database) == null) {
         if (!cluster_options.create_data or previous != 0) return error.InvalidDatabaseCatalog;
-        try createClusterDatabase(primary_database);
+        try createClusterDatabase(primary_database, null);
     }
     try validateClusterPrepared();
 }
 
+fn ensureWritableTemplate() !void {
+    const id = writable_template_id orelse return error.InvalidDatabaseCatalog;
+    if (cluster_registry.metadataAt(id.index) != null) return;
+    if (!cluster_catalog.writable_template) {
+        var path_buffer: [4096]u8 = undefined;
+        const path = try clusterWalPath(writable_template.oid, &path_buffer);
+        var nonce: [8]u8 = undefined;
+        try entropy.fill(&nonce);
+        var pending_buffer: [4096]u8 = undefined;
+        const pending = try sig.fmt.bufPrint(&pending_buffer, "{s}.{x}.pending", .{ path, std.mem.readInt(u64, &nonce, .little) });
+        try @import("persistence.sig").publishEmptyDatabase(path, pending, .{
+            .cluster = cluster_catalog.identity orelse return error.InvalidDatabaseCatalog,
+            .oid = writable_template.oid,
+        });
+    }
+    const opened = try clusterStoreOpen(id, writable_template.oid, writable_template.name, false, null);
+    errdefer cluster_slots[id.index].close();
+    if (!cluster_catalog.writable_template) {
+        const staged = &cluster_slots[id.index].database.?.persistence;
+        if (staged.sequence != 1) return error.InvalidDatabaseIdentity;
+        try cluster_catalog.markWritableTemplate();
+    }
+    cluster_registry.stageStore(id, opened) catch @panic("lost writable template store");
+    cluster_registry.publish(id) catch @panic("lost writable template");
+}
+
 fn validateClusterPrepared() !void {
     var count: usize = 0;
-    for (0..cluster_capacity) |index| {
+    for (0..cluster_entries_capacity) |index| {
         const current = cluster_registry.readyStoreAt(index) orelse continue;
         count += current.preparedCount();
         for (&current.prepared) |*entry| {
@@ -1709,7 +1802,7 @@ fn validateClusterPrepared() !void {
 fn checkClusterPrepared(current: *const Store, gid: *const Raw.PreparedWal.Gid, operation: Store.PreparedOperation) anyerror!void {
     if (cluster_catalog.failed) return error.WriterPoisoned;
     var count: usize = 0;
-    for (0..cluster_capacity) |index| {
+    for (0..cluster_entries_capacity) |index| {
         const peer = cluster_registry.readyStoreAt(index) orelse continue;
         // An uncertain prepare sync can still be present in a peer's WAL.
         if (peer.storage_failed) return error.WriterPoisoned;
@@ -1726,8 +1819,15 @@ fn clusterAcl(_: ?*anyopaque, principal: u32, metadata: ClusterRegistry.Metadata
 }
 
 fn databaseCatalogRow(_: ?*const anyopaque, index: usize) ?sql.DatabaseCatalogRow {
+    if (index == cluster_entries_capacity) return if (pristineTemplateAvailable()) pristine_template else null;
+    if (writable_template_id) |id| if (index == id.index) return writable_template;
     const entry = cluster_registry.metadataAt(index) orelse return null;
     return .{ .oid = entry.oid, .owner = entry.owner, .name = entry.name };
+}
+
+fn pristineTemplateAvailable() bool {
+    // Preserve catalogs created before the template name was reserved.
+    return cluster_registry.lookup(pristine_template.name) == null;
 }
 
 fn standaloneDatabaseCatalogRow(_: ?*const anyopaque, index: usize) ?sql.DatabaseCatalogRow {
@@ -1740,6 +1840,9 @@ fn clusterAdmit(context: *anyopaque, connection: *DB, request: pg.StartupAdmissi
     if (cluster_catalog.failed) return error.WriterPoisoned;
     if (!std.mem.eql(u8, request.user, cluster_options.auth_user orelse "postgres")) return error.AdmissionDenied;
     if (request.method == .trusted and !cluster_options.insecure_local) return error.AdmissionDenied;
+    if (std.mem.eql(u8, request.database, pristine_template.name) and pristineTemplateAvailable())
+        return error.DatabaseConnectionsDisabled;
+    if (isWritableTemplate(request.database)) try ensureWritableTemplate();
     const binding = try cluster_registry.attach(request.database, .{ .principal = cluster_owner, .allowed = &clusterAcl });
     errdefer cluster_registry.release(binding.lease) catch @panic("lost provisional database lease");
     const former = connection.store;
@@ -1753,6 +1856,25 @@ fn clusterAdmit(context: *anyopaque, connection: *DB, request: pg.StartupAdmissi
     client.database_binding = binding;
 }
 
+fn resolveDatabaseTemplate(name: []const u8, caller: ClusterRegistry.Id) !?*Persistence {
+    if (std.mem.eql(u8, name, pristine_template.name)) {
+        if (!pristineTemplateAvailable()) return error.UnsupportedStatement;
+        return null;
+    }
+    if (isWritableTemplate(name) and !cluster_catalog.writable_template) return null;
+    const source = cluster_registry.lookup(name) orelse return error.DatabaseNotFound;
+    const own_client: usize = @intFromBool(source.id.index == caller.index);
+    if (source.clients > own_client) return error.DatabaseBusy;
+    const selected = if (std.mem.eql(u8, source.name, primary_database)) &persistence else
+        &cluster_slots[source.id.index].database.?.persistence;
+    if (selected.store.?.preparedCount() != 0) return error.DatabaseBusy;
+    return selected;
+}
+
+fn isWritableTemplate(name: []const u8) bool {
+    return writable_template_id != null and std.mem.eql(u8, name, writable_template.name);
+}
+
 fn clusterCommand(context: *anyopaque, connection: *DB, source: []const u8) anyerror!?[]const u8 {
     const command = (try Raw.parseDatabaseCommand(source, .{})) orelse return null;
     const client: *Client = @ptrCast(@alignCast(context));
@@ -1761,11 +1883,26 @@ fn clusterCommand(context: *anyopaque, connection: *DB, source: []const u8) anye
     if (connection.transactionStatus() != 'I') return error.ActiveSqlTransaction;
     if (cluster_catalog.failed) return error.WriterPoisoned;
     switch (command) {
-        .create => |name| {
-            try createClusterDatabase(name.slice());
+        .create => |create| {
+            const name = create.name.slice();
+            if (std.mem.eql(u8, name, pristine_template.name) or isWritableTemplate(name) or cluster_registry.lookup(name) != null)
+                return error.DuplicateDatabase;
+            const template = if (create.template) |selected| try resolveDatabaseTemplate(selected.slice(), binding.database) else
+                if (writable_template_id != null) try resolveDatabaseTemplate(writable_template.name, binding.database) else null;
+            try createClusterDatabase(name, template);
             return "CREATE DATABASE";
         },
+        .alter_owner => |change| {
+            const owner = if (isWritableTemplate(change.name.slice())) writable_template.owner else
+                (cluster_registry.lookup(change.name.slice()) orelse return error.DatabaseNotFound).owner;
+            // This cluster stores one owner. An archive may restate it.
+            if (owner != cluster_owner or !std.mem.eql(u8, change.owner.slice(), sql.bootstrap_role_name))
+                return error.UnsupportedStatement;
+            return "ALTER DATABASE";
+        },
         .drop => |drop| {
+            if (std.mem.eql(u8, drop.name.slice(), pristine_template.name) and pristineTemplateAvailable()) return error.DropTemplateDatabase;
+            if (isWritableTemplate(drop.name.slice())) return error.DropTemplateDatabase;
             const target = cluster_registry.lookup(drop.name.slice()) orelse return if (drop.if_exists) "DROP DATABASE" else error.DatabaseNotFound;
             if (std.mem.eql(u8, target.name, primary_database) or target.id.index == binding.database.index) return error.DatabaseBusy;
             const slot = &cluster_slots[target.id.index];
@@ -1792,7 +1929,7 @@ fn configureStore(target: *Store, options: Options) void {
     target.zone_provider = .{ .context = @ptrCast(&zones), .lookup = &Zones.lookup };
     if (options.database_cluster) {
         target.prepared_check = &checkClusterPrepared;
-        target.database.setDatabaseCatalog(.{ .capacity = cluster_capacity, .row = &databaseCatalogRow });
+        target.database.setDatabaseCatalog(.{ .capacity = cluster_entries_capacity + 1, .row = &databaseCatalogRow });
     } else {
         target.database.setDatabaseCatalog(.{ .capacity = 1, .row = &standaloneDatabaseCatalogRow, .use_session_database_name = true });
     }

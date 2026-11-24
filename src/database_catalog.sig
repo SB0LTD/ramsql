@@ -3,11 +3,13 @@ const std = @import("std");
 const disk = @import("db_file");
 const log = @import("durable_log");
 
+pub const writable_template_oid: u32 = 1;
+
 pub fn Catalog(comptime capacity: usize, comptime name_capacity: usize) type {
     return struct {
         const Self = @This();
         const kind: u16 = 7;
-        const Record = enum(u8) { reserve = 1, create = 2, drop = 3 };
+        const Record = enum(u8) { reserve = 1, create = 2, drop = 3, writable_template = 4 };
         const header = 9;
 
         pub const Entry = struct {
@@ -27,6 +29,7 @@ pub fn Catalog(comptime capacity: usize, comptime name_capacity: usize) type {
         pending: u32 = 0,
         identity: ?[16]u8 = null,
         entries: [capacity]Entry = @splat(.{}),
+        writable_template: bool = false,
         failed: bool = false,
 
         pub fn open(self: *Self, path: []const u8, create: bool) !void {
@@ -95,6 +98,11 @@ pub fn Catalog(comptime capacity: usize, comptime name_capacity: usize) type {
                     if (!mutate) return;
                     self.entries[index] = .{};
                 },
+                .writable_template => {
+                    if (self.writable_template or oid != writable_template_oid or owner != 0 or name.len != 0)
+                        return error.InvalidDatabaseCatalog;
+                    if (mutate) self.writable_template = true;
+                },
             }
         }
 
@@ -137,6 +145,14 @@ pub fn Catalog(comptime capacity: usize, comptime name_capacity: usize) type {
 
         pub fn drop(self: *Self, oid: u32) !void {
             try self.append(.drop, oid, 0, &.{});
+        }
+
+        pub fn markWritableTemplate(self: *Self) !void {
+            try self.append(.writable_template, writable_template_oid, 0, &.{});
+        }
+
+        pub fn canCreate(self: *const Self) bool {
+            return self.find(0) != null;
         }
     };
 }
