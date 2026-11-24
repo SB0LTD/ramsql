@@ -106,12 +106,14 @@ checks with that candidate.
 
 The writable `template1` candidate stages its WAL identity on first
 use and recovers a torn catalog publication without accepting an
-unrelated WAL. Local Windows PG18 passed unmodified three-database
-`pg_dumpall` archives both ways, including data in both built-in
-connectable databases. The native fixture excludes its extra harness
-database and checks the single expected duplicate bootstrap-role error.
+unrelated WAL. Stock PostgreSQL 16 and 18 CI each passed 47 checks,
+including unmodified three-database `pg_dumpall` archives both ways and
+data in both built-in connectable databases. The native fixture excludes
+its extra harness database and checks the single expected duplicate
+bootstrap-role error.
 Cross-database roles, broader locale and tablespace support, and
 large-object archives remain open.
+[Writable-template qualification](https://github.com/SB0LTD/ramsql/actions/runs/45450269339)
 
 The composite-key follow-up passed all 34 checks on PG16 and PG18 CI.
 Stock restore applies the composite primary key after COPY in the same
@@ -245,6 +247,19 @@ run, and the full six-job reviewer workload matrix is tracked separately.
 [Wider candidate CI](https://github.com/benor1470/dbMeter/actions/runs/45389122488) ·
 [Exact published lookup CI](https://github.com/benor1470/dbMeter/actions/runs/45448387443) ·
 [Full reviewer matrix](https://github.com/benor1470/dbMeter/actions/runs/45449777771)
+
+The wider downloadable image passed the three capacity probes and both
+original mixed sales workloads. The five-million-row mix reached 21.94×
+and 27.43× IRDB at one and eight clients. This run used the opt-in
+256 MiB application read cache. The earlier separate-runner lookup
+attempt reached 2.26× at one client and 1.84× at eight. The paired
+eight-client rerun reached 2.06× PostgreSQL with the source-built image
+and 2.04× with the downloaded image, both using the experimental Linux
+loopback reply cache. The median of trial p99 values was 52 µs for
+each RAMSQL image and 66 µs for each PostgreSQL reference. The
+unchanged whole-suite performance gate remains open.
+[Paired lookup trial sets](https://github.com/benor1470/dbMeter/actions/runs/45451776681) ·
+[Hosted verification of both artifact pins](https://github.com/benor1470/dbMeter/actions/runs/45457930323)
 
 ## 20 November 2026 shipped checkpoint
 

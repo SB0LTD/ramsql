@@ -11,8 +11,9 @@
       "quoted_stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45282665508",
       "cluster_declaration_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45384730882",
       "named_template_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45390681198",
+      "writable_template_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45450269339",
       "requirement": "Complete the PostgreSQL feature inventory, upstream and application regressions, and stock tooling round trips.",
-      "qualified": "The latest stock PG16 and PG18 named-template checks passed all 45 cases, including archives and WAL reopen. The writable-template follow-up round-trips the three-database fixture locally on PG18. Shared roles, large objects and the wider application regression suite remain open."
+      "qualified": "The writable-template candidate passed all 47 stock PG16 and PG18 cases, including three-database archives in both directions and WAL reopen. Shared roles, large objects and the wider application regression suite remain open."
     },
     {
       "id": "implemented_subset_durability",
@@ -38,8 +39,9 @@
       "id": "capacity_concurrency",
       "status": "partial",
       "evidence": "https://github.com/SB0LTD/ramsql/actions/runs/44259619802",
+      "combined_dual_packed_replay_evidence": "https://github.com/benor1470/dbMeter/actions/runs/45459610261",
       "requirement": "Qualify wide schemas, multiple 100M-row tables, mixed read/write concurrency and bounded execution.",
-      "qualified": "Runtime table and query budgets, native workers, and a durable 100M-row integral fact table with two dimensions."
+      "qualified": "Runtime table and query budgets, native workers, and two 100M-row packed tables with PostgreSQL COPY, joins, aggregates and crash replay under the compact header profile. Wide schemas and mixed-write concurrency remain open."
     },
     {
       "id": "backup_restore",
@@ -55,8 +57,10 @@
       "focused_evidence": "https://github.com/benor1470/dbMeter/actions/runs/45382392847",
       "published_lookup_evidence": "https://github.com/benor1470/dbMeter/actions/runs/45386009603",
       "wide_lookup_evidence": "https://github.com/benor1470/dbMeter/actions/runs/45389122488",
+      "paired_wide_lookup_evidence": "https://github.com/benor1470/dbMeter/actions/runs/45457930323",
+      "wide_sales_evidence": "https://github.com/benor1470/dbMeter/actions/runs/45449777771",
       "requirement": "Qualify published artifacts across the original full suite and production-like workloads, including multi-table reads and durable concurrency.",
-      "qualified": "The wider source candidate passed both original million-row cases with same-host Linux reply caching and indexed IRDB at 2.22x and 2.88x. The earlier published image failed the capacity probes. Twelve of sixteen workloads met the significant-advantage gate in the prior broader reviewer run."
+      "qualified": "The wider published image passed the three capacity probes and both mixed sales workloads. Its eight-client million-row lookup measured 2.04x PostgreSQL in the paired hosted run and 1.84x on the earlier runner, both with opt-in Linux loopback reply caching. The full gate and production workload comparison remain open."
     },
     {
       "id": "operations",

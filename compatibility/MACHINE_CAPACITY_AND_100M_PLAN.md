@@ -497,6 +497,18 @@ WAL after the first process had exited. Recovery took 231.086 seconds on that
 runner and peaked at 13,374,668,800 bytes of resident memory. The wider
 admission matrix below is an independent capacity check. [Durable two-table run](https://github.com/benor1470/dbMeter/actions/runs/44226187387).
 
+The combined 32-table, nine-column candidate `0e19b7a` with ZPM
+`51f1d02a` repeated the full load in hosted CI with compact MVCC
+headers. It loaded 100,000,000 rows into each table over PostgreSQL
+COPY and verified both table bounds, 16 join-and-sum groups and 20
+ordered range results before and after an abrupt process stop. Replay
+read a 6,411,200,263-byte WAL in 181.3 seconds. Peak RSS after reopen
+was 13,379,780,608 bytes. The 75% limit saved exactly 2 GiB in the
+planned regions, lowering the request from 15,790,096,384 to
+13,642,612,736 bytes. The fixture uses one packed word per table;
+comparative throughput on wide, mixed-write 100M-row schemas remains
+open. [Combined durable two-table run](https://github.com/benor1470/dbMeter/actions/runs/45459610261)
+
 ### Verified native admission matrix
 
 The public Ubuntu runner granted 14,305,768,448–14,307,988,480 bytes across
