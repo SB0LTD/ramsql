@@ -68,6 +68,7 @@ index, a foreign key, and text data. The fixture checks constraint
 enforcement after restoring and after reopening the RAMSQL WAL.
 Complete deparsing of stored views and expressions, large objects, and
 cluster-wide migration remain open.
+[Quoted archive qualification on PostgreSQL 16 and 18](https://github.com/SB0LTD/ramsql/actions/runs/45282665508)
 
 The role-default follow-up extends stock `pg_dumpall` archives with
 `quote_all_identifiers` and `check_function_bodies`. It verifies the saved
