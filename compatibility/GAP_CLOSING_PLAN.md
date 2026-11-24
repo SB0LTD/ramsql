@@ -215,10 +215,16 @@ Both cases passed three 60-second trials per engine, the original trial
 separation check, and the p99 threshold. A companion job passed six
 stock TLS test runs with 16 immediate reconnects per run and no retries.
 The benchmark used an experimental build and opt-in read cache.
-The hosted follow-up uses the published image for both TLS checks and
-timings. Remote clients, concurrent writes and analytical workloads
-remain subject to the production performance gate.
 [Original dbMeter cases and TLS qualification](https://github.com/benor1470/dbMeter/actions/runs/45382392847)
+
+The published Linux image with the same reply cache passed TLS, with
+throughput ratios of 2.03× at one client and 1.75× at eight. Both shards
+failed the original capacity probes for 200-byte TEXT, nine columns and
+20 additional tables. The hosted packaging candidate adopts the
+32-table, nine-column, 200-byte profile and requires a client to verify
+those capacities after WAL reopen on the exact release image. Dynamic
+schema storage and production performance remain open.
+[Published-image qualification](https://github.com/benor1470/dbMeter/actions/runs/45386009603)
 
 ## 20 November 2026 shipped checkpoint
 

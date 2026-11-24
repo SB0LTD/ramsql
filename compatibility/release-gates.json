@@ -52,8 +52,9 @@
       "status": "unproven",
       "evidence": "https://github.com/benor1470/dbMeter/actions/runs/44347340190",
       "focused_evidence": "https://github.com/benor1470/dbMeter/actions/runs/45382392847",
+      "published_lookup_evidence": "https://github.com/benor1470/dbMeter/actions/runs/45386009603",
       "requirement": "Qualify published artifacts across the original full suite and production-like workloads, including multi-table reads and durable concurrency.",
-      "qualified": "Twelve of sixteen workloads met the significant-advantage gate in the broader reviewer run. Both original million-row lookup cases passed the unchanged per-case thresholds with experimental same-host Linux reply caching and indexed IRDB. RAMSQL reached 2.13x and 2.04x the fastest reference at one and eight clients. The production gate remains unproven."
+      "qualified": "Both original million-row lookup cases passed with experimental same-host Linux reply caching and indexed IRDB at 2.13x and 2.04x. The published-image follow-up reached 2.03x and 1.75x and failed the original capacity probes. Twelve of sixteen workloads met the significant-advantage gate in the broader reviewer run."
     },
     {
       "id": "operations",

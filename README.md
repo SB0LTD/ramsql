@@ -260,7 +260,8 @@ Allocator-free means explicit owned storage, not unlimited RAM. **Stored rows
 are not permanently limited to 512:** hosted `--rows`/`--versions` bind larger
 OS page buffers; checked benchmarks store one million rows. The stock binary
 defaults to **4,096 stored rows/table, 8,192 returned rows/statement, 4,096 workspace
-rows, 8 columns, 128-byte text and 16 clients**. Use `--work-rows`, `--result-rows`
+rows and 16 clients**. Hosted release archives support 32 tables, 9 stored columns
+per table and 200 bytes per text value. Use `--work-rows`, `--result-rows`
 and `--max-clients` (up to 60) without rebuilding. `--table-rows n,n,...` and
 `--table-versions n,n,...` assign independent budgets to table slots in creation
 order; supply one value for each compiled table slot. `--rows` is the uniform
@@ -268,8 +269,7 @@ fallback. Text/schema/parser limits still require a build profile. There is no a
 disk spill or arbitrarily large result stream.
 
 ```sh
-./ramsql --capabilities --table-rows 1000000,10000,64,1,1,1,1,1 \
-  --work-rows 8192 --result-rows 4096 --max-clients 32
+./ramsql --capabilities --work-rows 8192 --result-rows 4096 --max-clients 32
 ```
 
 This reports effective storage/backing bytes and compiled SQL/protocol budgets

@@ -6,6 +6,10 @@ later binary.
 
 ## Unreleased
 
+- Build hosted archives with 32 tables, 9 stored columns per table and
+  200-byte text values. Verify these capacities with a client and WAL reopen
+  on the exact release binary.
+
 - Preserve standalone sequence definitions and their WAL reservation
   boundary across checkpoint publication and crash recovery. Existing
   table-only images retain their original format.
