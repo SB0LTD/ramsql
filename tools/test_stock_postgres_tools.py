@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 
 import psycopg
@@ -150,6 +151,45 @@ def export_archive(binary, tools, native, table_options=TABLES, label="outbound"
     verify(native)
 
 
+def check_legacy_attribute_archives(binary, tools, reference):
+    """Restore raw archives emitted by pg_dump 18.0 against PostgreSQL 18.7."""
+    def verify_restore(endpoint):
+        with psycopg.connect(**endpoint) as db:
+            rows = db.execute('SELECT id,"Payload" FROM public.legacy_attver ORDER BY id').fetchall()
+            assert rows == [(1, "ready"), (2, "copied")], rows
+            options = db.execute(
+                "SELECT attoptions FROM pg_attribute "
+                "WHERE attrelid='public.legacy_attver'::regclass AND attnum>0 ORDER BY attnum"
+            ).fetchall()
+            assert options == [(None,), (None,)], options
+            with db.transaction(force_rollback=True):
+                try:
+                    db.execute("INSERT INTO public.legacy_attver VALUES (1, 'duplicate')")
+                except psycopg.errors.UniqueViolation:
+                    pass
+                else:
+                    raise AssertionError("restored primary key did not reject a duplicate")
+
+    fixtures = Path(__file__).with_name("fixtures")
+    formats = ("sql", "dump") if reference == "18" else ("sql",)
+    storage = ("--workers", "1")
+    for suffix in formats:
+        artifact = f"postgres18-legacy-attver.{suffix}"
+        shutil.copyfile(fixtures / artifact, tools.root / artifact)
+        wal = tools.root / f"legacy-attribute-{suffix}.wal"
+        with DurableServer(binary, wal, create=True, storage_options=storage) as server:
+            candidate = ramsql_settings(server)
+            if suffix == "sql":
+                tools.run("legacy-attribute-psql", "psql", candidate, "--no-psqlrc",
+                          "--single-transaction", "--set=ON_ERROR_STOP=1", f"--file={artifact}")
+            else:
+                tools.run("legacy-attribute-pg-restore", "pg_restore", candidate, "--single-transaction",
+                          "--exit-on-error", "--no-owner", "--no-acl", artifact)
+            verify_restore(candidate)
+        with DurableServer(binary, wal, storage_options=storage) as reopened:
+            verify_restore(ramsql_settings(reopened))
+
+
 def whole_database_ownership(binary, tools, native, inbound):
     def roles(endpoint):
         with psycopg.connect(**endpoint) as db:
@@ -245,6 +285,7 @@ def main():
         ("range_discovery", lambda db: check_ranges(binary, db)),
         ("event_trigger_discovery", lambda db: check_event_triggers(binary, db)),
         ("column_metadata_discovery", lambda db: check_column_metadata(binary, db, args.reference)),
+        ("legacy_attribute_archives", lambda _: check_legacy_attribute_archives(binary, tools, args.reference)),
         ("column_default_discovery", lambda db: check_column_defaults(binary, db)),
         ("constraint_and_index_discovery", lambda db: check_constraints_and_indexes(binary, db)),
         ("partition_discovery", lambda db: check_partitions(binary, db)),
@@ -1225,7 +1266,8 @@ def check_column_metadata(binary, native, version):
         + notnull
         + "a.atthasdef,a.attisdropped,a.attlen,a.attalign,a.attislocal,"
         "pg_catalog.format_type(t.oid,a.atttypmod) AS atttypname,"
-        "array_to_string(a.attoptions,', ') AS attoptions,"
+        "array_to_string(ARRAY(SELECT o FROM unnest(a.attoptions) o "
+        "WHERE substr(o,1,10)<>'pg_attver='),', ') AS attoptions,"
         "CASE WHEN a.attcollation<>t.typcollation THEN a.attcollation ELSE 0 END AS attcollation,"
         "pg_catalog.array_to_string(ARRAY(SELECT pg_catalog.quote_ident(option_name) || ' ' || "
         "pg_catalog.quote_literal(option_value) FROM pg_catalog.pg_options_to_table(attfdwoptions) "
