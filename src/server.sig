@@ -359,6 +359,17 @@ const Client = struct {
         return self.protocol == .postgres and self.session.postgres.queuedSimpleQuery();
     }
 
+    /// Parallel reactors share one store and observe its notification epoch.
+    /// An idle plaintext peer can wait for readiness without pumping the
+    /// protocol, provided there is no deadline or internal continuation.
+    fn needsReactorService(self: *const Client) bool {
+        if (self.transport != null or self.input_len != 0 or self.output_len != 0 or self.closing or
+            self.idle_transaction_after_flush_ms != 0 or self.sessionDeadline() != null) return true;
+        if (self.blocked) return false;
+        return self.connection.copyBlocked() or self.queuedSimpleQuery() or
+            (self.protocol == .postgres and notification_sequence.load(.acquire) != self.notify_seen);
+    }
+
     fn dispatch(self: *Client) !void {
         if (self.blocked or self.output_sent != 0 or self.closing or (self.input_len == 0 and !self.connection.copyBlocked() and !self.queuedSimpleQuery())) return;
         // Cancellation is control traffic and must not queue behind SQL held
@@ -1267,8 +1278,10 @@ const Reactor = struct {
                     _ = client.activeAfterService();
                     continue;
                 }
-                if (client.serve()) buffered = true;
-                if (!client.activeAfterService()) continue;
+                if (client.needsReactorService()) {
+                    if (client.serve()) buffered = true;
+                    if (!client.activeAfterService()) continue;
+                }
                 if (client.sessionDeadline()) |due| poll_timeout_ms = deadlinePollMs(monotonicClock(), due, poll_timeout_ms);
                 sockets[active] = client.socket;
                 readable[active] = client.wantsRead();
