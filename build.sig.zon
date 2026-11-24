@@ -4,8 +4,8 @@
     .fingerprint = 0x0,
     .dependencies = .{
         .zpm = .{
-            .url = "https://github.com/SB0LTD/zpm/archive/75f9b7712c0e5d1e46a934fcbe928bb17357b9c9.tar.gz",
-            .hash = "d4c6b56aa2c62a2bc1f80ba6def503496f4fc584da990cc7e757d883ce4ab537",
+            .url = "https://github.com/SB0LTD/zpm/archive/c7661ca49fe11e0457fd94d7df16a717dea2a8a6.tar.gz",
+            .hash = "7a2e077834bed75afea07c9e51d0a9bc2be5b802aa37a9728f0a9be35d873108",
         },
     },
     .paths = .{
