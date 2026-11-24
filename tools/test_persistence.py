@@ -8,6 +8,7 @@ Artifacts are retained for inspection; existing user databases are never opened.
 
 import argparse
 from collections import deque
+from contextlib import closing
 import json
 import os
 from pathlib import Path
@@ -400,6 +401,38 @@ def prepared_transactions(binary, artifacts, *, storage_options=()):
     cases += 4
 
 
+def reopen_packed_hash_layouts(binary, artifacts, tables):
+    global cases
+    wal = artifacts / "packed-hash-layout.wal"
+    args = ("--table-rows", ",".join(["96"] + ["1"] * (tables - 1)),
+            "--table-versions", ",".join(["192"] + ["2"] * (tables - 1)),
+            "--table-integral-words", ",".join(["1"] + ["0"] * (tables - 1)),
+            "--typed-bank-memory-profile")
+    denser = (*args, "--packed-hash-load-75")
+    half = json.loads(subprocess.check_output([str(binary), "--capabilities", *args], timeout=15))
+    packed = json.loads(subprocess.check_output([str(binary), "--capabilities", *denser], timeout=15))
+    check(half["backing_bytes"] - packed["backing_bytes"] == (128 + 256) * 4,
+          "packed replay must exercise differently sized physical indexes")
+    rows = {key: key % 16 for key in range(64)}
+    scan = "SELECT id,payload FROM packed_reopen ORDER BY id"
+
+    with DurableServer(binary, wal, create=True, storage_options=args) as server, closing(server.connect()) as pg:
+        pg.ok("CREATE TABLE packed_reopen (id INTEGER PRIMARY KEY, payload SMALLINT NOT NULL)")
+        pg.ok("INSERT INTO packed_reopen VALUES " + ",".join(f"({key},{value})" for key, value in rows.items()))
+    with DurableServer(binary, wal, storage_options=denser) as server, closing(server.connect()) as pg:
+        pg.ok(scan, [[str(key), str(value)] for key, value in rows.items()])
+        pg.ok("UPDATE packed_reopen SET payload=127 WHERE id=31")
+        pg.ok("DELETE FROM packed_reopen WHERE id=63")
+        rows[31] = 127
+        del rows[63]
+    complete = wal.read_bytes()
+    with DurableServer(binary, wal, storage_options=args) as server, closing(server.connect()) as pg:
+        pg.ok(scan, [[str(key), str(value)] for key, value in rows.items()])
+        wire.expect_error(pg.query("INSERT INTO packed_reopen VALUES (31,1)"), "23505")
+    check(wal.read_bytes() == complete, "rebuilding hash indexes changed committed WAL bytes")
+    cases += 2
+
+
 def main():
     global cases
     parser = argparse.ArgumentParser(description=__doc__)
@@ -409,7 +442,7 @@ def main():
     parser.add_argument("--cycles", type=int, default=5)
     parser.add_argument("--artifacts", type=Path)
     parser.add_argument("--integral-prepared", action="store_true",
-                        help="also replay prepared changes through a packed integral bank")
+                        help="also replay prepared changes and alternate hash layouts in packed integral banks")
     options = parser.parse_args()
     check(options.binary.is_file(), f"missing RAMSQL binary: {options.binary}")
     check(1 <= options.cycles <= 100, "cycles must be between 1 and 100")
@@ -433,6 +466,7 @@ def main():
         check(first_bank["integral_row_words"] == 3 and not first_bank["committed_scan_projection"]
               and first_bank["secondary_hashes"] == 0, "packed replay needs the lean integral layout")
         prepared_transactions(binary, packed, storage_options=storage_options)
+        reopen_packed_hash_layouts(binary, packed, profile["tables"])
     wal = artifacts / "database.wal"
     expected = [["1", "autocommit"], ["2", "transaction"], ["3", "literal; newline\nkept"]]
     with DurableServer(binary, wal, create=True) as server:
