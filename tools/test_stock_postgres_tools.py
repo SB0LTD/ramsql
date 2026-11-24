@@ -715,15 +715,14 @@ def check_operator_discovery(binary, native):
             assert operators == expected.fetchall()
 
             routine_oids = {row[-1] for row in operators}
-            routines = [
-                row for row in ram.execute(f"SELECT {procedure_fields} FROM pg_proc WHERE pronamespace=11 ORDER BY oid")
+            operator_routines = [
+                row for row in ram.execute(f"SELECT {procedure_fields},prolang FROM pg_proc WHERE pronamespace=11 ORDER BY oid")
                 if row[0] in routine_oids
             ]
+            assert all(row[-1] == 12 for row in operator_routines)
+            routines = [row[:-1] for row in operator_routines]
             procedure_oids = sorted(routine_oids)
             assert [row[0] for row in routines] == procedure_oids
-            # The implementation is internal to Sig even for signatures
-            # implemented by SQL wrappers in PostgreSQL.
-            assert ram.execute("SELECT DISTINCT prolang FROM pg_proc WHERE pronamespace=11").fetchall() == [(12,)]
             native_routines = pg.execute(
                 f"SELECT {procedure_fields} FROM pg_proc WHERE oid=ANY(%s) ORDER BY oid", (procedure_oids,)
             ).fetchall()
