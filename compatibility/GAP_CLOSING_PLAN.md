@@ -10,6 +10,13 @@ format, SQLSTATEs for invalid periods, and DST-sensitive interval
 addition. Full coverage of PostgreSQL's temporal types and operators
 is tracked in the SQL conformance inventory.
 
+The PostgreSQL 18.7 tooling fixture uses stock pg_dump's portable
+`attoptions` projection. PostgreSQL stores its own attribute version
+under `pg_attver` and excludes that entry from normal archive options.
+The fixture still compares all portable column options. Legacy archives
+that explicitly emit the reserved option and general per-column option
+DDL need their own compatibility checks.
+
 ## Stock migration acceptance
 
 The separate whole-database follow-up, RAMSQL `f051b2e`, passed all

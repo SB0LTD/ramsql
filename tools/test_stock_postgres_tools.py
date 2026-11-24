@@ -1225,7 +1225,10 @@ def check_column_metadata(binary, native, version):
         + notnull
         + "a.atthasdef,a.attisdropped,a.attlen,a.attalign,a.attislocal,"
         "pg_catalog.format_type(t.oid,a.atttypmod) AS atttypname,"
-        "array_to_string(a.attoptions,', ') AS attoptions,"
+        # Stock pg_dump removes the backend-owned attribute version from the
+        # options it archives. Keep comparing all portable option values.
+        "array_to_string(ARRAY(SELECT o FROM unnest(a.attoptions) o "
+        "WHERE substr(o,1,10)<>'pg_attver='),', ') AS attoptions,"
         "CASE WHEN a.attcollation<>t.typcollation THEN a.attcollation ELSE 0 END AS attcollation,"
         "pg_catalog.array_to_string(ARRAY(SELECT pg_catalog.quote_ident(option_name) || ' ' || "
         "pg_catalog.quote_literal(option_value) FROM pg_catalog.pg_options_to_table(attfdwoptions) "
