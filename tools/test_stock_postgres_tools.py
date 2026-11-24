@@ -225,6 +225,7 @@ def main():
         ("global_role_archives", lambda db: check_global_role_archives(binary, tools, db)),
         ("global_archives", lambda db: check_global_role_archives(binary, tools, db, scope="globals")),
         ("archive_database_ddl", lambda db: check_archive_database_ddl(binary, tools, db)),
+        ("named_database_template", lambda db: check_named_database_template(binary, tools, db)),
         ("quote_all_identifier_archives", lambda db: check_quoted_archives(binary, tools, db)),
         ("relation_discovery", lambda db: check_relation_discovery(binary, db)),
         ("function_discovery", lambda db: check_function_discovery(binary, db)),
@@ -408,6 +409,35 @@ def check_archive_database_ddl(binary, tools, native):
         child = ramsql_settings(reopened) | {"dbname": "Archive Child"}
         with psycopg.connect(**child) as db:
             assert db.execute("SELECT id FROM archive_rows").fetchall() == [(97,)]
+
+
+def check_named_database_template(binary, tools, native):
+    def clone(settings):
+        with psycopg.connect(**settings) as db:
+            db.execute('CREATE DATABASE "Archive Seed" WITH TEMPLATE template0')
+        with psycopg.connect(**(settings | {"dbname": "Archive Seed"})) as db:
+            db.execute("CREATE TABLE template_rows(id integer PRIMARY KEY)")
+            db.execute("INSERT INTO template_rows VALUES (4), (15)")
+            db.execute('CREATE DATABASE "Archive Copy" WITH TEMPLATE "Archive Seed"')
+            db.execute("DELETE FROM template_rows WHERE id = 4")
+
+    def contents(settings):
+        result = []
+        for name in ("Archive Seed", "Archive Copy"):
+            with psycopg.connect(**(settings | {"dbname": name})) as db:
+                result.append(db.execute("SELECT id FROM template_rows ORDER BY id").fetchall())
+        return result
+
+    clone(native)
+    expected = contents(native)
+    assert expected == [[(15,)], [(4,), (15,)]]
+    cluster = tools.root / "named-template-cluster"
+    with DurableServer(binary, cluster, create=True, storage_options=SMALL_PROFILE) as server:
+        candidate = ramsql_settings(server) | {"dbname": "postgres"}
+        clone(candidate)
+        assert contents(candidate) == expected
+    with DurableServer(binary, cluster, storage_options=SMALL_PROFILE) as reopened:
+        assert contents(ramsql_settings(reopened)) == expected
 
 
 def check_quoted_archives(binary, tools, native):

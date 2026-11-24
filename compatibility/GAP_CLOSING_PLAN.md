@@ -97,8 +97,12 @@ non-connectable template in `pg_database`. CREATE DATABASE explicitly
 selecting the template provisions an independent database without storing
 or replaying an empty template WAL. Existing user databases named
 `template0` keep their original OID, data and admission. Explicit template
-selection fails if that legacy name is occupied. Writable `template1` and
-snapshot cloning are still required for full stock cluster restore.
+selection fails if that legacy name is occupied. A separate candidate
+clones a named, quiescent database using its verified WAL. The destination
+has a distinct identity and becomes visible after the new WAL is flushed
+and replayed. Existing prepared decisions keep their history and live
+prepared transactions fence the copy. Writable `template1` and complete
+stock cluster restore remain open.
 
 The composite-key follow-up passed all 34 checks on PG16 and PG18 CI.
 Stock restore applies the composite primary key after COPY in the same

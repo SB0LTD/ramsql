@@ -164,13 +164,51 @@ def prove_legacy_template_name(binary, base):
         primary.ok("SELECT datname FROM pg_database WHERE datname='ambiguous'", [])
 
 
-def prove_interrupted_create(binary, base):
+def prove_named_template(binary, base):
+    def server(create=False):
+        return DurableServer(binary, base, create=create, prepared=2, storage_options=SMALL_PROFILE)
+
+    with server(create=True) as live, connect(live, "postgres") as primary:
+        assert error_code(primary, "CREATE DATABASE absent_copy TEMPLATE ghost") == "3D000"
+        command(primary, 'CREATE DATABASE "Sales Source"', "CREATE DATABASE")
+        with connect(live, "Sales Source") as source:
+            source.ok("CREATE TABLE sales(id integer PRIMARY KEY)")
+            source.ok("CREATE VIEW sale_ids AS SELECT id FROM sales")
+            source.ok("INSERT INTO sales VALUES (1)")
+            source.ok("BEGIN", status=b"T")
+            source.ok("INSERT INTO sales VALUES (2)", status=b"T")
+            command(source, "PREPARE TRANSACTION 'template_commit'", "PREPARE TRANSACTION")
+            assert error_code(primary, '''CREATE DATABASE "Sales Copy" TEMPLATE "Sales Source"''') == "55006"
+        assert error_code(primary, '''CREATE DATABASE "Sales Copy" TEMPLATE "Sales Source"''') == "55006"
+        with connect(live, "Sales Source") as source:
+            command(source, "COMMIT PREPARED 'template_commit'", "COMMIT PREPARED")
+            source.ok("BEGIN", status=b"T")
+            source.ok("INSERT INTO sales VALUES (3)", status=b"T")
+            command(source, "PREPARE TRANSACTION 'template_abort'", "PREPARE TRANSACTION")
+            command(source, "ROLLBACK PREPARED 'template_abort'", "ROLLBACK PREPARED")
+            command(source, '''CREATE DATABASE "Sales Copy" TEMPLATE "Sales Source"''', "CREATE DATABASE")
+            source.ok("INSERT INTO sales VALUES (4)")
+        with connect(live, "Sales Copy") as copied:
+            copied.ok("SELECT oid FROM pg_database WHERE datname='Sales Copy'", [["7"]])
+            copied.ok("SELECT id FROM sale_ids ORDER BY id", [["1"], ["2"]])
+            copied.ok("INSERT INTO sales VALUES (5)")
+
+    with server() as live, connect(live, "Sales Source") as source, connect(live, "Sales Copy") as copied:
+        source.ok("SELECT id FROM sale_ids ORDER BY id", [["1"], ["2"], ["4"]])
+        copied.ok("SELECT id FROM sale_ids ORDER BY id", [["1"], ["2"], ["5"]])
+
+
+def prove_interrupted_create(binary, base, clone=False):
     def server(create=False):
         return DurableServer(binary, base, create=create, storage_options=SMALL_PROFILE)
 
     catalog = Path(str(base) + ".cluster")
+    creation = "CREATE DATABASE orphan" + (" TEMPLATE postgres" if clone else "")
     with server(create=True) as live, connect(live, "postgres") as primary:
-        command(primary, "CREATE DATABASE orphan", "CREATE DATABASE")
+        if clone:
+            primary.ok("CREATE TABLE snapshot_rows(id integer PRIMARY KEY)")
+            primary.ok("INSERT INTO snapshot_rows VALUES (1)")
+        command(primary, creation, "CREATE DATABASE")
     # Model a power cut just before publication after the reservation and
     # identity WAL have reached stable storage. No acknowledgement survives.
     raw = catalog.read_bytes()
@@ -188,8 +226,13 @@ def prove_interrupted_create(binary, base):
     with server() as live, connect(live, "postgres") as primary:
         with connect(live, "orphan", "3D000"):
             pass
-        command(primary, "CREATE DATABASE orphan", "CREATE DATABASE")
+        if clone:
+            primary.ok("INSERT INTO snapshot_rows VALUES (2)")
+        command(primary, creation, "CREATE DATABASE")
         primary.ok("SELECT oid FROM pg_database WHERE datname='orphan'", [["7"]])
+        if clone:
+            with connect(live, "orphan") as copied:
+                copied.ok("SELECT id FROM snapshot_rows ORDER BY id", [["1"], ["2"]])
     assert Path(str(base) + ".db-6.wal").exists()
     assert Path(str(base) + ".db-7.wal").exists()
 
@@ -280,7 +323,9 @@ def main():
     case = Path(tempfile.mkdtemp(prefix="restart-", dir=args.output.resolve()))
     prove(args.binary.resolve(), case / "production.wal")
     prove_legacy_template_name(args.binary.resolve(), case / "legacy-template.wal")
+    prove_named_template(args.binary.resolve(), case / "named-template.wal")
     prove_interrupted_create(args.binary.resolve(), case / "interrupted.wal")
+    prove_interrupted_create(args.binary.resolve(), case / "interrupted-clone.wal", clone=True)
     prove_scram(args.binary.resolve(), case / "scram.wal")
     prove_prepared_scope(args.binary.resolve(), case / "prepared.wal")
     print(f"PASS database routing, independent stores, leases and WAL recovery in {case}")

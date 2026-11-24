@@ -1620,7 +1620,7 @@ fn clusterWalPath(oid: u32, buffer: []u8) ![]const u8 {
     return sig.fmt.bufPrint(buffer, "{s}.db-{d}.wal", .{ cluster_options.data, oid });
 }
 
-fn clusterStoreOpen(id: ClusterRegistry.Id, oid: u32, name: []const u8, create: bool) !*Store {
+fn clusterStoreOpen(id: ClusterRegistry.Id, oid: u32, name: []const u8, create: bool, template: ?*Persistence) !*Store {
     var path_buffer: [4096]u8 = undefined;
     const path = try clusterWalPath(oid, &path_buffer);
     const identity: @import("persistence.sig").DatabaseIdentity = .{ .cluster = cluster_catalog.identity orelse return error.InvalidDatabaseCatalog, .oid = oid };
@@ -1645,16 +1645,18 @@ fn clusterStoreOpen(id: ClusterRegistry.Id, oid: u32, name: []const u8, create: 
     try slot.log_buffer.reserve(&memory_ledger, profile.transaction_bytes);
     configureStore(&database.store, cluster_options);
     database.store.database_oid = oid;
-    _ = try database.persistence.initDatabase(path, &database.store, slot.log_buffer.memory.bytes[0..profile.transaction_bytes], identity, create);
+    const log_buffer = slot.log_buffer.memory.bytes[0..profile.transaction_bytes];
+    if (template) |source| try source.forkDatabase(path, identity, log_buffer);
+    _ = try database.persistence.initDatabase(path, &database.store, log_buffer, identity, create and template == null);
     return &database.store;
 }
 
-fn createClusterDatabase(name: []const u8) !void {
+fn createClusterDatabase(name: []const u8, template: ?*Persistence) !void {
     const oid = std.math.add(u32, @max(pristine_template.oid, cluster_catalog.high_water), 1) catch return error.DatabaseCapacity;
     const id = try cluster_registry.reserve(name, oid, cluster_owner);
     errdefer _ = cluster_registry.abortReservation(id) catch @panic("lost database reservation");
     try cluster_catalog.reserve(oid);
-    const opened = try clusterStoreOpen(id, oid, name, true);
+    const opened = try clusterStoreOpen(id, oid, name, true, template);
     errdefer {
         if (opened == &store) persistence.close() else cluster_slots[id.index].close();
     }
@@ -1683,14 +1685,14 @@ fn openCluster() !void {
         const entry = next orelse break;
         if (entry.owner != cluster_owner) return error.InvalidDatabaseCatalog;
         const id = try cluster_registry.reserve(entry.slice(), entry.oid, entry.owner);
-        try cluster_registry.stageStore(id, try clusterStoreOpen(id, entry.oid, entry.slice(), false));
+        try cluster_registry.stageStore(id, try clusterStoreOpen(id, entry.oid, entry.slice(), false, null));
         try cluster_registry.publish(id);
         previous = entry.oid;
     }
     cluster_registry.raiseOidHighWater(cluster_catalog.high_water);
     if (cluster_registry.lookup(primary_database) == null) {
         if (!cluster_options.create_data or previous != 0) return error.InvalidDatabaseCatalog;
-        try createClusterDatabase(primary_database);
+        try createClusterDatabase(primary_database, null);
     }
     try validateClusterPrepared();
 }
@@ -1766,6 +1768,20 @@ fn clusterAdmit(context: *anyopaque, connection: *DB, request: pg.StartupAdmissi
     client.database_binding = binding;
 }
 
+fn resolveDatabaseTemplate(name: []const u8, caller: ClusterRegistry.Id) !?*Persistence {
+    if (std.mem.eql(u8, name, pristine_template.name)) {
+        if (!pristineTemplateAvailable()) return error.UnsupportedStatement;
+        return null;
+    }
+    const source = cluster_registry.lookup(name) orelse return error.DatabaseNotFound;
+    const own_client: usize = @intFromBool(source.id.index == caller.index);
+    if (source.clients > own_client) return error.DatabaseBusy;
+    const selected = if (std.mem.eql(u8, source.name, primary_database)) &persistence else
+        &cluster_slots[source.id.index].database.?.persistence;
+    if (selected.store.?.preparedCount() != 0) return error.DatabaseBusy;
+    return selected;
+}
+
 fn clusterCommand(context: *anyopaque, connection: *DB, source: []const u8) anyerror!?[]const u8 {
     const command = (try Raw.parseDatabaseCommand(source, .{})) orelse return null;
     const client: *Client = @ptrCast(@alignCast(context));
@@ -1776,8 +1792,8 @@ fn clusterCommand(context: *anyopaque, connection: *DB, source: []const u8) anye
     switch (command) {
         .create => |create| {
             if (std.mem.eql(u8, create.name.slice(), pristine_template.name)) return error.DuplicateDatabase;
-            if (create.use_pristine_template and !pristineTemplateAvailable()) return error.UnsupportedStatement;
-            try createClusterDatabase(create.name.slice());
+            const template = if (create.template) |name| try resolveDatabaseTemplate(name.slice(), binding.database) else null;
+            try createClusterDatabase(create.name.slice(), template);
             return "CREATE DATABASE";
         },
         .alter_owner => |change| {
