@@ -1655,9 +1655,11 @@ def run_statements(connection, statements):
             outcome = type_info(connection, sql)
             events.append({"sql": "TypeInfo.fetch(" + sql + ")", "outcome": outcome})
             continue
-        outcome = execute(connection, sql, parameters, binary=bool(options.get("binary")))
+        outcome = execute(connection, sql, parameters, binary=bool(options.get("binary")),
+                          prepare=options.get("prepare"))
         status = {name: connection.info.parameter_status(name) for name in REPORTED}
         events.append({"sql": sql, "parameters": json_value(parameters), "binary": bool(options.get("binary")),
+                       **({"prepare": options["prepare"]} if "prepare" in options else {}),
                        "outcome": outcome, "parameter_status": status})
     return events
 
