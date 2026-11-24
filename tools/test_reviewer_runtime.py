@@ -27,9 +27,37 @@ def seed(db):
     db.execute('INSERT INTO shops VALUES '+','.join(f'({i})' for i in range(40)),prepare=False)
 
 
+def prove_hosted_profile(binary, caps, psycopg):
+    assert caps["tables"] >= 32 and caps["columns"] >= 9 and caps["text_bytes"] >= 200, caps
+    payload = "x" * 198 + "é"
+    columns = ", ".join(f"c{i} integer" for i in range(9))
+    values = tuple(range(9))
+    with tempfile.TemporaryDirectory(prefix="ramsql-reviewer-profile-") as directory:
+        wal = Path(directory) / "profile.wal"
+        options = ("--rows", "16", "--work-rows", "64", "--result-rows", "32")
+        with running_ramsql(binary, extra_arguments=options, data_path=wal, create_data=True) as settings:
+            with psycopg.connect(**settings) as db:
+                for i in range(6):
+                    db.execute(f"CREATE TABLE initial_{i}(id integer PRIMARY KEY)")
+                db.execute("CREATE TABLE cap_text(id integer PRIMARY KEY, payload text)")
+                db.execute(f"INSERT INTO cap_text VALUES (1, '{payload}')")
+                db.execute(f"CREATE TABLE cap_wide({columns})")
+                db.execute("INSERT INTO cap_wide VALUES (0, 1, 2, 3, 4, 5, 6, 7, 8)")
+                for i in range(20):
+                    db.execute(f"CREATE TABLE additional_{i}(id integer PRIMARY KEY)")
+                    db.execute(f"INSERT INTO additional_{i} VALUES ({i})")
+        with running_ramsql(binary, extra_arguments=options, data_path=wal) as settings:
+            with psycopg.connect(**settings) as db:
+                assert db.execute("SELECT payload FROM cap_text WHERE id = 1").fetchone() == (payload,)
+                assert db.execute("SELECT * FROM cap_wide").fetchone() == values
+                for i in range(20):
+                    assert db.execute(f"SELECT id FROM additional_{i}").fetchall() == [(i,)]
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--binary',type=Path,default=ROOT/'sig-out/bin'/('ramsql.exe' if os.name=='nt' else 'ramsql'))
+    parser.add_argument('--require-hosted-profile', action='store_true')
     args=parser.parse_args()
     import psycopg
     binary=args.binary.resolve(strict=True)
@@ -38,10 +66,14 @@ def main():
     assert caps['work_rows']==1000000 and caps['result_rows']==4096 and caps['clients']==32
     assert caps['query_workspace_bytes']>caps['result_bytes_per_client']
     assert binary.stat().st_size<100*1024*1024,'runtime budgets must not produce giant executable data'
-    large=['--capabilities','--rows','5000000','--work-rows','8192','--result-rows','4096']
+    slots = caps["tables"]
+    large=['--capabilities','--rows','5000000','--versions','5065536','--work-rows','8192','--result-rows','4096']
     uniform=json.loads(subprocess.check_output([str(binary),*large]))
-    asymmetric=json.loads(subprocess.check_output([str(binary),*large,'--table-rows','5000000,100000,64,1,1,1,1,1']))
-    assert asymmetric['table_rows']==[5000000,100000,64,1,1,1,1,1]
+    bank_rows = [5000000, 100000, 64] + [1] * (slots - 3)
+    bank_versions = [5065536, 200000, 128] + [2] * (slots - 3)
+    asymmetric=json.loads(subprocess.check_output([str(binary),*large,'--table-rows',','.join(map(str, bank_rows)),
+                                               '--table-versions',','.join(map(str, bank_versions))]))
+    assert asymmetric['table_rows'] == bank_rows and asymmetric['table_versions'] == bank_versions
     assert asymmetric['backing_bytes']<20*1024**3 and asymmetric['backing_bytes']<uniform['backing_bytes']/4
     with running_ramsql(binary,extra_arguments=('--rows','6000','--work-rows','128','--result-rows','4096')) as conn:
         with psycopg.connect(**conn,prepare_threshold=None) as db:
@@ -100,7 +132,8 @@ def main():
                 expect_error([(tag,body)],'53300')
             finally:
                 raw.close(False)
-    bank_args=('--table-rows','6000,16,64,1,1,1,1,1','--work-rows','128','--result-rows','4096')
+    bank_args=('--table-rows',','.join(map(str, [6000, 16, 64] + [1] * (slots - 3))),
+               '--work-rows','128','--result-rows','4096')
     with tempfile.TemporaryDirectory(prefix='ramsql-reviewer-bank-') as directory:
         wal=Path(directory)/'bank.wal'
         with running_ramsql(binary,extra_arguments=bank_args,data_path=wal,create_data=True) as conn:
@@ -116,10 +149,12 @@ def main():
             with psycopg.connect(**conn) as db:
                 assert db.execute('SELECT COUNT(*) FROM sales').fetchone()==(5000,)
                 assert db.execute('SELECT COUNT(*) FROM products').fetchone()==(16,)
+    if args.require_hosted_profile:
+        prove_hosted_profile(binary, caps, psycopg)
     print(json.dumps(dict(suite='reviewer-runtime',passed=True,seed_rows=5000,
         runtime_result_rows=2000,small_workspace_join=True,bulk_rows_per_insert=500,
         large_prepared_sql=True,oversize_sql_recoverable=True,connections=32,
-        asymmetric_bank_restart=True,runtime_unique_keys=True)))
+        asymmetric_bank_restart=True,runtime_unique_keys=True,hosted_profile_verified=args.require_hosted_profile)))
 
 
 if __name__=='__main__':main()

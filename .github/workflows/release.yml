@@ -165,6 +165,7 @@ jobs:
           # An explicit target selects the portable CPU baseline, never the
           # build runner's native ISA. Pinned build support honors no-libc.
           args+=(-Dtarget="$TARGET_TRIPLE" -Dintegral-version-banks=true)
+          args+=(-Dtables=32 -Dcolumns=9 -Dtext-bytes=200)
           if [[ "$TARGET_SLUG" == *-linux || "$TARGET_SLUG" == *-windows ]]; then
             args+=(-Dlink-libc=false)
           fi
@@ -390,7 +391,7 @@ jobs:
       - name: Validate credential onboarding against the exact release binary
         run: python tools/test_beta.py
       - name: Verify runtime budgets and reviewer regressions on the exact artifact
-        run: python tools/test_reviewer_runtime.py
+        run: python tools/test_reviewer_runtime.py --require-hosted-profile
 
       - name: Require native worker shared-store and protocol safety on exact artifact
         run: python tools/test_workers.py

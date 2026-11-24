@@ -10,6 +10,7 @@ import struct
 import subprocess
 import tempfile
 import time
+import zlib
 
 from test_persistence import DurableServer
 from test_server import PG, errors
@@ -54,6 +55,12 @@ def prove(binary, base):
 
     with server(create=True) as live, connect(live, "") as primary:
         primary.ok("SELECT current_database()", [["postgres"]])
+        primary.ok("SELECT oid, datistemplate, datallowconn FROM pg_database WHERE datname='template0'",
+                   [["4", "t", "f"]])
+        assert error_code(primary, "DROP DATABASE template0") == "42809"
+        assert error_code(primary, "CREATE DATABASE template0") == "42P04"
+        with connect(live, "template0", "55000"):
+            pass
         command(primary, "CREATE DATABASE ramsql_tdd_child", "CREATE DATABASE")
         primary.ok("SELECT datname FROM pg_database WHERE datname='ramsql_tdd_child'", [["ramsql_tdd_child"]])
         command(primary, "DROP DATABASE ramsql_tdd_child", "DROP DATABASE")
@@ -73,8 +80,13 @@ def prove(binary, base):
         primary.ok("BEGIN", status=b"T")
         assert error_code(primary, "CREATE DATABASE forbidden") == "25001"
         primary.ok("ROLLBACK")
-        command(primary, 'CREATE DATABASE "Isolated DB"', "CREATE DATABASE")
+        assert error_code(primary, """CREATE DATABASE unsupported_locale WITH TEMPLATE = template0 LOCALE = 'C.UTF-8'""") == "0A000"
+        primary.ok("SELECT datname FROM pg_database WHERE datname='unsupported_locale'", [])
+        command(primary, """CREATE DATABASE "Isolated DB" WITH TEMPLATE = template0 ENCODING = 'UTF8' LOCALE_PROVIDER = libc LOCALE = 'C'""",
+                "CREATE DATABASE")
         assert error_code(primary, 'CREATE DATABASE "Isolated DB"') == "42P04"
+        command(primary, 'ALTER DATABASE "Isolated DB" OWNER TO "ramsql"', "ALTER DATABASE")
+        assert error_code(primary, 'ALTER DATABASE "Isolated DB" OWNER TO another_owner') == "0A000"
         with connect(live, "Isolated DB") as secondary:
             secondary.ok("SELECT current_database()", [["Isolated DB"]])
             assert error_code(secondary, "SELECT * FROM shared") == "42P01"
@@ -100,7 +112,7 @@ def prove(binary, base):
             time.sleep(0.02)
         with connect(live, "Isolated DB", "3D000"):
             pass
-        primary.ok("SELECT datname FROM pg_catalog.pg_database ORDER BY datname", [["postgres"]])
+        primary.ok("SELECT datname FROM pg_catalog.pg_database ORDER BY datname", [["postgres"], ["template0"], ["template1"]])
         command(primary, 'DROP DATABASE IF EXISTS "Isolated DB"', "DROP DATABASE")
         command(primary, 'CREATE DATABASE "Isolated DB"', "CREATE DATABASE")
         with connect(live, "Isolated DB") as secondary:
@@ -121,13 +133,129 @@ def prove(binary, base):
     assert "InvalidDatabaseIdentity" in result.stderr, result.stderr
 
 
-def prove_interrupted_create(binary, base):
+def prove_legacy_template_name(binary, base, name):
+    def server(create=False):
+        return DurableServer(binary, base, create=create, storage_options=SMALL_PROFILE)
+
+    with server(create=True) as live, connect(live, "postgres") as primary:
+        command(primary, "CREATE DATABASE legacy_db", "CREATE DATABASE")
+        with connect(live, "legacy_db") as peer:
+            peer.ok("CREATE TABLE existing_data(id integer)")
+            peer.ok("INSERT INTO existing_data VALUES (7)")
+
+    # Older journals allow a user database called template0. Its WAL binds
+    # to cluster identity and OID. The cluster journal carries the name.
+    catalog = Path(str(base) + ".cluster")
+    journal = bytearray(catalog.read_bytes())
+    trailer_size, payload_size = 16, 18
+    payload = len(journal) - trailer_size - payload_size
+    trailer = payload + payload_size
+    assert journal[payload] == 2 and journal[payload + 9:trailer] == b"legacy_db"
+    journal[payload + 9:trailer] = name.encode()
+    struct.pack_into("<I", journal, trailer, zlib.crc32(journal[payload:trailer]))
+    catalog.write_bytes(journal)
+
+    with server() as live, connect(live, "postgres") as primary:
+        primary.ok(f"SELECT oid, datistemplate, datallowconn FROM pg_database WHERE datname='{name}'",
+                   [["6", "f", "t"]])
+        with connect(live, name) as peer:
+            peer.ok("SELECT id FROM existing_data", [["7"]])
+        if name == "template0":
+            assert error_code(primary, "CREATE DATABASE ambiguous TEMPLATE template0") == "0A000"
+            primary.ok("SELECT datname FROM pg_database WHERE datname='ambiguous'", [])
+        else:
+            command(primary, "CREATE DATABASE other", "CREATE DATABASE")
+            with connect(live, "other") as peer:
+                assert error_code(peer, "SELECT id FROM existing_data") == "42P01"
+
+
+def prove_named_template(binary, base):
+    def server(create=False):
+        return DurableServer(binary, base, create=create, prepared=2, storage_options=SMALL_PROFILE)
+
+    with server(create=True) as live, connect(live, "postgres") as primary:
+        assert error_code(primary, "CREATE DATABASE absent_copy TEMPLATE ghost") == "3D000"
+        command(primary, 'CREATE DATABASE "Sales Source"', "CREATE DATABASE")
+        with connect(live, "Sales Source") as source:
+            source.ok("CREATE TABLE sales(id integer PRIMARY KEY)")
+            source.ok("CREATE VIEW sale_ids AS SELECT id FROM sales")
+            source.ok("INSERT INTO sales VALUES (1)")
+            source.ok("BEGIN", status=b"T")
+            source.ok("INSERT INTO sales VALUES (2)", status=b"T")
+            command(source, "PREPARE TRANSACTION 'template_commit'", "PREPARE TRANSACTION")
+            assert error_code(primary, '''CREATE DATABASE "Sales Copy" TEMPLATE "Sales Source"''') == "55006"
+        assert error_code(primary, '''CREATE DATABASE "Sales Copy" TEMPLATE "Sales Source"''') == "55006"
+        with connect(live, "Sales Source") as source:
+            command(source, "COMMIT PREPARED 'template_commit'", "COMMIT PREPARED")
+            source.ok("BEGIN", status=b"T")
+            source.ok("INSERT INTO sales VALUES (3)", status=b"T")
+            command(source, "PREPARE TRANSACTION 'template_abort'", "PREPARE TRANSACTION")
+            command(source, "ROLLBACK PREPARED 'template_abort'", "ROLLBACK PREPARED")
+            command(source, '''CREATE DATABASE "Sales Copy" TEMPLATE "Sales Source"''', "CREATE DATABASE")
+            source.ok("INSERT INTO sales VALUES (4)")
+        with connect(live, "Sales Copy") as copied:
+            copied.ok("SELECT oid FROM pg_database WHERE datname='Sales Copy'", [["7"]])
+            copied.ok("SELECT id FROM sale_ids ORDER BY id", [["1"], ["2"]])
+            copied.ok("INSERT INTO sales VALUES (5)")
+
+    with server() as live, connect(live, "Sales Source") as source, connect(live, "Sales Copy") as copied:
+        source.ok("SELECT id FROM sale_ids ORDER BY id", [["1"], ["2"], ["4"]])
+        copied.ok("SELECT id FROM sale_ids ORDER BY id", [["1"], ["2"], ["5"]])
+
+
+def prove_writable_template(binary, base):
+    def server(create=False):
+        return DurableServer(binary, base, create=create, storage_options=SMALL_PROFILE)
+
+    wal = Path(str(base) + ".db-1.wal")
+    catalog = Path(str(base) + ".cluster")
+    with server(create=True) as live, connect(live, "postgres") as primary:
+        primary.ok("SELECT oid, datistemplate, datallowconn FROM pg_database WHERE datname='template1'",
+                   [["1", "t", "t"]])
+        assert error_code(primary, "DROP DATABASE template1") == "42809"
+        assert error_code(primary, "CREATE DATABASE template1") == "42P04"
+        assert not wal.exists()
+        with connect(live, "template1") as template:
+            template.ok("SELECT current_database()", [["template1"]])
+    identity = wal.read_bytes()
+    raw = catalog.read_bytes()
+    # The writable template identity WAL was linked and flushed, but the
+    # tail of the catalog marker did not reach stable storage.
+    marker_bytes = 32 + 9 + 16
+    assert raw[len(raw) - marker_bytes + 32] == 4 and len(identity) == 68
+    catalog.write_bytes(raw[:-2])
+
+    with server() as live, connect(live, "postgres") as primary:
+        with connect(live, "template1") as template:
+            template.ok("CREATE TABLE seeded(id integer PRIMARY KEY)")
+            template.ok("INSERT INTO seeded VALUES (6)")
+            assert error_code(primary, "CREATE DATABASE inherited") == "55006"
+            command(template, "CREATE DATABASE inherited", "CREATE DATABASE")
+            template.ok("INSERT INTO seeded VALUES (7)")
+        command(primary, "CREATE DATABASE clean TEMPLATE template0", "CREATE DATABASE")
+        with connect(live, "inherited") as inherited, connect(live, "clean") as clean:
+            inherited.ok("SELECT id FROM seeded", [["6"]])
+            assert error_code(clean, "SELECT id FROM seeded") == "42P01"
+
+    with server() as live, connect(live, "template1") as template, connect(live, "inherited") as inherited:
+        template.ok("SELECT id FROM seeded ORDER BY id", [["6"], ["7"]])
+        inherited.ok("SELECT id FROM seeded", [["6"]])
+    wal.rename(wal.with_suffix(".missing"))
+    failed = subprocess.run(server().command(), capture_output=True, text=True, timeout=30)
+    assert failed.returncode != 0 and "FileNotFound" in failed.stderr, failed
+
+
+def prove_interrupted_create(binary, base, clone=False):
     def server(create=False):
         return DurableServer(binary, base, create=create, storage_options=SMALL_PROFILE)
 
     catalog = Path(str(base) + ".cluster")
+    creation = "CREATE DATABASE orphan" + (" TEMPLATE postgres" if clone else "")
     with server(create=True) as live, connect(live, "postgres") as primary:
-        command(primary, "CREATE DATABASE orphan", "CREATE DATABASE")
+        if clone:
+            primary.ok("CREATE TABLE snapshot_rows(id integer PRIMARY KEY)")
+            primary.ok("INSERT INTO snapshot_rows VALUES (1)")
+        command(primary, creation, "CREATE DATABASE")
     # Model a power cut just before publication after the reservation and
     # identity WAL have reached stable storage. No acknowledgement survives.
     raw = catalog.read_bytes()
@@ -145,8 +273,13 @@ def prove_interrupted_create(binary, base):
     with server() as live, connect(live, "postgres") as primary:
         with connect(live, "orphan", "3D000"):
             pass
-        command(primary, "CREATE DATABASE orphan", "CREATE DATABASE")
+        if clone:
+            primary.ok("INSERT INTO snapshot_rows VALUES (2)")
+        command(primary, creation, "CREATE DATABASE")
         primary.ok("SELECT oid FROM pg_database WHERE datname='orphan'", [["7"]])
+        if clone:
+            with connect(live, "orphan") as copied:
+                copied.ok("SELECT id FROM snapshot_rows ORDER BY id", [["1"], ["2"]])
     assert Path(str(base) + ".db-6.wal").exists()
     assert Path(str(base) + ".db-7.wal").exists()
 
@@ -236,7 +369,12 @@ def main():
     args.output.mkdir(parents=True, exist_ok=True)
     case = Path(tempfile.mkdtemp(prefix="restart-", dir=args.output.resolve()))
     prove(args.binary.resolve(), case / "production.wal")
+    prove_legacy_template_name(args.binary.resolve(), case / "legacy-template0.wal", "template0")
+    prove_legacy_template_name(args.binary.resolve(), case / "legacy-template1.wal", "template1")
+    prove_named_template(args.binary.resolve(), case / "named-template.wal")
+    prove_writable_template(args.binary.resolve(), case / "writable-template.wal")
     prove_interrupted_create(args.binary.resolve(), case / "interrupted.wal")
+    prove_interrupted_create(args.binary.resolve(), case / "interrupted-clone.wal", clone=True)
     prove_scram(args.binary.resolve(), case / "scram.wal")
     prove_prepared_scope(args.binary.resolve(), case / "prepared.wal")
     print(f"PASS database routing, independent stores, leases and WAL recovery in {case}")

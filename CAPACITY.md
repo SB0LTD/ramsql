@@ -13,10 +13,10 @@ query planner, RSS forecast or admission guarantee for every SQL statement.
 | Versions per table | 8,192 | `--versions` or `--table-versions n,n,...`; must exceed that slot's rows |
 | Returned rows per statement | 8,192 | Runtime `--result-rows`; separately page-backed per accepted client |
 | Query workspace rows | 4,096 | Runtime `--work-rows`; shared execution scratch, not disk-spilled or embedded in executable |
-| Tables | 8 | Build `-Dtables` (SQL catalog maximum 255) |
-| Stored columns per table | 8 | Build `-Dcolumns` (maximum 255) |
+| Tables | 32 in hosted packages, 8 in a default source build | Build `-Dtables` (SQL catalog maximum 255) |
+| Stored columns per table | 9 in hosted packages, 8 in a default source build | Build `-Dcolumns` (maximum 255) |
 | SELECT result columns | 48 | Build `-Dprojection-columns` (between the stored width and 255); wider results increase per-client result backing |
-| TEXT/JSON/encoded JSONB bytes | 128 | Build `-Dtext-bytes` (1..65,535); bytes, not Unicode characters |
+| TEXT/JSON/encoded JSONB bytes | 200 in hosted packages, 128 in a default source build | Build `-Dtext-bytes` (1..65,535 bytes) |
 | Identifier bytes | 63 | Fixed server policy |
 | Client slots | 16 | Runtime `--max-clients` 1..60; build `-Dclients` changes the default |
 | Transaction slots | 62 | Maximum hosted clients + 2 |

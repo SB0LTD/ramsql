@@ -236,6 +236,8 @@ def catalog_role_contracts(binary, directory, admin_verifier, admin_password):
         with psycopg.connect(**options) as db:
             db.execute("CREATE ROLE test_reader LOGIN")
             db.execute("CREATE ROLE test_writer LOGIN")
+            db.execute("ALTER ROLE test_reader SET quote_all_identifiers = on")
+            db.execute("ALTER ROLE test_reader SET check_function_bodies = off")
             db.execute("CREATE TABLE role_data(id INT PRIMARY KEY, value TEXT)")
             db.execute("INSERT INTO role_data VALUES (1,'hidden'),(2,'visible')")
             db.execute("GRANT SELECT ON role_data TO test_reader")
@@ -247,6 +249,11 @@ def catalog_role_contracts(binary, directory, admin_verifier, admin_password):
     with running_ramsql(binary, data_path=wal, auth=reader, extra_arguments=extra) as options:
         with psycopg.connect(**options) as db:
             check(db.execute("SELECT current_user,session_user").fetchone() == ("test_reader", "test_reader"))
+            check(db.execute("SELECT quote_ident('plain'), current_setting('check_function_bodies')").fetchone() ==
+                  ('"plain"', "off"), "catalog role defaults were not installed after SCRAM")
+            db.execute("SET quote_all_identifiers TO off")
+            db.execute("RESET quote_all_identifiers")
+            check(db.execute("SELECT quote_ident('plain')").fetchone() == ('"plain"',))
             check(db.execute("SELECT id,value FROM role_data ORDER BY id", prepare=True).fetchall() == [(2, "visible")])
             with db.cursor().copy("COPY role_data TO STDOUT") as copy:
                 check(b"".join(copy) == b"2\tvisible\n", "COPY TO bypassed row security")
@@ -265,6 +272,9 @@ def catalog_role_contracts(binary, directory, admin_verifier, admin_password):
                 else:
                     raise AssertionError(f"restricted session unexpectedly accepted {query}")
             check(db.execute("SELECT count(*) FROM role_data").fetchone() == (1,))
+        with psycopg.connect(**(options | {"options": "-c quote_all_identifiers=off"})) as db:
+            check(db.execute("SELECT quote_ident('plain')").fetchone() == ("plain",),
+                  "the role default overrode the client startup option")
 
     writer_password = secrets.token_urlsafe(32).encode()
     writer_verifier = directory / "writer.verifier"
@@ -316,6 +326,8 @@ def catalog_role_contracts(binary, directory, admin_verifier, admin_password):
         with psycopg.connect(**options) as read_db, psycopg.connect(**writer_options) as write_db:
             check(write_db.execute("SELECT session_user").fetchone() == ("test_writer",))
             check(read_db.execute("SELECT current_user").fetchone() == ("test_reader",))
+            check(read_db.execute("SHOW quote_all_identifiers").fetchone() == ("on",))
+            check(write_db.execute("SHOW quote_all_identifiers").fetchone() == ("off",))
             write_db.execute("INSERT INTO role_data VALUES (3,'writer')")
             check(read_db.execute("SELECT id FROM role_data ORDER BY id", prepare=True).fetchall() == [(2,), (3,)])
             try:

@@ -44,8 +44,14 @@ def main():
     config = reviewer / "examples/sales-agg/ramsql.properties"
     load = dataset / "ramsql_load.sql"
     psql = reviewer / "tools/postgres18/pgsql/bin/psql.exe"
-    arguments = ["--workers", "8", "--table-rows", "5,200,20,1000,50000,5000000,1,1",
-                 "--table-versions", "10,400,40,2000,100000,5065536,2,2",
+    capabilities = json.loads(subprocess.check_output([str(binary), "--capabilities"]))
+    slots = capabilities["tables"]
+    if slots < 6:
+        parser.error("the full sales dataset needs at least six table slots")
+    rows = [5, 200, 20, 1000, 50000, 5000000] + [1] * (slots - 6)
+    versions = [10, 400, 40, 2000, 100000, 5065536] + [2] * (slots - 6)
+    arguments = ["--workers", "8", "--table-rows", ",".join(map(str, rows)),
+                 "--table-versions", ",".join(map(str, versions)),
                  "--work-rows", "65536", "--result-rows", "1024"]
     report = dict(schema=1, method="Original full5M checks and query files; in-memory RAMSQL, "
                   "eight workers/clients, 5s ramp/15s warm/60s measured. Failed full-suite "
