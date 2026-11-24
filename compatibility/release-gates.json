@@ -12,6 +12,7 @@
       "cluster_declaration_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45384730882",
       "named_template_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45390681198",
       "writable_template_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45450269339",
+      "temporal_routine_stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45507624271",
       "requirement": "Complete the PostgreSQL feature inventory, upstream and application regressions, and stock tooling round trips.",
       "qualified": "The writable-template candidate passed all 47 stock PG16 and PG18 cases, including three-database archives in both directions and WAL reopen. Shared roles, large objects and the wider application regression suite remain open."
     },

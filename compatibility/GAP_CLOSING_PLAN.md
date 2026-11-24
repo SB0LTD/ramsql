@@ -23,9 +23,9 @@ preserves implicit string-literal typing in archived calls.
 The PostgreSQL 18.7 tooling fixture uses stock pg_dump's portable
 `attoptions` projection. PostgreSQL stores its own attribute version
 under `pg_attver` and excludes that entry from normal archive options.
-The fixture still compares all portable column options. Legacy archives
-that explicitly emit the reserved option and general per-column option
-DDL need their own compatibility checks.
+The fixture still compares all portable column options. The consolidated
+candidate also restores legacy archives that contain the reserved option.
+General per-column option DDL remains open.
 
 ## Stock migration acceptance
 
@@ -151,6 +151,17 @@ bootstrap-role error.
 Cross-database roles, broader locale and tablespace support, and
 large-object archives remain open.
 [Writable-template qualification](https://github.com/SB0LTD/ramsql/actions/runs/45450269339)
+
+The legacy column-option fixture replays unmodified plain and custom
+archives written by stock `pg_dump` 18.0 against PostgreSQL 18.7.
+The old client includes the backend-owned `pg_attver` option.
+The new restore path accepts that reserved option with the usual ALTER
+permissions, locking and errors. The fixture checks data, primary keys
+and the absence of a portable option after reopening the WAL.
+PG16 `psql` reads the plain archive. The custom archive uses format
+1.16, which requires the PG18 `pg_restore` lane.
+Configurable options such as `n_distinct` remain open.
+[PostgreSQL attribute catalog](https://www.postgresql.org/docs/18/catalog-pg-attribute.html)
 
 The composite-key follow-up passed all 34 checks on PG16 and PG18 CI.
 Stock restore applies the composite primary key after COPY in the same
