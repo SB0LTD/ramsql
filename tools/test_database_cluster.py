@@ -112,7 +112,7 @@ def prove(binary, base):
             time.sleep(0.02)
         with connect(live, "Isolated DB", "3D000"):
             pass
-        primary.ok("SELECT datname FROM pg_catalog.pg_database ORDER BY datname", [["postgres"], ["template0"]])
+        primary.ok("SELECT datname FROM pg_catalog.pg_database ORDER BY datname", [["postgres"], ["template0"], ["template1"]])
         command(primary, 'DROP DATABASE IF EXISTS "Isolated DB"', "DROP DATABASE")
         command(primary, 'CREATE DATABASE "Isolated DB"', "CREATE DATABASE")
         with connect(live, "Isolated DB") as secondary:
@@ -133,7 +133,7 @@ def prove(binary, base):
     assert "InvalidDatabaseIdentity" in result.stderr, result.stderr
 
 
-def prove_legacy_template_name(binary, base):
+def prove_legacy_template_name(binary, base, name):
     def server(create=False):
         return DurableServer(binary, base, create=create, storage_options=SMALL_PROFILE)
 
@@ -151,17 +151,22 @@ def prove_legacy_template_name(binary, base):
     payload = len(journal) - trailer_size - payload_size
     trailer = payload + payload_size
     assert journal[payload] == 2 and journal[payload + 9:trailer] == b"legacy_db"
-    journal[payload + 9:trailer] = b"template0"
+    journal[payload + 9:trailer] = name.encode()
     struct.pack_into("<I", journal, trailer, zlib.crc32(journal[payload:trailer]))
     catalog.write_bytes(journal)
 
     with server() as live, connect(live, "postgres") as primary:
-        primary.ok("SELECT oid, datistemplate, datallowconn FROM pg_database WHERE datname='template0'",
+        primary.ok(f"SELECT oid, datistemplate, datallowconn FROM pg_database WHERE datname='{name}'",
                    [["6", "f", "t"]])
-        with connect(live, "template0") as peer:
+        with connect(live, name) as peer:
             peer.ok("SELECT id FROM existing_data", [["7"]])
-        assert error_code(primary, "CREATE DATABASE ambiguous TEMPLATE template0") == "0A000"
-        primary.ok("SELECT datname FROM pg_database WHERE datname='ambiguous'", [])
+        if name == "template0":
+            assert error_code(primary, "CREATE DATABASE ambiguous TEMPLATE template0") == "0A000"
+            primary.ok("SELECT datname FROM pg_database WHERE datname='ambiguous'", [])
+        else:
+            command(primary, "CREATE DATABASE other", "CREATE DATABASE")
+            with connect(live, "other") as peer:
+                assert error_code(peer, "SELECT id FROM existing_data") == "42P01"
 
 
 def prove_named_template(binary, base):
@@ -196,6 +201,48 @@ def prove_named_template(binary, base):
     with server() as live, connect(live, "Sales Source") as source, connect(live, "Sales Copy") as copied:
         source.ok("SELECT id FROM sale_ids ORDER BY id", [["1"], ["2"], ["4"]])
         copied.ok("SELECT id FROM sale_ids ORDER BY id", [["1"], ["2"], ["5"]])
+
+
+def prove_writable_template(binary, base):
+    def server(create=False):
+        return DurableServer(binary, base, create=create, storage_options=SMALL_PROFILE)
+
+    wal = Path(str(base) + ".db-1.wal")
+    catalog = Path(str(base) + ".cluster")
+    with server(create=True) as live, connect(live, "postgres") as primary:
+        primary.ok("SELECT oid, datistemplate, datallowconn FROM pg_database WHERE datname='template1'",
+                   [["1", "t", "t"]])
+        assert error_code(primary, "DROP DATABASE template1") == "42809"
+        assert error_code(primary, "CREATE DATABASE template1") == "42P04"
+        assert not wal.exists()
+        with connect(live, "template1") as template:
+            template.ok("SELECT current_database()", [["template1"]])
+    identity = wal.read_bytes()
+    raw = catalog.read_bytes()
+    # The writable template identity WAL was linked and flushed, but the
+    # tail of the catalog marker did not reach stable storage.
+    marker_bytes = 32 + 9 + 16
+    assert raw[len(raw) - marker_bytes + 32] == 4 and len(identity) == 68
+    catalog.write_bytes(raw[:-2])
+
+    with server() as live, connect(live, "postgres") as primary:
+        with connect(live, "template1") as template:
+            template.ok("CREATE TABLE seeded(id integer PRIMARY KEY)")
+            template.ok("INSERT INTO seeded VALUES (6)")
+            assert error_code(primary, "CREATE DATABASE inherited") == "55006"
+            command(template, "CREATE DATABASE inherited", "CREATE DATABASE")
+            template.ok("INSERT INTO seeded VALUES (7)")
+        command(primary, "CREATE DATABASE clean TEMPLATE template0", "CREATE DATABASE")
+        with connect(live, "inherited") as inherited, connect(live, "clean") as clean:
+            inherited.ok("SELECT id FROM seeded", [["6"]])
+            assert error_code(clean, "SELECT id FROM seeded") == "42P01"
+
+    with server() as live, connect(live, "template1") as template, connect(live, "inherited") as inherited:
+        template.ok("SELECT id FROM seeded ORDER BY id", [["6"], ["7"]])
+        inherited.ok("SELECT id FROM seeded", [["6"]])
+    wal.rename(wal.with_suffix(".missing"))
+    failed = subprocess.run(server().command(), capture_output=True, text=True, timeout=30)
+    assert failed.returncode != 0 and "FileNotFound" in failed.stderr, failed
 
 
 def prove_interrupted_create(binary, base, clone=False):
@@ -322,8 +369,10 @@ def main():
     args.output.mkdir(parents=True, exist_ok=True)
     case = Path(tempfile.mkdtemp(prefix="restart-", dir=args.output.resolve()))
     prove(args.binary.resolve(), case / "production.wal")
-    prove_legacy_template_name(args.binary.resolve(), case / "legacy-template.wal")
+    prove_legacy_template_name(args.binary.resolve(), case / "legacy-template0.wal", "template0")
+    prove_legacy_template_name(args.binary.resolve(), case / "legacy-template1.wal", "template1")
     prove_named_template(args.binary.resolve(), case / "named-template.wal")
+    prove_writable_template(args.binary.resolve(), case / "writable-template.wal")
     prove_interrupted_create(args.binary.resolve(), case / "interrupted.wal")
     prove_interrupted_create(args.binary.resolve(), case / "interrupted-clone.wal", clone=True)
     prove_scram(args.binary.resolve(), case / "scram.wal")

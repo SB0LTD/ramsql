@@ -26,6 +26,43 @@ pub const CheckpointPhase = enum { staged, before_selection, after_selection, af
 pub const CheckpointObserver = *const fn (CheckpointPhase) void;
 pub const DatabaseIdentity = struct { cluster: [16]u8, oid: u32 };
 
+fn databaseIdentityPayload(identity: DatabaseIdentity) [20]u8 {
+    var payload: [20]u8 = undefined;
+    payload[0..16].* = identity.cluster;
+    std.mem.writeInt(u32, payload[16..20], identity.oid, .little);
+    return payload;
+}
+
+fn appendDatabaseIdentity(file: *disk.File, identity: DatabaseIdentity) !void {
+    const payload = databaseIdentityPayload(identity);
+    try log.appendKind(file, 1, &payload, database_identity_kind);
+}
+
+/// Publish only a complete, synced identity. A previously published file
+/// can be reused before the catalog marker only when it is exactly empty.
+pub fn publishEmptyDatabase(path: []const u8, temporary: []const u8, identity: DatabaseIdentity) !void {
+    if (disk.File.openReadOnly(path)) |opened| {
+        var file = opened;
+        defer file.close();
+        const expected = databaseIdentityPayload(identity);
+        if (try file.length() != log.overhead + expected.len) return error.InvalidDatabaseIdentity;
+        var scratch: [expected.len]u8 = undefined;
+        const payload = try log.readFrame(&file, &scratch, .{
+            .offset = 0, .sequence = 1, .kind = database_identity_kind, .payload_len = expected.len,
+        });
+        if (!std.mem.eql(u8, payload, &expected)) return error.InvalidDatabaseIdentity;
+        return;
+    } else |err| {
+        if (err != error.FileNotFound) return err;
+    }
+    var file = try disk.File.createExclusive(temporary);
+    defer disk.remove(temporary) catch {};
+    defer file.close();
+    try appendDatabaseIdentity(&file, identity);
+    file.close();
+    try disk.publishNew(temporary, path);
+}
+
 /// One configured stem owns the fixed writer lock and selector paths. Only the
 /// selection read under that lock supplies a generation for its image and WAL.
 pub const CheckpointLayout = struct {
@@ -272,10 +309,7 @@ pub fn Persistence(comptime Raw: type, comptime Store: type) type {
             }
             if (mode == .exclusive) {
                 const created = identity orelse return error.InvalidDatabaseIdentity;
-                var payload: [20]u8 = undefined;
-                payload[0..16].* = created.cluster;
-                std.mem.writeInt(u32, payload[16..20], created.oid, .little);
-                try log.appendKind(&self.file, 1, &payload, database_identity_kind);
+                try appendDatabaseIdentity(&self.file, created);
             }
             const kinds = accepted_kinds | if (identity != null) @as(u32, 1) << database_identity_kind else @as(u32, 0);
             const recovery = try log.recoverFramesWithFinish(&self.file, recovery_buffer, self, Self.replay, Self.finishRecovery, kinds);

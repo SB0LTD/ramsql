@@ -648,12 +648,17 @@ fn maybeCheckpoint() void {
     };
 }
 const cluster_capacity = 4;
+const cluster_entries_capacity = cluster_capacity + 1;
 const primary_database = "postgres";
 const cluster_owner: u32 = 10;
 // The pristine template has fixed engine catalogs and no mutable database or WAL.
 const pristine_template: sql.DatabaseCatalogRow = .{
     .oid = 4, .owner = cluster_owner, .name = "template0",
     .is_template = true, .allow_connections = false,
+};
+const writable_template: sql.DatabaseCatalogRow = .{
+    .oid = database_catalog.writable_template_oid, .owner = cluster_owner, .name = "template1",
+    .is_template = true,
 };
 const ClusterRegistry = database_registry.Registry(Store, config.name_bytes);
 const ClusterCatalog = database_catalog.Catalog(cluster_capacity, config.name_bytes);
@@ -676,10 +681,11 @@ const ClusterSlot = struct {
 };
 var cluster_options: Options = .{};
 var cluster_registry: ClusterRegistry = undefined;
-var cluster_entries: [cluster_capacity]ClusterRegistry.Entry = undefined;
+var cluster_entries: [cluster_entries_capacity]ClusterRegistry.Entry = undefined;
 var cluster_leases: [capacity]ClusterRegistry.LeaseEntry = undefined;
 var cluster_catalog: ClusterCatalog = .{};
-var cluster_slots: [cluster_capacity]ClusterSlot = @splat(.{});
+var cluster_slots: [cluster_entries_capacity]ClusterSlot = @splat(.{});
+var writable_template_id: ?ClusterRegistry.Id = null;
 // profile.transaction_bytes sizes this recovery buffer, which Persistence also
 // hands to the store as the change-record encode buffer: any record written is
 // recoverable.
@@ -1652,6 +1658,7 @@ fn clusterStoreOpen(id: ClusterRegistry.Id, oid: u32, name: []const u8, create: 
 }
 
 fn createClusterDatabase(name: []const u8, template: ?*Persistence) !void {
+    if (!cluster_catalog.canCreate()) return error.DatabaseCapacity;
     const oid = std.math.add(u32, @max(pristine_template.oid, cluster_catalog.high_water), 1) catch return error.DatabaseCapacity;
     const id = try cluster_registry.reserve(name, oid, cluster_owner);
     errdefer _ = cluster_registry.abortReservation(id) catch @panic("lost database reservation");
@@ -1676,6 +1683,10 @@ fn openCluster() !void {
         try entropy.fill(&identity);
         try cluster_catalog.initializeIdentity(identity);
     }
+    writable_template_id = for (&cluster_catalog.entries) |*entry| {
+        if (entry.oid != 0 and std.mem.eql(u8, entry.slice(), writable_template.name)) break null;
+    } else try cluster_registry.reserve(writable_template.name, writable_template.oid, writable_template.owner);
+    if (cluster_catalog.writable_template) try ensureWritableTemplate();
     var previous: u32 = 0;
     while (true) {
         var next: ?*const ClusterCatalog.Entry = null;
@@ -1697,9 +1708,35 @@ fn openCluster() !void {
     try validateClusterPrepared();
 }
 
+fn ensureWritableTemplate() !void {
+    const id = writable_template_id orelse return error.InvalidDatabaseCatalog;
+    if (cluster_registry.metadataAt(id.index) != null) return;
+    if (!cluster_catalog.writable_template) {
+        var path_buffer: [4096]u8 = undefined;
+        const path = try clusterWalPath(writable_template.oid, &path_buffer);
+        var nonce: [8]u8 = undefined;
+        try entropy.fill(&nonce);
+        var pending_buffer: [4096]u8 = undefined;
+        const pending = try sig.fmt.bufPrint(&pending_buffer, "{s}.{x}.pending", .{ path, std.mem.readInt(u64, &nonce, .little) });
+        try @import("persistence.sig").publishEmptyDatabase(path, pending, .{
+            .cluster = cluster_catalog.identity orelse return error.InvalidDatabaseCatalog,
+            .oid = writable_template.oid,
+        });
+    }
+    const opened = try clusterStoreOpen(id, writable_template.oid, writable_template.name, false, null);
+    errdefer cluster_slots[id.index].close();
+    if (!cluster_catalog.writable_template) {
+        const staged = &cluster_slots[id.index].database.?.persistence;
+        if (staged.sequence != 1) return error.InvalidDatabaseIdentity;
+        try cluster_catalog.markWritableTemplate();
+    }
+    cluster_registry.stageStore(id, opened) catch @panic("lost writable template store");
+    cluster_registry.publish(id) catch @panic("lost writable template");
+}
+
 fn validateClusterPrepared() !void {
     var count: usize = 0;
-    for (0..cluster_capacity) |index| {
+    for (0..cluster_entries_capacity) |index| {
         const current = cluster_registry.readyStoreAt(index) orelse continue;
         count += current.preparedCount();
         for (&current.prepared) |*entry| {
@@ -1716,7 +1753,7 @@ fn validateClusterPrepared() !void {
 fn checkClusterPrepared(current: *const Store, gid: *const Raw.PreparedWal.Gid, operation: Store.PreparedOperation) anyerror!void {
     if (cluster_catalog.failed) return error.WriterPoisoned;
     var count: usize = 0;
-    for (0..cluster_capacity) |index| {
+    for (0..cluster_entries_capacity) |index| {
         const peer = cluster_registry.readyStoreAt(index) orelse continue;
         // An uncertain prepare sync can still be present in a peer's WAL.
         if (peer.storage_failed) return error.WriterPoisoned;
@@ -1733,7 +1770,8 @@ fn clusterAcl(_: ?*anyopaque, principal: u32, metadata: ClusterRegistry.Metadata
 }
 
 fn databaseCatalogRow(_: ?*const anyopaque, index: usize) ?sql.DatabaseCatalogRow {
-    if (index == cluster_capacity) return if (pristineTemplateAvailable()) pristine_template else null;
+    if (index == cluster_entries_capacity) return if (pristineTemplateAvailable()) pristine_template else null;
+    if (writable_template_id) |id| if (index == id.index) return writable_template;
     const entry = cluster_registry.metadataAt(index) orelse return null;
     return .{ .oid = entry.oid, .owner = entry.owner, .name = entry.name };
 }
@@ -1755,6 +1793,7 @@ fn clusterAdmit(context: *anyopaque, connection: *DB, request: pg.StartupAdmissi
     if (request.method == .trusted and !cluster_options.insecure_local) return error.AdmissionDenied;
     if (std.mem.eql(u8, request.database, pristine_template.name) and pristineTemplateAvailable())
         return error.DatabaseConnectionsDisabled;
+    if (isWritableTemplate(request.database)) try ensureWritableTemplate();
     const binding = try cluster_registry.attach(request.database, .{ .principal = cluster_owner, .allowed = &clusterAcl });
     errdefer cluster_registry.release(binding.lease) catch @panic("lost provisional database lease");
     const former = connection.store;
@@ -1773,6 +1812,7 @@ fn resolveDatabaseTemplate(name: []const u8, caller: ClusterRegistry.Id) !?*Pers
         if (!pristineTemplateAvailable()) return error.UnsupportedStatement;
         return null;
     }
+    if (isWritableTemplate(name) and !cluster_catalog.writable_template) return null;
     const source = cluster_registry.lookup(name) orelse return error.DatabaseNotFound;
     const own_client: usize = @intFromBool(source.id.index == caller.index);
     if (source.clients > own_client) return error.DatabaseBusy;
@@ -1780,6 +1820,10 @@ fn resolveDatabaseTemplate(name: []const u8, caller: ClusterRegistry.Id) !?*Pers
         &cluster_slots[source.id.index].database.?.persistence;
     if (selected.store.?.preparedCount() != 0) return error.DatabaseBusy;
     return selected;
+}
+
+fn isWritableTemplate(name: []const u8) bool {
+    return writable_template_id != null and std.mem.eql(u8, name, writable_template.name);
 }
 
 fn clusterCommand(context: *anyopaque, connection: *DB, source: []const u8) anyerror!?[]const u8 {
@@ -1791,20 +1835,25 @@ fn clusterCommand(context: *anyopaque, connection: *DB, source: []const u8) anye
     if (cluster_catalog.failed) return error.WriterPoisoned;
     switch (command) {
         .create => |create| {
-            if (std.mem.eql(u8, create.name.slice(), pristine_template.name)) return error.DuplicateDatabase;
-            const template = if (create.template) |name| try resolveDatabaseTemplate(name.slice(), binding.database) else null;
-            try createClusterDatabase(create.name.slice(), template);
+            const name = create.name.slice();
+            if (std.mem.eql(u8, name, pristine_template.name) or isWritableTemplate(name) or cluster_registry.lookup(name) != null)
+                return error.DuplicateDatabase;
+            const template = if (create.template) |selected| try resolveDatabaseTemplate(selected.slice(), binding.database) else
+                if (writable_template_id != null) try resolveDatabaseTemplate(writable_template.name, binding.database) else null;
+            try createClusterDatabase(name, template);
             return "CREATE DATABASE";
         },
         .alter_owner => |change| {
-            const target = cluster_registry.lookup(change.name.slice()) orelse return error.DatabaseNotFound;
+            const owner = if (isWritableTemplate(change.name.slice())) writable_template.owner else
+                (cluster_registry.lookup(change.name.slice()) orelse return error.DatabaseNotFound).owner;
             // This cluster stores one owner. An archive may restate it.
-            if (target.owner != cluster_owner or !std.mem.eql(u8, change.owner.slice(), sql.bootstrap_role_name))
+            if (owner != cluster_owner or !std.mem.eql(u8, change.owner.slice(), sql.bootstrap_role_name))
                 return error.UnsupportedStatement;
             return "ALTER DATABASE";
         },
         .drop => |drop| {
             if (std.mem.eql(u8, drop.name.slice(), pristine_template.name) and pristineTemplateAvailable()) return error.DropTemplateDatabase;
+            if (isWritableTemplate(drop.name.slice())) return error.DropTemplateDatabase;
             const target = cluster_registry.lookup(drop.name.slice()) orelse return if (drop.if_exists) "DROP DATABASE" else error.DatabaseNotFound;
             if (std.mem.eql(u8, target.name, primary_database) or target.id.index == binding.database.index) return error.DatabaseBusy;
             const slot = &cluster_slots[target.id.index];
@@ -1831,7 +1880,7 @@ fn configureStore(target: *Store, options: Options) void {
     target.zone_provider = .{ .context = @ptrCast(&zones), .lookup = &Zones.lookup };
     if (options.database_cluster) {
         target.prepared_check = &checkClusterPrepared;
-        target.database.setDatabaseCatalog(.{ .capacity = cluster_capacity + 1, .row = &databaseCatalogRow });
+        target.database.setDatabaseCatalog(.{ .capacity = cluster_entries_capacity + 1, .row = &databaseCatalogRow });
     } else {
         target.database.setDatabaseCatalog(.{ .capacity = 1, .row = &standaloneDatabaseCatalogRow, .use_session_database_name = true });
     }
