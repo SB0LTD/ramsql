@@ -41,7 +41,7 @@ fn appendDatabaseIdentity(file: *disk.File, identity: DatabaseIdentity) !void {
 /// Publish only a complete, synced identity. A previously published file
 /// can be reused before the catalog marker only when it is exactly empty.
 pub fn publishEmptyDatabase(path: []const u8, temporary: []const u8, identity: DatabaseIdentity) !void {
-    if (disk.File.openReadOnly(path)) |opened| {
+    if (disk.File.openExisting(path)) |opened| {
         var file = opened;
         defer file.close();
         const expected = databaseIdentityPayload(identity);

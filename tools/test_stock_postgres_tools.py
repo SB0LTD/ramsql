@@ -448,7 +448,7 @@ def check_cluster_archive(binary, tools, native, *, inbound):
     # additional UTF-8, C-locale database created explicitly below.
     databases = (("template1", 8), ("postgres", 15), ("Cluster Archive", 21))
     options = ("--database-cluster", "--rows", "32", "--versions", "64",
-               "--work-rows", "256", "--result-rows", "1024")
+               "--work-rows", "4096", "--result-rows", "1024")
 
     def populate(settings):
         with psycopg.connect(**settings) as db:
