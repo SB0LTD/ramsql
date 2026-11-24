@@ -1589,13 +1589,22 @@ def check_generated_archives(binary, tools, native):
             db.execute(f"CREATE TABLE {schema}.invoice (net int NOT NULL, tax int DEFAULT 2, "
                        "total int GENERATED ALWAYS AS (net + tax) STORED)")
             db.execute(f"INSERT INTO {schema}.invoice(net) VALUES (17)")
+            db.execute(f"CREATE TABLE {schema}.periods (id int PRIMARY KEY, starts time, ends time, "
+                       "covered boolean GENERATED ALWAYS AS "
+                       "((starts, ends) OVERLAPS (TIME '10:30', TIME '11:30')) STORED)")
+            db.execute(f"INSERT INTO {schema}.periods(id,starts,ends) "
+                       "VALUES (1,'09:00','11:00'),(2,'11:30','12:00'),(3,NULL,'09:30')")
 
     def verify(endpoint, schema):
         with psycopg.connect(**endpoint) as db:
             assert db.execute(f"SELECT net,tax,total FROM {schema}.invoice").fetchall() == [(17, 2, 19)]
+            assert db.execute(f"SELECT id,covered FROM {schema}.periods ORDER BY id").fetchall() == [
+                (1, True), (2, False), (3, None),
+            ]
             with db.transaction(force_rollback=True):
                 assert db.execute(f"INSERT INTO {schema}.invoice(net,tax) VALUES (6,3) RETURNING total").fetchone() == (9,)
                 assert db.execute(f"UPDATE {schema}.invoice SET tax=4 WHERE net=17 RETURNING total").fetchone() == (21,)
+                assert db.execute(f"UPDATE {schema}.periods SET ends='10:30' WHERE id=1 RETURNING covered").fetchone() == (False,)
 
     check_schema_archives(binary, tools, native, "generated", populate, verify)
 
