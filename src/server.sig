@@ -650,6 +650,11 @@ fn maybeCheckpoint() void {
 const cluster_capacity = 4;
 const primary_database = "postgres";
 const cluster_owner: u32 = 10;
+// The pristine template has fixed engine catalogs and no mutable database or WAL.
+const pristine_template: sql.DatabaseCatalogRow = .{
+    .oid = 4, .owner = cluster_owner, .name = "template0",
+    .is_template = true, .allow_connections = false,
+};
 const ClusterRegistry = database_registry.Registry(Store, config.name_bytes);
 const ClusterCatalog = database_catalog.Catalog(cluster_capacity, config.name_bytes);
 const ClusterStore = struct { store: Store = .{}, persistence: Persistence = .{} };
@@ -1645,7 +1650,7 @@ fn clusterStoreOpen(id: ClusterRegistry.Id, oid: u32, name: []const u8, create: 
 }
 
 fn createClusterDatabase(name: []const u8) !void {
-    const oid = std.math.add(u32, @max(@as(u32, 4), cluster_catalog.high_water), 1) catch return error.DatabaseCapacity;
+    const oid = std.math.add(u32, @max(pristine_template.oid, cluster_catalog.high_water), 1) catch return error.DatabaseCapacity;
     const id = try cluster_registry.reserve(name, oid, cluster_owner);
     errdefer _ = cluster_registry.abortReservation(id) catch @panic("lost database reservation");
     try cluster_catalog.reserve(oid);
@@ -1726,8 +1731,14 @@ fn clusterAcl(_: ?*anyopaque, principal: u32, metadata: ClusterRegistry.Metadata
 }
 
 fn databaseCatalogRow(_: ?*const anyopaque, index: usize) ?sql.DatabaseCatalogRow {
+    if (index == cluster_capacity) return if (pristineTemplateAvailable()) pristine_template else null;
     const entry = cluster_registry.metadataAt(index) orelse return null;
     return .{ .oid = entry.oid, .owner = entry.owner, .name = entry.name };
+}
+
+fn pristineTemplateAvailable() bool {
+    // Preserve catalogs created before the template name was reserved.
+    return cluster_registry.lookup(pristine_template.name) == null;
 }
 
 fn standaloneDatabaseCatalogRow(_: ?*const anyopaque, index: usize) ?sql.DatabaseCatalogRow {
@@ -1740,6 +1751,8 @@ fn clusterAdmit(context: *anyopaque, connection: *DB, request: pg.StartupAdmissi
     if (cluster_catalog.failed) return error.WriterPoisoned;
     if (!std.mem.eql(u8, request.user, cluster_options.auth_user orelse "postgres")) return error.AdmissionDenied;
     if (request.method == .trusted and !cluster_options.insecure_local) return error.AdmissionDenied;
+    if (std.mem.eql(u8, request.database, pristine_template.name) and pristineTemplateAvailable())
+        return error.DatabaseConnectionsDisabled;
     const binding = try cluster_registry.attach(request.database, .{ .principal = cluster_owner, .allowed = &clusterAcl });
     errdefer cluster_registry.release(binding.lease) catch @panic("lost provisional database lease");
     const former = connection.store;
@@ -1761,8 +1774,10 @@ fn clusterCommand(context: *anyopaque, connection: *DB, source: []const u8) anye
     if (connection.transactionStatus() != 'I') return error.ActiveSqlTransaction;
     if (cluster_catalog.failed) return error.WriterPoisoned;
     switch (command) {
-        .create => |name| {
-            try createClusterDatabase(name.slice());
+        .create => |create| {
+            if (std.mem.eql(u8, create.name.slice(), pristine_template.name)) return error.DuplicateDatabase;
+            if (create.use_pristine_template and !pristineTemplateAvailable()) return error.UnsupportedStatement;
+            try createClusterDatabase(create.name.slice());
             return "CREATE DATABASE";
         },
         .alter_owner => |change| {
@@ -1773,6 +1788,7 @@ fn clusterCommand(context: *anyopaque, connection: *DB, source: []const u8) anye
             return "ALTER DATABASE";
         },
         .drop => |drop| {
+            if (std.mem.eql(u8, drop.name.slice(), pristine_template.name) and pristineTemplateAvailable()) return error.DropTemplateDatabase;
             const target = cluster_registry.lookup(drop.name.slice()) orelse return if (drop.if_exists) "DROP DATABASE" else error.DatabaseNotFound;
             if (std.mem.eql(u8, target.name, primary_database) or target.id.index == binding.database.index) return error.DatabaseBusy;
             const slot = &cluster_slots[target.id.index];
@@ -1799,7 +1815,7 @@ fn configureStore(target: *Store, options: Options) void {
     target.zone_provider = .{ .context = @ptrCast(&zones), .lookup = &Zones.lookup };
     if (options.database_cluster) {
         target.prepared_check = &checkClusterPrepared;
-        target.database.setDatabaseCatalog(.{ .capacity = cluster_capacity, .row = &databaseCatalogRow });
+        target.database.setDatabaseCatalog(.{ .capacity = cluster_capacity + 1, .row = &databaseCatalogRow });
     } else {
         target.database.setDatabaseCatalog(.{ .capacity = 1, .row = &standaloneDatabaseCatalogRow, .use_session_database_name = true });
     }

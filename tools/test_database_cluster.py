@@ -10,6 +10,7 @@ import struct
 import subprocess
 import tempfile
 import time
+import zlib
 
 from test_persistence import DurableServer
 from test_server import PG, errors
@@ -54,6 +55,12 @@ def prove(binary, base):
 
     with server(create=True) as live, connect(live, "") as primary:
         primary.ok("SELECT current_database()", [["postgres"]])
+        primary.ok("SELECT oid, datistemplate, datallowconn FROM pg_database WHERE datname='template0'",
+                   [["4", "t", "f"]])
+        assert error_code(primary, "DROP DATABASE template0") == "42809"
+        assert error_code(primary, "CREATE DATABASE template0") == "42P04"
+        with connect(live, "template0", "55000"):
+            pass
         command(primary, "CREATE DATABASE ramsql_tdd_child", "CREATE DATABASE")
         primary.ok("SELECT datname FROM pg_database WHERE datname='ramsql_tdd_child'", [["ramsql_tdd_child"]])
         command(primary, "DROP DATABASE ramsql_tdd_child", "DROP DATABASE")
@@ -105,7 +112,7 @@ def prove(binary, base):
             time.sleep(0.02)
         with connect(live, "Isolated DB", "3D000"):
             pass
-        primary.ok("SELECT datname FROM pg_catalog.pg_database ORDER BY datname", [["postgres"]])
+        primary.ok("SELECT datname FROM pg_catalog.pg_database ORDER BY datname", [["postgres"], ["template0"]])
         command(primary, 'DROP DATABASE IF EXISTS "Isolated DB"', "DROP DATABASE")
         command(primary, 'CREATE DATABASE "Isolated DB"', "CREATE DATABASE")
         with connect(live, "Isolated DB") as secondary:
@@ -124,6 +131,37 @@ def prove(binary, base):
     result = subprocess.run(server().command(), capture_output=True, text=True, timeout=30)
     assert result.returncode != 0 and not result.stdout, result
     assert "InvalidDatabaseIdentity" in result.stderr, result.stderr
+
+
+def prove_legacy_template_name(binary, base):
+    def server(create=False):
+        return DurableServer(binary, base, create=create, storage_options=SMALL_PROFILE)
+
+    with server(create=True) as live, connect(live, "postgres") as primary:
+        command(primary, "CREATE DATABASE legacy_db", "CREATE DATABASE")
+        with connect(live, "legacy_db") as peer:
+            peer.ok("CREATE TABLE existing_data(id integer)")
+            peer.ok("INSERT INTO existing_data VALUES (7)")
+
+    # Older journals allow a user database called template0. Its WAL binds
+    # to cluster identity and OID. The cluster journal carries the name.
+    catalog = Path(str(base) + ".cluster")
+    journal = bytearray(catalog.read_bytes())
+    trailer_size, payload_size = 16, 18
+    payload = len(journal) - trailer_size - payload_size
+    trailer = payload + payload_size
+    assert journal[payload] == 2 and journal[payload + 9:trailer] == b"legacy_db"
+    journal[payload + 9:trailer] = b"template0"
+    struct.pack_into("<I", journal, trailer, zlib.crc32(journal[payload:trailer]))
+    catalog.write_bytes(journal)
+
+    with server() as live, connect(live, "postgres") as primary:
+        primary.ok("SELECT oid, datistemplate, datallowconn FROM pg_database WHERE datname='template0'",
+                   [["6", "f", "t"]])
+        with connect(live, "template0") as peer:
+            peer.ok("SELECT id FROM existing_data", [["7"]])
+        assert error_code(primary, "CREATE DATABASE ambiguous TEMPLATE template0") == "0A000"
+        primary.ok("SELECT datname FROM pg_database WHERE datname='ambiguous'", [])
 
 
 def prove_interrupted_create(binary, base):
@@ -241,6 +279,7 @@ def main():
     args.output.mkdir(parents=True, exist_ok=True)
     case = Path(tempfile.mkdtemp(prefix="restart-", dir=args.output.resolve()))
     prove(args.binary.resolve(), case / "production.wal")
+    prove_legacy_template_name(args.binary.resolve(), case / "legacy-template.wal")
     prove_interrupted_create(args.binary.resolve(), case / "interrupted.wal")
     prove_scram(args.binary.resolve(), case / "scram.wal")
     prove_prepared_scope(args.binary.resolve(), case / "prepared.wal")

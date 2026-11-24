@@ -377,7 +377,10 @@ def check_global_role_archives(binary, tools, native, *, scope="roles"):
 
 def check_archive_database_ddl(binary, tools, native):
     """Exercise stock database declarations separately from template connections."""
+    pristine = "SELECT oid, datistemplate, datallowconn FROM pg_database WHERE datname='template0'"
     with psycopg.connect(**native) as db:
+        reference_template = db.execute(pristine).fetchone()
+        assert reference_template == (4, True, False)
         db.execute('''CREATE DATABASE "Archive Child" WITH TEMPLATE template0 ENCODING 'UTF8'
                       LOCALE_PROVIDER libc LOCALE 'C' ''')
     archive = "database-ddl.sql"
@@ -392,6 +395,7 @@ def check_archive_database_ddl(binary, tools, native):
     with DurableServer(binary, cluster, create=True, storage_options=SMALL_PROFILE) as server:
         candidate = ramsql_settings(server) | {"dbname": "postgres"}
         with psycopg.connect(**candidate) as db:
+            assert db.execute(pristine).fetchone() == reference_template
             for command in commands:
                 db.execute(command)
             assert db.execute(

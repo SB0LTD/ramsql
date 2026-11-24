@@ -92,6 +92,14 @@ including verification of the restored child after WAL reopen. The
 database-template connection and copy paths remain open.
 [PG16 and PG18 database declaration qualification](https://github.com/SB0LTD/ramsql/actions/runs/45384730882)
 
+The cluster now exposes the pristine UTF-8, C-locale `template0` as a
+non-connectable template in `pg_database`. CREATE DATABASE explicitly
+selecting the template provisions an independent database without storing
+or replaying an empty template WAL. Existing user databases named
+`template0` keep their original OID, data and admission. Explicit template
+selection fails if that legacy name is occupied. Writable `template1` and
+snapshot cloning are still required for full stock cluster restore.
+
 The composite-key follow-up passed all 34 checks on PG16 and PG18 CI.
 Stock restore applies the composite primary key after COPY in the same
 transaction. The fixture checks row equality and rejection of duplicate
