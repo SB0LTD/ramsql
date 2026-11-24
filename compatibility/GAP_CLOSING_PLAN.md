@@ -16,6 +16,9 @@ one-microsecond edges around bucket boundaries, pre-origin timestamps,
 typed prepared input and fixed-width buckets across DST. Stock tools
 round-trip a table with a stored bucket expression and check its values
 and updates after WAL reopen. Infinite interval values remain open.
+The initial stock export inserted a TEXT cast that prevented PostgreSQL
+from resolving the interval argument. The ZPM expression writer now
+preserves implicit string-literal typing in archived calls.
 
 The PostgreSQL 18.7 tooling fixture uses stock pg_dump's portable
 `attoptions` projection. PostgreSQL stores its own attribute version
