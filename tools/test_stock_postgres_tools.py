@@ -222,6 +222,7 @@ def main():
     for name, check in (
         ("namespace_acl", lambda db: check_namespaces(binary, db)),
         ("global_role_archives", lambda db: check_global_role_archives(binary, tools, db)),
+        ("global_archives", lambda db: check_global_role_archives(binary, tools, db, scope="globals")),
         ("quote_all_identifier_archives", lambda db: check_quoted_archives(binary, tools, db)),
         ("relation_discovery", lambda db: check_relation_discovery(binary, db)),
         ("function_discovery", lambda db: check_function_discovery(binary, db)),
@@ -285,7 +286,7 @@ def check_namespaces(binary, native):
         namespace_acl(native, candidate)
 
 
-def check_global_role_archives(binary, tools, native):
+def check_global_role_archives(binary, tools, native, *, scope="roles"):
     """Exercise stock role discovery and passwordless pg_dumpall restore."""
     expected_defaults = {
         "check_function_bodies": "off",
@@ -335,7 +336,7 @@ def check_global_role_archives(binary, tools, native):
 
     def dump(label, arguments):
         archive = f"{label}.sql"
-        tools.run(label, "pg_dumpall", arguments, "--roles-only", "--no-role-passwords",
+        tools.run(label, "pg_dumpall", arguments, f"--{scope}-only", "--no-role-passwords",
                   "--quote-all-identifiers", f"--file={archive}")
         source = (tools.root / archive).read_text(encoding="utf-8")
         assert 'CREATE ROLE "ramsql";' in source and '''SET "quote_all_identifiers" TO 'on';''' in source
@@ -350,12 +351,12 @@ def check_global_role_archives(binary, tools, native):
         assert re.findall(r"\bERROR:\s+(\w{5}):", stderr) == ["42710"], stderr
 
     populate(native, "native archive")
-    inbound = dump("roles-inbound-dump", native)
-    wal = tools.root / "roles-archive.wal"
+    inbound = dump(f"{scope}-inbound-dump", native)
+    wal = tools.root / f"{scope}-archive.wal"
     storage = ("--workers", "1")
     with DurableServer(binary, wal, create=True, storage_options=storage) as server:
         candidate = ramsql_settings(server)
-        restore("roles-inbound-restore", candidate, inbound)
+        restore(f"{scope}-inbound-restore", candidate, inbound)
         verify_roles(candidate, "native archive")
         with psycopg.connect(**candidate) as db:
             db.execute("CREATE TABLE restored_role_defaults AS SELECT setconfig FROM pg_db_role_setting")
@@ -367,8 +368,8 @@ def check_global_role_archives(binary, tools, native):
 
     with running_ramsql(binary, extra_arguments=storage) as candidate:
         populate(candidate, "ramsql archive")
-        outbound = dump("roles-outbound-dump", candidate)
-    restore("roles-outbound-restore", native, outbound)
+        outbound = dump(f"{scope}-outbound-dump", candidate)
+    restore(f"{scope}-outbound-restore", native, outbound)
     verify_roles(native, "ramsql archive")
 
 

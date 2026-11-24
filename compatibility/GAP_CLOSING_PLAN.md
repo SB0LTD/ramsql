@@ -77,6 +77,11 @@ values on the restored server and after WAL reopen. The SCRAM integration
 tests check role-specific login, client override precedence and RESET.
 Database-specific and non-boolean role settings remain open.
 
+The globals follow-up runs stock `pg_dumpall --globals-only` both ways
+with built-in tablespaces, quoted names, passwordless roles, memberships
+and defaults. User-defined tablespaces and full cluster archives remain
+open.
+
 The composite-key follow-up passed all 34 checks on PG16 and PG18 CI.
 Stock restore applies the composite primary key after COPY in the same
 transaction. The fixture checks row equality and rejection of duplicate
