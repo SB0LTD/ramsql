@@ -294,6 +294,8 @@ def check_global_role_archives(binary, tools, native):
             db.execute(f'CREATE ROLE "{prefix} limited" LOGIN')
             db.execute(f'GRANT "{prefix} group" TO "{prefix} login" WITH ADMIN OPTION')
             db.execute(f'GRANT "{prefix} group" TO "{prefix} limited" WITH INHERIT FALSE, SET FALSE')
+            db.execute(f"""ALTER ROLE "{prefix} login" SET quote_all_identifiers TO 'on'""")
+            db.execute(f"""ALTER ROLE "{prefix} login" SET check_function_bodies TO 'off'""")
 
     def verify_roles(arguments, prefix):
         with psycopg.connect(**arguments) as db:
@@ -308,12 +310,19 @@ def check_global_role_archives(binary, tools, native):
                 (prefix + " group",),
             ).fetchall() == [(prefix + " limited", False, False, False, "ramsql"),
                              (prefix + " login", True, True, True, "ramsql")]
+            defaults = db.execute(
+                "SELECT unnest(setconfig) FROM pg_db_role_setting WHERE setdatabase=0 "
+                "AND setrole=(SELECT oid FROM pg_roles WHERE rolname=%s)",
+                (prefix + " login",),
+            ).fetchall()
+            assert sorted(defaults) == [("check_function_bodies=off",), ("quote_all_identifiers=on",)]
 
     def dump(label, arguments):
         archive = f"{label}.sql"
         tools.run(label, "pg_dumpall", arguments, "--roles-only", "--no-role-passwords",
                   "--quote-all-identifiers", f"--file={archive}")
-        assert 'CREATE ROLE "ramsql";' in (tools.root / archive).read_text(encoding="utf-8")
+        source = (tools.root / archive).read_text(encoding="utf-8")
+        assert 'CREATE ROLE "ramsql";' in source and '''SET "quote_all_identifiers" TO 'on';''' in source
         return archive
 
     def restore(label, arguments, archive):

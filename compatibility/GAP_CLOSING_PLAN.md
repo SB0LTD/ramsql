@@ -69,6 +69,12 @@ enforcement after restoring and after reopening the RAMSQL WAL.
 Complete deparsing of stored views and expressions, large objects, and
 cluster-wide migration remain open.
 
+The role-default follow-up extends stock `pg_dumpall` archives with
+`quote_all_identifiers` and `check_function_bodies`. It verifies the saved
+values on the restored server and after WAL reopen. The SCRAM integration
+tests check role-specific login, client override precedence and RESET.
+Database-specific and non-boolean role settings remain open.
+
 The composite-key follow-up passed all 34 checks on PG16 and PG18 CI.
 Stock restore applies the composite primary key after COPY in the same
 transaction. The fixture checks row equality and rejection of duplicate
