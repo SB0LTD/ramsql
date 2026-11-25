@@ -93,6 +93,16 @@ def verify_page_payload(endpoint):
         assert db.execute("SELECT lo_get(%s::oid)", (SMALL_OID,)).fetchone() == (SMALL_PAYLOAD,)
         assert db.execute("SELECT lo_get(%s::oid,3,3)", (SMALL_OID,)).fetchone() == (SMALL_PAYLOAD[3:6],)
         expect_sqlstate(db, f"SELECT lo_unlink({SMALL_OID})", "42501")
+        assert db.execute("SELECT lo_get(NULL::oid)").fetchone() == (None,)
+        with db.transaction(force_rollback=True):
+            for query, wanted in (("SELECT lo_get(0::oid)", "42704"),
+                                  ("SELECT lo_get(NULL::oid)", "25P02")):
+                try:
+                    db.execute(query)
+                except psycopg.Error as error:
+                    assert error.sqlstate == wanted, (query, error.sqlstate, wanted)
+                else:
+                    raise AssertionError(f"{query} succeeded, expected SQLSTATE {wanted}")
 
 
 def populate(endpoint):
