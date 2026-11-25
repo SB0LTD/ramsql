@@ -63,6 +63,10 @@ server was killed after commit and reopened from its WAL. The fixture
 rechecked ownership, ACLs, comments, a rolled-back revoke and exact
 SQLSTATEs. Full release qualification requires the stock tools to
 round-trip page bytes and ACLs in both directions on both versions.
+Metadata versions currently use the shared catalog budget. Production
+capacity work needs to admit OID metadata and sparse page storage from
+the host's machine budget. The same Linux binary passed all 48 existing
+stock-tooling checks on each version.
 [ZPM large-object metadata and ACLs](https://github.com/SB0LTD/zpm/pull/311)
 
 The scoped identity follow-up passed 28 checks on PG16 and PG18. It compares
