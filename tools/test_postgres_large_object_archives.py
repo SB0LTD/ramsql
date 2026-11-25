@@ -9,6 +9,7 @@ import tempfile
 import psycopg
 
 from qualify_postgres import REFERENCES
+from test_checkpoint_runtime import CheckpointServer, IDENTITY, selector
 from test_postgres_compat import docker, native_postgres
 from test_persistence import DurableServer
 from test_stock_postgres_tools import Tools, ramsql_settings
@@ -206,6 +207,27 @@ def main():
                 expect_sqlstate(db, f"SELECT lo_get({SMALL_OID})", "42704")
                 assert db.execute("SELECT COUNT(*) FROM pg_largeobject WHERE loid=%s::oid", (SMALL_OID,)).fetchone() == (0,)
 
+    def ramsql_checkpoint():
+        wal = root / "large-object-checkpoint.wal"
+        stem = root / "object-checkpoint"
+        with DurableServer(binary, wal, create=True, storage_options=STORAGE) as server:
+            populate(ramsql_settings(server))
+        collapsed = subprocess.run(
+            [str(binary), "--data", str(wal), "--bootstrap-checkpoint", "--checkpoint-stem", str(stem),
+             "--checkpoint-id", IDENTITY, *STORAGE],
+            capture_output=True, text=True, timeout=40,
+        )
+        assert collapsed.returncode == 0, collapsed.stderr
+        assert selector(stem) == 1
+        with CheckpointServer(binary, stem, storage_options=STORAGE) as server:
+            endpoint = ramsql_settings(server)
+            verify(endpoint)
+            with psycopg.connect(**endpoint) as db:
+                assert db.execute("SELECT lo_unlink(%s::oid)", (OID,)).fetchone() == (1,)
+        with CheckpointServer(binary, stem, storage_options=STORAGE) as server:
+            with psycopg.connect(**ramsql_settings(server)) as db:
+                expect_sqlstate(db, f"SELECT lo_get({OID})", "42704")
+
     def native_restore(fmt, artifact):
         with native_postgres(image, psycopg, binary_directory=args.postgres_bin, work_directory=root) as (endpoint, _):
             restore(tools, endpoint, fmt, artifact)
@@ -231,6 +253,7 @@ def main():
            native_metadata if binary is None else ramsql_metadata_recovery)
     if binary is not None:
         record("ramsql_payload_crash_recovery", ramsql_page_recovery)
+        record("ramsql_compact_checkpoint_recovery", ramsql_checkpoint)
 
     with native_postgres(image, psycopg, binary_directory=args.postgres_bin, work_directory=root) as (source, metadata):
         assert int(metadata["server_version_num"]) // 10000 == int(args.reference), metadata["server_version"]

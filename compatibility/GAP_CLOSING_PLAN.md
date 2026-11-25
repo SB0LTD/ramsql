@@ -79,6 +79,14 @@ missing `lo_open` paths, and export still needs streamed SQL `bytea`
 beyond inline cell capacity. Compact page checkpoints remain open.
 [ZPM large-object page WAL](https://github.com/SB0LTD/zpm/pull/312)
 
+The transfer candidate adds transaction-scoped descriptors and the
+libpq FunctionCall path used by stock archives. Standalone SQL transfers
+use page-sized decode scratch and the existing protocol buffers. The
+compact image carries committed pages with ownership, ACLs and comments.
+The PG16 and PG18 CI lanes now require plain and custom archives in both
+directions and a compact checkpoint followed by WAL replay.
+[ZPM descriptor and checkpoint candidate](https://github.com/SB0LTD/zpm/pull/313)
+
 The scoped identity follow-up passed 28 checks on PG16 and PG18. It compares
 sequence names across schemas, starting values, catalog OIDs, and recovery
 after reopening the WAL. It checks that dropping one schema leaves the other

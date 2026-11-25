@@ -112,8 +112,10 @@ with capacity for N committed 2 KiB pages and twice as many version slots.
 `--capabilities` reports the page count, version count and backing bytes.
 The mapped region is included in `--memory-budget` admission. Use a
 sufficient page budget when reopening a WAL with large-object payloads.
-SQL `lo_from_bytea` and `lo_get` currently use the inline `bytea` cell
-capacity. The stock large-object archive path is still being qualified.
+Standalone large-object SQL and libpq calls transfer data within the
+ordinary packet and response budgets. Each transaction can hold up to
+64 large-object descriptors. Transfer larger objects in chunks through
+a descriptor. Ordinary `bytea` cells retain the configured cell capacity.
 
 Hosted rows must be positive and <=1,073,741,823; version/reference counts must
 fit <=2,147,483,647. Arithmetic, OS mappings and available memory impose lower
