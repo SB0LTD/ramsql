@@ -23,7 +23,8 @@ OID = 55000
 OWNER = "lo_o"
 READER = "lo_r"
 FINAL_OWNER = "lo_f"
-DELEGATE = "lo_d"
+DELEGATE = "Lo_D"
+DELEGATE_SQL = f'"{DELEGATE}"'
 SECOND = "lo_s"
 OUTSIDER = "lo_x"
 COMMENT = "archive byte stream with holes"
@@ -38,7 +39,7 @@ FORMATS = (("plain", "sql"), ("custom", "dump"))
 def roles(endpoint):
     with psycopg.connect(**endpoint) as db:
         for role in (OWNER, READER, FINAL_OWNER, DELEGATE, SECOND, OUTSIDER):
-            db.execute(f"CREATE ROLE {role}")
+            db.execute(f'CREATE ROLE "{role}"')
 
 
 def expect_sqlstate(db, sql, wanted, parameters=None):
@@ -196,22 +197,22 @@ def seed_privileges(endpoint):
         db.execute(f"SET ROLE {OWNER}")
         assert lo_scalar(db, "lo_from_bytea", (ACL_OID, ACL_BYTES), ("oid", "bytea")) == ACL_OID
         assert lo_acl(db) == (OWNER, None)
-        db.execute(f"GRANT SELECT ON LARGE OBJECT {ACL_OID} TO {DELEGATE}, {FINAL_OWNER} WITH GRANT OPTION")
+        db.execute(f"GRANT SELECT ON LARGE OBJECT {ACL_OID} TO {DELEGATE_SQL}, {FINAL_OWNER} WITH GRANT OPTION")
         db.execute(f"GRANT SELECT, UPDATE ON LARGE OBJECT {ACL_OID} TO {READER}")
         expect_sqlstate(db, f"GRANT UPDATE ON LARGE OBJECT {ACL_OID} TO PUBLIC WITH GRANT OPTION", "0LP01")
-        db.execute(f"SET SESSION AUTHORIZATION {DELEGATE}")
+        db.execute(f"SET SESSION AUTHORIZATION {DELEGATE_SQL}")
         assert db.execute("SELECT current_user,session_user").fetchone() == (DELEGATE, DELEGATE)
         db.execute(f"GRANT SELECT ON LARGE OBJECT {ACL_OID} TO {SECOND} WITH GRANT OPTION")
         db.execute("RESET SESSION AUTHORIZATION")
         db.execute(f"SET ROLE {SECOND}")
-        expect_sqlstate(db, f"GRANT SELECT ON LARGE OBJECT {ACL_OID} TO {DELEGATE} WITH GRANT OPTION", "0LP01")
+        expect_sqlstate(db, f"GRANT SELECT ON LARGE OBJECT {ACL_OID} TO {DELEGATE_SQL} WITH GRANT OPTION", "0LP01")
         db.execute(f"GRANT SELECT ON LARGE OBJECT {ACL_OID} TO {READER}")
         db.execute(f"SET ROLE {FINAL_OWNER}")
         db.execute(f"GRANT SELECT ON LARGE OBJECT {ACL_OID} TO {READER} GRANTED BY CURRENT_USER")
         db.execute(f"SET ROLE {OWNER}")
-        expect_sqlstate(db, f"REVOKE GRANT OPTION FOR SELECT ON LARGE OBJECT {ACL_OID} FROM {DELEGATE} RESTRICT", "2BP01")
+        expect_sqlstate(db, f"REVOKE GRANT OPTION FOR SELECT ON LARGE OBJECT {ACL_OID} FROM {DELEGATE_SQL} RESTRICT", "2BP01")
         with db.transaction(force_rollback=True):
-            db.execute(f"REVOKE GRANT OPTION FOR SELECT ON LARGE OBJECT {ACL_OID} FROM {DELEGATE} CASCADE")
+            db.execute(f"REVOKE GRANT OPTION FOR SELECT ON LARGE OBJECT {ACL_OID} FROM {DELEGATE_SQL} CASCADE")
             assert all(SECOND not in entry for entry in lo_acl(db)[1])
             assert f"{DELEGATE}=r/{OWNER}" in lo_acl(db)[1]
             db.execute(f"SET ROLE {SECOND}")
@@ -219,7 +220,7 @@ def seed_privileges(endpoint):
         with db.transaction(force_rollback=True):
             # A second path to a grantor preserves that grantor's dependents.
             db.execute(f"GRANT SELECT ON LARGE OBJECT {ACL_OID} TO {SECOND} WITH GRANT OPTION")
-            db.execute(f"REVOKE SELECT ON LARGE OBJECT {ACL_OID} FROM {DELEGATE} CASCADE")
+            db.execute(f"REVOKE SELECT ON LARGE OBJECT {ACL_OID} FROM {DELEGATE_SQL} CASCADE")
             assert f"{READER}=r/{SECOND}" in lo_acl(db)[1]
         expect_sqlstate(db, f"ALTER LARGE OBJECT {ACL_OID} OWNER TO {FINAL_OWNER}", "42501")
         db.execute("RESET ROLE")
@@ -276,7 +277,7 @@ def verify_privileges(endpoint):
 def revoke_privileges(endpoint):
     with psycopg.connect(**endpoint) as db, db.transaction():
         db.execute(f"SET ROLE {FINAL_OWNER}")
-        db.execute(f"REVOKE GRANT OPTION FOR SELECT ON LARGE OBJECT {ACL_OID} FROM {DELEGATE} CASCADE")
+        db.execute(f"REVOKE GRANT OPTION FOR SELECT ON LARGE OBJECT {ACL_OID} FROM {DELEGATE_SQL} CASCADE")
 
 
 def verify_revoked_privileges(endpoint):
