@@ -19,12 +19,13 @@ from test_stock_postgres_tools import Tools, ramsql_settings
 
 
 OID = 55000
-OWNER = "archive_blob_owner"
-READER = "archive_blob_reader"
-FINAL_OWNER = "archive_blob_final"
-DELEGATE = "archive_blob_delegate"
-SECOND = "archive_blob_second"
-OUTSIDER = "archive_blob_outsider"
+# The delegated ACL must fit the default source build's 128-byte cell.
+OWNER = "lo_o"
+READER = "lo_r"
+FINAL_OWNER = "lo_f"
+DELEGATE = "lo_d"
+SECOND = "lo_s"
+OUTSIDER = "lo_x"
 COMMENT = "archive byte stream with holes"
 PREFIX = bytes(range(256)) * 24
 TAIL_OFFSET = 32768
