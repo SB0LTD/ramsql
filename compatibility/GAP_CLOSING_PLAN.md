@@ -1,5 +1,15 @@
 # RAMSQL gap-closing plan
 
+## Temporal predicate qualification
+
+The DATE `OVERLAPS` smoke case already worked. The pinned ZPM follow-up
+also binds TIME and TIMETZ periods and resolves unknown endpoints using
+PostgreSQL's overload rules. The differential suite covers row filtering,
+NULL endpoints, reversed periods, prepared parameters with binary result
+format, SQLSTATEs for invalid periods, and DST-sensitive interval
+addition. Full coverage of PostgreSQL's temporal types and operators
+is tracked in the SQL conformance inventory.
+
 ## Stock migration acceptance
 
 The separate whole-database follow-up, RAMSQL `f051b2e`, passed all
