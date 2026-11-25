@@ -1,8 +1,10 @@
 """Qualify stock plain and custom archives containing PostgreSQL large objects."""
 import argparse
+from contextlib import closing
 import hashlib
 import json
 from pathlib import Path
+import struct
 import subprocess
 import tempfile
 
@@ -12,6 +14,7 @@ from qualify_postgres import REFERENCES
 from test_checkpoint_runtime import CheckpointServer, IDENTITY, selector
 from test_postgres_compat import docker, native_postgres
 from test_persistence import DurableServer
+from test_server import packet
 from test_stock_postgres_tools import Tools, ramsql_settings
 
 
@@ -105,12 +108,82 @@ def verify_page_payload(endpoint):
                     raise AssertionError(f"{query} succeeded, expected SQLSTATE {wanted}")
 
 
+TRUNCATE_OID = 55002
+LARGE_EOF = (1 << 31) + 8192
+
+
+def lo_scalar(db, function, arguments, casts):
+    values = ",".join(f"%s::{cast}" for cast in casts)
+    return db.execute(f"SELECT pg_catalog.{function}({values})", arguments).fetchone()[0]
+
+
+def seed_truncate(endpoint):
+    with psycopg.connect(**endpoint) as db, db.transaction():
+        assert lo_scalar(db, "lo_from_bytea", (TRUNCATE_OID, b"abcdef"), ("oid", "bytea")) == TRUNCATE_OID
+        fd = lo_scalar(db, "lo_open", (TRUNCATE_OID, 131072), ("oid", "integer"))
+        reader = lo_scalar(db, "lo_open", (TRUNCATE_OID, 262144), ("oid", "integer"))
+        assert lo_scalar(db, "lo_lseek", (fd, 5, 0), ("integer",) * 3) == 5
+        with db.transaction(force_rollback=True):
+            assert lo_scalar(db, "lo_truncate", (fd, 3), ("integer", "integer")) == 0
+            assert lo_scalar(db, "lo_truncate64", (fd, 6149), ("integer", "bigint")) == 0
+            assert lo_scalar(db, "lo_tell", (fd,), ("integer",)) == 5
+            assert lo_scalar(db, "lo_get", (TRUNCATE_OID, 6145, 8), ("oid", "bigint", "integer")) == bytes(4)
+            assert lo_scalar(db, "loread", (reader, 6), ("integer", "integer")) == b"abcdef"
+        assert lo_scalar(db, "lo_get", (TRUNCATE_OID,), ("oid",)) == b"abcdef"
+        expect_sqlstate(db, "SELECT lo_truncate64(%s::integer,-1::bigint)", "22023", (fd,))
+        expect_sqlstate(db, "SELECT lo_truncate(%s::integer,0)", "55000", (reader,))
+        expect_sqlstate(db, "SELECT lo_truncate64(-1,0::bigint)", "42704")
+    with psycopg.connect(**endpoint) as db:
+        db.execute("BEGIN READ ONLY")
+        expect_sqlstate(db, "SELECT lo_truncate(0,0)", "25006")
+        db.execute("ROLLBACK")
+
+
+def fastpath_int4(pg, function_oid, *arguments):
+    frame = struct.pack("!IHHH", function_oid, 1, 1, len(arguments))
+    frame += b"".join(struct.pack("!I", len(argument)) + argument for argument in arguments)
+    pg.sock.sendall(packet(b"F", frame + struct.pack("!H", 1)))
+    response = pg.ready()
+    assert response[-1] == (b"Z", b"T"), response
+    values = [body for tag, body in response if tag == b"V"]
+    assert len(values) == 1 and len(values[0]) == 8, response
+    size, value = struct.unpack("!Ii", values[0])
+    assert size == 4, response
+    return value
+
+
+def truncate_fastpath(server):
+    with closing(server.connect()) as pg:
+        pg.ok("BEGIN", status=b"T")
+        fd = fastpath_int4(pg, 952, struct.pack("!I", TRUNCATE_OID), struct.pack("!i", 131072))
+        assert fastpath_int4(pg, 1004, struct.pack("!i", fd), struct.pack("!i", 4096)) == 0
+        assert fastpath_int4(pg, 3172, struct.pack("!i", fd), struct.pack("!q", LARGE_EOF)) == 0
+        pg.ok(f"SELECT lo_tell64({fd})", [["0"]], status=b"T")
+        pg.ok("COMMIT")
+
+
+def verify_truncate_replay(endpoint):
+    with psycopg.connect(**endpoint) as db, db.transaction():
+        fd = lo_scalar(db, "lo_open", (TRUNCATE_OID, 131072), ("oid", "integer"))
+        assert lo_scalar(db, "lo_lseek64", (fd, 0, 2), ("integer", "bigint", "integer")) == LARGE_EOF
+        assert lo_scalar(db, "lo_get", (TRUNCATE_OID, LARGE_EOF - 4, 8), ("oid", "bigint", "integer")) == bytes(4)
+        assert db.execute(f"SELECT pageno FROM pg_largeobject WHERE loid={TRUNCATE_OID} ORDER BY pageno").fetchall() == [
+            (0,), (2,), (LARGE_EOF // 2048,),
+        ]
+        assert lo_scalar(db, "lo_truncate", (fd, 3), ("integer", "integer")) == 0
+        assert lo_scalar(db, "lo_truncate64", (fd, 12), ("integer", "bigint")) == 0
+
+
 def populate(endpoint):
     roles(endpoint)
     with psycopg.connect(**endpoint) as db:
         db.execute(f"SET ROLE {OWNER}")
         assert db.execute("SELECT lo_from_bytea(%s::oid, %s::bytea)", (OID, PREFIX)).fetchone() == (OID,)
         db.execute("SELECT lo_put(%s::oid, %s::bigint, %s::bytea)", (OID, TAIL_OFFSET, TAIL))
+        with db.transaction():
+            fd = lo_scalar(db, "lo_open", (OID, 131072), ("oid", "integer"))
+            assert lo_scalar(db, "lo_truncate64", (fd, len(CONTENTS) + 16), ("integer", "bigint")) == 0
+            assert lo_scalar(db, "lo_truncate", (fd, len(CONTENTS)), ("integer", "integer")) == 0
         db.execute(f"COMMENT ON LARGE OBJECT {OID} IS '{COMMENT}'")
         db.execute(f"GRANT SELECT ON LARGE OBJECT {OID} TO {READER}")
 
@@ -190,6 +263,7 @@ def main():
             verify_metadata(endpoint)
             create_page_payload(endpoint)
             verify_page_payload(endpoint)
+            seed_truncate(endpoint)
 
     def ramsql_metadata_recovery():
         wal = root / "large-object-metadata.wal"
@@ -216,6 +290,18 @@ def main():
             with psycopg.connect(**ramsql_settings(server)) as db:
                 expect_sqlstate(db, f"SELECT lo_get({SMALL_OID})", "42704")
                 assert db.execute("SELECT COUNT(*) FROM pg_largeobject WHERE loid=%s::oid", (SMALL_OID,)).fetchone() == (0,)
+
+    def ramsql_truncate():
+        wal = root / "large-object-truncate.wal"
+        with DurableServer(binary, wal, create=True, storage_options=STORAGE) as server:
+            seed_truncate(ramsql_settings(server))
+            truncate_fastpath(server)
+        with DurableServer(binary, wal, storage_options=STORAGE) as server:
+            verify_truncate_replay(ramsql_settings(server))
+        with DurableServer(binary, wal, storage_options=STORAGE) as server:
+            with psycopg.connect(**ramsql_settings(server)) as db:
+                assert lo_scalar(db, "lo_get", (TRUNCATE_OID,), ("oid",)) == b"abc" + bytes(9)
+                assert db.execute(f"SELECT pageno FROM pg_largeobject WHERE loid={TRUNCATE_OID}").fetchall() == [(0,)]
 
     def ramsql_checkpoint():
         wal = root / "large-object-checkpoint.wal"
@@ -264,6 +350,7 @@ def main():
     if binary is not None:
         record("ramsql_payload_crash_recovery", ramsql_page_recovery)
         record("ramsql_compact_checkpoint_recovery", ramsql_checkpoint)
+        record("ramsql_truncate_crash_recovery", ramsql_truncate)
 
     with native_postgres(image, psycopg, binary_directory=args.postgres_bin, work_directory=root) as (source, metadata):
         assert int(metadata["server_version_num"]) // 10000 == int(args.reference), metadata["server_version"]

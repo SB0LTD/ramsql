@@ -87,6 +87,13 @@ The PG16 and PG18 CI lanes now require plain and custom archives in both
 directions and a compact checkpoint followed by WAL replay.
 [ZPM descriptor and checkpoint candidate](https://github.com/SB0LTD/zpm/pull/313)
 
+The truncate candidate adds both SQL and libpq FunctionCall signatures.
+The stock archive fixture now grows and shrinks the object before export.
+A separate crash fixture tests sparse growth above 2 GiB, rollback, and
+shrink followed by regrowth across WAL reopen. It checks the physical page
+count as well as EOF and payload bytes.
+[ZPM large-object truncation](https://github.com/SB0LTD/zpm/pull/314)
+
 The scoped identity follow-up passed 28 checks on PG16 and PG18. It compares
 sequence names across schemas, starting values, catalog OIDs, and recovery
 after reopening the WAL. It checks that dropping one schema leaves the other
