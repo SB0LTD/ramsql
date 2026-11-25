@@ -47,6 +47,15 @@ Qualification must check the hole, content and ownership after archive
 restore, rollback, crash recovery and WAL replay. It must also exercise
 stock exports from RAMSQL and concurrent reads during writes.
 
+The [large-object archive contract](../tools/test_postgres_large_object_archives.py)
+uses stock `pg_dump`, `psql` and `pg_restore` to test plain and custom
+archives. It checks 32,772 logical bytes with a zero-filled hole, a named
+owner, an object comment, SELECT-only grants, a rolled-back write across
+a page boundary, and crash recovery from the destination WAL. Both
+native-to-native formats passed on PostgreSQL 16.15 and 18.7. Keep this
+gate separate until the large-object SQL and wire execution paths are
+available for RAMSQL.
+
 The scoped identity follow-up passed 28 checks on PG16 and PG18. It compares
 sequence names across schemas, starting values, catalog OIDs, and recovery
 after reopening the WAL. It checks that dropping one schema leaves the other
