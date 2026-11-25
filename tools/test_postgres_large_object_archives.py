@@ -32,6 +32,45 @@ def roles(endpoint):
         db.execute(f"CREATE ROLE {READER}")
 
 
+def expect_sqlstate(db, sql, wanted, parameters=None):
+    try:
+        with db.transaction():
+            db.execute(sql, parameters)
+    except psycopg.Error as error:
+        assert error.sqlstate == wanted, (sql, error.sqlstate, wanted)
+    else:
+        raise AssertionError(f"{sql} succeeded, expected SQLSTATE {wanted}")
+
+
+def create_metadata(endpoint):
+    roles(endpoint)
+    with psycopg.connect(**endpoint) as db:
+        assert db.execute("SELECT pg_catalog.lo_create(%s::oid)", (OID,)).fetchone() == (OID,)
+        db.execute(f"ALTER LARGE OBJECT {OID} OWNER TO {OWNER}")
+        db.execute(f"SET ROLE {OWNER}")
+        db.execute(f"COMMENT ON LARGE OBJECT {OID} IS '{COMMENT}'")
+        db.execute(f"GRANT SELECT ON LARGE OBJECT {OID} TO {READER}")
+        with db.transaction(force_rollback=True):
+            db.execute(f"REVOKE SELECT ON LARGE OBJECT {OID} FROM {READER}")
+            assert db.execute(
+                "SELECT lomacl::text FROM pg_largeobject_metadata WHERE oid=%s::oid", (OID,)
+            ).fetchone() == (f"{{{OWNER}=rw/{OWNER}}}",)
+
+
+def verify_metadata(endpoint):
+    with psycopg.connect(**endpoint) as db:
+        record = db.execute(
+            "SELECT pg_get_userbyid(lomowner),lomacl::text,acldefault('L',lomowner)::text,"
+            "obj_description(oid,'pg_largeobject') FROM pg_largeobject_metadata WHERE oid=%s::oid",
+            (OID,),
+        ).fetchone()
+        assert record == (OWNER, f"{{{OWNER}=rw/{OWNER},{READER}=r/{OWNER}}}",
+                          f"{{{OWNER}=rw/{OWNER}}}", COMMENT), record
+        expect_sqlstate(db, f"SELECT lo_create({OID})", "23505")
+        db.execute(f"SET ROLE {READER}")
+        expect_sqlstate(db, f"SELECT lo_unlink({OID})", "42501")
+
+
 def populate(endpoint):
     roles(endpoint)
     with psycopg.connect(**endpoint) as db:
@@ -59,12 +98,7 @@ def verify(endpoint):
         assert db.execute("SELECT lo_get(%s::oid,%s::bigint,6)", (OID, TAIL_OFFSET - 2)).fetchone() == (
             b"\x00\x00" + TAIL,
         )
-        try:
-            db.execute("SELECT lo_put(%s::oid,0,'changed'::bytea)", (OID,))
-        except psycopg.Error as error:
-            assert error.sqlstate == "42501", error.sqlstate
-        else:
-            raise AssertionError("read-only large-object grantee wrote data")
+        expect_sqlstate(db, "SELECT lo_put(%s::oid,0,'changed'::bytea)", "42501", (OID,))
         db.execute(f"SET ROLE {OWNER}")
         with db.transaction(force_rollback=True):
             db.execute("SELECT lo_put(%s::oid,2047,'abc'::bytea)", (OID,))
@@ -116,6 +150,20 @@ def main():
         else:
             results[name] = {"passed": True}
 
+    def native_metadata():
+        with native_postgres(image, psycopg, binary_directory=args.postgres_bin, work_directory=root) as (endpoint, _):
+            create_metadata(endpoint)
+            verify_metadata(endpoint)
+
+    def ramsql_metadata_recovery():
+        wal = root / "large-object-metadata.wal"
+        with DurableServer(binary, wal, create=True, storage_options=STORAGE) as server:
+            endpoint = ramsql_settings(server)
+            create_metadata(endpoint)
+            verify_metadata(endpoint)
+        with DurableServer(binary, wal, storage_options=STORAGE) as server:
+            verify_metadata(ramsql_settings(server))
+
     def native_restore(fmt, artifact):
         with native_postgres(image, psycopg, binary_directory=args.postgres_bin, work_directory=root) as (endpoint, _):
             restore(tools, endpoint, fmt, artifact)
@@ -136,6 +184,9 @@ def main():
             verify(endpoint)
             dump(tools, endpoint, fmt, artifact)
         native_restore(fmt, artifact)
+
+    record("native_metadata" if binary is None else "ramsql_metadata_crash_recovery",
+           native_metadata if binary is None else ramsql_metadata_recovery)
 
     with native_postgres(image, psycopg, binary_directory=args.postgres_bin, work_directory=root) as (source, metadata):
         assert int(metadata["server_version_num"]) // 10000 == int(args.reference), metadata["server_version"]

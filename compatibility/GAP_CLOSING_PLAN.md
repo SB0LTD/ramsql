@@ -37,8 +37,8 @@ and repeats the import assertions after WAL reopen. Large-object creation,
 data, ownership and privilege restoration remain open.
 [Whole-database qualification](https://github.com/SB0LTD/ramsql/actions/runs/44958574825)
 
-A stock PostgreSQL 18.7 custom archive containing one 8,194-byte large
-object fails on the first `pg_catalog.lo_create` call. The native fixture
+The first stock PostgreSQL 18.7 repro used a custom archive containing
+an 8,194-byte large object and failed at `pg_catalog.lo_create`. The native fixture
 writes 6,144 data bytes, leaves a 2,048-byte hole and writes two bytes at
 offset 8,192. The plain restore stream then calls `lo_open`, `lowrite`
 and `lo_close` and includes the object's comment. The implementation
@@ -52,9 +52,18 @@ uses stock `pg_dump`, `psql` and `pg_restore` to test plain and custom
 archives. It checks 32,772 logical bytes with a zero-filled hole, a named
 owner, an object comment, SELECT-only grants, a rolled-back write across
 a page boundary, and crash recovery from the destination WAL. Both
-native-to-native formats passed on PostgreSQL 16.15 and 18.7. Keep this
-gate separate until the large-object SQL and wire execution paths are
-available for RAMSQL.
+native-to-native formats passed on PostgreSQL 16.15 and 18.7.
+
+The metadata candidate passes `lo_create` during both restores. The
+plain archive reaches `lo_open`, and the custom archive reaches libpq's
+lookup for `lo_open` in `pg_proc`. Export still fails when binding the
+6 KiB binary parameter for `lo_from_bytea`. On both PG16.15 and PG18.7,
+the Linux candidate passed the separate metadata crash check. The
+server was killed after commit and reopened from its WAL. The fixture
+rechecked ownership, ACLs, comments, a rolled-back revoke and exact
+SQLSTATEs. Full release qualification requires the stock tools to
+round-trip page bytes and ACLs in both directions on both versions.
+[ZPM large-object metadata and ACLs](https://github.com/SB0LTD/zpm/pull/311)
 
 The scoped identity follow-up passed 28 checks on PG16 and PG18. It compares
 sequence names across schemas, starting values, catalog OIDs, and recovery
