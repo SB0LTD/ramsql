@@ -18,7 +18,8 @@ round-trip a table with a stored bucket expression and check its values
 and updates after WAL reopen. Infinite interval values remain open.
 The initial stock export inserted a TEXT cast that prevented PostgreSQL
 from resolving the interval argument. The ZPM expression writer now
-preserves implicit string-literal typing in archived calls.
+preserves implicit string-literal typing in archived `date_bin` calls.
+The text contract also verifies canonical regex expression casts.
 
 The PostgreSQL 18.7 tooling fixture uses stock pg_dump's portable
 `attoptions` projection. PostgreSQL stores its own attribute version
