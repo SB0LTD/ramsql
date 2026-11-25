@@ -22,7 +22,7 @@ PREFIX = bytes(range(256)) * 24
 TAIL_OFFSET = 32768
 TAIL = b"\x00\xfe\xab\xff"
 CONTENTS = PREFIX + bytes(TAIL_OFFSET - len(PREFIX)) + TAIL
-STORAGE = ("--workers", "1")
+STORAGE = ("--workers", "1", "--large-object-pages", "128")
 FORMATS = (("plain", "sql"), ("custom", "dump"))
 
 
@@ -69,6 +69,29 @@ def verify_metadata(endpoint):
         expect_sqlstate(db, f"SELECT lo_create({OID})", "23505")
         db.execute(f"SET ROLE {READER}")
         expect_sqlstate(db, f"SELECT lo_unlink({OID})", "42501")
+
+
+SMALL_OID = 55001
+SMALL_PAYLOAD = b"ram\x00\xffsql"
+
+
+def create_page_payload(endpoint):
+    with psycopg.connect(**endpoint) as db:
+        db.execute(f"SET ROLE {OWNER}")
+        assert db.execute("SELECT lo_from_bytea(%s::oid,%s::bytea)", (SMALL_OID, SMALL_PAYLOAD)).fetchone() == (SMALL_OID,)
+        db.execute(f"GRANT SELECT ON LARGE OBJECT {SMALL_OID} TO {READER}")
+        with db.transaction(force_rollback=True):
+            assert db.execute("SELECT lo_unlink(%s::oid)", (SMALL_OID,)).fetchone() == (1,)
+            expect_sqlstate(db, f"SELECT lo_get({SMALL_OID})", "42704")
+
+
+def verify_page_payload(endpoint):
+    with psycopg.connect(**endpoint) as db:
+        assert db.execute("SELECT data FROM pg_largeobject WHERE loid=%s::oid", (SMALL_OID,)).fetchone() == (SMALL_PAYLOAD,)
+        db.execute(f"SET ROLE {READER}")
+        assert db.execute("SELECT lo_get(%s::oid)", (SMALL_OID,)).fetchone() == (SMALL_PAYLOAD,)
+        assert db.execute("SELECT lo_get(%s::oid,3,3)", (SMALL_OID,)).fetchone() == (SMALL_PAYLOAD[3:6],)
+        expect_sqlstate(db, f"SELECT lo_unlink({SMALL_OID})", "42501")
 
 
 def populate(endpoint):
@@ -154,6 +177,8 @@ def main():
         with native_postgres(image, psycopg, binary_directory=args.postgres_bin, work_directory=root) as (endpoint, _):
             create_metadata(endpoint)
             verify_metadata(endpoint)
+            create_page_payload(endpoint)
+            verify_page_payload(endpoint)
 
     def ramsql_metadata_recovery():
         wal = root / "large-object-metadata.wal"
@@ -163,6 +188,23 @@ def main():
             verify_metadata(endpoint)
         with DurableServer(binary, wal, storage_options=STORAGE) as server:
             verify_metadata(ramsql_settings(server))
+
+    def ramsql_page_recovery():
+        wal = root / "large-object-pages.wal"
+        with DurableServer(binary, wal, create=True, storage_options=STORAGE) as server:
+            endpoint = ramsql_settings(server)
+            roles(endpoint)
+            create_page_payload(endpoint)
+            verify_page_payload(endpoint)
+        with DurableServer(binary, wal, storage_options=STORAGE) as server:
+            endpoint = ramsql_settings(server)
+            verify_page_payload(endpoint)
+            with psycopg.connect(**endpoint) as db:
+                assert db.execute("SELECT lo_unlink(%s::oid)", (SMALL_OID,)).fetchone() == (1,)
+        with DurableServer(binary, wal, storage_options=STORAGE) as server:
+            with psycopg.connect(**ramsql_settings(server)) as db:
+                expect_sqlstate(db, f"SELECT lo_get({SMALL_OID})", "42704")
+                assert db.execute("SELECT COUNT(*) FROM pg_largeobject WHERE loid=%s::oid", (SMALL_OID,)).fetchone() == (0,)
 
     def native_restore(fmt, artifact):
         with native_postgres(image, psycopg, binary_directory=args.postgres_bin, work_directory=root) as (endpoint, _):
@@ -187,6 +229,8 @@ def main():
 
     record("native_metadata" if binary is None else "ramsql_metadata_crash_recovery",
            native_metadata if binary is None else ramsql_metadata_recovery)
+    if binary is not None:
+        record("ramsql_payload_crash_recovery", ramsql_page_recovery)
 
     with native_postgres(image, psycopg, binary_directory=args.postgres_bin, work_directory=root) as (source, metadata):
         assert int(metadata["server_version_num"]) // 10000 == int(args.reference), metadata["server_version"]

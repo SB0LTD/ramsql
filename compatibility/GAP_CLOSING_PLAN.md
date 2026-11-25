@@ -69,6 +69,16 @@ the host's machine budget. The same Linux binary passed all 48 existing
 stock-tooling checks on each version.
 [ZPM large-object metadata and ACLs](https://github.com/SB0LTD/zpm/pull/311)
 
+The page candidate adds a separate caller-owned arena and stores page
+images and removals in WAL. The opt-in `--large-object-pages` budget is
+included in the server memory plan. Both PG16.15 and PG18.7 fixtures
+passed SQL creation from binary `bytea`, access as the granted role,
+rollback of an unlink, and survival of bytes and committed deletion
+across forced process kills. Stock archive restore still reaches the
+missing `lo_open` paths, and export still needs streamed SQL `bytea`
+beyond inline cell capacity. Compact page checkpoints remain open.
+[ZPM large-object page WAL](https://github.com/SB0LTD/zpm/pull/312)
+
 The scoped identity follow-up passed 28 checks on PG16 and PG18. It compares
 sequence names across schemas, starting values, catalog OIDs, and recovery
 after reopening the WAL. It checks that dropping one schema leaves the other

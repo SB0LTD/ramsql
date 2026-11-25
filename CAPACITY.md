@@ -107,6 +107,14 @@ workloads and are production blockers, not only documentation details.
 
 ## Runtime storage and memory
 
+`--large-object-pages N` enables a separate PostgreSQL sparse page arena
+with capacity for N committed 2 KiB pages and twice as many version slots.
+`--capabilities` reports the page count, version count and backing bytes.
+The mapped region is included in `--memory-budget` admission. Use a
+sufficient page budget when reopening a WAL with large-object payloads.
+SQL `lo_from_bytea` and `lo_get` currently use the inline `bytea` cell
+capacity. The stock large-object archive path is still being qualified.
+
 Hosted rows must be positive and <=1,073,741,823; version/reference counts must
 fit <=2,147,483,647. Arithmetic, OS mappings and available memory impose lower
 practical ceilings. No tested capacity near these representational ceilings is

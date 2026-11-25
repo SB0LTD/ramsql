@@ -75,6 +75,7 @@ pub const Options = struct {
     max_prepared_transactions: usize = 0,
     /// Runtime storage budget, independent of result/query workspace sizes.
     storage_rows: usize = profile.rows,
+    large_object_pages: usize = 0,
     storage_versions: ?usize = null,
     table_rows: ?[profile.tables]usize = null,
     table_versions: ?[profile.tables]usize = null,
@@ -1403,6 +1404,9 @@ const StoragePlan = struct {
     budgets: [profile.tables]Raw.TableBudget,
     refs: usize,
     bytes: usize,
+    table_bytes: usize,
+    large_object_layout: ?sql.large_object_pages.Layout,
+    large_object_start: usize,
     workspace_bytes: usize,
     result_bytes: usize,
     response_bytes: usize,
@@ -1457,7 +1461,14 @@ fn storagePlan(options: Options) !StoragePlan {
     if ((options.typed_bank_memory_profile or options.packed_hash_load_75) and !typed_banks) return error.InvalidServerOptions;
     const workspace_refs = Raw.queryReferenceCount(options.work_rows) catch return error.InvalidServerOptions;
     const ref_count = if (options.typed_bank_memory_profile) options.query_refs orelse workspace_refs else @max(max_rows * 4, workspace_refs);
-    return .{ .max_rows=max_rows, .versions = max_versions, .budgets=budgets, .refs = ref_count, .bytes = try Raw.backingBytesFor(budgets, ref_count),
+    const table_bytes = try Raw.backingBytesFor(budgets, ref_count);
+    const PageLayout = sql.large_object_pages.Layout;
+    const large_object_layout = if (options.large_object_pages == 0) null else try PageLayout.plan(options.large_object_pages);
+    const padding = if (large_object_layout != null) (0 -% table_bytes) & (PageLayout.alignment - 1) else 0;
+    const large_object_start = try std.math.add(usize, table_bytes, padding);
+    const bytes = try std.math.add(usize, large_object_start, if (large_object_layout) |layout| layout.bytes else 0);
+    return .{ .max_rows=max_rows, .versions = max_versions, .budgets=budgets, .refs = ref_count, .bytes = bytes,
+        .table_bytes = table_bytes, .large_object_layout = large_object_layout, .large_object_start = large_object_start,
         .workspace_bytes = Raw.queryWorkspaceBytes(options.work_rows) catch return error.InvalidServerOptions,
         .result_bytes = Raw.Result.rowBytes(options.result_rows) catch return error.InvalidServerOptions,
         .response_bytes = responseBytes(options.result_rows) catch return error.InvalidServerOptions,
@@ -1473,6 +1484,9 @@ fn readContextPayload(options: Options, plan: *const StoragePlan) !usize {
 
 fn writeStorageDetails(out: sig.io.File, options: Options, plan: *const StoragePlan, read_payload: usize) !void {
     var buffer: [512]u8 = undefined;
+    try out.writeStreamingAll(.{}, try std.fmt.bufPrint(&buffer,
+        ",\"large_object_pages\":{d},\"large_object_version_slots\":{d},\"large_object_backing_bytes\":{d}",
+        .{ options.large_object_pages, if (plan.large_object_layout) |layout| layout.versions else 0, plan.bytes - plan.table_bytes }));
     try out.writeStreamingAll(.{}, try std.fmt.bufPrint(&buffer,
         ",\"typed_bank_memory_profile\":{s},\"query_refs\":{d},\"query_reference_bytes\":{d},\"read_context_payload_bytes_per_worker\":{d},\"max_prepared_transactions\":{d},\"prepared_transactions_ceiling\":{d},\"database_cluster\":{s},\"cluster_database_ceiling\":{d},\"compact_version_stamps\":{s},\"storage_version_bytes\":{d},\"packed_hash_load_percent\":{d},\"table_storage\":[",
         .{ if (options.typed_bank_memory_profile) "true" else "false", plan.refs, plan.refs * @sizeOf(u32), read_payload, options.max_prepared_transactions, Store.prepared_capacity - 1, if (options.database_cluster) "true" else "false", cluster_capacity, if (profile.compact_version_stamps) "true" else "false", @sizeOf(Raw.StorageVersion), @as(u8, if (options.packed_hash_load_75) 75 else 50) }));
@@ -1671,7 +1685,14 @@ fn openStorage(options: Options,backing:*owned_pages.Region) !void {
     const plan = try storagePlan(options);
     try backing.reserve(&memory_ledger,plan.bytes);
     errdefer backing.close() catch @panic("lost failed storage ownership");
-    try store.database.bindMemoryFor(backing.memory.bytes, plan.budgets, plan.refs);
+    try bindStoragePlan(&store.database, &plan, backing.memory.bytes);
+}
+
+fn bindStoragePlan(database: *Raw, plan: *const StoragePlan, bytes: []u8) !void {
+    try database.bindMemoryFor(bytes[0..plan.table_bytes], plan.budgets, plan.refs);
+    if (plan.large_object_layout) |layout| {
+        try database.bindLargeObjectPages(try layout.backing(bytes[plan.large_object_start..plan.bytes]));
+    }
 }
 
 fn clusterWalPath(oid: u32, buffer: []u8) ![]const u8 {
@@ -1697,7 +1718,7 @@ fn clusterStoreOpen(id: ClusterRegistry.Id, oid: u32, name: []const u8, create: 
     database.* = .{};
     slot.database = database;
     try slot.backing.reserve(&memory_ledger, plan.bytes);
-    try database.store.database.bindMemoryFor(slot.backing.memory.bytes, plan.budgets, plan.refs);
+    try bindStoragePlan(&database.store.database, &plan, slot.backing.memory.bytes);
     try slot.workspace.reserve(&memory_ledger, plan.workspace_bytes);
     try database.store.database.bindWorkspaceMemory(slot.workspace.memory.bytes, cluster_options.work_rows);
     try slot.log_buffer.reserve(&memory_ledger, profile.transaction_bytes);
