@@ -21,6 +21,10 @@ from test_stock_postgres_tools import Tools, ramsql_settings
 OID = 55000
 OWNER = "archive_blob_owner"
 READER = "archive_blob_reader"
+FINAL_OWNER = "archive_blob_final"
+DELEGATE = "archive_blob_delegate"
+SECOND = "archive_blob_second"
+OUTSIDER = "archive_blob_outsider"
 COMMENT = "archive byte stream with holes"
 PREFIX = bytes(range(256)) * 24
 TAIL_OFFSET = 32768
@@ -32,8 +36,8 @@ FORMATS = (("plain", "sql"), ("custom", "dump"))
 
 def roles(endpoint):
     with psycopg.connect(**endpoint) as db:
-        db.execute(f"CREATE ROLE {OWNER}")
-        db.execute(f"CREATE ROLE {READER}")
+        for role in (OWNER, READER, FINAL_OWNER, DELEGATE, SECOND, OUTSIDER):
+            db.execute(f"CREATE ROLE {role}")
 
 
 def expect_sqlstate(db, sql, wanted, parameters=None):
@@ -174,6 +178,116 @@ def verify_truncate_replay(endpoint):
         assert lo_scalar(db, "lo_truncate64", (fd, 12), ("integer", "bigint")) == 0
 
 
+ACL_OID = 55003
+ACL_BYTES = b"large-object ACL"
+
+
+def lo_acl(db):
+    owner, acl = db.execute(
+        "SELECT pg_get_userbyid(lomowner),lomacl::text FROM pg_largeobject_metadata WHERE oid=%s::oid",
+        (ACL_OID,),
+    ).fetchone()
+    return owner, None if acl is None else set(acl[1:-1].split(","))
+
+
+def seed_privileges(endpoint):
+    with psycopg.connect(**endpoint) as db, db.transaction():
+        db.execute(f"SET ROLE {OWNER}")
+        assert lo_scalar(db, "lo_from_bytea", (ACL_OID, ACL_BYTES), ("oid", "bytea")) == ACL_OID
+        assert lo_acl(db) == (OWNER, None)
+        db.execute(f"GRANT SELECT ON LARGE OBJECT {ACL_OID} TO {DELEGATE}, {FINAL_OWNER} WITH GRANT OPTION")
+        db.execute(f"GRANT SELECT, UPDATE ON LARGE OBJECT {ACL_OID} TO {READER}")
+        expect_sqlstate(db, f"GRANT UPDATE ON LARGE OBJECT {ACL_OID} TO PUBLIC WITH GRANT OPTION", "0LP01")
+        db.execute(f"SET SESSION AUTHORIZATION {DELEGATE}")
+        assert db.execute("SELECT current_user,session_user").fetchone() == (DELEGATE, DELEGATE)
+        db.execute(f"GRANT SELECT ON LARGE OBJECT {ACL_OID} TO {SECOND} WITH GRANT OPTION")
+        db.execute("RESET SESSION AUTHORIZATION")
+        db.execute(f"SET ROLE {SECOND}")
+        expect_sqlstate(db, f"GRANT SELECT ON LARGE OBJECT {ACL_OID} TO {DELEGATE} WITH GRANT OPTION", "0LP01")
+        db.execute(f"GRANT SELECT ON LARGE OBJECT {ACL_OID} TO {READER}")
+        db.execute(f"SET ROLE {FINAL_OWNER}")
+        db.execute(f"GRANT SELECT ON LARGE OBJECT {ACL_OID} TO {READER} GRANTED BY CURRENT_USER")
+        db.execute(f"SET ROLE {OWNER}")
+        expect_sqlstate(db, f"REVOKE GRANT OPTION FOR SELECT ON LARGE OBJECT {ACL_OID} FROM {DELEGATE} RESTRICT", "2BP01")
+        with db.transaction(force_rollback=True):
+            db.execute(f"REVOKE GRANT OPTION FOR SELECT ON LARGE OBJECT {ACL_OID} FROM {DELEGATE} CASCADE")
+            assert all(SECOND not in entry for entry in lo_acl(db)[1])
+            assert f"{DELEGATE}=r/{OWNER}" in lo_acl(db)[1]
+            db.execute(f"SET ROLE {SECOND}")
+            expect_sqlstate(db, f"SELECT lo_get({ACL_OID})", "42501")
+        with db.transaction(force_rollback=True):
+            # A second path to a grantor preserves that grantor's dependents.
+            db.execute(f"GRANT SELECT ON LARGE OBJECT {ACL_OID} TO {SECOND} WITH GRANT OPTION")
+            db.execute(f"REVOKE SELECT ON LARGE OBJECT {ACL_OID} FROM {DELEGATE} CASCADE")
+            assert f"{READER}=r/{SECOND}" in lo_acl(db)[1]
+        expect_sqlstate(db, f"ALTER LARGE OBJECT {ACL_OID} OWNER TO {FINAL_OWNER}", "42501")
+        db.execute("RESET ROLE")
+        db.execute(f"ALTER LARGE OBJECT {ACL_OID} OWNER TO {FINAL_OWNER}")
+
+
+def verify_privileges(endpoint):
+    with psycopg.connect(**endpoint) as db, db.transaction():
+        assert lo_acl(db) == (FINAL_OWNER, {
+            f"{FINAL_OWNER}=r*w/{FINAL_OWNER}", f"{DELEGATE}=r*/{FINAL_OWNER}",
+            f"{SECOND}=r*/{DELEGATE}", f"{READER}=r/{SECOND}", f"{READER}=rw/{FINAL_OWNER}",
+        }), lo_acl(db)
+        for role in (OWNER, OUTSIDER):
+            db.execute(f"SET ROLE {role}")
+            expect_sqlstate(db, f"SELECT lo_get({ACL_OID})", "42501")
+            expect_sqlstate(db, f"SELECT lo_open({ACL_OID},262144)", "42501")
+            expect_sqlstate(db, f"SELECT lo_unlink({ACL_OID})", "42501")
+            expect_sqlstate(db, f"ALTER LARGE OBJECT {ACL_OID} OWNER TO CURRENT_USER", "42501")
+        db.execute(f"SET ROLE {SECOND}")
+        assert lo_scalar(db, "lo_get", (ACL_OID,), ("oid",)) == ACL_BYTES
+        expect_sqlstate(db, f"SELECT lo_open({ACL_OID},131072)", "42501")
+        expect_sqlstate(db, f"SELECT lo_put({ACL_OID},0,'x'::bytea)", "42501")
+        db.execute(f"SET ROLE {READER}")
+        with db.transaction(force_rollback=True):
+            fd = lo_scalar(db, "lo_open", (ACL_OID, 131072), ("oid", "integer"))
+            assert lo_scalar(db, "lo_truncate64", (fd, 2), ("integer", "bigint")) == 0
+            assert lo_scalar(db, "lo_get", (ACL_OID,), ("oid",)) == ACL_BYTES[:2]
+        with db.transaction(force_rollback=True):
+            warnings = []
+            db.add_notice_handler(lambda notice: warnings.append(notice.sqlstate))
+            db.execute(f"GRANT UPDATE ON LARGE OBJECT {ACL_OID} TO {OUTSIDER}")
+            db.execute(f"REVOKE UPDATE ON LARGE OBJECT {ACL_OID} FROM {OUTSIDER}")
+            assert warnings == ["01007", "01006"], warnings
+            db.execute(f"SET SESSION AUTHORIZATION {FINAL_OWNER}")
+            expect_sqlstate(db, f"SET ROLE {OWNER}", "42501")
+            db.execute(f"GRANT UPDATE ON LARGE OBJECT {ACL_OID} TO {OUTSIDER}")
+            db.execute("RESET SESSION AUTHORIZATION")
+            db.execute(f"SET ROLE {OUTSIDER}")
+            expect_sqlstate(db, f"SELECT lo_open({ACL_OID},131072)", "42501")
+            expect_sqlstate(db, f"SELECT lo_put({ACL_OID},0,'x'::bytea)", "42501")
+            db.execute(f"SET ROLE {FINAL_OWNER}")
+            db.execute(f"GRANT SELECT ON LARGE OBJECT {ACL_OID} TO PUBLIC")
+            db.execute("RESET SESSION AUTHORIZATION")
+            db.execute(f"SET ROLE {OUTSIDER}")
+            assert lo_scalar(db, "lo_get", (ACL_OID,), ("oid",)) == ACL_BYTES
+            db.execute("RESET ROLE")
+            db.execute(f"GRANT {OUTSIDER} TO {FINAL_OWNER} WITH INHERIT FALSE, SET TRUE")
+            db.execute(f"SET SESSION AUTHORIZATION {FINAL_OWNER}")
+            db.execute(f"ALTER LARGE OBJECT {ACL_OID} OWNER TO {OUTSIDER}")
+            assert lo_acl(db)[0] == OUTSIDER
+        assert lo_acl(db)[0] == FINAL_OWNER
+
+
+def revoke_privileges(endpoint):
+    with psycopg.connect(**endpoint) as db, db.transaction():
+        db.execute(f"SET ROLE {FINAL_OWNER}")
+        db.execute(f"REVOKE GRANT OPTION FOR SELECT ON LARGE OBJECT {ACL_OID} FROM {DELEGATE} CASCADE")
+
+
+def verify_revoked_privileges(endpoint):
+    with psycopg.connect(**endpoint) as db, db.transaction():
+        assert lo_acl(db) == (FINAL_OWNER, {
+            f"{FINAL_OWNER}=r*w/{FINAL_OWNER}", f"{DELEGATE}=r/{FINAL_OWNER}",
+            f"{READER}=rw/{FINAL_OWNER}",
+        }), lo_acl(db)
+        db.execute(f"SET ROLE {SECOND}")
+        expect_sqlstate(db, f"SELECT lo_get({ACL_OID})", "42501")
+
+
 def populate(endpoint):
     roles(endpoint)
     with psycopg.connect(**endpoint) as db:
@@ -186,6 +300,7 @@ def populate(endpoint):
             assert lo_scalar(db, "lo_truncate", (fd, len(CONTENTS)), ("integer", "integer")) == 0
         db.execute(f"COMMENT ON LARGE OBJECT {OID} IS '{COMMENT}'")
         db.execute(f"GRANT SELECT ON LARGE OBJECT {OID} TO {READER}")
+    seed_privileges(endpoint)
 
 
 def contents(db):
@@ -211,6 +326,7 @@ def verify(endpoint):
             db.execute("SELECT lo_put(%s::oid,2047,'abc'::bytea)", (OID,))
             assert db.execute("SELECT lo_get(%s::oid,2047,3)", (OID,)).fetchone() == (b"abc",)
         assert contents(db) == CONTENTS, "rolled-back write survived"
+    verify_privileges(endpoint)
 
 
 def dump(tools, endpoint, fmt, artifact):
@@ -303,6 +419,19 @@ def main():
                 assert lo_scalar(db, "lo_get", (TRUNCATE_OID,), ("oid",)) == b"abc" + bytes(9)
                 assert db.execute(f"SELECT pageno FROM pg_largeobject WHERE loid={TRUNCATE_OID}").fetchall() == [(0,)]
 
+    def ramsql_acl_recovery():
+        wal = root / "large-object-acl.wal"
+        with DurableServer(binary, wal, create=True, storage_options=STORAGE) as server:
+            endpoint = ramsql_settings(server)
+            roles(endpoint)
+            seed_privileges(endpoint)
+        with DurableServer(binary, wal, storage_options=STORAGE) as server:
+            endpoint = ramsql_settings(server)
+            verify_privileges(endpoint)
+            revoke_privileges(endpoint)
+        with DurableServer(binary, wal, storage_options=STORAGE) as server:
+            verify_revoked_privileges(ramsql_settings(server))
+
     def ramsql_checkpoint():
         wal = root / "large-object-checkpoint.wal"
         stem = root / "object-checkpoint"
@@ -318,10 +447,13 @@ def main():
         with CheckpointServer(binary, stem, storage_options=STORAGE) as server:
             endpoint = ramsql_settings(server)
             verify(endpoint)
+            revoke_privileges(endpoint)
             with psycopg.connect(**endpoint) as db:
                 assert db.execute("SELECT lo_unlink(%s::oid)", (OID,)).fetchone() == (1,)
         with CheckpointServer(binary, stem, storage_options=STORAGE) as server:
-            with psycopg.connect(**ramsql_settings(server)) as db:
+            endpoint = ramsql_settings(server)
+            verify_revoked_privileges(endpoint)
+            with psycopg.connect(**endpoint) as db:
                 expect_sqlstate(db, f"SELECT lo_get({OID})", "42704")
 
     def native_restore(fmt, artifact):
@@ -351,6 +483,7 @@ def main():
         record("ramsql_payload_crash_recovery", ramsql_page_recovery)
         record("ramsql_compact_checkpoint_recovery", ramsql_checkpoint)
         record("ramsql_truncate_crash_recovery", ramsql_truncate)
+        record("ramsql_acl_crash_recovery", ramsql_acl_recovery)
 
     with native_postgres(image, psycopg, binary_directory=args.postgres_bin, work_directory=root) as (source, metadata):
         assert int(metadata["server_version_num"]) // 10000 == int(args.reference), metadata["server_version"]
