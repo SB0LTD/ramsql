@@ -1,5 +1,21 @@
 # RAMSQL gap-closing plan
 
+## Large-object file EXECUTE grants
+
+The current candidate pins pure-Sig ZPM support for GRANT/REVOKE EXECUTE
+on both `lo_import` signatures and `lo_export`. Default access stays
+owner-only. Tests cover inherited and PUBLIC access, delegated grant
+options, circular-grant rejection, RESTRICT/CASCADE, rollback, and role
+dependencies. Export independently checks the object's SELECT privilege.
+
+The required stock PG16/18 file gate now retains ACLs in plain/custom
+archives in both directions and verifies actual exports by the restored
+grantee. Forced-kill recovery checks committed grants, revoked access and
+an uncommitted revoke. ZPM's 4 MiB Debug/ReleaseSafe contract also checks
+RSBASE08 checkpoint restore followed by a revocation WAL suffix.
+Both stock CI lanes must pass before merging. General built-in function
+ACLs, function/grantee lists and GRANTED BY remain separate gaps.
+
 ## Temporal predicate qualification
 
 The DATE `OVERLAPS` smoke case already worked. The pinned ZPM follow-up
