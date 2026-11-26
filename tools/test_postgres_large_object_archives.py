@@ -311,7 +311,89 @@ def verify_revoked_privileges(endpoint):
         expect_sqlstate(db, f"SELECT lo_get({ACL_OID})", "42501")
 
 
-def populate(endpoint):
+DEFAULT_OIDS = (55010, 55011, 55012, 55013)
+DEFAULT_PAYLOAD = b"copied creation privileges"
+
+
+def default_acl(db):
+    return db.execute(
+        "SELECT tableoid,defaclnamespace,defaclobjtype::text,defaclacl FROM pg_default_acl "
+        "WHERE pg_get_userbyid(defaclrole)=%s", (FINAL_OWNER,),
+    ).fetchall()
+
+
+def seed_default_acl(endpoint):
+    with psycopg.connect(**endpoint) as db, db.transaction():
+        db.execute(f"SET ROLE {READER}")
+        expect_sqlstate(db, f"ALTER DEFAULT PRIVILEGES FOR ROLE {FINAL_OWNER} GRANT SELECT ON LARGE OBJECTS TO PUBLIC", "42501")
+        db.execute(f"SET ROLE {FINAL_OWNER}")
+        expect_sqlstate(db, "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON LARGE OBJECTS TO PUBLIC", "0LP01")
+        assert default_acl(db) == []
+        commands = (
+            None,
+            f"GRANT SELECT ON LARGE OBJECTS TO {READER} WITH GRANT OPTION",
+            f"REVOKE GRANT OPTION FOR SELECT ON LARGE OBJECTS FROM {READER} RESTRICT",
+            f"REVOKE SELECT ON LARGE OBJECTS FROM {READER} CASCADE",
+        )
+        for oid, command in zip(DEFAULT_OIDS, commands, strict=True):
+            if command:
+                db.execute(f"ALTER DEFAULT PRIVILEGES {command}")
+            assert lo_scalar(db, "lo_from_bytea", (oid, DEFAULT_PAYLOAD), ("oid", "bytea")) == oid
+        assert default_acl(db) == [], "a template equal to the native default should disappear"
+        db.execute("RESET ROLE")
+        db.execute(f"ALTER DEFAULT PRIVILEGES FOR ROLE {FINAL_OWNER} GRANT SELECT ON LARGE OBJECTS TO {READER}")
+        with db.transaction(force_rollback=True):
+            db.execute(f"ALTER DEFAULT PRIVILEGES FOR USER {FINAL_OWNER} GRANT UPDATE ON LARGE OBJECTS TO PUBLIC")
+            assert "=w/" + FINAL_OWNER in default_acl(db)[0][3]
+
+
+def seed_materialized_acl(endpoint):
+    """Produce the same object ACLs with native PG16's per-object GRANT syntax."""
+    with psycopg.connect(**endpoint) as db, db.transaction():
+        db.execute(f"SET ROLE {FINAL_OWNER}")
+        for oid in DEFAULT_OIDS:
+            assert lo_scalar(db, "lo_from_bytea", (oid, DEFAULT_PAYLOAD), ("oid", "bytea")) == oid
+        db.execute(f"GRANT SELECT ON LARGE OBJECT {DEFAULT_OIDS[1]} TO {READER} WITH GRANT OPTION")
+        db.execute(f"GRANT SELECT ON LARGE OBJECT {DEFAULT_OIDS[2]} TO {READER}")
+
+
+def verify_default_acl(endpoint, *, active=True):
+    with psycopg.connect(**endpoint) as db, db.transaction():
+        expected = [(826, 0, "L", {f"{FINAL_OWNER}=rw/{FINAL_OWNER}", f"{READER}=r/{FINAL_OWNER}"})]
+        actual = [(table, schema, kind, set(acl)) for table, schema, kind, acl in default_acl(db)]
+        assert actual == (expected if active else []), actual
+        query = db.execute(
+            "SELECT oid,lomacl FROM pg_largeobject_metadata WHERE oid BETWEEN 55010 AND 55013 ORDER BY oid"
+        ).fetchall()
+        rows = [(oid, None if acl is None else set(acl)) for oid, acl in query]
+        assert rows == [
+            (DEFAULT_OIDS[0], None),
+            (DEFAULT_OIDS[1], {f"{FINAL_OWNER}=rw/{FINAL_OWNER}", f"{READER}=r*/{FINAL_OWNER}"}),
+            (DEFAULT_OIDS[2], {f"{FINAL_OWNER}=rw/{FINAL_OWNER}", f"{READER}=r/{FINAL_OWNER}"}),
+            (DEFAULT_OIDS[3], None),
+        ], rows
+        db.execute(f"SET ROLE {READER}")
+        for oid in (DEFAULT_OIDS[0], DEFAULT_OIDS[3]):
+            expect_sqlstate(db, f"SELECT lo_get({oid})", "42501")
+        for oid in DEFAULT_OIDS[1:3]:
+            assert lo_scalar(db, "lo_get", (oid,), ("oid",)) == DEFAULT_PAYLOAD
+            expect_sqlstate(db, f"SELECT lo_put({oid},0,'x'::bytea)", "42501")
+        db.execute(f"SET ROLE {FINAL_OWNER}")
+        with db.transaction(force_rollback=True):
+            oid = lo_scalar(db, "lo_creat", (-1,), ("integer",))
+            db.execute(f"SET ROLE {READER}")
+            if active:
+                assert lo_scalar(db, "lo_get", (oid,), ("oid",)) == b""
+            else:
+                expect_sqlstate(db, f"SELECT lo_get({oid})", "42501")
+
+
+def revoke_default_acl(endpoint):
+    with psycopg.connect(**endpoint) as db:
+        db.execute(f"ALTER DEFAULT PRIVILEGES FOR ROLE {FINAL_OWNER} REVOKE SELECT ON LARGE OBJECTS FROM {READER}")
+
+
+def populate(endpoint, *, defaults=False):
     roles(endpoint)
     with psycopg.connect(**endpoint) as db:
         db.execute(f"SET ROLE {OWNER}")
@@ -324,13 +406,15 @@ def populate(endpoint):
         db.execute(f"COMMENT ON LARGE OBJECT {OID} IS '{COMMENT}'")
         db.execute(f"GRANT SELECT ON LARGE OBJECT {OID} TO {READER}")
     seed_privileges(endpoint)
+    if defaults:
+        seed_default_acl(endpoint)
 
 
 def contents(db):
     return db.execute("SELECT lo_get(%s::oid)", (OID,)).fetchone()[0]
 
 
-def verify(endpoint):
+def verify(endpoint, *, defaults=False):
     with psycopg.connect(**endpoint) as db:
         record = db.execute(
             "SELECT pg_get_userbyid(lomowner),obj_description(oid,'pg_largeobject') "
@@ -350,6 +434,8 @@ def verify(endpoint):
             assert db.execute("SELECT lo_get(%s::oid,2047,3)", (OID,)).fetchone() == (b"abc",)
         assert contents(db) == CONTENTS, "rolled-back write survived"
     verify_privileges(endpoint)
+    if defaults:
+        verify_default_acl(endpoint)
 
 
 def dump(tools, endpoint, fmt, artifact):
@@ -357,7 +443,7 @@ def dump(tools, endpoint, fmt, artifact):
               f"--format={fmt}", f"--file={artifact}")
 
 
-def restore(tools, endpoint, fmt, artifact):
+def restore(tools, endpoint, fmt, artifact, *, defaults=False):
     roles(endpoint)
     if fmt == "plain":
         tools.run(f"restore-{artifact}", "psql", endpoint, "--no-psqlrc", "--single-transaction",
@@ -365,6 +451,7 @@ def restore(tools, endpoint, fmt, artifact):
     else:
         tools.run(f"restore-{artifact}", "pg_restore", endpoint, "--single-transaction", "--exit-on-error", artifact)
     verify(endpoint)
+    verify_default_acl(endpoint, active=defaults)
 
 
 def main():
@@ -386,6 +473,7 @@ def main():
             docker("pull", image)
     tools = Tools(root, args.postgres_bin, image)
     binary = args.binary.resolve(strict=True) if args.binary else None
+    archive_defaults = args.reference == "18"
     results = {}
 
     def record(name, check):
@@ -403,6 +491,12 @@ def main():
             create_page_payload(endpoint)
             verify_page_payload(endpoint)
             seed_truncate(endpoint)
+            if archive_defaults:
+                seed_default_acl(endpoint)
+                verify_default_acl(endpoint)
+            else:
+                with psycopg.connect(**endpoint) as db:
+                    expect_sqlstate(db, "ALTER DEFAULT PRIVILEGES GRANT SELECT ON LARGE OBJECTS TO PUBLIC", "42601")
 
     def ramsql_metadata_recovery():
         wal = root / "large-object-metadata.wal"
@@ -455,11 +549,24 @@ def main():
         with DurableServer(binary, wal, storage_options=STORAGE) as server:
             verify_revoked_privileges(ramsql_settings(server))
 
+    def ramsql_default_acl_recovery():
+        wal = root / "large-object-default-acl.wal"
+        with DurableServer(binary, wal, create=True, storage_options=STORAGE) as server:
+            endpoint = ramsql_settings(server)
+            roles(endpoint)
+            seed_default_acl(endpoint)
+        with DurableServer(binary, wal, storage_options=STORAGE) as server:
+            endpoint = ramsql_settings(server)
+            verify_default_acl(endpoint)
+            revoke_default_acl(endpoint)
+        with DurableServer(binary, wal, storage_options=STORAGE) as server:
+            verify_default_acl(ramsql_settings(server), active=False)
+
     def ramsql_checkpoint():
         wal = root / "large-object-checkpoint.wal"
         stem = root / "object-checkpoint"
         with DurableServer(binary, wal, create=True, storage_options=STORAGE) as server:
-            populate(ramsql_settings(server))
+            populate(ramsql_settings(server), defaults=True)
         collapsed = subprocess.run(
             [str(binary), "--data", str(wal), "--bootstrap-checkpoint", "--checkpoint-stem", str(stem),
              "--checkpoint-id", IDENTITY, *STORAGE],
@@ -469,34 +576,46 @@ def main():
         assert selector(stem) == 1
         with CheckpointServer(binary, stem, storage_options=STORAGE) as server:
             endpoint = ramsql_settings(server)
-            verify(endpoint)
+            verify(endpoint, defaults=True)
             revoke_privileges(endpoint)
+            revoke_default_acl(endpoint)
             with psycopg.connect(**endpoint) as db:
                 assert db.execute("SELECT lo_unlink(%s::oid)", (OID,)).fetchone() == (1,)
         with CheckpointServer(binary, stem, storage_options=STORAGE) as server:
             endpoint = ramsql_settings(server)
             verify_revoked_privileges(endpoint)
+            verify_default_acl(endpoint, active=False)
             with psycopg.connect(**endpoint) as db:
                 expect_sqlstate(db, f"SELECT lo_get({OID})", "42704")
 
     def native_restore(fmt, artifact):
         with native_postgres(image, psycopg, binary_directory=args.postgres_bin, work_directory=root) as (endpoint, _):
-            restore(tools, endpoint, fmt, artifact)
+            restore(tools, endpoint, fmt, artifact, defaults=archive_defaults)
 
     def ramsql_restore(fmt, artifact):
         wal = root / f"inbound-{fmt}.wal"
         with DurableServer(binary, wal, create=True, storage_options=STORAGE) as server:
-            restore(tools, ramsql_settings(server), fmt, artifact)
+            restore(tools, ramsql_settings(server), fmt, artifact, defaults=archive_defaults)
         with DurableServer(binary, wal, storage_options=STORAGE) as reopened:
             verify(ramsql_settings(reopened))
+            verify_default_acl(ramsql_settings(reopened), active=archive_defaults)
+
+    def populate_archive(endpoint, *, native):
+        populate(endpoint, defaults=archive_defaults or not native)
+        if not archive_defaults:
+            if native:
+                seed_materialized_acl(endpoint)
+            else:
+                revoke_default_acl(endpoint)
+        verify(endpoint)
+        verify_default_acl(endpoint, active=archive_defaults)
 
     def ramsql_export(fmt, suffix):
         artifact = f"candidate-{fmt}.{suffix}"
         wal = root / f"outbound-{fmt}.wal"
         with DurableServer(binary, wal, create=True, storage_options=STORAGE) as server:
             endpoint = ramsql_settings(server)
-            populate(endpoint)
-            verify(endpoint)
+            populate_archive(endpoint, native=False)
             dump(tools, endpoint, fmt, artifact)
         native_restore(fmt, artifact)
 
@@ -507,11 +626,11 @@ def main():
         record("ramsql_compact_checkpoint_recovery", ramsql_checkpoint)
         record("ramsql_truncate_crash_recovery", ramsql_truncate)
         record("ramsql_acl_crash_recovery", ramsql_acl_recovery)
+        record("ramsql_default_acl_crash_recovery", ramsql_default_acl_recovery)
 
     with native_postgres(image, psycopg, binary_directory=args.postgres_bin, work_directory=root) as (source, metadata):
         assert int(metadata["server_version_num"]) // 10000 == int(args.reference), metadata["server_version"]
-        populate(source)
-        verify(source)
+        populate_archive(source, native=True)
         for fmt, suffix in FORMATS:
             artifact = f"native-{fmt}.{suffix}"
             dump(tools, source, fmt, artifact)
@@ -525,7 +644,8 @@ def main():
         with binary.open("rb") as stream:
             binary_hash = hashlib.file_digest(stream, "sha256").hexdigest()
     passed = all(result["passed"] for result in results.values())
-    report = {"postgres": metadata["server_version"], "binary_sha256": binary_hash, "passed": passed, "checks": results}
+    report = {"postgres": metadata["server_version"], "binary_sha256": binary_hash,
+              "archives_include_large_object_defaults": archive_defaults, "passed": passed, "checks": results}
     (root / "large-object-archives.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, indent=2))
     print(f"Report directory {root}")
