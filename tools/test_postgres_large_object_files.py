@@ -62,13 +62,82 @@ def verify_payload(endpoint):
             assert db.execute("SELECT lo_get(%s::oid,%s::bigint,97)", (OID, start)).fetchone() == (PAYLOAD[start:start + 97],)
 
 
-FILE_ROLES = ("file_delegate", "file_leaf", "file_inherited", "file_revoked")
+LIST_FUNCTIONS = "pg_catalog.lo_import(text),lo_import(text,oid),lo_export(oid,text)"
+LIST_READER = 'List "reader'
+FILE_ROLES = ("file_delegate", "file_leaf", "file_inherited", "file_revoked",
+              "list_actor", "list_peer", "list_leaf", "list_revoked", LIST_READER)
 
 
 def file_roles(endpoint):
     with psycopg.connect(**endpoint) as db:
         for role in FILE_ROLES:
-            db.execute(f"CREATE ROLE {role}")
+            db.execute(psycopg.sql.SQL("CREATE ROLE {}").format(psycopg.sql.Identifier(role)))
+
+
+def execute_lists(endpoint, files):
+    with psycopg.connect(**dict(endpoint, autocommit=True)) as db:
+        db.execute(f"GRANT EXECUTE ON FUNCTION {LIST_FUNCTIONS},pg_catalog.lo_import(text) "
+                   "TO list_actor,GROUP list_peer,list_actor WITH GRANT OPTION GRANTED BY CURRENT_ROLE")
+        db.execute(f"GRANT EXECUTE ON FUNCTION {LIST_FUNCTIONS} "
+                   "TO CURRENT_USER,CURRENT_ROLE,SESSION_USER GRANTED BY SESSION_USER")
+        db.execute("SET ROLE list_actor")
+        db.execute(f'GRANT ALL PRIVILEGES ON FUNCTION {LIST_FUNCTIONS} '
+                   'TO list_leaf,"List ""reader" GRANTED BY CURRENT_USER')
+        expect_sqlstate(db, f"GRANT EXECUTE ON FUNCTION {LIST_FUNCTIONS} TO list_peer GRANTED BY SESSION_USER", "0A000")
+        db.execute("RESET ROLE")
+        db.execute("SET ROLE list_peer")
+        db.execute("GRANT EXECUTE ON FUNCTION lo_import(text,oid) TO list_revoked GRANTED BY list_peer")
+        db.execute("RESET ROLE")
+        expect_sqlstate(db, "REVOKE EXECUTE ON FUNCTION lo_import(text),lo_import(text,oid) "
+                        "FROM list_peer GRANTED BY CURRENT_ROLE RESTRICT", "2BP01")
+        db.execute("SET ROLE list_peer")
+        expect_sqlstate(db, "SELECT lo_import(%s)", "58P01", (files.path("absent"),))
+        db.execute("RESET ROLE")
+        db.execute(f"REVOKE ALL ON FUNCTION {LIST_FUNCTIONS} FROM list_peer,list_peer GRANTED BY CURRENT_USER CASCADE")
+        for statement, state in (
+            ("GRANT EXECUTE ON FUNCTION lo_import(text),missing_function() TO list_peer", "42883"),
+            (f"GRANT EXECUTE ON FUNCTION {LIST_FUNCTIONS} TO list_peer,missing_role", "42704"),
+            (f"GRANT EXECUTE ON FUNCTION {LIST_FUNCTIONS} TO list_peer GRANTED BY list_actor", "0A000"),
+            (f"GRANT EXECUTE ON FUNCTION {LIST_FUNCTIONS} TO list_peer GRANTED BY PUBLIC", "42704"),
+            (f"GRANT EXECUTE ON FUNCTION {LIST_FUNCTIONS} TO list_peer,PUBLIC WITH GRANT OPTION", "0LP01"),
+        ):
+            expect_sqlstate(db, statement, state)
+        db.execute(f'GRANT SELECT ON LARGE OBJECT {OID} TO list_leaf,"List ""reader"')
+        db.execute("SET ROLE list_leaf")
+        assert db.execute("SELECT lo_import(%s,57011::oid)", (files.path("source"),)).fetchone() == (57011,)
+        assert db.execute("SELECT pg_get_userbyid(lomowner) FROM pg_largeobject_metadata WHERE oid=57011").fetchone() == ("list_leaf",)
+        assert db.execute("SELECT lo_get(57011::oid,0,97)").fetchone() == (PAYLOAD[:97],)
+        db.execute("SELECT lo_unlink(57011::oid)")
+        db.execute("RESET ROLE")
+        with db.transaction(force_rollback=True):
+            db.execute(f"REVOKE EXECUTE ON FUNCTION {LIST_FUNCTIONS} FROM list_actor GRANTED BY CURRENT_USER CASCADE")
+            db.execute("SET ROLE list_leaf")
+            expect_sqlstate(db, "SELECT lo_export(%s::oid,%s)", "42501", (OID, files.path("rollback-list")))
+    verify_execute_lists(endpoint, files)
+
+
+def verify_execute_lists(endpoint, files):
+    with psycopg.connect(**dict(endpoint, autocommit=True)) as db:
+        for oid in (764, 767, 765):
+            acl = db.execute("SELECT proacl FROM pg_proc WHERE oid=%s::oid", (oid,)).fetchone()[0]
+            assert sum(value.startswith("list_actor=X*/") for value in acl) == 1, (oid, acl)
+            assert acl.count("list_leaf=X/list_actor") == 1, (oid, acl)
+        db.execute("SET ROLE list_leaf")
+        expect_sqlstate(db, "SELECT lo_import(%s)", "58P01", (files.path("absent"),))
+        expect_sqlstate(db, "SELECT lo_import(%s,0::oid)", "58P01", (files.path("absent"),))
+        assert db.execute("SELECT lo_export(%s::oid,%s)", (OID, files.path("list-export"))).fetchone() == (1,)
+        assert files.get("list-export") == PAYLOAD
+        db.execute("RESET ROLE")
+        db.execute(psycopg.sql.SQL("SET ROLE {}").format(psycopg.sql.Identifier(LIST_READER)))
+        assert db.execute("SELECT lo_export(%s::oid,%s)", (OID, files.path("quoted-export"))).fetchone() == (1,)
+        assert files.get("quoted-export") == PAYLOAD
+        db.execute("RESET ROLE")
+        for role in ("list_peer", "list_revoked"):
+            db.execute(f"SET ROLE {role}")
+            expect_sqlstate(db, "SELECT lo_import(%s)", "42501", (files.path("absent"),))
+            expect_sqlstate(db, "SELECT lo_import(%s,0::oid)", "42501", (files.path("absent"),))
+            expect_sqlstate(db, "SELECT lo_export(%s::oid,%s)", "42501", (OID, files.path("denied-list")))
+            db.execute("RESET ROLE")
 
 
 def delegated_access(endpoint, files):
@@ -243,6 +312,7 @@ def main():
     with candidate(binary, root, wal, True) as endpoint:
         exercise(endpoint, files)
         delegated_access(endpoint, files)
+        execute_lists(endpoint, files)
         too_large = files.put("too-large", b"x" * (257 * 2048))
         with psycopg.connect(**endpoint) as db:
             expect_sqlstate(db, "SELECT lo_import(%s,57003::oid)", "54000", (too_large,))
@@ -251,6 +321,8 @@ def main():
         pending = psycopg.connect(**dict(endpoint, autocommit=False))
         pending.execute("SELECT lo_import(%s,57002::oid)", (files.path("source"),))
         pending.execute("REVOKE EXECUTE ON FUNCTION lo_export(oid,text) FROM file_leaf")
+        pending.execute(f"REVOKE EXECUTE ON FUNCTION {LIST_FUNCTIONS} FROM list_actor GRANTED BY CURRENT_USER CASCADE")
+        pending.execute(f"GRANT EXECUTE ON FUNCTION {LIST_FUNCTIONS} TO list_peer,list_revoked GRANTED BY SESSION_USER")
     pending.close()
     # The server is killed on leaving candidate. The input disappears
     # before restart, so recovery must use committed page bytes from the WAL.
@@ -259,6 +331,8 @@ def main():
     with candidate(binary, root, wal, False) as endpoint:
         verify_payload(endpoint)
         verify_delegation(endpoint, files)
+        verify_execute_lists(endpoint, files)
+        checks["execute_lists_granted_by_and_atomic_wal_recovery"] = True
         checks["delegated_execute_and_revocation_wal_recovery"] = True
         with psycopg.connect(**endpoint) as db:
             assert db.execute("SELECT COUNT(*) FROM pg_largeobject_metadata WHERE oid=57002").fetchone() == (0,)
@@ -271,6 +345,7 @@ def main():
             native_files = Files(root / "native-files", metadata.get("container_id"))
             exercise(native, native_files)
             delegated_access(native, native_files)
+            execute_lists(native, native_files)
             checks["native_file_semantics"] = True
             for label, fmt, suffix in (("plain", "p", "sql"), ("custom", "c", "dump")):
                 tools.run(f"native-{label}-dump", "pg_dump", native, "--no-owner", f"--format={fmt}", f"--file=native-{label}.{suffix}")
@@ -281,7 +356,9 @@ def main():
                     else:
                         tools.run(f"inbound-{label}-restore", "pg_restore", dest, "--exit-on-error", "--single-transaction", "--no-owner", f"native-{label}.{suffix}")
                     verify_payload(dest)
-                    verify_delegation(dest, Files(root / f"inbound-{label}-files"))
+                    restored_files = Files(root / f"inbound-{label}-files")
+                    verify_delegation(dest, restored_files)
+                    verify_execute_lists(dest, restored_files)
                 checks[f"native_to_ramsql_{label}"] = True
                 tools.run(f"ramsql-{label}-dump", "pg_dump", endpoint, "--no-owner", f"--format={fmt}", f"--file=ramsql-{label}.{suffix}")
                 with native_postgres(image, psycopg, binary_directory=args.postgres_bin, work_directory=root) as (dest, dest_metadata):
@@ -291,7 +368,9 @@ def main():
                     else:
                         tools.run(f"outbound-{label}-restore", "pg_restore", dest, "--exit-on-error", "--single-transaction", "--no-owner", f"ramsql-{label}.{suffix}")
                     verify_payload(dest)
-                    verify_delegation(dest, Files(root / f"outbound-{label}-files", dest_metadata.get("container_id")))
+                    restored_files = Files(root / f"outbound-{label}-files", dest_metadata.get("container_id"))
+                    verify_delegation(dest, restored_files)
+                    verify_execute_lists(dest, restored_files)
                 checks[f"ramsql_to_native_{label}"] = True
     report = {"passed": True, "reference": args.reference, "binary_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(), "checks": checks}
     (root / "large-object-files.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")

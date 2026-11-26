@@ -13,8 +13,17 @@ archives in both directions and verifies actual exports by the restored
 grantee. Forced-kill recovery checks committed grants, revoked access and
 an uncommitted revoke. ZPM's 4 MiB Debug/ReleaseSafe contract also checks
 RSBASE08 checkpoint restore followed by a revocation WAL suffix.
-Both stock CI lanes must pass before merging. General built-in function
-ACLs, function/grantee lists and GRANTED BY remain separate gaps.
+The follow-up adds function/grantee lists, GRANTED BY current-user
+validation, role aliases, GROUP and quoted recipients. Duplicate targets
+and roles are applied once. The fixture checks that a later-function
+RESTRICT failure rolls back earlier edits and that independent grant
+chains survive. Crash recovery discards uncommitted list revocations and
+grants, and both archive directions retain the committed list ACLs.
+
+Both stock CI lanes must pass before merging. Lists share the existing
+eight-entry catalog statement budget and report 54000 on overflow.
+General built-in ACLs, ALL FUNCTIONS IN SCHEMA and grant-option delegation
+for user-defined routines remain separate gaps.
 
 ## Temporal predicate qualification
 
