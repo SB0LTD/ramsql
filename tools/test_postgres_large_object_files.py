@@ -3,6 +3,7 @@ import argparse
 from contextlib import contextmanager
 import hashlib
 import json
+import os
 from pathlib import Path
 import secrets
 import stat
@@ -63,7 +64,7 @@ def exercise(endpoint, files):
     source = files.put("source", PAYLOAD)
     denied = files.put("denied", b"private", 0)
     target = files.path("exported")
-    with psycopg.connect(**endpoint, autocommit=True) as db:
+    with psycopg.connect(**dict(endpoint, autocommit=True)) as db:
         db.execute("CREATE ROLE file_guest")
         db.execute("SET ROLE file_guest")
         expect_sqlstate(db, "SELECT lo_import(%s)", "42501", (source,))
@@ -86,6 +87,7 @@ def exercise(endpoint, files):
         assert files.mode("exported") == 0o640
         expect_sqlstate(db, "SELECT lo_export(%s::oid,%s)", "42501", (OID, denied))
         expect_sqlstate(db, "SELECT lo_export(99999::oid,%s)", "42704", (target,))
+        assert files.get("exported") == PAYLOAD
         db.execute("BEGIN READ ONLY")
         expect_sqlstate(db, "SELECT lo_import(%s)", "25006", (source,))
         db.execute("ROLLBACK")
@@ -114,9 +116,13 @@ def candidate(binary, root, wal, create):
     if not verifier.exists():
         verifier.write_bytes(make_verifier(password.encode(), secrets.token_bytes(32)) + b"\n")
         verifier.chmod(0o600)
-    with running_ramsql(binary, extra_arguments=STORAGE, data_path=wal, create_data=create,
-                        auth=("ramsql", verifier, password)) as endpoint:
-        yield endpoint
+    previous = os.umask(0o077)
+    try:
+        with running_ramsql(binary, extra_arguments=STORAGE, data_path=wal, create_data=create,
+                            auth=("ramsql", verifier, password)) as endpoint:
+            yield endpoint
+    finally:
+        os.umask(previous)
 
 
 def main():
