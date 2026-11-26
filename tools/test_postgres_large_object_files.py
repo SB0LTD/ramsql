@@ -41,6 +41,7 @@ class Files:
         local.chmod(mode)
         if self.container:
             docker("cp", str(local), self.container + ":" + self.path(name))
+            docker("exec", "--user", "root", self.container, "chown", "postgres:postgres", self.path(name))
             docker("exec", "--user", "root", self.container, "chmod", oct(mode)[2:], self.path(name))
         return self.path(name)
 
