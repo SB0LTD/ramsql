@@ -109,6 +109,7 @@ ACL, its text cast and result copies in caller-backed storage. The fixture
 checks long values in plain and custom archives, array subscripts, binary
 TEXT output and cursor fetches. Query, result and response budgets still
 apply to the combined output.
+[ZPM large-object ACL values](https://github.com/SB0LTD/zpm/pull/316)
 
 The scoped identity follow-up passed 28 checks on PG16 and PG18. It compares
 sequence names across schemas, starting values, catalog OIDs, and recovery
