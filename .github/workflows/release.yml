@@ -169,6 +169,8 @@ jobs:
           if [[ "$TARGET_SLUG" == *-linux || "$TARGET_SLUG" == *-windows ]]; then
             args+=(-Dlink-libc=false)
           fi
+          # Keep ELF debug sections out of the hosted distribution binary.
+          if [[ "$TARGET_SLUG" == *-linux ]]; then args+=(-Dstrip=true); fi
           if [[ "$TARGET_SLUG" == *-macos ]]; then args+=(-Dlink-libc=true); fi
           "$SIG" build -Doptimize=ReleaseFast \
             --prefix ".sig-cache/release/$TARGET_SLUG" "${args[@]}"
