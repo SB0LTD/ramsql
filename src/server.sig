@@ -1951,6 +1951,7 @@ fn configureStore(target: *Store, options: Options) void {
     target.prepared_limit = options.max_prepared_transactions;
     target.interrupt_poll = if (parallel) &pollWorkerInterrupts else &pollInterrupts;
     target.zone_provider = .{ .context = @ptrCast(&zones), .lookup = &Zones.lookup };
+    target.database.setLargeObjectFiles(sql.LargeObjectFiles.native(disk.StreamFile));
     if (options.database_cluster) {
         target.prepared_check = &checkClusterPrepared;
         target.database.setDatabaseCatalog(.{ .capacity = cluster_entries_capacity + 1, .row = &databaseCatalogRow });
