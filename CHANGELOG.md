@@ -6,6 +6,11 @@ later binary.
 
 ## Unreleased
 
+- Support function/grantee lists and `GRANTED BY` current-user validation
+  for EXECUTE grants in ZPM. Qualify duplicate and quoted recipients,
+  atomic list revocation, independent delegation chains, WAL recovery and
+  stock PG16/18 ACL archive round trips in both directions.
+
 - Add persistent EXECUTE grants for `lo_import(text)`, `lo_import(text, oid)`
   and `lo_export(oid, text)` through ZPM. Test delegated and inherited access,
   grant-option cascades, forced-kill WAL recovery and stock PG16/18 plain and
