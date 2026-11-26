@@ -111,6 +111,13 @@ TEXT output and cursor fetches. Query, result and response budgets still
 apply to the combined output.
 [ZPM large-object ACL values](https://github.com/SB0LTD/zpm/pull/316)
 
+The default-privilege fixture checks that grants and revocations apply
+to new large objects and that existing objects retain their permissions.
+PG18 archives include the default template and verify it by creating a
+fresh object after restore. PG16 archives preserve the resulting
+per-object ACLs through stock tools. Both CI lanes also verify template
+recovery after forced crashes and compact checkpoints with WAL replay.
+
 The scoped identity follow-up passed 28 checks on PG16 and PG18. It compares
 sequence names across schemas, starting values, catalog OIDs, and recovery
 after reopening the WAL. It checks that dropping one schema leaves the other
