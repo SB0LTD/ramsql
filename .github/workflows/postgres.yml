@@ -99,7 +99,7 @@ jobs:
         run: |
           python tools/test_postgres_large_object_archives.py --reference '${{ matrix.reference }}' \
             --binary sig-out/bin/ramsql --work-dir 'qualification/large-objects-pg${{ matrix.reference }}'
-      - name: Require server-side large-object files and WAL recovery
+      - name: Require large-object files, delegated EXECUTE and WAL recovery
         if: matrix.mode != 'memory'
         run: |
           python tools/test_postgres_large_object_files.py --reference '${{ matrix.reference }}' \

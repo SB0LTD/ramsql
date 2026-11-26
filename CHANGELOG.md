@@ -6,6 +6,11 @@ later binary.
 
 ## Unreleased
 
+- Add persistent EXECUTE grants for `lo_import(text)`, `lo_import(text, oid)`
+  and `lo_export(oid, text)` through ZPM. Test delegated and inherited access,
+  grant-option cascades, forced-kill WAL recovery and stock PG16/18 plain and
+  custom archive round trips with ACLs enabled.
+
 - Expose PostgreSQL's pristine `template0` and initialize the writable
   `template1` on its first connection. Support durable database copies
   with independent WAL identity and validate stock cluster archive restore.
