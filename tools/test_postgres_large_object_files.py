@@ -1,0 +1,214 @@
+"""Exercise server-side large-object files against stock PostgreSQL."""
+import argparse
+from contextlib import contextmanager
+import hashlib
+import json
+import os
+from pathlib import Path
+import secrets
+import stat
+
+import psycopg
+
+from qualify_postgres import REFERENCES
+from test_auth import make_verifier
+from test_postgres_compat import docker, native_postgres
+from test_postgres_large_object_archives import expect_sqlstate
+from test_persistence import DurableServer
+from test_stock_postgres_tools import Tools, ramsql_settings
+
+
+OID = 57000
+PAYLOAD = bytes(range(256)) * 257 + b"\x00end\xff"
+STORAGE = ("--workers", "1", "--large-object-pages", "256")
+
+
+class Files:
+    def __init__(self, root, container=None):
+        self.root = root
+        self.container = container
+        self.remote = "/tmp/ramsql-lo-files-" + secrets.token_hex(8)
+        root.mkdir()
+        if container:
+            docker("exec", "--user", "root", container, "mkdir", "-m", "777", self.remote)
+
+    def path(self, name):
+        return self.remote + "/" + name if self.container else str(self.root / name)
+
+    def put(self, name, contents, mode=0o644):
+        local = self.root / name
+        local.write_bytes(contents)
+        local.chmod(0o644 if self.container else mode)
+        if self.container:
+            docker("cp", str(local), self.container + ":" + self.path(name))
+            docker("exec", "--user", "root", self.container, "chown", "postgres:postgres", self.path(name))
+            docker("exec", "--user", "root", self.container, "chmod", oct(mode)[2:], self.path(name))
+        return self.path(name)
+
+    def get(self, name):
+        if self.container:
+            docker("cp", self.container + ":" + self.path(name), str(self.root / name))
+        return (self.root / name).read_bytes()
+
+    def mode(self, name):
+        if self.container:
+            return int(docker("exec", self.container, "stat", "-c", "%a", self.path(name)).strip(), 8)
+        return stat.S_IMODE((self.root / name).stat().st_mode)
+
+
+def verify_payload(endpoint):
+    with psycopg.connect(**endpoint) as db:
+        for start in range(0, len(PAYLOAD), 97):
+            assert db.execute("SELECT lo_get(%s::oid,%s::bigint,97)", (OID, start)).fetchone() == (PAYLOAD[start:start + 97],)
+
+
+def exercise(endpoint, files):
+    try:
+        _exercise(endpoint, files)
+    finally:
+        denied = files.root / "denied"
+        if denied.exists():
+            denied.chmod(0o600)
+
+
+def _exercise(endpoint, files):
+    source = files.put("source", PAYLOAD)
+    denied = files.put("denied", b"private", 0)
+    target = files.path("exported")
+    with psycopg.connect(**dict(endpoint, autocommit=True)) as db:
+        db.execute("CREATE ROLE file_guest")
+        db.execute("SET ROLE file_guest")
+        expect_sqlstate(db, "SELECT lo_import(%s)", "42501", (source,))
+        expect_sqlstate(db, "SELECT lo_export(%s::oid,%s)", "42501", (OID, target))
+        db.execute("RESET ROLE")
+        assert db.execute("SELECT lo_import(NULL::text)").fetchone() == (None,)
+        assert db.execute("SELECT lo_import(NULL::text,0::oid)").fetchone() == (None,)
+        assert db.execute("SELECT lo_export(NULL::oid,NULL::text)").fetchone() == (None,)
+        expect_sqlstate(db, "SELECT lo_import(%s)", "58P01", (files.path("absent"),))
+        expect_sqlstate(db, "SELECT lo_import(%s)", "42501", (denied,))
+        expect_sqlstate(db, "SELECT lo_import(%s)", "42809", (files.path("."),))
+        assert db.execute("SELECT lo_import(%s,%s::oid)", (source, OID)).fetchone() == (OID,)
+        expect_sqlstate(db, "SELECT lo_import(%s,%s::oid)", "23505", (source, OID))
+        assert db.execute("SELECT lo_export(%s::oid,%s)", (OID, target)).fetchone() == (1,)
+        assert files.get("exported") == PAYLOAD
+        assert files.mode("exported") == 0o644
+        files.put("exported", b"z" * (len(PAYLOAD) + 500), 0o640)
+        assert db.execute("SELECT lo_export(%s::oid,%s)", (OID, target)).fetchone() == (1,)
+        assert files.get("exported") == PAYLOAD
+        assert files.mode("exported") == 0o640
+        expect_sqlstate(db, "SELECT lo_export(%s::oid,%s)", "42501", (OID, denied))
+        expect_sqlstate(db, "SELECT lo_export(99999::oid,%s)", "42704", (target,))
+        assert files.get("exported") == PAYLOAD
+        db.execute("BEGIN READ ONLY")
+        expect_sqlstate(db, "SELECT lo_import(%s)", "25006", (source,))
+        db.execute("ROLLBACK")
+        db.execute("BEGIN READ ONLY")
+        assert db.execute("SELECT lo_export(%s::oid,%s)", (OID, target)).fetchone() == (1,)
+        db.execute("ROLLBACK")
+        with db.transaction(force_rollback=True):
+            assert db.execute("SELECT lo_import(%s,57001::oid)", (source,)).fetchone() == (57001,)
+        assert db.execute("SELECT COUNT(*) FROM pg_largeobject_metadata WHERE oid=57001").fetchone() == (0,)
+        # Filesystem output survives SQL rollback, matching PostgreSQL.
+        with db.transaction(force_rollback=True):
+            db.execute("SELECT lo_export(%s::oid,%s)", (OID, files.path("rolled-back-export")))
+        assert files.get("rolled-back-export") == PAYLOAD
+        empty = files.put("empty", b"")
+        generated = db.execute("SELECT lo_import(%s)", (empty,)).fetchone()[0]
+        assert generated > 0
+        assert db.execute("SELECT lo_get(%s::oid)", (generated,)).fetchone() == (b"",)
+        db.execute("SELECT lo_unlink(%s::oid)", (generated,))
+    verify_payload(endpoint)
+
+
+@contextmanager
+def candidate(binary, root, wal, create):
+    verifier = root / "verifier"
+    password = "large-object-file-test"
+    if not verifier.exists():
+        verifier.write_bytes(make_verifier(password.encode(), secrets.token_bytes(32)) + b"\n")
+        verifier.chmod(0o600)
+    previous = os.umask(0o077)
+    class FileServer(DurableServer):
+        def command(self):
+            command = super().command()
+            command.remove("--insecure-local")
+            return [*command, "--auth-user", "ramsql", "--auth-verifier-file", str(verifier)]
+    try:
+        with FileServer(binary, wal, create=create, storage_options=STORAGE) as server:
+            endpoint = ramsql_settings(server)
+            endpoint["user"] = "ramsql"
+            endpoint["password"] = password
+            yield endpoint
+        assert server.process.returncode != 0, "recovery fixture must kill the server"
+    finally:
+        os.umask(previous)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--binary", type=Path, required=True)
+    parser.add_argument("--reference", choices=REFERENCES, required=True)
+    parser.add_argument("--postgres-bin", type=Path)
+    parser.add_argument("--work-dir", type=Path, required=True)
+    args = parser.parse_args()
+    root = args.work_dir.resolve()
+    root.mkdir(parents=True)
+    binary = args.binary.resolve(strict=True)
+    image = REFERENCES[args.reference]
+    if not args.postgres_bin:
+        docker("image", "inspect", image)
+    tools = Tools(root, args.postgres_bin, image)
+    checks = {}
+    wal = root / "candidate.wal"
+    files = Files(root / "candidate-files")
+    with candidate(binary, root, wal, True) as endpoint:
+        exercise(endpoint, files)
+        too_large = files.put("too-large", b"x" * (257 * 2048))
+        with psycopg.connect(**endpoint) as db:
+            expect_sqlstate(db, "SELECT lo_import(%s,57003::oid)", "54000", (too_large,))
+            assert db.execute("SELECT COUNT(*) FROM pg_largeobject_metadata WHERE oid=57003").fetchone() == (0,)
+        verify_payload(endpoint)
+        pending = psycopg.connect(**dict(endpoint, autocommit=False))
+        pending.execute("SELECT lo_import(%s,57002::oid)", (files.path("source"),))
+    pending.close()
+    # The server is killed on leaving candidate. The input disappears
+    # before restart, so recovery must use committed page bytes from the WAL.
+    (files.root / "source").unlink()
+    (files.root / "exported").unlink()
+    with candidate(binary, root, wal, False) as endpoint:
+        verify_payload(endpoint)
+        with psycopg.connect(**endpoint) as db:
+            assert db.execute("SELECT COUNT(*) FROM pg_largeobject_metadata WHERE oid=57002").fetchone() == (0,)
+            assert db.execute("SELECT lo_export(%s::oid,%s)", (OID, files.path("recovered"))).fetchone() == (1,)
+        assert files.get("recovered") == PAYLOAD
+        assert not (files.root / "exported").exists()
+        checks["permissions_and_wal_recovery"] = True
+        checks["capacity_failure_and_uncommitted_import"] = True
+        with native_postgres(image, psycopg, binary_directory=args.postgres_bin, work_directory=root) as (native, metadata):
+            native_files = Files(root / "native-files", metadata.get("container_id"))
+            exercise(native, native_files)
+            checks["native_file_semantics"] = True
+            for label, fmt, suffix in (("plain", "p", "sql"), ("custom", "c", "dump")):
+                tools.run(f"native-{label}-dump", "pg_dump", native, "--no-owner", "--no-acl", f"--format={fmt}", f"--file=native-{label}.{suffix}")
+                with candidate(binary, root, root / f"inbound-{label}.wal", True) as dest:
+                    if fmt == "p":
+                        tools.run(f"inbound-{label}-restore", "psql", dest, "--no-psqlrc", "--set=ON_ERROR_STOP=1", "--single-transaction", f"--file=native-{label}.{suffix}")
+                    else:
+                        tools.run(f"inbound-{label}-restore", "pg_restore", dest, "--exit-on-error", "--single-transaction", "--no-owner", "--no-acl", f"native-{label}.{suffix}")
+                    verify_payload(dest)
+                checks[f"native_to_ramsql_{label}"] = True
+                tools.run(f"ramsql-{label}-dump", "pg_dump", endpoint, "--no-owner", "--no-acl", f"--format={fmt}", f"--file=ramsql-{label}.{suffix}")
+                with native_postgres(image, psycopg, binary_directory=args.postgres_bin, work_directory=root) as (dest, _):
+                    if fmt == "p":
+                        tools.run(f"outbound-{label}-restore", "psql", dest, "--no-psqlrc", "--set=ON_ERROR_STOP=1", "--single-transaction", f"--file=ramsql-{label}.{suffix}")
+                    else:
+                        tools.run(f"outbound-{label}-restore", "pg_restore", dest, "--exit-on-error", "--single-transaction", "--no-owner", "--no-acl", f"ramsql-{label}.{suffix}")
+                    verify_payload(dest)
+                checks[f"ramsql_to_native_{label}"] = True
+    report = {"passed": True, "reference": args.reference, "binary_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(), "checks": checks}
+    (root / "large-object-files.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps(report))
+
+
+if __name__ == "__main__":
+    main()
