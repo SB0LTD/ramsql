@@ -38,7 +38,7 @@ class Files:
     def put(self, name, contents, mode=0o644):
         local = self.root / name
         local.write_bytes(contents)
-        local.chmod(mode)
+        local.chmod(0o644 if self.container else mode)
         if self.container:
             docker("cp", str(local), self.container + ":" + self.path(name))
             docker("exec", "--user", "root", self.container, "chown", "postgres:postgres", self.path(name))
@@ -63,6 +63,15 @@ def verify_payload(endpoint):
 
 
 def exercise(endpoint, files):
+    try:
+        _exercise(endpoint, files)
+    finally:
+        denied = files.root / "denied"
+        if denied.exists():
+            denied.chmod(0o600)
+
+
+def _exercise(endpoint, files):
     source = files.put("source", PAYLOAD)
     denied = files.put("denied", b"private", 0)
     target = files.path("exported")
