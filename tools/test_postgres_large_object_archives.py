@@ -19,14 +19,15 @@ from test_stock_postgres_tools import Tools, ramsql_settings
 
 
 OID = 55000
-# The delegated ACL must fit the default source build's 128-byte cell.
-OWNER = "lo_o"
-READER = "lo_r"
-FINAL_OWNER = "lo_f"
-DELEGATE = "Lo_D"
+# Use PostgreSQL's maximum 63-byte identifier length on the default build.
+OWNER = "lo_owner_" + "a" * 54
+READER = "lo_reader_" + "b" * 53
+FINAL_OWNER = "lo_final_" + "f" * 54
+DELEGATE = "LO_delegate_" + "d" * 51
 DELEGATE_SQL = f'"{DELEGATE}"'
-SECOND = "lo_s"
-OUTSIDER = "lo_x"
+SECOND = "lo_second_" + "s" * 53
+OUTSIDER = "lo_outside_" + "x" * 52
+EXTRA_READERS = tuple(f"lo_extra_{i}_" + "e" * 52 for i in range(4))
 COMMENT = "archive byte stream with holes"
 PREFIX = bytes(range(256)) * 24
 TAIL_OFFSET = 32768
@@ -38,7 +39,8 @@ FORMATS = (("plain", "sql"), ("custom", "dump"))
 
 def roles(endpoint):
     with psycopg.connect(**endpoint) as db:
-        for role in (OWNER, READER, FINAL_OWNER, DELEGATE, SECOND, OUTSIDER):
+        for role in (OWNER, READER, FINAL_OWNER, DELEGATE, SECOND, OUTSIDER, *EXTRA_READERS):
+            assert len(role.encode()) == 63, role
             db.execute(f'CREATE ROLE "{role}"')
 
 
@@ -185,11 +187,13 @@ ACL_BYTES = b"large-object ACL"
 
 
 def lo_acl(db):
-    owner, acl = db.execute(
-        "SELECT pg_get_userbyid(lomowner),lomacl::text FROM pg_largeobject_metadata WHERE oid=%s::oid",
+    owner, acl, typed = db.execute(
+        "SELECT pg_get_userbyid(lomowner),lomacl::text,lomacl FROM pg_largeobject_metadata "
+        "WHERE oid=%s::oid ORDER BY lomowner,lomacl::text,oid",
         (ACL_OID,),
     ).fetchone()
-    return owner, None if acl is None else set(acl[1:-1].split(","))
+    assert (None if acl is None else acl[1:-1].split(",")) == typed, (acl, typed)
+    return owner, None if typed is None else set(typed)
 
 
 def seed_privileges(endpoint):
@@ -199,6 +203,7 @@ def seed_privileges(endpoint):
         assert lo_acl(db) == (OWNER, None)
         db.execute(f"GRANT SELECT ON LARGE OBJECT {ACL_OID} TO {DELEGATE_SQL}, {FINAL_OWNER} WITH GRANT OPTION")
         db.execute(f"GRANT SELECT, UPDATE ON LARGE OBJECT {ACL_OID} TO {READER}")
+        db.execute(f"GRANT SELECT ON LARGE OBJECT {ACL_OID} TO {','.join(EXTRA_READERS)}")
         expect_sqlstate(db, f"GRANT UPDATE ON LARGE OBJECT {ACL_OID} TO PUBLIC WITH GRANT OPTION", "0LP01")
         db.execute(f"SET SESSION AUTHORIZATION {DELEGATE_SQL}")
         assert db.execute("SELECT current_user,session_user").fetchone() == (DELEGATE, DELEGATE)
@@ -232,7 +237,22 @@ def verify_privileges(endpoint):
         assert lo_acl(db) == (FINAL_OWNER, {
             f"{FINAL_OWNER}=r*w/{FINAL_OWNER}", f"{DELEGATE}=r*/{FINAL_OWNER}",
             f"{SECOND}=r*/{DELEGATE}", f"{READER}=r/{SECOND}", f"{READER}=rw/{FINAL_OWNER}",
+            *(f"{role}=r/{FINAL_OWNER}" for role in EXTRA_READERS),
         }), lo_acl(db)
+        projection = f"SELECT lomacl::text FROM pg_largeobject_metadata WHERE oid={ACL_OID}"
+        text = db.execute(projection).fetchone()[0]
+        # Beyond both the inline cell and the ordinary 128-byte profile's
+        # 1,088-byte value formatting scratch.
+        assert len(text.encode()) > 1088, len(text)
+        item = db.execute(f"SELECT lomacl[1] FROM pg_largeobject_metadata WHERE oid={ACL_OID}").fetchone()[0]
+        assert item == f"{FINAL_OWNER}=r*w/{FINAL_OWNER}" and len(item.encode()) > 128
+        with db.cursor(binary=True) as binary:
+            assert binary.execute(projection).fetchone() == (text,)
+        db.execute(f"DECLARE acl_first CURSOR FOR {projection}")
+        db.execute(f"DECLARE acl_second CURSOR FOR {projection}")
+        db.execute("CLOSE acl_first")
+        assert db.execute("FETCH ALL FROM acl_second").fetchall() == [(text,)]
+        db.execute("CLOSE acl_second")
         for role in (OWNER, OUTSIDER):
             db.execute(f"SET ROLE {role}")
             expect_sqlstate(db, f"SELECT lo_get({ACL_OID})", "42501")
@@ -285,6 +305,7 @@ def verify_revoked_privileges(endpoint):
         assert lo_acl(db) == (FINAL_OWNER, {
             f"{FINAL_OWNER}=r*w/{FINAL_OWNER}", f"{DELEGATE}=r/{FINAL_OWNER}",
             f"{READER}=rw/{FINAL_OWNER}",
+            *(f"{role}=r/{FINAL_OWNER}" for role in EXTRA_READERS),
         }), lo_acl(db)
         db.execute(f"SET ROLE {SECOND}")
         expect_sqlstate(db, f"SELECT lo_get({ACL_OID})", "42501")

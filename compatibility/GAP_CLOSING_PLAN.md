@@ -101,9 +101,14 @@ descriptor paths. It verifies grants after a forced crash, then commits a
 cascading revoke and checks that recovery removes the dependent access.
 The same checks run after compact checkpoint recovery and in both stock
 archive directions on PG16 and PG18.
-Large ACL output still uses the build's inline value capacity. Increase
-`-Dtext-bytes` when the ACL entries exceed that budget.
 [ZPM large-object privileges and ownership](https://github.com/SB0LTD/zpm/pull/315)
+
+The stock fixture now uses full-length 63-byte role identifiers and an
+ACL over 1,088 bytes on the default source build. ZPM stages the typed
+ACL, its text cast and result copies in caller-backed storage. The fixture
+checks long values in plain and custom archives, array subscripts, binary
+TEXT output and cursor fetches. Query, result and response budgets still
+apply to the combined output.
 
 The scoped identity follow-up passed 28 checks on PG16 and PG18. It compares
 sequence names across schemas, starting values, catalog OIDs, and recovery
