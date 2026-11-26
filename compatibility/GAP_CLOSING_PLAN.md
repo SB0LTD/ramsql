@@ -94,6 +94,17 @@ shrink followed by regrowth across WAL reopen. It checks the physical page
 count as well as EOF and payload bytes.
 [ZPM large-object truncation](https://github.com/SB0LTD/zpm/pull/314)
 
+The privilege fixture now includes an owner transfer over existing grants,
+delegated SELECT with grant options, grantor identity in the archive,
+revocation with RESTRICT and CASCADE, and enforcement by the SQL and
+descriptor paths. It verifies grants after a forced crash, then commits a
+cascading revoke and checks that recovery removes the dependent access.
+The same checks run after compact checkpoint recovery and in both stock
+archive directions on PG16 and PG18.
+Large ACL output still uses the build's inline value capacity. Increase
+`-Dtext-bytes` when the ACL entries exceed that budget.
+[ZPM large-object privileges and ownership](https://github.com/SB0LTD/zpm/pull/315)
+
 The scoped identity follow-up passed 28 checks on PG16 and PG18. It compares
 sequence names across schemas, starting values, catalog OIDs, and recovery
 after reopening the WAL. It checks that dropping one schema leaves the other
