@@ -12,9 +12,10 @@ import psycopg
 
 from qualify_postgres import REFERENCES
 from test_auth import make_verifier
-from test_postgres_compat import docker, native_postgres, running_ramsql
+from test_postgres_compat import docker, native_postgres
 from test_postgres_large_object_archives import expect_sqlstate
-from test_stock_postgres_tools import Tools
+from test_persistence import DurableServer
+from test_stock_postgres_tools import Tools, ramsql_settings
 
 
 OID = 57000
@@ -117,10 +118,18 @@ def candidate(binary, root, wal, create):
         verifier.write_bytes(make_verifier(password.encode(), secrets.token_bytes(32)) + b"\n")
         verifier.chmod(0o600)
     previous = os.umask(0o077)
+    class FileServer(DurableServer):
+        def command(self):
+            command = super().command()
+            command.remove("--insecure-local")
+            return [*command, "--auth-user", "ramsql", "--auth-verifier-file", str(verifier)]
     try:
-        with running_ramsql(binary, extra_arguments=STORAGE, data_path=wal, create_data=create,
-                            auth=("ramsql", verifier, password)) as endpoint:
+        with FileServer(binary, wal, create=create, storage_options=STORAGE) as server:
+            endpoint = ramsql_settings(server)
+            endpoint["user"] = "ramsql"
+            endpoint["password"] = password
             yield endpoint
+        assert server.process.returncode != 0, "recovery fixture must kill the server"
     finally:
         os.umask(previous)
 
@@ -144,17 +153,27 @@ def main():
     files = Files(root / "candidate-files")
     with candidate(binary, root, wal, True) as endpoint:
         exercise(endpoint, files)
-    # The server is killed on leaving running_ramsql. The input disappears
+        too_large = files.put("too-large", b"x" * (257 * 2048))
+        with psycopg.connect(**endpoint) as db:
+            expect_sqlstate(db, "SELECT lo_import(%s,57003::oid)", "54000", (too_large,))
+            assert db.execute("SELECT COUNT(*) FROM pg_largeobject_metadata WHERE oid=57003").fetchone() == (0,)
+        verify_payload(endpoint)
+        pending = psycopg.connect(**dict(endpoint, autocommit=False))
+        pending.execute("SELECT lo_import(%s,57002::oid)", (files.path("source"),))
+    pending.close()
+    # The server is killed on leaving candidate. The input disappears
     # before restart, so recovery must use committed page bytes from the WAL.
     (files.root / "source").unlink()
     (files.root / "exported").unlink()
     with candidate(binary, root, wal, False) as endpoint:
         verify_payload(endpoint)
         with psycopg.connect(**endpoint) as db:
+            assert db.execute("SELECT COUNT(*) FROM pg_largeobject_metadata WHERE oid=57002").fetchone() == (0,)
             assert db.execute("SELECT lo_export(%s::oid,%s)", (OID, files.path("recovered"))).fetchone() == (1,)
         assert files.get("recovered") == PAYLOAD
         assert not (files.root / "exported").exists()
         checks["permissions_and_wal_recovery"] = True
+        checks["capacity_failure_and_uncommitted_import"] = True
         with native_postgres(image, psycopg, binary_directory=args.postgres_bin, work_directory=root) as (native, metadata):
             native_files = Files(root / "native-files", metadata.get("container_id"))
             exercise(native, native_files)
