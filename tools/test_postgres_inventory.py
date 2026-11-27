@@ -41,17 +41,18 @@ def oracle(audit):
         while True:
             try:
                 connection = audit.Pg(port, "postgres", "ramsql")
-                try:
-                    version = connection.query("SHOW server_version_num")
-                    if version["error"] or version["rows"] != [["180003"]]:
-                        raise RuntimeError(f"Wrong PostgreSQL inventory target: {version}")
-                finally:
-                    connection.close()
-                break
-            except OSError:
+            except (OSError, RuntimeError):
                 if time.monotonic() >= deadline:
                     raise RuntimeError("Frozen PostgreSQL oracle did not start") from None
                 time.sleep(0.15)
+                continue
+            try:
+                version = connection.query("SHOW server_version_num")
+                if version["error"] or version["rows"] != [["180003"]]:
+                    raise RuntimeError(f"Wrong PostgreSQL inventory target: {version}")
+            finally:
+                connection.close()
+            break
         yield port
     finally:
         subprocess.run(["docker", "rm", "--force", "--volumes", container],
