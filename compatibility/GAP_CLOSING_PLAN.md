@@ -12,6 +12,11 @@ reopen. Separate native databases keep format fixtures from contaminating each
 other. PG16/18 CI must qualify this later runtime before merge; this is not a
 claim of unlimited SQL or complete view checkpoint support.
 
+The real outbound plain restore also caught an INSTEAD OF view trigger being
+deparsed as AFTER. The candidate pin now preserves the timing flag, with full
+and pretty metadata/replay contracts. The same stock restore stays in the gate;
+the failure is not suppressed or replaced with a metadata-only assertion.
+
 The team merged routine namespaces and signatures, SECURITY DEFINER, nested SQL,
 updatable views and rule actions, extended types, regex/text-search/SQL-JSON and
 DDL/DML/search_path changes. ZPM main b87c97a6's refreshed scoreboard records
