@@ -1,0 +1,77 @@
+name: PostgreSQL inventory smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main, qual/postgres-routine-execute-20261127]
+    paths:
+      - build.sig.zon
+      - tools/test_postgres_inventory.py
+      - .github/workflows/conformance.yml
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TZ: UTC
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Read exact ZPM harness revision
+        id: zpm
+        run: |
+          python - <<'PY'
+          import os, pathlib, re
+          manifest = pathlib.Path('build.sig.zon').read_text()
+          revision, = re.findall(r'https://github[.]com/SB0LTD/zpm/archive/([0-9a-f]{40})[.]tar[.]gz', manifest)
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'revision={revision}\n')
+          PY
+      - uses: actions/checkout@v4
+        with:
+          repository: SB0LTD/zpm
+          ref: ${{ steps.zpm.outputs.revision }}
+          path: .sig-cache/inventory-zpm
+      - name: Test strict comparison harness
+        run: python -m unittest discover -s .sig-cache/inventory-zpm/tests/sql_conformance -p test_audit.py -v
+      - name: Install checksum-verified hosted Sig
+        shell: pwsh
+        run: |
+          $identity = python tools/release_matrix.py --compiler-host Linux/X64 | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $archive = Join-Path $env:RUNNER_TEMP $identity.asset
+          $destination = Join-Path $env:RUNNER_TEMP 'sig-inventory'
+          Invoke-WebRequest "https://github.com/SB0LTD/sig/releases/download/$($identity.tag)/$($identity.asset)" -OutFile $archive
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne $identity.sha256) { throw 'Sig checksum mismatch' }
+          New-Item -ItemType Directory -Path $destination | Out-Null
+          tar -xf $archive -C $destination
+          if ($LASTEXITCODE -ne 0) { throw 'Sig extraction failed' }
+          $compiler = Get-ChildItem -LiteralPath $destination -Recurse -File | Where-Object Name -eq sig | Select-Object -First 1
+          $library = Get-ChildItem -LiteralPath $destination -Recurse -Directory | Where-Object { $_.Name -eq 'lib' -and (Test-Path (Join-Path $_.FullName 'std/std.sig')) } | Select-Object -First 1
+          if ($null -eq $compiler -or $null -eq $library) { throw 'Compiler/matched library missing' }
+          "SIG=$($compiler.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "SIG_LIB_DIR=$($library.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Prepare pinned runtime and build support
+        run: python tools/prepare_sig_runtime.py --installed-lib "$SIG_LIB_DIR" --output "$RUNNER_TEMP/sig-runtime" --github-env "$GITHUB_ENV"
+      - name: Build exact candidate
+        run: '"$SIG" build -Doptimize=ReleaseSafe -j2'
+      - name: Pull frozen PostgreSQL 18.3 oracle
+        run: docker pull postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba
+      - name: Require every PostgreSQL smoke case
+        run: |
+          python tools/test_postgres_inventory.py --binary sig-out/bin/ramsql \
+            --harness .sig-cache/inventory-zpm/tests/sql_conformance \
+            --work-dir qualification/postgres-inventory
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: postgres-inventory-${{ github.run_id }}
+          path: qualification/**
+          if-no-files-found: warn
+          retention-days: 30
