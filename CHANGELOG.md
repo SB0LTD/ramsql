@@ -14,6 +14,8 @@ later binary.
   The expanded archive fixture exposed missing routine owner changes and rule
   definitions; the candidate adds those in ZPM, wide definition output and
   qualified trigger callbacks, and reduces wide-cell evaluation stack usage.
+  Default ACL construction also uses caller-owned storage for full 63-byte role
+  names; native outbound archives remain required qualification.
 
 - Add schema-scoped routine default privileges in pure Sig in ZPM, qualified with
   stock PG16/18 plain/custom archives in both directions, future routine ACL
