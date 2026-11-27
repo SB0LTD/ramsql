@@ -1,0 +1,23 @@
+Pins ZPM 0851954, which brings in B11 wave 4: closing PostgreSQL gaps. Gaps are now measured against the 755-record SQL-standard feature inventory. Of the 453 features PostgreSQL supports, 326 match native PostgreSQL 18.7, up from 263; 312 of 434 feature probes pass.
+
+- **Routines:**
+  - routines in any schema, OUT/INOUT/VARIADIC parameters, DEFAULT values, named arguments, SECURITY DEFINER, per-routine SET;
+  - set-returning routines in FROM, and inlined SQL bodies;
+  - SQL statements inside PL/pgSQL trigger functions and functions (SELECT INTO, PERFORM, DML), RETURN QUERY, and CALL from a function.
+- **Views and rules:** INSTEAD OF triggers, automatically updatable views, and rule actions (INSERT/UPDATE/DELETE). `restrict_nonsystem_relation_kind` also guards writes through views.
+- **Types:**
+  - the remaining array functions, element assignment, array aggregates as windows;
+  - multiranges, all geometric types, macaddr8 and inet arithmetic;
+  - the SQL/XML publishing functions;
+  - `void`, `pg_notify` and blocking advisory locks.
+- **Text and JSON:**
+  - the regexp_* functions, back references and BREs;
+  - English full-text search;
+  - non-ASCII case mapping (C.UTF-8);
+  - JSON_VALUE, JSON_QUERY, JSON_EXISTS, IS JSON and the SQL/JSON constructors.
+- **DDL and DML:**
+  - UPDATE/DELETE through inheritance and partitioned tables, with row movement; ATTACH/DETACH PARTITION; keys on partitioned tables;
+  - foreign keys checked at statement end; NOT VALID and NOT ENFORCED constraints;
+  - the identity and generated-column ALTERs;
+  - `search_path` over user schemas;
+  - row-security fixes.
