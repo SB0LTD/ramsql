@@ -16,6 +16,7 @@ import time
 
 from test_persistence import DurableServer
 from test_postgres_compat import docker
+from test_database_cluster import SMALL_PROFILE
 
 
 REFERENCE = ("postgres:18.3-bookworm@sha256:"
@@ -61,12 +62,16 @@ def oracle(audit):
 
 def run_group(audit, harness, binary, work, cases, outside=False):
     report_path = work / "audit.json"
+    cluster = any(case["id"] == "PG.DDL.DATABASE" for case in cases)
+    options = (*SMALL_PROFILE, "--workers", "1") if cluster else ("--workers", "1")
+    database = "postgres" if cluster else "ramsql"
+    prepared = 0 if cluster else 8
     with oracle(audit) as oracle_port:
-        with DurableServer(binary, work / "candidate.wal", create=True, prepared=8,
-                           storage_options=("--workers", "1")) as server:
+        with DurableServer(binary, work / "candidate.wal", create=True, prepared=prepared,
+                           storage_options=options) as server:
             command = [sys.executable, str(harness / "audit.py"),
                        "--oracle-port", str(oracle_port), "--candidate-port", str(server.port),
-                       "--user", "postgres", "--database", "ramsql", "--report", str(report_path)]
+                       "--user", "postgres", "--database", database, "--report", str(report_path)]
             if outside:
                 command.append("--outside-transaction")
             for case in cases:
@@ -79,6 +84,10 @@ def run_group(audit, harness, binary, work, cases, outside=False):
             if completed.returncode != 1 or not report_path.is_file():
                 raise RuntimeError(f"Inventory driver failed ({completed.returncode}): {completed.stderr[-2000:]}")
             report = json.loads(report_path.read_text())
+            report["candidate_profile"] = {"database_cluster": cluster,
+                                           "connection_database": database,
+                                           "max_prepared_transactions": prepared,
+                                           "storage_options": list(options)}
             found = report["cases"]
             if len(found) != len(cases) or {c["id"] for c in found} != {c["id"] for c in cases}:
                 raise RuntimeError("Inventory report omitted or duplicated selected cases")
@@ -120,7 +129,8 @@ def main():
                 raise RuntimeError("Manifest changed during qualification")
             summary["cases"] += report["cases"]
             summary["groups"].append({"name": name, "oracle_version": report["oracle_version"],
-                                      "counts": report["counts"]})
+                                      "counts": report["counts"],
+                                      "candidate_profile": report["candidate_profile"]})
     except Exception as error:
         summary["harness_error"] = str(error)
     summary["counts"] = dict(Counter(c["status"] for c in summary["cases"]))
