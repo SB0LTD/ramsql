@@ -10,6 +10,13 @@ their recorded probes, 4 partial and 123 open (302 out of scope). These are fini
 probe results. Full PostgreSQL parity and the unchanged 2x production benchmark
 gate remain open.
 
+Native privilege verification also found view ownership bypassing namespace
+CREATE checks. The candidate now uses the existing namespace authorization hook.
+The stock suite gains a 49th check: public-view ownership alone is rejected with
+42501, replacement in an owned private schema succeeds, and WAL reopen retains
+both definitions and ownership. Granular schema privilege GRANT/REVOKE remains
+open; the supported owned-schema case is not full namespace ACL conformance.
+
 The view-replacement candidate is being integrated with that main before pinning
 it here. Replacement must retain the new trigger/rule OID links; a cross-feature
 contract checks their real effects after replacement. The standalone replacement

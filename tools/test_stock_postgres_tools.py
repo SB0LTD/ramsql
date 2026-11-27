@@ -300,6 +300,7 @@ def main():
         ("scoped_sequence_archives", lambda db: check_sequence_archives(binary, tools, db)),
         ("stored_generated_archives", lambda db: check_generated_archives(binary, tools, db)),
         ("view_archives", lambda db: check_view_archives(binary, tools, db)),
+        ("view_replacement_schema_privileges", lambda db: check_view_schema_privileges(binary, tools, db)),
         ("view_column_name_archives", lambda db: check_view_column_name_archives(binary, tools, db)),
         ("materialized_view_archives", lambda db: check_materialized_view_archives(binary, tools, db)),
         ("composite_primary_key_archives", lambda db: check_composite_key_archives(binary, tools, db)),
@@ -1694,6 +1695,56 @@ def verify_view_return_rules(db, schema, names, *, unpopulated=()):
                     view = db.execute(psycopg.sql.SQL("SELECT * FROM {}").format(target))
                     assert sorted(actual, key=repr) == sorted(view.fetchall(), key=repr), definition
                     assert columns == [(column.name, column.type_code) for column in view.description]
+
+
+def check_view_schema_privileges(binary, tools, native):
+    def populate(endpoint):
+        with psycopg.connect(**endpoint) as db:
+            db.execute("CREATE ROLE view_schema_owner")
+            db.execute("CREATE TABLE view_schema_source(id int)")
+            db.execute("INSERT INTO view_schema_source VALUES (7)")
+            db.execute("GRANT SELECT ON view_schema_source TO view_schema_owner")
+            db.execute("CREATE VIEW view_public_owned AS SELECT id FROM public.view_schema_source")
+            db.execute("ALTER TABLE view_public_owned OWNER TO view_schema_owner")
+            with db.transaction():
+                db.execute("SET LOCAL ROLE view_schema_owner")
+                assert db.execute("SELECT current_user").fetchone() == ("view_schema_owner",)
+                try:
+                    with db.transaction():
+                        db.execute("CREATE OR REPLACE VIEW public.view_public_owned AS "
+                                   "SELECT id+1 AS id FROM public.view_schema_source")
+                except psycopg.Error as error:
+                    assert error.sqlstate == "42501", error
+                else:
+                    raise AssertionError("view ownership bypassed schema CREATE authority")
+                assert db.execute("SELECT id FROM public.view_public_owned").fetchall() == [(7,)]
+            db.execute("CREATE SCHEMA view_owner_ns AUTHORIZATION view_schema_owner")
+            db.execute("CREATE VIEW view_owner_ns.owned AS SELECT id FROM public.view_schema_source")
+            db.execute("ALTER TABLE view_owner_ns.owned OWNER TO view_schema_owner")
+            with db.transaction():
+                db.execute("SET LOCAL ROLE view_schema_owner")
+                assert db.execute("SELECT current_user").fetchone() == ("view_schema_owner",)
+                db.execute("CREATE OR REPLACE VIEW view_owner_ns.owned AS "
+                           "SELECT id+10 AS id FROM public.view_schema_source")
+                assert db.execute("SELECT id FROM view_owner_ns.owned").fetchall() == [(17,)]
+
+    def verify(endpoint):
+        with psycopg.connect(**endpoint) as db:
+            assert db.execute("SELECT id FROM public.view_public_owned").fetchall() == [(7,)]
+            assert db.execute("SELECT id FROM view_owner_ns.owned").fetchall() == [(17,)]
+            assert db.execute("SELECT pg_get_userbyid(relowner) FROM pg_class "
+                              "WHERE oid='view_owner_ns.owned'::regclass").fetchone() == ("view_schema_owner",)
+
+    populate(native)
+    verify(native)
+    wal = tools.root / "view-schema-privileges.wal"
+    storage = ("--workers", "1")
+    with DurableServer(binary, wal, create=True, storage_options=storage) as server:
+        endpoint = ramsql_settings(server)
+        populate(endpoint)
+        verify(endpoint)
+    with DurableServer(binary, wal, storage_options=storage) as reopened:
+        verify(ramsql_settings(reopened))
 
 
 def check_view_archives(binary, tools, native):
