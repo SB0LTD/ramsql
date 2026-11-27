@@ -1006,6 +1006,11 @@ fn pollInterrupts(_: ?*anyopaque, _: u64) void {
 // state 1, so that state alone cannot identify an acceptor-owned client.
 const TlsAdmissions = [capacity]?i64;
 
+fn traceTlsAdmission(message: []const u8) void {
+    sig.io.File.stderr().writeStreamingAll(.{}, message) catch {};
+    sig.io.File.stderr().writeStreamingAll(.{}, "\n") catch {};
+}
+
 fn acceptConnections(listener: tcp.Socket, protocol: Protocol, max_clients: usize, limit: usize, admissions: ?*TlsAdmissions) !void {
     for (0..limit) |_| {
         const socket = tcp.accept(listener) catch break orelse break;
@@ -1019,6 +1024,14 @@ fn acceptConnections(listener: tcp.Socket, protocol: Protocol, max_clients: usiz
             break;
         };
         const slot = free orelse {
+            if (admissions) |pending| {
+                var states: [capacity]u8 = undefined;
+                for (clients[0..max_clients], pending[0..max_clients], states[0..max_clients]) |*candidate, deadline, *state| {
+                    state.* = if (deadline != null) 'h' else @as(u8, @intCast(candidate.state.load(.acquire))) + '0';
+                }
+                traceTlsAdmission("TLS admission rejected because no slot was free");
+                traceTlsAdmission(states[0..max_clients]);
+            }
             // A saturated TLS listener closes without plaintext PG or TLS
             // negotiation. The plaintext overflow queue must never see it.
             if (tls_slots.len != 0 or protocol != .postgres or !queueOverflowCancel(socket)) tcp.close(socket);
@@ -1325,7 +1338,8 @@ fn runTlsAcceptor(listener: tcp.Socket, max_clients: usize) !void {
                 deadline.* = null;
                 continue;
             }
-            driveTlsAdmission(client, slot, deadline) catch {
+            driveTlsAdmission(client, slot, deadline) catch |err| {
+                traceTlsAdmission(@errorName(err));
                 client.close();
                 deadline.* = null;
                 continue;
@@ -1342,7 +1356,10 @@ fn runTlsAcceptor(listener: tcp.Socket, max_clients: usize) !void {
             if (deadline.* == null) continue;
             const client = &clients[slot];
             if (writable[slot]) client.flush() catch client.close();
-            if (client.socket != tcp.invalid_socket and readable[slot]) client.receive(false) catch client.close();
+            if (client.socket != tcp.invalid_socket and readable[slot]) client.receive(false) catch |err| {
+                traceTlsAdmission(@errorName(err));
+                client.close();
+            };
             if (client.socket == tcp.invalid_socket) deadline.* = null;
         }
     }
