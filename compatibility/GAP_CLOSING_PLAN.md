@@ -1,5 +1,23 @@
 # RAMSQL gap-closing plan
 
+## Wave-4 integration — qualification pending, 27 November 2026
+
+The team merged routine namespaces and signatures, SECURITY DEFINER, nested SQL,
+updatable views and rule actions, extended types, regex/text-search/SQL-JSON and
+DDL/DML/search_path changes. ZPM main b87c97a6's refreshed scoreboard records
+312/434 matching PostgreSQL 18.7 probes, with 326 in-scope feature records passing
+their recorded probes, 4 partial and 123 open (302 out of scope). These are finite
+probe results. Full PostgreSQL parity and the unchanged 2x production benchmark
+gate remain open.
+
+The view-replacement candidate is being integrated with that main before pinning
+it here. Replacement must retain the new trigger/rule OID links; a cross-feature
+contract checks their real effects after replacement. The standalone replacement
+preview already passed its full release matrix and published 29 assets in run
+46046582945. Fresh CI must qualify the combined runtime; the standalone preview
+does not prove these later changes. The ranked ZPM SQL_FEATURE_STATUS.md is now
+the current feature work list; older dated absence claims below are historical.
+
 ## View replacement — candidate, 27 November 2026
 
 The next pure-Sig ZPM slice adds CREATE OR REPLACE VIEW using existing
