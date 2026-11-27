@@ -210,6 +210,86 @@ def restore_roles(endpoint):
         db.execute("CREATE ROLE file_guest")
 
 
+USER_ROUTINES = "public.user_exec(integer),public.user_proc()"
+
+
+def routine_execute_access(endpoint):
+    with psycopg.connect(**dict(endpoint, autocommit=True)) as db:
+        db.execute("CREATE FUNCTION public.user_exec(x integer) RETURNS integer LANGUAGE SQL AS 'SELECT x+9'")
+        db.execute("CREATE PROCEDURE public.user_proc() LANGUAGE SQL AS 'SELECT 1'")
+        with db.transaction(force_rollback=True):
+            db.execute("SET TRANSACTION READ ONLY")
+            assert db.execute("SELECT user_exec(1)").fetchone() == (10,)
+            db.execute("CALL user_proc()")
+            expect_sqlstate(db, f"GRANT EXECUTE ON ROUTINE {USER_ROUTINES} TO list_peer", "25006")
+            expect_sqlstate(db, f"REVOKE EXECUTE ON ROUTINE {USER_ROUTINES} FROM PUBLIC", "25006")
+        db.execute(f"REVOKE EXECUTE ON ROUTINE {USER_ROUTINES} FROM PUBLIC")
+        db.execute(f"GRANT EXECUTE ON ROUTINE {USER_ROUTINES} TO list_actor WITH GRANT OPTION")
+        db.execute("SET ROLE list_actor")
+        db.execute("GRANT EXECUTE ON FUNCTION public.user_exec(integer) TO PUBLIC")
+        db.execute("RESET ROLE")
+        db.execute("REVOKE EXECUTE ON FUNCTION public.user_exec(integer) FROM PUBLIC")
+        db.execute("SET ROLE list_peer")
+        assert db.execute("SELECT user_exec(1)").fetchone() == (10,)
+        db.execute("RESET ROLE")
+        db.execute("SET ROLE list_actor")
+        db.execute("REVOKE EXECUTE ON FUNCTION public.user_exec(integer) FROM PUBLIC")
+        db.execute(f"GRANT EXECUTE ON ROUTINE {USER_ROUTINES} TO list_leaf WITH GRANT OPTION GRANTED BY CURRENT_ROLE")
+        db.execute("RESET ROLE")
+        db.execute("SET ROLE list_leaf")
+        db.execute(f"GRANT EXECUTE ON ROUTINE {USER_ROUTINES} TO list_revoked")
+        expect_sqlstate(db, "GRANT EXECUTE ON FUNCTION user_exec(integer) TO list_actor WITH GRANT OPTION", "0LP01")
+        db.execute("RESET ROLE")
+        expect_sqlstate(db, "REVOKE GRANT OPTION FOR EXECUTE ON FUNCTION user_exec(integer) FROM list_actor RESTRICT", "2BP01")
+        db.execute("GRANT EXECUTE ON FUNCTION user_exec(integer) TO list_revoked")
+        db.execute("REVOKE GRANT OPTION FOR EXECUTE ON FUNCTION user_exec(integer) FROM list_actor CASCADE")
+        db.execute("SET ROLE list_revoked")
+        assert db.execute("SELECT user_exec(1)").fetchone() == (10,)
+        db.execute("RESET ROLE")
+        db.execute("SET ROLE list_leaf")
+        expect_sqlstate(db, "SELECT user_exec(1)", "42501")
+        db.execute("RESET ROLE")
+        db.execute("SET ROLE list_actor")
+        db.execute("GRANT EXECUTE ON FUNCTION user_exec(integer) TO list_peer")
+        db.execute("RESET ROLE")
+        db.execute("SET ROLE list_peer")
+        expect_sqlstate(db, "SELECT user_exec(1)", "42501")
+        db.execute("RESET ROLE")
+        db.execute("GRANT EXECUTE ON FUNCTION user_exec(integer) TO list_actor WITH GRANT OPTION")
+        db.execute("SET ROLE list_actor")
+        db.execute("GRANT EXECUTE ON FUNCTION user_exec(integer) TO list_leaf WITH GRANT OPTION")
+        db.execute("RESET ROLE")
+        db.execute("SET ROLE list_leaf")
+        db.execute("GRANT EXECUTE ON FUNCTION user_exec(integer) TO list_revoked")
+        db.execute("RESET ROLE")
+        with db.transaction(force_rollback=True):
+            db.execute(f"REVOKE EXECUTE ON ROUTINE {USER_ROUTINES} FROM list_actor CASCADE")
+            db.execute("SET ROLE list_leaf")
+            expect_sqlstate(db, "SELECT user_exec(1)", "42501")
+            expect_sqlstate(db, "CALL user_proc()", "42501")
+    verify_routine_access(endpoint)
+
+
+def verify_routine_access(endpoint):
+    with psycopg.connect(**dict(endpoint, autocommit=True)) as db:
+        for name in ("user_exec", "user_proc"):
+            acl = db.execute("SELECT proacl FROM pg_proc WHERE proname=%s", (name,)).fetchone()[0]
+            assert "list_leaf=X*/list_actor" in acl, (name, acl)
+            assert "list_revoked=X/list_leaf" in acl, (name, acl)
+        db.execute("SET ROLE list_leaf")
+        assert db.execute("SELECT user_exec(%s::integer)", (1,)).fetchone() == (10,)
+        db.execute("CALL user_proc()")
+        db.execute("RESET ROLE")
+        db.execute("SET ROLE list_revoked")
+        assert db.execute("SELECT user_exec(2)").fetchone() == (11,)
+        db.execute("CALL user_proc()")
+        db.execute("RESET ROLE")
+        db.execute("SET ROLE list_peer")
+        expect_sqlstate(db, "SELECT user_exec(1)", "42501")
+        expect_sqlstate(db, "CALL user_proc()", "42501")
+        db.execute("RESET ROLE")
+
+
 def exercise(endpoint, files):
     try:
         _exercise(endpoint, files)
@@ -313,6 +393,7 @@ def main():
         exercise(endpoint, files)
         delegated_access(endpoint, files)
         execute_lists(endpoint, files)
+        routine_execute_access(endpoint)
         too_large = files.put("too-large", b"x" * (257 * 2048))
         with psycopg.connect(**endpoint) as db:
             expect_sqlstate(db, "SELECT lo_import(%s,57003::oid)", "54000", (too_large,))
@@ -323,6 +404,7 @@ def main():
         pending.execute("REVOKE EXECUTE ON FUNCTION lo_export(oid,text) FROM file_leaf")
         pending.execute(f"REVOKE EXECUTE ON FUNCTION {LIST_FUNCTIONS} FROM list_actor GRANTED BY CURRENT_USER CASCADE")
         pending.execute(f"GRANT EXECUTE ON FUNCTION {LIST_FUNCTIONS} TO list_peer,list_revoked GRANTED BY SESSION_USER")
+        pending.execute(f"REVOKE EXECUTE ON ROUTINE {USER_ROUTINES} FROM list_actor CASCADE")
     pending.close()
     # The server is killed on leaving candidate. The input disappears
     # before restart, so recovery must use committed page bytes from the WAL.
@@ -332,6 +414,8 @@ def main():
         verify_payload(endpoint)
         verify_delegation(endpoint, files)
         verify_execute_lists(endpoint, files)
+        verify_routine_access(endpoint)
+        checks["user_routine_execute_acl_and_wal_recovery"] = True
         checks["execute_lists_granted_by_and_atomic_wal_recovery"] = True
         checks["delegated_execute_and_revocation_wal_recovery"] = True
         with psycopg.connect(**endpoint) as db:
@@ -346,6 +430,7 @@ def main():
             exercise(native, native_files)
             delegated_access(native, native_files)
             execute_lists(native, native_files)
+            routine_execute_access(native)
             checks["native_file_semantics"] = True
             for label, fmt, suffix in (("plain", "p", "sql"), ("custom", "c", "dump")):
                 tools.run(f"native-{label}-dump", "pg_dump", native, "--no-owner", f"--format={fmt}", f"--file=native-{label}.{suffix}")
@@ -359,6 +444,7 @@ def main():
                     restored_files = Files(root / f"inbound-{label}-files")
                     verify_delegation(dest, restored_files)
                     verify_execute_lists(dest, restored_files)
+                    verify_routine_access(dest)
                 checks[f"native_to_ramsql_{label}"] = True
                 tools.run(f"ramsql-{label}-dump", "pg_dump", endpoint, "--no-owner", f"--format={fmt}", f"--file=ramsql-{label}.{suffix}")
                 with native_postgres(image, psycopg, binary_directory=args.postgres_bin, work_directory=root) as (dest, dest_metadata):
@@ -371,6 +457,7 @@ def main():
                     restored_files = Files(root / f"outbound-{label}-files", dest_metadata.get("container_id"))
                     verify_delegation(dest, restored_files)
                     verify_execute_lists(dest, restored_files)
+                    verify_routine_access(dest)
                 checks[f"ramsql_to_native_{label}"] = True
     report = {"passed": True, "reference": args.reference, "binary_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(), "checks": checks}
     (root / "large-object-files.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
