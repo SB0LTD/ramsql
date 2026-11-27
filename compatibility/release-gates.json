@@ -17,11 +17,13 @@
       "routine_delegation_stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45924960970",
       "public_routine_stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45928135880",
       "routine_defaults_stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/46001792289",
-      "postgres_inventory_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/46014847242",
+      "postgres_inventory_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/46033234852",
       "requirement": "Complete the PostgreSQL feature inventory, upstream and application regressions, and stock tooling round trips.",
-      "qualified": "All 106 PostgreSQL smoke programs match frozen PostgreSQL 18.3 using the strict comparator and documented per-scope profiles. PG16 and PG18 each pass 48 stock tooling, 10 large-object and 13 file/routine privilege/WAL checks, including plain/custom archives, global/per-schema defaults, routine ownership/delegation, rule/trigger effects, namespace deletion, concurrent default visibility and rollback/recovery. Reports record their separately compiled binary hashes. The 755-record upstream inventory, separate native dialect lanes and broader application/production qualification remain open.",
+      "qualified": "All 106 PostgreSQL smoke programs match frozen PostgreSQL 18.3 using the strict comparator and documented per-scope profiles. PG16 and PG18 each pass 48 stock tooling, 10 large-object and 13 file/routine privilege/WAL checks, including plain/custom archives, global/per-schema defaults, routine ownership/delegation, rule/trigger effects, namespace deletion, concurrent default visibility and rollback/recovery. Reports record their separately compiled binary hashes. The 755-record upstream inventory, separate native dialect lanes and broader application/production qualification remain open. Implicit view/materialized-view return rules render their actual SELECT; stock fixtures execute pretty/non-pretty actions under empty search_path and compare rows and column names/type OIDs before dump and after restore/reopen.",
       "routine_schema_defaults_stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/46005923853",
-      "routine_images_stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/46014842554"
+      "routine_images_stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/46014842554",
+      "view_return_rules_stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/46033230142",
+      "view_return_rules_contract_evidence": "https://github.com/SB0LTD/zpm/actions/runs/46036894578"
     },
     {
       "id": "implemented_subset_durability",
@@ -76,7 +78,8 @@
       "status": "partial",
       "evidence": "https://github.com/SB0LTD/ramsql/actions/runs/44655295188",
       "requirement": "Service lifecycle, deployment monitoring, general migrations and native SB0 hosted-feature parity.",
-      "qualified": "Six hosted packages, native SB0X and SB0K boot qualification, PostgreSQL cancellation and documented checkpoint recovery."
+      "qualified": "Six hosted packages, native SB0X and SB0K boot qualification, PostgreSQL cancellation and documented checkpoint recovery.",
+      "latest_full_matrix_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/46034039560"
     },
     {
       "id": "storage_power_failure",
@@ -85,5 +88,6 @@
       "requirement": "Physical power interruption, directory synchronization faults and storage device fault qualification.",
       "qualified": "Process termination around manifest publication and WAL handoff, and an injected selector rename failure."
     }
-  ]
+  ],
+  "latest_qualified_prerelease": "https://github.com/SB0LTD/ramsql/releases/tag/ci-v0.3.0-beta.3-run.46034039560.1"
 }

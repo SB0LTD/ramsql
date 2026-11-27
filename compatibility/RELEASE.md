@@ -1,9 +1,16 @@
-# RAMSQL 0.3.0-beta.1
+# RAMSQL 0.3.0-beta.3
 
 A scoped prerelease for controlled beta testing, benchmarking and review.
 PostgreSQL remains the default. The real shared SQL/MVCC/store/WAL/SCRAM paths
 are implemented in allocator-free Sig; MySQL/TDS adapters remain experimental
 over that subset. This is not production PostgreSQL or complete SQL dialect parity.
+
+The [qualified 27 November CI preview](https://github.com/SB0LTD/ramsql/releases/tag/ci-v0.3.0-beta.3-run.46034039560.1)
+publishes 29 assets after the full hosted/SB0 matrix. Stock PG16/18 archive round
+trips pass both directions, including real view/materialized-view return-rule
+SELECT actions. The strict PostgreSQL smoke inventory is 106/106. Debug and
+ReleaseSafe routine contracts pass on a 4 MiB stack in CI; broader SQL and
+production qualification and the complete 2x benchmark gate remain open.
 
 ## What to try
 

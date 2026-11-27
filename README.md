@@ -15,6 +15,11 @@ the shared SQL subset. Supporting all common SQL dialects is the
 
 ## Quick start
 
+[Qualified CI preview, 27 November 2026](https://github.com/SB0LTD/ramsql/releases/tag/ci-v0.3.0-beta.3-run.46034039560.1):
+29 assets from the complete hosted/SB0 matrix, including stock PG16/18 archive
+round trips. It adds real view/materialized-view return-rule definitions and
+retains the documented compatibility and production qualification gaps.
+
 Download a hosted archive from [Releases](https://github.com/SB0LTD/ramsql/releases)
 and inspect its bundled provenance and `--capabilities` output. Each CI
 prerelease identifies its exact source and qualified runtime features.

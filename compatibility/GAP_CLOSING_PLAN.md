@@ -1,13 +1,26 @@
 # RAMSQL gap-closing plan
 
-## View return-rule definitions — candidate, 27 November 2026
+## View return-rule definitions — qualified, 27 November 2026
 
 ZPM now deparses the implicit `_RETURN` rows that it already exposes for views and
 materialized views. The red contract returned NULL before the change. Definitions
 use the real stored SELECT, declared column aliases, quoted names and caller-owned
 wide output. Stock fixtures execute both pretty/non-pretty SELECT actions under an
 empty search_path and compare rows and column names/types before dump and after
-restore/reopen. PG16/18 qualification is pending; no merge or release claim yet.
+restore/reopen. [PG16/18 qualification](https://github.com/SB0LTD/ramsql/actions/runs/46033230142)
+passes 48 tooling, 10 large-object and 13 file/routine checks per lane in both
+archive directions. The [strict inventory](https://github.com/SB0LTD/ramsql/actions/runs/46033234852)
+remains 106/106. Debug/ReleaseSafe routine contracts pass 1,096 assertions / 340
+replayed records, including 4 MiB Windows diagnostics and the stricter Linux CI
+stack gate. A preexisting malformed-WAL test now reuses caller-owned fixtures,
+reducing its frame from 4,698,600 to 114,168 bytes without removing assertions.
+The complete [source workflow](https://github.com/SB0LTD/zpm/actions/runs/46036894578)
+and [full release matrix](https://github.com/SB0LTD/ramsql/actions/runs/46034039560)
+pass. The latter published a [29-asset prerelease](https://github.com/SB0LTD/ramsql/releases/tag/ci-v0.3.0-beta.3-run.46034039560.1),
+including every hosted artifact, native SB0X/SB0K, all native OS lanes, COPY and
+the exact Linux PostgreSQL qualifications/benchmark. The broader ZPM platform
+audit is separate. This semantic slice does not close full PostgreSQL parity or
+the overall production/performance gates.
 Arbitrary rule actions, CREATE OR REPLACE VIEW and ALTER VIEW column rename remain
 open, alongside the named-routine namespace and broader catalog-image work below.
 
