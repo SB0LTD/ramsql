@@ -1748,6 +1748,14 @@ def check_view_schema_privileges(binary, tools, native):
 
 
 def check_view_archives(binary, tools, native):
+    def verify_hooks(db, schema):
+        db.execute(f"UPDATE {schema}.a_positive SET amount=13 WHERE id=1")
+        assert db.execute(f"SELECT amount FROM {schema}.z_source WHERE id=1").fetchall() == [(13,)]
+        assert db.execute(f"SELECT amount FROM {schema}.b_amounts").fetchall() == [(26,)]
+        db.execute(f"DELETE FROM {schema}.a_positive WHERE id=1")
+        assert db.execute(f"SELECT amount FROM {schema}.z_source WHERE id=1").fetchall() == [(13,)]
+        db.execute(f"UPDATE {schema}.z_source SET amount=20 WHERE id=1")
+
     def populate(endpoint, schema):
         public_table = f"{schema}_public"
         with psycopg.connect(**endpoint) as db:
@@ -1760,6 +1768,15 @@ def check_view_archives(binary, tools, native):
             db.execute(f"CREATE OR REPLACE VIEW {schema}.a_positive AS SELECT id,amount*2 AS amount FROM {schema}.z_source WHERE amount > 0")
             assert db.execute("SELECT %s::regclass::oid", (f"{schema}.a_positive",)).fetchone()[0] == oid
             assert db.execute(f"SELECT amount FROM {schema}.b_amounts").fetchall() == [(40,)]
+            db.execute(f"CREATE FUNCTION public.{schema}_view_update() RETURNS trigger LANGUAGE plpgsql "
+                       f"AS $$BEGIN UPDATE {schema}.z_source SET amount=NEW.amount WHERE id=OLD.id; RETURN NEW; END$$")
+            db.execute(f"CREATE TRIGGER keep_view_hook INSTEAD OF UPDATE ON {schema}.a_positive "
+                       f"FOR EACH ROW EXECUTE FUNCTION public.{schema}_view_update()")
+            db.execute(f"CREATE RULE keep_view_rows AS ON DELETE TO {schema}.a_positive DO INSTEAD NOTHING")
+            # Replacing the SELECT must retain the hook/rule OID links too.
+            db.execute(f"CREATE OR REPLACE VIEW {schema}.a_positive AS SELECT id,amount*2 AS amount "
+                       f"FROM {schema}.z_source WHERE amount > 0")
+            verify_hooks(db, schema)
             for select in ("id", "id,amount AS renamed", "id,amount::bigint AS amount"):
                 try:
                     with db.transaction():
@@ -1790,6 +1807,7 @@ def check_view_archives(binary, tools, native):
             assert db.execute(f"SELECT amount FROM {schema}.b_amounts").fetchall() == [(40,)]
             assert db.execute(f"SELECT id FROM {schema}.c_public").fetchall() == [(8,)]
             assert db.execute(f"SELECT id FROM {schema}.d_cte").fetchall() == [(6,)]
+            verify_hooks(db, schema)
             verify_view_return_rules(db, schema, ("a_positive", "b_amounts", "c_public", "d_cte"))
 
     check_schema_archives(binary, tools, native, "view", populate, verify)
