@@ -6,6 +6,16 @@ later binary.
 
 ## Unreleased
 
+- Qualify all 106 PostgreSQL inventory smoke programs against frozen PG18.3
+  in CI, retaining the unchanged strict comparator. Run database lifecycle in
+  the documented cluster profile and record every scope's actual configuration.
+  Full feature-inventory closure and current native MySQL/T-SQL lanes remain open.
+- Support delegated EXECUTE ACLs for SQL functions/procedures, ON ROUTINE
+  lists, public-qualified expression/CALL/DROP, empty-path lookup rules and
+  immutable routine window inputs in pure Sig in ZPM. Verify qualified functions,
+  aggregate/window composition, volatile sequence arguments, privileges and WAL
+  recovery through stock PG16/18 archives in both directions.
+
 - Support function/grantee lists and `GRANTED BY` current-user validation
   for EXECUTE grants in ZPM. Qualify duplicate and quoted recipients,
   atomic list revocation, independent delegation chains, WAL recovery and
