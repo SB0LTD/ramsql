@@ -217,10 +217,24 @@ def routine_execute_access(endpoint):
     with psycopg.connect(**dict(endpoint, autocommit=True)) as db:
         db.execute("CREATE FUNCTION public.user_exec(x integer) RETURNS integer LANGUAGE SQL AS 'SELECT x+9'")
         db.execute("CREATE PROCEDURE public.user_proc() LANGUAGE SQL AS 'SELECT 1'")
+        db.execute("CREATE FUNCTION public.abs(x integer) RETURNS integer LANGUAGE SQL AS 'SELECT x+10'")
+        db.execute("CREATE FUNCTION public.count(x integer) RETURNS integer LANGUAGE SQL AS 'SELECT x+20'")
+        db.execute('CREATE FUNCTION public."MiX"(x integer) RETURNS integer LANGUAGE SQL AS \'SELECT x+30\'')
+        assert db.execute('SELECT public.abs(-1),pg_catalog.abs(-1),abs(-1),public.count(5),public."MiX"(1)').fetchone() == (9, 1, 1, 25, 31)
+        db.execute("SELECT pg_catalog.set_config('search_path','',false)")
+        assert db.execute('SELECT public.abs(1),public.count(1),public."MiX"(1)').fetchone() == (11, 21, 31)
+        db.execute("CALL public.user_proc()")
+        expect_sqlstate(db, "CALL user_proc()", "42883")
+        expect_sqlstate(db, "DROP PROCEDURE user_proc()", "42883")
+        expect_sqlstate(db, 'GRANT EXECUTE ON FUNCTION "MiX"(integer) TO PUBLIC', "42883")
+        expect_sqlstate(db, "CREATE FUNCTION no_path() RETURNS integer LANGUAGE SQL AS 'SELECT 1'", "3F000")
+        db.execute('DROP FUNCTION public."MiX"(integer)')
+        db.execute('DROP FUNCTION IF EXISTS public."MiX"(integer)')
+        db.execute("RESET search_path")
         with db.transaction(force_rollback=True):
             db.execute("SET TRANSACTION READ ONLY")
             assert db.execute("SELECT user_exec(1)").fetchone() == (10,)
-            db.execute("CALL user_proc()")
+            db.execute("CALL public.user_proc()")
             expect_sqlstate(db, f"GRANT EXECUTE ON ROUTINE {USER_ROUTINES} TO list_peer", "25006")
             expect_sqlstate(db, f"REVOKE EXECUTE ON ROUTINE {USER_ROUTINES} FROM PUBLIC", "25006")
         db.execute(f"REVOKE EXECUTE ON ROUTINE {USER_ROUTINES} FROM PUBLIC")
@@ -272,17 +286,18 @@ def routine_execute_access(endpoint):
 
 def verify_routine_access(endpoint):
     with psycopg.connect(**dict(endpoint, autocommit=True)) as db:
+        assert db.execute("SELECT public.abs(%s::integer),public.count(%s::integer),pg_catalog.abs(-1)", (-1, 5)).fetchone() == (9, 25, 1)
         for name in ("user_exec", "user_proc"):
             acl = db.execute("SELECT proacl FROM pg_proc WHERE proname=%s", (name,)).fetchone()[0]
             assert "list_leaf=X*/list_actor" in acl, (name, acl)
             assert "list_revoked=X/list_leaf" in acl, (name, acl)
         db.execute("SET ROLE list_leaf")
-        assert db.execute("SELECT user_exec(%s::integer)", (1,)).fetchone() == (10,)
-        db.execute("CALL user_proc()")
+        assert db.execute("SELECT public.user_exec(%s::integer)", (1,)).fetchone() == (10,)
+        db.execute("CALL public.user_proc()")
         db.execute("RESET ROLE")
         db.execute("SET ROLE list_revoked")
         assert db.execute("SELECT user_exec(2)").fetchone() == (11,)
-        db.execute("CALL user_proc()")
+        db.execute("CALL public.user_proc()")
         db.execute("RESET ROLE")
         db.execute("SET ROLE list_peer")
         expect_sqlstate(db, "SELECT user_exec(1)", "42501")
@@ -416,6 +431,7 @@ def main():
         verify_execute_lists(endpoint, files)
         verify_routine_access(endpoint)
         checks["user_routine_execute_acl_and_wal_recovery"] = True
+        checks["public_qualified_routines_and_wal_recovery"] = True
         checks["execute_lists_granted_by_and_atomic_wal_recovery"] = True
         checks["delegated_execute_and_revocation_wal_recovery"] = True
         with psycopg.connect(**endpoint) as db:

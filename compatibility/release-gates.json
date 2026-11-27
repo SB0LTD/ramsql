@@ -14,8 +14,9 @@
       "writable_template_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45450269339",
       "temporal_routine_stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45507624271",
       "execute_lists_stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45900767124",
+      "routine_delegation_stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45924960970",
       "requirement": "Complete the PostgreSQL feature inventory, upstream and application regressions, and stock tooling round trips.",
-      "qualified": "The EXECUTE-list candidate passed 48 stock tooling checks, 10 large-object archive/checkpoint checks and 9 file/privilege/WAL checks in each PG16 and PG18 lane, including plain/custom archives in both directions. Role and large-object functionality has finite qualified coverage; the wider feature inventory and application regression suite remain open."
+      "qualified": "The routine-delegation candidate passed 48 stock tooling checks, 10 large-object archive/checkpoint checks and 10 file/routine privilege/WAL checks in each PG16 and PG18 lane, including plain/custom archives in both directions. Role, routine and large-object functionality has finite qualified coverage; the wider feature inventory and application regression suite remain open."
     },
     {
       "id": "implemented_subset_durability",
