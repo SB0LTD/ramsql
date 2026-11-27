@@ -438,6 +438,43 @@ def verify(endpoint, *, defaults=False):
         verify_default_acl(endpoint)
 
 
+def seed_routine_images(endpoint):
+    with psycopg.connect(**endpoint) as db:
+        db.execute("CREATE TABLE checkpoint_rows(id integer PRIMARY KEY,v integer)")
+        db.execute("ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC")
+        db.execute(f"ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO {READER} WITH GRANT OPTION")
+        db.execute("CREATE FUNCTION checkpoint_fn(x integer) RETURNS integer IMMUTABLE LANGUAGE SQL AS 'SELECT x+5'")
+        db.execute("CREATE FUNCTION checkpoint_trigger() RETURNS trigger LANGUAGE plpgsql AS 'BEGIN NEW.v := NEW.v + 10; RETURN NEW; END'")
+        db.execute("CREATE TRIGGER checkpoint_before BEFORE INSERT ON checkpoint_rows FOR EACH ROW EXECUTE FUNCTION checkpoint_trigger()")
+        db.execute("CREATE RULE checkpoint_keep AS ON DELETE TO checkpoint_rows DO INSTEAD NOTHING")
+        db.execute("CREATE PROCEDURE checkpoint_proc(x integer) LANGUAGE SQL AS 'INSERT INTO checkpoint_rows VALUES (x,checkpoint_fn(x))'")
+        db.execute(f"SET ROLE {READER}")
+        db.execute(f"GRANT EXECUTE ON FUNCTION checkpoint_fn(integer) TO {SECOND}")
+        db.execute("RESET ROLE")
+
+
+def verify_routine_images(endpoint, increment=5):
+    with psycopg.connect(**endpoint) as db, db.transaction(force_rollback=True):
+        assert db.execute("SELECT count(*) FROM checkpoint_rows").fetchone() == (0,)
+        db.execute("CALL checkpoint_proc(1)")
+        db.execute("DELETE FROM checkpoint_rows")
+        assert db.execute("SELECT id,v FROM checkpoint_rows").fetchall() == [(1, 1 + increment + 10)]
+        db.execute(f"SET ROLE {SECOND}")
+        assert db.execute("SELECT checkpoint_fn(2)").fetchone() == (2 + increment,)
+        db.execute("RESET ROLE")
+        db.execute("CREATE FUNCTION checkpoint_future() RETURNS integer LANGUAGE SQL AS 'SELECT 31'")
+        db.execute(f"SET ROLE {SECOND}")
+        expect_sqlstate(db, "SELECT checkpoint_future()", "42501")
+        db.execute("RESET ROLE")
+        db.execute(f"SET ROLE {READER}")
+        assert db.execute("SELECT checkpoint_future()").fetchone() == (31,)
+        db.execute(f"GRANT EXECUTE ON FUNCTION checkpoint_future() TO {SECOND}")
+        db.execute("RESET ROLE")
+        db.execute(f"SET ROLE {SECOND}")
+        assert db.execute("SELECT checkpoint_future()").fetchone() == (31,)
+        db.execute("RESET ROLE")
+
+
 def dump(tools, endpoint, fmt, artifact):
     tools.run(f"dump-{artifact}", "pg_dump", endpoint, "--large-objects",
               f"--format={fmt}", f"--file={artifact}")
@@ -567,6 +604,7 @@ def main():
         stem = root / "object-checkpoint"
         with DurableServer(binary, wal, create=True, storage_options=STORAGE) as server:
             populate(ramsql_settings(server), defaults=True)
+            seed_routine_images(ramsql_settings(server))
         collapsed = subprocess.run(
             [str(binary), "--data", str(wal), "--bootstrap-checkpoint", "--checkpoint-stem", str(stem),
              "--checkpoint-id", IDENTITY, *STORAGE],
@@ -574,34 +612,43 @@ def main():
         )
         assert collapsed.returncode == 0, collapsed.stderr
         assert selector(stem) == 1
-        with CheckpointServer(binary, stem, storage_options=STORAGE) as server:
+        with CheckpointServer(binary, stem, storage_options=(*STORAGE, "--checkpoint-every", "1")) as server:
             endpoint = ramsql_settings(server)
             verify(endpoint, defaults=True)
+            verify_routine_images(endpoint)
+            with psycopg.connect(**endpoint) as db:
+                db.execute("CREATE OR REPLACE FUNCTION checkpoint_fn(x integer) RETURNS integer IMMUTABLE LANGUAGE SQL AS 'SELECT x+6'")
             revoke_privileges(endpoint)
             revoke_default_acl(endpoint)
             with psycopg.connect(**endpoint) as db:
                 assert db.execute("SELECT lo_unlink(%s::oid)", (OID,)).fetchone() == (1,)
+            assert selector(stem) >= 2, "live routine checkpoints must publish a new generation"
         with CheckpointServer(binary, stem, storage_options=STORAGE) as server:
             endpoint = ramsql_settings(server)
             verify_revoked_privileges(endpoint)
             verify_default_acl(endpoint, active=False)
+            verify_routine_images(endpoint, increment=6)
             with psycopg.connect(**endpoint) as db:
                 expect_sqlstate(db, f"SELECT lo_get({OID})", "42704")
 
     def native_restore(fmt, artifact):
         with native_postgres(image, psycopg, binary_directory=args.postgres_bin, work_directory=root) as (endpoint, _):
             restore(tools, endpoint, fmt, artifact, defaults=archive_defaults)
+            verify_routine_images(endpoint)
 
     def ramsql_restore(fmt, artifact):
         wal = root / f"inbound-{fmt}.wal"
         with DurableServer(binary, wal, create=True, storage_options=STORAGE) as server:
             restore(tools, ramsql_settings(server), fmt, artifact, defaults=archive_defaults)
+            verify_routine_images(ramsql_settings(server))
         with DurableServer(binary, wal, storage_options=STORAGE) as reopened:
             verify(ramsql_settings(reopened))
             verify_default_acl(ramsql_settings(reopened), active=archive_defaults)
+            verify_routine_images(ramsql_settings(reopened))
 
     def populate_archive(endpoint, *, native):
         populate(endpoint, defaults=archive_defaults or not native)
+        seed_routine_images(endpoint)
         if not archive_defaults:
             if native:
                 seed_materialized_acl(endpoint)
@@ -609,6 +656,7 @@ def main():
                 revoke_default_acl(endpoint)
         verify(endpoint)
         verify_default_acl(endpoint, active=archive_defaults)
+        verify_routine_images(endpoint)
 
     def ramsql_export(fmt, suffix):
         artifact = f"candidate-{fmt}.{suffix}"

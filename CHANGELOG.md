@@ -6,6 +6,12 @@ later binary.
 
 ## Unreleased
 
+- Add a candidate RSBASE10 compact image for live functions/procedures, delegated
+  routine ACLs, triggers and rules in pure Sig in ZPM. Extend the checkpoint
+  fixture with live generation publication, replacement WAL and reopen; require
+  stock PG16/18 archives in both directions before qualification. Other catalog
+  classes and full catalog snapshot parity remain open.
+
 - Add schema-scoped routine default privileges in pure Sig in ZPM, qualified with
   stock PG16/18 plain/custom archives in both directions, future routine ACL
   probes, concurrent default visibility and crash/WAL recovery. Global
