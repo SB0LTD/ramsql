@@ -6,6 +6,12 @@ later binary.
 
 ## Unreleased
 
+- Add a candidate for schema-scoped routine default privileges in pure Sig in
+  ZPM. Require stock PG16/18 plain/custom archives in both directions, future
+  routine ACL probes, concurrent default visibility and crash/WAL recovery before
+  qualification. Global grants/options combine with per-schema additions;
+  arbitrary routine namespaces and full catalog snapshots remain open.
+
 - Support global ALTER DEFAULT PRIVILEGES ON FUNCTIONS/ROUTINES in ZPM,
   including PUBLIC, grant options, rollback and future function/procedure ACLs.
   Verify committed-default visibility during concurrent edits, own-transaction
