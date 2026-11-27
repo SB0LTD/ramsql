@@ -372,7 +372,7 @@ def routine_default_access(endpoint):
 
 def verify_routine_defaults(endpoint):
     with psycopg.connect(**dict(endpoint, autocommit=True)) as db:
-        defaults = db.execute("SELECT defaclacl::text FROM pg_default_acl WHERE defaclobjtype='f'").fetchall()
+        defaults = db.execute("SELECT defaclacl::text FROM pg_default_acl WHERE defaclobjtype='f' AND defaclnamespace=0").fetchall()
         assert len(defaults) == 1 and "list_actor=X*/ramsql" in defaults[0][0], defaults
         db.execute("CREATE FUNCTION public.default_probe() RETURNS integer LANGUAGE SQL AS 'SELECT 9'")
         db.execute("SET ROLE list_actor")
@@ -388,6 +388,100 @@ def verify_routine_defaults(endpoint):
         expect_sqlstate(db, "SELECT public.default_exec(1)", "42501")
         db.execute("RESET ROLE")
         db.execute("DROP FUNCTION public.default_probe()")
+
+
+def routine_schema_default_access(endpoint):
+    with psycopg.connect(**dict(endpoint, autocommit=True)) as db:
+        db.execute("CREATE SCHEMA schema_defaults")
+        db.execute('CREATE SCHEMA "Quoted Defaults"')
+        db.execute('ALTER DEFAULT PRIVILEGES IN SCHEMA schema_defaults,"Quoted Defaults" GRANT EXECUTE ON FUNCTIONS TO list_peer')
+        db.execute('DROP SCHEMA "Quoted Defaults"')
+        db.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public,public GRANT EXECUTE ON ROUTINES TO list_leaf WITH GRANT OPTION")
+        db.execute("CREATE FUNCTION public.schema_exec() RETURNS integer LANGUAGE SQL AS 'SELECT 21'")
+        db.execute("CREATE PROCEDURE public.schema_proc() LANGUAGE SQL AS 'SELECT 1'")
+        db.execute("SET ROLE list_leaf")
+        assert db.execute("SELECT public.schema_exec()").fetchone() == (21,)
+        db.execute("CALL public.schema_proc()")
+        db.execute("GRANT EXECUTE ON FUNCTION public.schema_exec() TO list_peer")
+        db.execute("RESET ROLE")
+        db.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE GRANT OPTION FOR EXECUTE ON FUNCTIONS FROM list_leaf")
+        db.execute("CREATE FUNCTION public.schema_plain() RETURNS integer LANGUAGE SQL AS 'SELECT 22'")
+        db.execute("SET ROLE list_leaf")
+        assert db.execute("SELECT public.schema_plain()").fetchone() == (22,)
+        db.execute("GRANT EXECUTE ON FUNCTION public.schema_plain() TO list_peer")
+        db.execute("RESET ROLE")
+        db.execute("SET ROLE list_peer")
+        expect_sqlstate(db, "SELECT public.schema_plain()", "42501")
+        db.execute("RESET ROLE")
+        db.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM list_leaf,list_actor")
+        db.execute("CREATE FUNCTION public.schema_blocked() RETURNS integer LANGUAGE SQL AS 'SELECT 23'")
+        db.execute("SET ROLE list_leaf")
+        expect_sqlstate(db, "SELECT public.schema_blocked()", "42501")
+        assert db.execute("SELECT public.schema_exec()").fetchone() == (21,)
+        db.execute("RESET ROLE")
+        # Schema REVOKE does not remove the actor's global default grant.
+        db.execute("SET ROLE list_actor")
+        assert db.execute("SELECT public.schema_blocked()").fetchone() == (23,)
+        db.execute("RESET ROLE")
+        db.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO list_leaf WITH GRANT OPTION")
+        db.execute("ALTER DEFAULT PRIVILEGES GRANT EXECUTE ON FUNCTIONS TO list_leaf")
+        db.execute("CREATE FUNCTION public.schema_merged() RETURNS integer LANGUAGE SQL AS 'SELECT 24'")
+        acl, = db.execute("SELECT proacl::text FROM pg_proc WHERE proname='schema_merged'").fetchone()
+        assert acl.count("list_leaf=") == 1 and "list_leaf=X*/ramsql" in acl, acl
+        db.execute("DROP FUNCTION public.schema_merged()")
+        db.execute("ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM list_leaf")
+        expect_sqlstate(db, "ALTER DEFAULT PRIVILEGES IN SCHEMA public,missing_defaults GRANT EXECUTE ON FUNCTIONS TO list_peer", "3F000")
+        expect_sqlstate(db, "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO PUBLIC WITH GRANT OPTION", "0LP01")
+        with db.transaction(force_rollback=True):
+            db.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM list_leaf")
+            db.execute("CREATE FUNCTION public.schema_rollback() RETURNS integer LANGUAGE SQL AS 'SELECT 25'")
+            db.execute("SET ROLE list_leaf")
+            expect_sqlstate(db, "SELECT public.schema_rollback()", "42501")
+        expect_sqlstate(db, "SELECT public.schema_rollback()", "42883")
+
+    def concurrent_creator():
+        with psycopg.connect(**dict(endpoint, autocommit=True)) as db:
+            db.execute("CREATE FUNCTION public.schema_concurrent() RETURNS integer LANGUAGE SQL AS 'SELECT 26'")
+            db.execute("SET ROLE list_leaf")
+            return db.execute("SELECT public.schema_concurrent()").fetchone()
+
+    with psycopg.connect(**dict(endpoint, autocommit=False)) as writer:
+        writer.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM list_leaf")
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(concurrent_creator)
+            try:
+                assert future.result(timeout=5) == (26,)
+            finally:
+                writer.rollback()
+    with psycopg.connect(**dict(endpoint, autocommit=True)) as db:
+        db.execute("DROP FUNCTION public.schema_concurrent()")
+    verify_routine_schema_defaults(endpoint)
+
+
+def verify_routine_schema_defaults(endpoint):
+    with psycopg.connect(**dict(endpoint, autocommit=True)) as db:
+        rows = db.execute("SELECT n.nspname,d.defaclacl::text FROM pg_default_acl d JOIN pg_namespace n ON n.oid=d.defaclnamespace WHERE d.defaclobjtype='f' ORDER BY n.nspname").fetchall()
+        assert len(rows) == 2, rows
+        assert rows[0] == ("public", "{list_leaf=X*/ramsql}"), rows
+        assert rows[1] == ("schema_defaults", "{list_peer=X/ramsql}"), rows
+        db.execute("CREATE FUNCTION public.schema_probe() RETURNS integer LANGUAGE SQL AS 'SELECT 27'")
+        db.execute("SET ROLE list_peer")
+        # A grant in a different schema must not leak into public.
+        expect_sqlstate(db, "SELECT public.schema_probe()", "42501")
+        assert db.execute("SELECT public.schema_exec()").fetchone() == (21,)
+        db.execute("RESET ROLE")
+        db.execute("SET ROLE list_leaf")
+        assert db.execute("SELECT public.schema_probe()").fetchone() == (27,)
+        db.execute("CALL public.schema_proc()")
+        db.execute("GRANT EXECUTE ON FUNCTION public.schema_probe() TO list_peer")
+        db.execute("RESET ROLE")
+        db.execute("SET ROLE list_peer")
+        assert db.execute("SELECT public.schema_probe()").fetchone() == (27,)
+        db.execute("RESET ROLE")
+        db.execute("SET ROLE list_actor")
+        assert db.execute("SELECT public.schema_probe()").fetchone() == (27,)
+        db.execute("RESET ROLE")
+        db.execute("DROP FUNCTION public.schema_probe()")
 
 
 def exercise(endpoint, files):
@@ -495,6 +589,7 @@ def main():
         execute_lists(endpoint, files)
         routine_execute_access(endpoint)
         routine_default_access(endpoint)
+        routine_schema_default_access(endpoint)
         too_large = files.put("too-large", b"x" * (257 * 2048))
         with psycopg.connect(**endpoint) as db:
             expect_sqlstate(db, "SELECT lo_import(%s,57003::oid)", "54000", (too_large,))
@@ -507,6 +602,7 @@ def main():
         pending.execute(f"GRANT EXECUTE ON FUNCTION {LIST_FUNCTIONS} TO list_peer,list_revoked GRANTED BY SESSION_USER")
         pending.execute(f"REVOKE EXECUTE ON ROUTINE {USER_ROUTINES} FROM list_actor CASCADE")
         pending.execute("ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM list_actor")
+        pending.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM list_leaf")
     pending.close()
     # The server is killed on leaving candidate. The input disappears
     # before restart, so recovery must use committed page bytes from the WAL.
@@ -518,6 +614,8 @@ def main():
         verify_execute_lists(endpoint, files)
         verify_routine_access(endpoint)
         verify_routine_defaults(endpoint)
+        verify_routine_schema_defaults(endpoint)
+        checks["routine_schema_default_acl_and_wal_recovery"] = True
         checks["routine_default_execute_acl_and_wal_recovery"] = True
         checks["user_routine_execute_acl_and_wal_recovery"] = True
         checks["public_qualified_routines_and_wal_recovery"] = True
@@ -537,6 +635,7 @@ def main():
             execute_lists(native, native_files)
             routine_execute_access(native)
             routine_default_access(native)
+            routine_schema_default_access(native)
             checks["native_file_semantics"] = True
             for label, fmt, suffix in (("plain", "p", "sql"), ("custom", "c", "dump")):
                 tools.run(f"native-{label}-dump", "pg_dump", native, "--no-owner", f"--format={fmt}", f"--file=native-{label}.{suffix}")
@@ -552,6 +651,7 @@ def main():
                     verify_execute_lists(dest, restored_files)
                     verify_routine_access(dest)
                     verify_routine_defaults(dest)
+                    verify_routine_schema_defaults(dest)
                 checks[f"native_to_ramsql_{label}"] = True
                 tools.run(f"ramsql-{label}-dump", "pg_dump", endpoint, "--no-owner", f"--format={fmt}", f"--file=ramsql-{label}.{suffix}")
                 with native_postgres(image, psycopg, binary_directory=args.postgres_bin, work_directory=root) as (dest, dest_metadata):
@@ -566,6 +666,7 @@ def main():
                     verify_execute_lists(dest, restored_files)
                     verify_routine_access(dest)
                     verify_routine_defaults(dest)
+                    verify_routine_schema_defaults(dest)
                 checks[f"ramsql_to_native_{label}"] = True
     report = {"passed": True, "reference": args.reference, "binary_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(), "checks": checks}
     (root / "large-object-files.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
