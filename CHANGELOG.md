@@ -6,6 +6,10 @@ later binary.
 
 ## Unreleased
 
+- Candidate: deparse view/materialized-view `_RETURN` rules in pure Sig ZPM,
+  reusing real view definitions and caller-owned wide output. Stock PG16/18
+  qualification of deparsed actions and archive round trips is pending.
+
 - Preserve public SQL/PLpgSQL routines, delegated EXECUTE ACLs, triggers and
   DO NOTHING rules in RSBASE10 compact images. Qualify live generation rotation,
   owned routines, replacement/revocation WAL and reopen alongside large objects.
