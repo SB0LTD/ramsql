@@ -6,6 +6,13 @@ later binary.
 
 ## Unreleased
 
+- Support global ALTER DEFAULT PRIVILEGES ON FUNCTIONS/ROUTINES in ZPM,
+  including PUBLIC, grant options, rollback and future function/procedure ACLs.
+  Verify committed-default visibility during concurrent edits, own-transaction
+  creation, WAL recovery and stock PG16/18 archives. RSBASE09 preserves default
+  templates for future routines; live routine catalog snapshots and per-schema
+  defaults remain open.
+
 - Qualify all 106 PostgreSQL inventory smoke programs against frozen PG18.3
   in CI, retaining the unchanged strict comparator. Run database lifecycle in
   the documented cluster profile and record every scope's actual configuration.

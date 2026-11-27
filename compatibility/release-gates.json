@@ -16,9 +16,10 @@
       "execute_lists_stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45900767124",
       "routine_delegation_stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45924960970",
       "public_routine_stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45928135880",
-      "postgres_inventory_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45929457438",
+      "routine_defaults_stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/46001792289",
+      "postgres_inventory_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/46001794455",
       "requirement": "Complete the PostgreSQL feature inventory, upstream and application regressions, and stock tooling round trips.",
-      "qualified": "All 106 PostgreSQL smoke programs match frozen PostgreSQL 18.3 using the strict comparator and documented per-scope profiles. PG16 and PG18 each pass 48 stock tooling, 10 large-object and 11 file/routine privilege/WAL checks, including plain/custom archives in both directions. The inventory binary matches the passing PG18 stock binary. The 755-record upstream inventory, separate native dialect lanes and broader application/production qualification remain open."
+      "qualified": "All 106 PostgreSQL smoke programs match frozen PostgreSQL 18.3 using the strict comparator and documented per-scope profiles. PG16 and PG18 each pass 48 stock tooling, 10 large-object and 12 file/routine privilege/WAL checks, including plain/custom archives, concurrent default visibility and rollback/recovery. Reports record their separately compiled binary hashes. The 755-record upstream inventory, separate native dialect lanes and broader application/production qualification remain open."
     },
     {
       "id": "implemented_subset_durability",
