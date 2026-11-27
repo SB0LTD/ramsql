@@ -300,6 +300,7 @@ def main():
         ("scoped_sequence_archives", lambda db: check_sequence_archives(binary, tools, db)),
         ("stored_generated_archives", lambda db: check_generated_archives(binary, tools, db)),
         ("view_archives", lambda db: check_view_archives(binary, tools, db)),
+        ("view_replacement_schema_privileges", lambda db: check_view_schema_privileges(binary, tools, db)),
         ("view_column_name_archives", lambda db: check_view_column_name_archives(binary, tools, db)),
         ("materialized_view_archives", lambda db: check_materialized_view_archives(binary, tools, db)),
         ("composite_primary_key_archives", lambda db: check_composite_key_archives(binary, tools, db)),
@@ -1696,7 +1697,65 @@ def verify_view_return_rules(db, schema, names, *, unpopulated=()):
                     assert columns == [(column.name, column.type_code) for column in view.description]
 
 
+def check_view_schema_privileges(binary, tools, native):
+    def populate(endpoint):
+        with psycopg.connect(**endpoint) as db:
+            db.execute("CREATE ROLE view_schema_owner")
+            db.execute("CREATE TABLE view_schema_source(id int)")
+            db.execute("INSERT INTO view_schema_source VALUES (7)")
+            db.execute("GRANT SELECT ON view_schema_source TO view_schema_owner")
+            db.execute("CREATE VIEW view_public_owned AS SELECT id FROM public.view_schema_source")
+            db.execute("ALTER TABLE view_public_owned OWNER TO view_schema_owner")
+            with db.transaction():
+                db.execute("SET LOCAL ROLE view_schema_owner")
+                assert db.execute("SELECT current_user").fetchone() == ("view_schema_owner",)
+                try:
+                    with db.transaction():
+                        db.execute("CREATE OR REPLACE VIEW public.view_public_owned AS "
+                                   "SELECT id+1 AS id FROM public.view_schema_source")
+                except psycopg.Error as error:
+                    assert error.sqlstate == "42501", error
+                else:
+                    raise AssertionError("view ownership bypassed schema CREATE authority")
+                assert db.execute("SELECT id FROM public.view_public_owned").fetchall() == [(7,)]
+            db.execute("CREATE SCHEMA view_owner_ns AUTHORIZATION view_schema_owner")
+            db.execute("CREATE VIEW view_owner_ns.owned AS SELECT id FROM public.view_schema_source")
+            db.execute("ALTER TABLE view_owner_ns.owned OWNER TO view_schema_owner")
+            with db.transaction():
+                db.execute("SET LOCAL ROLE view_schema_owner")
+                assert db.execute("SELECT current_user").fetchone() == ("view_schema_owner",)
+                db.execute("CREATE OR REPLACE VIEW view_owner_ns.owned AS "
+                           "SELECT id+10 AS id FROM public.view_schema_source")
+                assert db.execute("SELECT id FROM view_owner_ns.owned").fetchall() == [(17,)]
+
+    def verify(endpoint):
+        with psycopg.connect(**endpoint) as db:
+            assert db.execute("SELECT id FROM public.view_public_owned").fetchall() == [(7,)]
+            assert db.execute("SELECT id FROM view_owner_ns.owned").fetchall() == [(17,)]
+            assert db.execute("SELECT pg_get_userbyid(relowner) FROM pg_class "
+                              "WHERE oid='view_owner_ns.owned'::regclass").fetchone() == ("view_schema_owner",)
+
+    populate(native)
+    verify(native)
+    wal = tools.root / "view-schema-privileges.wal"
+    storage = ("--workers", "1")
+    with DurableServer(binary, wal, create=True, storage_options=storage) as server:
+        endpoint = ramsql_settings(server)
+        populate(endpoint)
+        verify(endpoint)
+    with DurableServer(binary, wal, storage_options=storage) as reopened:
+        verify(ramsql_settings(reopened))
+
+
 def check_view_archives(binary, tools, native):
+    def verify_hooks(db, schema):
+        db.execute(f"UPDATE {schema}.a_positive SET amount=13 WHERE id=1")
+        assert db.execute(f"SELECT amount FROM {schema}.z_source WHERE id=1").fetchall() == [(13,)]
+        assert db.execute(f"SELECT amount FROM {schema}.b_amounts").fetchall() == [(26,)]
+        db.execute(f"DELETE FROM {schema}.a_positive WHERE id=1")
+        assert db.execute(f"SELECT amount FROM {schema}.z_source WHERE id=1").fetchall() == [(13,)]
+        db.execute(f"UPDATE {schema}.z_source SET amount=20 WHERE id=1")
+
     def populate(endpoint, schema):
         public_table = f"{schema}_public"
         with psycopg.connect(**endpoint) as db:
@@ -1705,6 +1764,34 @@ def check_view_archives(binary, tools, native):
             db.execute(f"CREATE VIEW {schema}.a_positive AS SELECT id,amount FROM {schema}.z_source WHERE amount > 0")
             db.execute(f"CREATE VIEW {schema}.b_amounts AS SELECT amount FROM {schema}.a_positive")
             db.execute(f"INSERT INTO {schema}.z_source VALUES (1,20),(2,-1)")
+            oid = db.execute("SELECT %s::regclass::oid", (f"{schema}.a_positive",)).fetchone()[0]
+            db.execute(f"CREATE OR REPLACE VIEW {schema}.a_positive AS SELECT id,amount*2 AS amount FROM {schema}.z_source WHERE amount > 0")
+            assert db.execute("SELECT %s::regclass::oid", (f"{schema}.a_positive",)).fetchone()[0] == oid
+            assert db.execute(f"SELECT amount FROM {schema}.b_amounts").fetchall() == [(40,)]
+            db.execute(f"CREATE FUNCTION public.{schema}_view_update() RETURNS trigger LANGUAGE plpgsql "
+                       f"AS $$BEGIN UPDATE {schema}.z_source SET amount=NEW.amount WHERE id=OLD.id; RETURN NEW; END$$")
+            db.execute(f"CREATE TRIGGER keep_view_hook INSTEAD OF UPDATE ON {schema}.a_positive "
+                       f"FOR EACH ROW EXECUTE FUNCTION public.{schema}_view_update()")
+            db.execute(f"CREATE RULE keep_view_rows AS ON DELETE TO {schema}.a_positive DO INSTEAD NOTHING")
+            # Replacing the SELECT must retain the hook/rule OID links too.
+            db.execute(f"CREATE OR REPLACE VIEW {schema}.a_positive AS SELECT id,amount*2 AS amount "
+                       f"FROM {schema}.z_source WHERE amount > 0")
+            verify_hooks(db, schema)
+            for select in ("id", "id,amount AS renamed", "id,amount::bigint AS amount"):
+                try:
+                    with db.transaction():
+                        db.execute(f"CREATE OR REPLACE VIEW {schema}.a_positive AS SELECT {select} FROM {schema}.z_source")
+                except psycopg.Error as error:
+                    assert error.sqlstate == "42P16", (select, error.sqlstate)
+                else:
+                    raise AssertionError(f"incompatible replacement accepted: {select}")
+            with db.transaction():
+                db.execute("SAVEPOINT replacement_rollback")
+                db.execute(f"CREATE OR REPLACE VIEW {schema}.a_positive AS SELECT id,amount*3 AS amount FROM {schema}.z_source WHERE amount > 0")
+                assert db.execute(f"SELECT amount FROM {schema}.b_amounts").fetchall() == [(60,)]
+                db.execute("ROLLBACK TO replacement_rollback")
+                db.execute("RELEASE replacement_rollback")
+            assert db.execute(f"SELECT amount FROM {schema}.b_amounts").fetchall() == [(40,)]
             db.execute(f'CREATE TABLE public."{public_table}" (id int)')
             db.execute(f'INSERT INTO public."{public_table}" VALUES (8)')
             db.execute(f'CREATE VIEW {schema}.c_public AS SELECT id FROM "{public_table}"')
@@ -1716,13 +1803,14 @@ def check_view_archives(binary, tools, native):
 
     def verify(endpoint, schema):
         with psycopg.connect(**endpoint) as db:
-            assert db.execute(f"SELECT id,amount FROM {schema}.a_positive").fetchall() == [(1, 20)]
-            assert db.execute(f"SELECT amount FROM {schema}.b_amounts").fetchall() == [(20,)]
+            assert db.execute(f"SELECT id,amount FROM {schema}.a_positive").fetchall() == [(1, 40)]
+            assert db.execute(f"SELECT amount FROM {schema}.b_amounts").fetchall() == [(40,)]
             assert db.execute(f"SELECT id FROM {schema}.c_public").fetchall() == [(8,)]
             assert db.execute(f"SELECT id FROM {schema}.d_cte").fetchall() == [(6,)]
+            verify_hooks(db, schema)
             verify_view_return_rules(db, schema, ("a_positive", "b_amounts", "c_public", "d_cte"))
 
-    check_schema_archives(binary, tools, native, "view", populate, verify)
+    check_schema_archives(binary, tools, native, "view", populate, verify, formats=("plain", "custom"))
 
 
 def check_view_column_name_archives(binary, tools, native):
@@ -1746,7 +1834,7 @@ def check_view_column_name_archives(binary, tools, native):
                 assert [column.name for column in result.description] == ["Item", 'a"b', "total"]
             verify_view_return_rules(db, schema, ("v", "w"))
 
-    check_schema_archives(binary, tools, native, "viewnames", populate, verify)
+    check_schema_archives(binary, tools, native, "viewnames", populate, verify, formats=("plain", "custom"))
 
 
 def check_materialized_view_archives(binary, tools, native):
@@ -1777,7 +1865,7 @@ def check_materialized_view_archives(binary, tools, native):
                 raise AssertionError("unpopulated materialized view was readable")
             verify_view_return_rules(db, schema, ("totals", "pending", "report"), unpopulated=("pending",))
 
-    check_schema_archives(binary, tools, native, "matviews", populate, verify)
+    check_schema_archives(binary, tools, native, "matviews", populate, verify, formats=("plain", "custom"))
 
 
 def check_composite_key_archives(binary, tools, native):
@@ -1846,31 +1934,52 @@ def check_late_composite_key(binary, tools, native):
         assert report(ramsql_settings(reopened)) == expected
 
 
-def check_schema_archives(binary, tools, native, fixture, populate, verify):
-    inbound = f"{fixture}-inbound.dump"
-    outbound = f"{fixture}-outbound.dump"
-    native_schema = f"native_{fixture}"
-    ramsql_schema = f"ramsql_{fixture}"
-    wal = tools.root / f"{fixture}.wal"
-    storage = ("--workers", "1")
-    populate(native, native_schema)
-    tools.run(f"{fixture}-inbound-dump", "pg_dump", native, "--no-owner", "--no-acl",
-              "--format=custom", f"--file={inbound}")
-    with DurableServer(binary, wal, create=True, storage_options=storage) as server:
-        candidate = ramsql_settings(server)
-        tools.run(f"{fixture}-inbound-restore", "pg_restore", candidate, "--single-transaction",
-                  "--exit-on-error", "--no-owner", "--no-acl", inbound)
-        verify(candidate, native_schema)
-    with DurableServer(binary, wal, storage_options=storage) as reopened:
-        verify(ramsql_settings(reopened), native_schema)
+def check_schema_archives(binary, tools, native, fixture, populate, verify, *, formats=("custom",)):
+    for archive_format in formats:
+        assert archive_format in ("plain", "custom"), archive_format
+        reference = native
+        if len(formats) > 1:
+            # Each format gets the same isolated workload. Otherwise a later
+            # whole-database dump also includes earlier outbound restorations.
+            database = f"archive_{fixture}_{archive_format}"
+            with psycopg.connect(**dict(native, autocommit=True)) as control:
+                control.execute(psycopg.sql.SQL("CREATE DATABASE {} TEMPLATE template0").format(
+                    psycopg.sql.Identifier(database)))
+            reference = dict(native, dbname=database)
+        suffix = f"_{archive_format}" if len(formats) > 1 else ""
+        label = f"{fixture}-{archive_format}" if len(formats) > 1 else fixture
+        native_schema = f"native_{fixture}{suffix}"
+        ramsql_schema = f"ramsql_{fixture}{suffix}"
+        extension = "sql" if archive_format == "plain" else "dump"
+        inbound = f"{label}-inbound.{extension}"
+        outbound = f"{label}-outbound.{extension}"
+        wal = tools.root / f"{label}.wal"
+        storage = ("--workers", "1")
+        populate(reference, native_schema)
+        tools.run(f"{label}-inbound-dump", "pg_dump", reference, "--no-owner", "--no-acl",
+                  f"--format={archive_format}", f"--file={inbound}")
+        with DurableServer(binary, wal, create=True, storage_options=storage) as server:
+            candidate = ramsql_settings(server)
+            restore_schema_archive(tools, f"{label}-inbound-restore", candidate, inbound, archive_format)
+            verify(candidate, native_schema)
+        with DurableServer(binary, wal, storage_options=storage) as reopened:
+            verify(ramsql_settings(reopened), native_schema)
 
-    with running_ramsql(binary, extra_arguments=storage) as candidate:
-        populate(candidate, ramsql_schema)
-        tools.run(f"{fixture}-outbound-dump", "pg_dump", candidate, "--no-owner", "--no-acl",
-                  "--format=custom", f"--file={outbound}")
-    tools.run(f"{fixture}-outbound-restore", "pg_restore", native, "--single-transaction",
-              "--exit-on-error", "--no-owner", "--no-acl", outbound)
-    verify(native, ramsql_schema)
+        with running_ramsql(binary, extra_arguments=storage) as candidate:
+            populate(candidate, ramsql_schema)
+            tools.run(f"{label}-outbound-dump", "pg_dump", candidate, "--no-owner", "--no-acl",
+                      f"--format={archive_format}", f"--file={outbound}")
+        restore_schema_archive(tools, f"{label}-outbound-restore", reference, outbound, archive_format)
+        verify(reference, ramsql_schema)
+
+
+def restore_schema_archive(tools, label, endpoint, archive, archive_format):
+    if archive_format == "plain":
+        tools.run(label, "psql", endpoint, "--no-psqlrc", "--single-transaction",
+                  "--set=ON_ERROR_STOP=1", f"--file={archive}")
+    else:
+        tools.run(label, "pg_restore", endpoint, "--single-transaction",
+                  "--exit-on-error", "--no-owner", "--no-acl", archive)
 
 
 if __name__ == "__main__":

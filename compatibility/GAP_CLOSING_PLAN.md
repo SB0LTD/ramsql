@@ -1,5 +1,63 @@
 # RAMSQL gap-closing plan
 
+## Wave-4 integration — qualification pending, 27 November 2026
+
+The candidate also integrates main 08519544's copied-database state and index
+visibility fixes. Stronger plain/custom archive tests exposed stored view SQL
+being limited by the 128-byte inline cell size. ZPM now gives definitions their
+own query-expansion budget (default 4,096 bytes; existing 16-bit WAL bound), with
+owned long catalog results and WAL replay tests. View, quoted-column and
+materialized-view fixtures now run both archive formats, both directions and WAL
+reopen. Separate native databases keep format fixtures from contaminating each
+other. PG16/18 CI must qualify this later runtime before merge; this is not a
+claim of unlimited SQL or complete view checkpoint support.
+
+The real outbound plain restore also caught an INSTEAD OF view trigger being
+deparsed as AFTER. The candidate pin now preserves the timing flag, with full
+and pretty metadata/replay contracts. The same stock restore stays in the gate;
+the failure is not suppressed or replaced with a metadata-only assertion.
+
+The team merged routine namespaces and signatures, SECURITY DEFINER, nested SQL,
+updatable views and rule actions, extended types, regex/text-search/SQL-JSON and
+DDL/DML/search_path changes. ZPM main b87c97a6's refreshed scoreboard records
+312/434 matching PostgreSQL 18.7 probes, with 326 in-scope feature records passing
+their recorded probes, 4 partial and 123 open (302 out of scope). These are finite
+probe results. Full PostgreSQL parity and the unchanged 2x production benchmark
+gate remain open.
+
+Native privilege verification also found view ownership bypassing namespace
+CREATE checks. The candidate now uses the existing namespace authorization hook.
+The stock suite gains a 49th check: public-view ownership alone is rejected with
+42501, replacement in an owned private schema succeeds, and WAL reopen retains
+both definitions and ownership. Granular schema privilege GRANT/REVOKE remains
+open; the supported owned-schema case is not full namespace ACL conformance.
+
+The view-replacement candidate is being integrated with that main before pinning
+it here. Replacement must retain the new trigger/rule OID links; a cross-feature
+contract checks their real effects after replacement. The standalone replacement
+preview already passed its full release matrix and published 29 assets in run
+46046582945. Fresh CI must qualify the combined runtime; the standalone preview
+does not prove these later changes. The ranked ZPM SQL_FEATURE_STATUS.md is now
+the current feature work list; older dated absence claims below are historical.
+
+## View replacement — candidate, 27 November 2026
+
+The next pure-Sig ZPM slice adds CREATE OR REPLACE VIEW using existing
+transactional definition rewrites, retaining OID, owner and ACLs. The stock
+archive fixture now checks dependent reads, unchanged OIDs, 42P16 shape errors
+and savepoint rollback before dumping, then verifies the changed definition in
+both plain/custom archive directions. PG16/18 CI and the unchanged strict smoke
+inventory must pass before merging. The previous qualified preview below remains
+the downloadable baseline while those checks run.
+
+Remaining view work is explicit: adding columns with dependent stored views
+returns 0A000 until star projections are frozen; transitive dependency lists can
+retain obsolete base links. ALTER VIEW column rename, temporary views/options,
+stored-view search_path handling and experimental packed-bank definition changes
+remain separate gaps. Automatic updatability and general search_path resolution
+were added by the wave-4 work described above. This candidate does not close the
+full view family.
+
 ## View return-rule definitions — qualified, 27 November 2026
 
 ZPM now deparses the implicit `_RETURN` rows that it already exposes for views and
