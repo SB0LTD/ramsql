@@ -1717,11 +1717,12 @@ def check_view_archives(binary, tools, native):
                     assert error.sqlstate == "42P16", (select, error.sqlstate)
                 else:
                     raise AssertionError(f"incompatible replacement accepted: {select}")
-            db.execute("SAVEPOINT replacement_rollback")
-            db.execute(f"CREATE OR REPLACE VIEW {schema}.a_positive AS SELECT id,amount*3 AS amount FROM {schema}.z_source WHERE amount > 0")
-            assert db.execute(f"SELECT amount FROM {schema}.b_amounts").fetchall() == [(60,)]
-            db.execute("ROLLBACK TO replacement_rollback")
-            db.execute("RELEASE replacement_rollback")
+            with db.transaction():
+                db.execute("SAVEPOINT replacement_rollback")
+                db.execute(f"CREATE OR REPLACE VIEW {schema}.a_positive AS SELECT id,amount*3 AS amount FROM {schema}.z_source WHERE amount > 0")
+                assert db.execute(f"SELECT amount FROM {schema}.b_amounts").fetchall() == [(60,)]
+                db.execute("ROLLBACK TO replacement_rollback")
+                db.execute("RELEASE replacement_rollback")
             assert db.execute(f"SELECT amount FROM {schema}.b_amounts").fetchall() == [(40,)]
             db.execute(f'CREATE TABLE public."{public_table}" (id int)')
             db.execute(f'INSERT INTO public."{public_table}" VALUES (8)')
