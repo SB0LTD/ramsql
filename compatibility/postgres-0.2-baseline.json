@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "started_utc": "2026-10-22T05:30:51.104067+00:00",
+  "scope": "finite differential compatibility gate; passing does not establish full PostgreSQL parity",
+  "ramsql_binary": "C:\\Just-Things\\Projects\\sb0\\ramsql\\sig-out\\bin\\ramsql.exe",
+  "ramsql_legacy_cli": true,
+  "client": {
+    "name": "psycopg",
+    "version": "3.3.6"
+  },
+  "probes": [],
+  "reference": {
+    "image_requested": "postgres:18-alpine",
+    "image_id": "sha256:4da1a4828be12604092fa55311276f08f9224a74a62dcb4708bd7439e2a03911",
+    "image_digests": [
+      "postgres@sha256:4da1a4828be12604092fa55311276f08f9224a74a62dcb4708bd7439e2a03911"
+    ],
+    "platform": "linux/amd64",
+    "server_version": "PostgreSQL 18.3 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+    "server_version_num": "180003"
+  },
+  "harness_error": {
+    "class": "RuntimeError",
+    "message": "RAMSQL exited before startup: error: AuthenticationRequired"
+  },
+  "summary": {
+    "probes": 0,
+    "drop_in_gate_passed": false,
+    "incomplete": true
+  },
+  "finished_utc": "2026-10-22T05:30:54.311760+00:00"
+}
