@@ -1663,6 +1663,39 @@ def check_generated_archives(binary, tools, native):
     check_schema_archives(binary, tools, native, "generated", populate, verify)
 
 
+def verify_view_return_rules(db, schema, names, *, unpopulated=()):
+    """Execute real deparsed _RETURN actions; whitespace is not an SQL oracle."""
+    with db.transaction(force_rollback=True):
+        db.execute("SET LOCAL search_path=''")
+        for name in names:
+            target = psycopg.sql.SQL("{}.{}").format(
+                psycopg.sql.Identifier(schema), psycopg.sql.Identifier(name))
+            for pretty in (False, True):
+                result = db.execute(
+                    "SELECT pg_catalog.pg_get_ruledef(r.oid,%s) "
+                    "FROM pg_catalog.pg_rewrite r JOIN pg_catalog.pg_class c ON c.oid=r.ev_class "
+                    "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+                    "WHERE n.nspname=%s AND c.relname=%s AND r.rulename='_RETURN'",
+                    (pretty, schema, name),
+                )
+                assert result.description[0].type_code == 25
+                rows = result.fetchall()
+                assert len(rows) == 1 and rows[0][0] is not None, (schema, name, rows)
+                definition = rows[0][0]
+                action = re.fullmatch(
+                    r'CREATE RULE "_RETURN" AS\s+ON SELECT TO .+? DO INSTEAD\s+(.+)',
+                    definition, flags=re.DOTALL,
+                )
+                assert action is not None, definition
+                select = db.execute(action.group(1))
+                actual = select.fetchall()
+                columns = [(column.name, column.type_code) for column in select.description]
+                if name not in unpopulated:
+                    view = db.execute(psycopg.sql.SQL("SELECT * FROM {}").format(target))
+                    assert sorted(actual, key=repr) == sorted(view.fetchall(), key=repr), definition
+                    assert columns == [(column.name, column.type_code) for column in view.description]
+
+
 def check_view_archives(binary, tools, native):
     def populate(endpoint, schema):
         public_table = f"{schema}_public"
@@ -1679,6 +1712,7 @@ def check_view_archives(binary, tools, native):
                 f"CREATE VIEW {schema}.d_cte AS WITH {public_table} AS (SELECT 6 AS id) "
                 f"SELECT c.id FROM {public_table} c CROSS JOIN public.{public_table} p"
             )
+            verify_view_return_rules(db, schema, ("a_positive", "b_amounts", "c_public", "d_cte"))
 
     def verify(endpoint, schema):
         with psycopg.connect(**endpoint) as db:
@@ -1686,6 +1720,7 @@ def check_view_archives(binary, tools, native):
             assert db.execute(f"SELECT amount FROM {schema}.b_amounts").fetchall() == [(20,)]
             assert db.execute(f"SELECT id FROM {schema}.c_public").fetchall() == [(8,)]
             assert db.execute(f"SELECT id FROM {schema}.d_cte").fetchall() == [(6,)]
+            verify_view_return_rules(db, schema, ("a_positive", "b_amounts", "c_public", "d_cte"))
 
     check_schema_archives(binary, tools, native, "view", populate, verify)
 
@@ -1701,6 +1736,7 @@ def check_view_column_name_archives(binary, tools, native):
                 f'SELECT id, n AS "old""name", n+1 FROM {schema}.t'
             )
             db.execute(f'CREATE VIEW {schema}.w AS SELECT "Item", "a""b", total FROM {schema}.v')
+            verify_view_return_rules(db, schema, ("v", "w"))
 
     def verify(endpoint, schema):
         with psycopg.connect(**endpoint) as db:
@@ -1708,6 +1744,7 @@ def check_view_column_name_archives(binary, tools, native):
                 result = db.execute(f'SELECT "Item", "a""b", total FROM {schema}.{view}')
                 assert result.fetchall() == [(1,20,21)]
                 assert [column.name for column in result.description] == ["Item", 'a"b', "total"]
+            verify_view_return_rules(db, schema, ("v", "w"))
 
     check_schema_archives(binary, tools, native, "viewnames", populate, verify)
 
@@ -1722,6 +1759,7 @@ def check_materialized_view_archives(binary, tools, native):
             db.execute(f"CREATE MATERIALIZED VIEW {schema}.totals AS {query}")
             db.execute(f"CREATE MATERIALIZED VIEW {schema}.pending AS {query} WITH NO DATA")
             db.execute(f"CREATE VIEW {schema}.report AS SELECT region,total FROM {schema}.totals")
+            verify_view_return_rules(db, schema, ("totals", "pending", "report"), unpopulated=("pending",))
 
     def verify(endpoint, schema):
         with psycopg.connect(**endpoint) as db:
@@ -1737,6 +1775,7 @@ def check_materialized_view_archives(binary, tools, native):
                 pass
             else:
                 raise AssertionError("unpopulated materialized view was readable")
+            verify_view_return_rules(db, schema, ("totals", "pending", "report"), unpopulated=("pending",))
 
     check_schema_archives(binary, tools, native, "matviews", populate, verify)
 

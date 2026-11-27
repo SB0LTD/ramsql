@@ -6,6 +6,12 @@ later binary.
 
 ## Unreleased
 
+- Deparse view/materialized-view `_RETURN` rules in pure Sig ZPM,
+  reusing real view definitions and caller-owned wide output. Stock PG16/18
+  deparsed-action checks and archive round trips pass both directions. The full
+  source workflow, stricter 4 MiB routine gate and hosted/SB0 release matrix pass;
+  [qualified preview](https://github.com/SB0LTD/ramsql/releases/tag/ci-v0.3.0-beta.3-run.46034039560.1).
+
 - Preserve public SQL/PLpgSQL routines, delegated EXECUTE ACLs, triggers and
   DO NOTHING rules in RSBASE10 compact images. Qualify live generation rotation,
   owned routines, replacement/revocation WAL and reopen alongside large objects.
