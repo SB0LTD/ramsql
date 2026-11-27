@@ -199,10 +199,10 @@ remaining scope is recorded in the
 
 Current development qualification matches all **106 PostgreSQL smoke programs**
 against frozen PostgreSQL 18.3, with exact values, types, command tags and
-transaction state ([CI evidence](https://github.com/SB0LTD/ramsql/actions/runs/45929457438)).
-Stock PG16 and PG18 each pass 48 tooling, 10 large-object and 11 file/routine
+transaction state ([CI evidence](https://github.com/SB0LTD/ramsql/actions/runs/46001794455)).
+Stock PG16 and PG18 each pass 48 tooling, 10 large-object and 12 file/routine
 checks, including plain/custom archives in both directions and WAL recovery
-([archive evidence](https://github.com/SB0LTD/ramsql/actions/runs/45928135880)).
+([archive evidence](https://github.com/SB0LTD/ramsql/actions/runs/46001792289)).
 Check a downloaded release's provenance to determine which development changes
 it contains. These finite smoke and tooling suites do not establish complete
 PostgreSQL conformance. Routine, window, extension, catalog/application and
