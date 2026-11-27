@@ -2,6 +2,16 @@
 
 ## Wave-4 integration — qualification pending, 27 November 2026
 
+The candidate also integrates main 08519544's copied-database state and index
+visibility fixes. Stronger plain/custom archive tests exposed stored view SQL
+being limited by the 128-byte inline cell size. ZPM now gives definitions their
+own query-expansion budget (default 4,096 bytes; existing 16-bit WAL bound), with
+owned long catalog results and WAL replay tests. View, quoted-column and
+materialized-view fixtures now run both archive formats, both directions and WAL
+reopen. Separate native databases keep format fixtures from contaminating each
+other. PG16/18 CI must qualify this later runtime before merge; this is not a
+claim of unlimited SQL or complete view checkpoint support.
+
 The team merged routine namespaces and signatures, SECURITY DEFINER, nested SQL,
 updatable views and rule actions, extended types, regex/text-search/SQL-JSON and
 DDL/DML/search_path changes. ZPM main b87c97a6's refreshed scoreboard records
@@ -38,8 +48,10 @@ the downloadable baseline while those checks run.
 Remaining view work is explicit: adding columns with dependent stored views
 returns 0A000 until star projections are frozen; transitive dependency lists can
 retain obsolete base links. ALTER VIEW column rename, temporary views/options,
-updatability, broader search_path and experimental packed-bank definition changes
-remain separate gaps. This candidate does not close the full view family.
+stored-view search_path handling and experimental packed-bank definition changes
+remain separate gaps. Automatic updatability and general search_path resolution
+were added by the wave-4 work described above. This candidate does not close the
+full view family.
 
 ## View return-rule definitions — qualified, 27 November 2026
 

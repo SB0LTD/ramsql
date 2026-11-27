@@ -1810,7 +1810,7 @@ def check_view_archives(binary, tools, native):
             verify_hooks(db, schema)
             verify_view_return_rules(db, schema, ("a_positive", "b_amounts", "c_public", "d_cte"))
 
-    check_schema_archives(binary, tools, native, "view", populate, verify)
+    check_schema_archives(binary, tools, native, "view", populate, verify, formats=("plain", "custom"))
 
 
 def check_view_column_name_archives(binary, tools, native):
@@ -1834,7 +1834,7 @@ def check_view_column_name_archives(binary, tools, native):
                 assert [column.name for column in result.description] == ["Item", 'a"b', "total"]
             verify_view_return_rules(db, schema, ("v", "w"))
 
-    check_schema_archives(binary, tools, native, "viewnames", populate, verify)
+    check_schema_archives(binary, tools, native, "viewnames", populate, verify, formats=("plain", "custom"))
 
 
 def check_materialized_view_archives(binary, tools, native):
@@ -1865,7 +1865,7 @@ def check_materialized_view_archives(binary, tools, native):
                 raise AssertionError("unpopulated materialized view was readable")
             verify_view_return_rules(db, schema, ("totals", "pending", "report"), unpopulated=("pending",))
 
-    check_schema_archives(binary, tools, native, "matviews", populate, verify)
+    check_schema_archives(binary, tools, native, "matviews", populate, verify, formats=("plain", "custom"))
 
 
 def check_composite_key_archives(binary, tools, native):
@@ -1934,31 +1934,52 @@ def check_late_composite_key(binary, tools, native):
         assert report(ramsql_settings(reopened)) == expected
 
 
-def check_schema_archives(binary, tools, native, fixture, populate, verify):
-    inbound = f"{fixture}-inbound.dump"
-    outbound = f"{fixture}-outbound.dump"
-    native_schema = f"native_{fixture}"
-    ramsql_schema = f"ramsql_{fixture}"
-    wal = tools.root / f"{fixture}.wal"
-    storage = ("--workers", "1")
-    populate(native, native_schema)
-    tools.run(f"{fixture}-inbound-dump", "pg_dump", native, "--no-owner", "--no-acl",
-              "--format=custom", f"--file={inbound}")
-    with DurableServer(binary, wal, create=True, storage_options=storage) as server:
-        candidate = ramsql_settings(server)
-        tools.run(f"{fixture}-inbound-restore", "pg_restore", candidate, "--single-transaction",
-                  "--exit-on-error", "--no-owner", "--no-acl", inbound)
-        verify(candidate, native_schema)
-    with DurableServer(binary, wal, storage_options=storage) as reopened:
-        verify(ramsql_settings(reopened), native_schema)
+def check_schema_archives(binary, tools, native, fixture, populate, verify, *, formats=("custom",)):
+    for archive_format in formats:
+        assert archive_format in ("plain", "custom"), archive_format
+        reference = native
+        if len(formats) > 1:
+            # Each format gets the same isolated workload. Otherwise a later
+            # whole-database dump also includes earlier outbound restorations.
+            database = f"archive_{fixture}_{archive_format}"
+            with psycopg.connect(**dict(native, autocommit=True)) as control:
+                control.execute(psycopg.sql.SQL("CREATE DATABASE {} TEMPLATE template0").format(
+                    psycopg.sql.Identifier(database)))
+            reference = dict(native, dbname=database)
+        suffix = f"_{archive_format}" if len(formats) > 1 else ""
+        label = f"{fixture}-{archive_format}" if len(formats) > 1 else fixture
+        native_schema = f"native_{fixture}{suffix}"
+        ramsql_schema = f"ramsql_{fixture}{suffix}"
+        extension = "sql" if archive_format == "plain" else "dump"
+        inbound = f"{label}-inbound.{extension}"
+        outbound = f"{label}-outbound.{extension}"
+        wal = tools.root / f"{label}.wal"
+        storage = ("--workers", "1")
+        populate(reference, native_schema)
+        tools.run(f"{label}-inbound-dump", "pg_dump", reference, "--no-owner", "--no-acl",
+                  f"--format={archive_format}", f"--file={inbound}")
+        with DurableServer(binary, wal, create=True, storage_options=storage) as server:
+            candidate = ramsql_settings(server)
+            restore_schema_archive(tools, f"{label}-inbound-restore", candidate, inbound, archive_format)
+            verify(candidate, native_schema)
+        with DurableServer(binary, wal, storage_options=storage) as reopened:
+            verify(ramsql_settings(reopened), native_schema)
 
-    with running_ramsql(binary, extra_arguments=storage) as candidate:
-        populate(candidate, ramsql_schema)
-        tools.run(f"{fixture}-outbound-dump", "pg_dump", candidate, "--no-owner", "--no-acl",
-                  "--format=custom", f"--file={outbound}")
-    tools.run(f"{fixture}-outbound-restore", "pg_restore", native, "--single-transaction",
-              "--exit-on-error", "--no-owner", "--no-acl", outbound)
-    verify(native, ramsql_schema)
+        with running_ramsql(binary, extra_arguments=storage) as candidate:
+            populate(candidate, ramsql_schema)
+            tools.run(f"{label}-outbound-dump", "pg_dump", candidate, "--no-owner", "--no-acl",
+                      f"--format={archive_format}", f"--file={outbound}")
+        restore_schema_archive(tools, f"{label}-outbound-restore", reference, outbound, archive_format)
+        verify(reference, ramsql_schema)
+
+
+def restore_schema_archive(tools, label, endpoint, archive, archive_format):
+    if archive_format == "plain":
+        tools.run(label, "psql", endpoint, "--no-psqlrc", "--single-transaction",
+                  "--set=ON_ERROR_STOP=1", f"--file={archive}")
+    else:
+        tools.run(label, "pg_restore", endpoint, "--single-transaction",
+                  "--exit-on-error", "--no-owner", "--no-acl", archive)
 
 
 if __name__ == "__main__":
