@@ -6,6 +6,18 @@ later binary.
 
 ## Unreleased
 
+- Preserve public SQL/PLpgSQL routines, delegated EXECUTE ACLs, triggers and
+  DO NOTHING rules in RSBASE10 compact images. Qualify live generation rotation,
+  owned routines, replacement/revocation WAL and reopen alongside large objects.
+  Stock PG16/18 plain/custom archives pass both directions, including future
+  defaults. Other catalog image classes/layouts remain open.
+- Support user-routine ALTER FUNCTION/PROCEDURE OWNER with stable OIDs and ACL
+  endpoint transfer; expose rule definitions and typed trigger flags, qualified
+  callbacks and wide definition/default-ACL output with full 63-byte role names.
+- Reduce wide-cell expression stack frames without changing evaluation/checkpoint
+  order. Debug and ReleaseSafe pass the unchanged 4 MiB CI gate. All 106 strict
+  PostgreSQL smoke programs pass; full SQL conformance remains incomplete.
+
 - Add schema-scoped routine default privileges in pure Sig in ZPM, qualified with
   stock PG16/18 plain/custom archives in both directions, future routine ACL
   probes, concurrent default visibility and crash/WAL recovery. Global

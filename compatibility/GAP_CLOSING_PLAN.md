@@ -1,5 +1,24 @@
 # RAMSQL gap-closing plan
 
+## Current qualified checkpoint and routine scope - 27 November 2026
+
+Pure Sig ZPM now preserves supported public SQL/PLpgSQL routines, their owners and
+delegated EXECUTE ACLs, triggers and DO NOTHING rules in RSBASE10. Live rotation,
+subsequent body/revocation WAL and reopen are qualified. Stock PG16 and PG18 each
+pass 48 tooling, 10 large-object and 13 file/routine checks, including plain/custom
+archives both directions and future global/per-schema creation defaults:
+[CI 46014842554](https://github.com/SB0LTD/ramsql/actions/runs/46014842554).
+The unchanged strict PostgreSQL inventory passes 106/106:
+[CI 46014847242](https://github.com/SB0LTD/ramsql/actions/runs/46014847242).
+
+The ZPM TDD checkpoint records exact assertions, binary hashes and unchanged
+4 MiB Debug/ReleaseSafe qualification. Other catalog images/layouts, non-public
+routine namespaces, broader signatures/execution, synthetic view rule deparsing,
+other default-privilege classes, native MySQL/T-SQL lanes and complete upstream
+feature applicability/closure remain open. The dated sections below preserve
+history and must not be read as current feature-absence claims.
+
+
 ## Large-object file EXECUTE grants
 
 The current candidate pins pure-Sig ZPM support for GRANT/REVOKE EXECUTE

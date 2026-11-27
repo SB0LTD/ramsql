@@ -17,10 +17,11 @@
       "routine_delegation_stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45924960970",
       "public_routine_stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/45928135880",
       "routine_defaults_stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/46001792289",
-      "postgres_inventory_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/46005925696",
+      "postgres_inventory_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/46014847242",
       "requirement": "Complete the PostgreSQL feature inventory, upstream and application regressions, and stock tooling round trips.",
-      "qualified": "All 106 PostgreSQL smoke programs match frozen PostgreSQL 18.3 using the strict comparator and documented per-scope profiles. PG16 and PG18 each pass 48 stock tooling, 10 large-object and 13 file/routine privilege/WAL checks, including plain/custom archives, global/per-schema defaults, namespace deletion, concurrent default visibility and rollback/recovery. Reports record their separately compiled binary hashes. The 755-record upstream inventory, separate native dialect lanes and broader application/production qualification remain open.",
-      "routine_schema_defaults_stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/46005923853"
+      "qualified": "All 106 PostgreSQL smoke programs match frozen PostgreSQL 18.3 using the strict comparator and documented per-scope profiles. PG16 and PG18 each pass 48 stock tooling, 10 large-object and 13 file/routine privilege/WAL checks, including plain/custom archives, global/per-schema defaults, routine ownership/delegation, rule/trigger effects, namespace deletion, concurrent default visibility and rollback/recovery. Reports record their separately compiled binary hashes. The 755-record upstream inventory, separate native dialect lanes and broader application/production qualification remain open.",
+      "routine_schema_defaults_stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/46005923853",
+      "routine_images_stock_tooling_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/46014842554"
     },
     {
       "id": "implemented_subset_durability",
@@ -55,7 +56,8 @@
       "status": "partial",
       "evidence": "https://github.com/SB0LTD/ramsql/actions/runs/44655295188",
       "requirement": "Full catalog images, online backup, automatic retirement, bounded write stalls and upgrade migration.",
-      "qualified": "Offline whole-WAL copy and opt-in live checkpoint generation publication, WAL handoff and process-crash recovery for supported single-database images."
+      "qualified": "Offline whole-WAL copy and opt-in live checkpoint generation publication, WAL handoff and process-crash recovery for supported single-database images. RSBASE10 preserves supported public routines, ownership/delegated ACLs, triggers and DO NOTHING rules through live rotation and reopen. Other catalog classes/layouts remain open.",
+      "routine_images_evidence": "https://github.com/SB0LTD/ramsql/actions/runs/46014842554"
     },
     {
       "id": "matched_performance",

@@ -180,16 +180,21 @@ and confirm that the selected generation restores before removing retired
 files. Do not delete the stable lock file. If the initial bootstrap was
 interrupted before publication, use a fresh stem and preserve the source WAL.
 
-The base-image format requires a committed public base table or standalone
-sequence and no active transaction. Sequence images preserve the durable
-reservation boundary, so cached values can be skipped after restart. Checkpoint
-readers from older prereleases cannot open an image with a sequence section.
-Custom schemas, identity-owned sequences, views and other catalog objects,
-routines, triggers and rules prevent checkpointing. A staging error leaves the current WAL
-authoritative and logs a diagnostic. Checkpoint mode
-requires prepared transactions, multi-database routing and secondary wire
-protocols to be disabled. The current test matrix kills processes around the
-publication boundary and checks acknowledged writes after restart.
+Base images require no active transaction and a supported committed layout.
+Supported formats preserve base tables, named schemas, standalone/owned sequences,
+large objects and their ACLs/defaults. Sequence images retain durable reservation
+boundaries, so cached values can be skipped after restart. RSBASE10 also preserves
+public SQL/PLpgSQL functions/procedures, ownership/delegated ACLs, triggers and
+DO NOTHING rules. Routine-only images need no dummy table. Current readers accept
+RSBASE01-10; older binaries cannot open formats introduced after their release.
+
+Custom schema ownership/grants, views and other catalog classes/layouts outside
+the image exporter remain unsupported. A staging error leaves the current WAL
+authoritative and logs a diagnostic. Checkpoint mode requires prepared transactions,
+multi-database routing and secondary wire protocols to be disabled. CI kills
+processes around publication boundaries and checks acknowledged writes after
+restart; the routine fixture also verifies live rotation, replacement WAL,
+owned routines, delegated privileges and restored procedure/trigger/rule effects.
 
 Current commits use typed kind-3 records inside version-1 framing. Frozen legacy
 kind-1/2 SQL logs have restricted recovery support; old binaries cannot read
