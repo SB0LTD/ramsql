@@ -1,6 +1,7 @@
 """Exercise server-side large-object files against stock PostgreSQL."""
 import argparse
 from contextlib import contextmanager
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 import os
@@ -315,6 +316,80 @@ def verify_routine_access(endpoint):
         db.execute("RESET ROLE")
 
 
+def routine_default_access(endpoint):
+    with psycopg.connect(**dict(endpoint, autocommit=True)) as db:
+        db.execute("ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC")
+        expect_sqlstate(db, "ALTER DEFAULT PRIVILEGES GRANT EXECUTE ON FUNCTIONS TO PUBLIC WITH GRANT OPTION", "0LP01")
+        db.execute("ALTER DEFAULT PRIVILEGES GRANT EXECUTE ON ROUTINES TO list_actor WITH GRANT OPTION")
+        db.execute("CREATE FUNCTION public.default_exec(x integer) RETURNS integer LANGUAGE SQL AS 'SELECT x+41'")
+        db.execute("CREATE PROCEDURE public.default_proc() LANGUAGE SQL AS 'SELECT 1'")
+        db.execute("SET ROLE list_actor")
+        assert db.execute("SELECT public.default_exec(1)").fetchone() == (42,)
+        db.execute("CALL public.default_proc()")
+        db.execute("GRANT EXECUTE ON ROUTINE public.default_exec(integer),public.default_proc() TO list_leaf")
+        db.execute("RESET ROLE")
+        db.execute("ALTER DEFAULT PRIVILEGES REVOKE GRANT OPTION FOR EXECUTE ON FUNCTIONS FROM list_actor")
+        db.execute("CREATE FUNCTION public.default_plain() RETURNS integer LANGUAGE SQL AS 'SELECT 4'")
+        db.execute("SET ROLE list_actor")
+        assert db.execute("SELECT public.default_plain()").fetchone() == (4,)
+        db.execute("GRANT EXECUTE ON FUNCTION public.default_plain() TO list_peer")
+        db.execute("RESET ROLE")
+        db.execute("SET ROLE list_peer")
+        expect_sqlstate(db, "SELECT public.default_plain()", "42501")
+        db.execute("RESET ROLE")
+        db.execute("ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON ROUTINES FROM list_actor")
+        db.execute("CREATE FUNCTION public.default_blocked() RETURNS integer LANGUAGE SQL AS 'SELECT 5'")
+        db.execute("SET ROLE list_actor")
+        expect_sqlstate(db, "SELECT public.default_blocked()", "42501")
+        assert db.execute("SELECT public.default_exec(1)").fetchone() == (42,)
+        db.execute("RESET ROLE")
+        with db.transaction(force_rollback=True):
+            db.execute("ALTER DEFAULT PRIVILEGES GRANT EXECUTE ON FUNCTIONS TO list_peer")
+            db.execute("CREATE FUNCTION public.transaction_default() RETURNS integer LANGUAGE SQL AS 'SELECT 6'")
+            db.execute("SET ROLE list_peer")
+            assert db.execute("SELECT public.transaction_default()").fetchone() == (6,)
+        expect_sqlstate(db, "SELECT public.transaction_default()", "42883")
+        db.execute("ALTER DEFAULT PRIVILEGES GRANT EXECUTE ON FUNCTIONS TO list_actor WITH GRANT OPTION")
+    # A creator sees committed defaults while another session changes them.
+    # Read-side template lookups must not wait for the uncommitted revocation.
+    def concurrent_creator():
+        with psycopg.connect(**dict(endpoint, autocommit=True)) as db:
+            db.execute("CREATE FUNCTION public.concurrent_default() RETURNS integer LANGUAGE SQL AS 'SELECT 8'")
+            db.execute("SET ROLE list_actor")
+            return db.execute("SELECT public.concurrent_default()").fetchone()
+    with psycopg.connect(**dict(endpoint, autocommit=False)) as writer:
+        writer.execute("ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM list_actor")
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(concurrent_creator)
+            try:
+                assert future.result(timeout=5) == (8,)
+            finally:
+                writer.rollback()
+    with psycopg.connect(**dict(endpoint, autocommit=True)) as db:
+        db.execute("DROP FUNCTION public.concurrent_default()")
+    verify_routine_defaults(endpoint)
+
+
+def verify_routine_defaults(endpoint):
+    with psycopg.connect(**dict(endpoint, autocommit=True)) as db:
+        defaults = db.execute("SELECT defaclacl::text FROM pg_default_acl WHERE defaclobjtype='f'").fetchall()
+        assert len(defaults) == 1 and "list_actor=X*/ramsql" in defaults[0][0], defaults
+        db.execute("CREATE FUNCTION public.default_probe() RETURNS integer LANGUAGE SQL AS 'SELECT 9'")
+        db.execute("SET ROLE list_actor")
+        assert db.execute("SELECT public.default_probe(),public.default_exec(1)").fetchone() == (9, 42)
+        db.execute("CALL public.default_proc()")
+        db.execute("RESET ROLE")
+        db.execute("SET ROLE list_leaf")
+        assert db.execute("SELECT public.default_exec(1)").fetchone() == (42,)
+        db.execute("CALL public.default_proc()")
+        db.execute("RESET ROLE")
+        db.execute("SET ROLE list_peer")
+        expect_sqlstate(db, "SELECT public.default_probe()", "42501")
+        expect_sqlstate(db, "SELECT public.default_exec(1)", "42501")
+        db.execute("RESET ROLE")
+        db.execute("DROP FUNCTION public.default_probe()")
+
+
 def exercise(endpoint, files):
     try:
         _exercise(endpoint, files)
@@ -419,6 +494,7 @@ def main():
         delegated_access(endpoint, files)
         execute_lists(endpoint, files)
         routine_execute_access(endpoint)
+        routine_default_access(endpoint)
         too_large = files.put("too-large", b"x" * (257 * 2048))
         with psycopg.connect(**endpoint) as db:
             expect_sqlstate(db, "SELECT lo_import(%s,57003::oid)", "54000", (too_large,))
@@ -430,6 +506,7 @@ def main():
         pending.execute(f"REVOKE EXECUTE ON FUNCTION {LIST_FUNCTIONS} FROM list_actor GRANTED BY CURRENT_USER CASCADE")
         pending.execute(f"GRANT EXECUTE ON FUNCTION {LIST_FUNCTIONS} TO list_peer,list_revoked GRANTED BY SESSION_USER")
         pending.execute(f"REVOKE EXECUTE ON ROUTINE {USER_ROUTINES} FROM list_actor CASCADE")
+        pending.execute("ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM list_actor")
     pending.close()
     # The server is killed on leaving candidate. The input disappears
     # before restart, so recovery must use committed page bytes from the WAL.
@@ -440,6 +517,8 @@ def main():
         verify_delegation(endpoint, files)
         verify_execute_lists(endpoint, files)
         verify_routine_access(endpoint)
+        verify_routine_defaults(endpoint)
+        checks["routine_default_execute_acl_and_wal_recovery"] = True
         checks["user_routine_execute_acl_and_wal_recovery"] = True
         checks["public_qualified_routines_and_wal_recovery"] = True
         checks["execute_lists_granted_by_and_atomic_wal_recovery"] = True
@@ -457,6 +536,7 @@ def main():
             delegated_access(native, native_files)
             execute_lists(native, native_files)
             routine_execute_access(native)
+            routine_default_access(native)
             checks["native_file_semantics"] = True
             for label, fmt, suffix in (("plain", "p", "sql"), ("custom", "c", "dump")):
                 tools.run(f"native-{label}-dump", "pg_dump", native, "--no-owner", f"--format={fmt}", f"--file=native-{label}.{suffix}")
@@ -471,6 +551,7 @@ def main():
                     verify_delegation(dest, restored_files)
                     verify_execute_lists(dest, restored_files)
                     verify_routine_access(dest)
+                    verify_routine_defaults(dest)
                 checks[f"native_to_ramsql_{label}"] = True
                 tools.run(f"ramsql-{label}-dump", "pg_dump", endpoint, "--no-owner", f"--format={fmt}", f"--file=ramsql-{label}.{suffix}")
                 with native_postgres(image, psycopg, binary_directory=args.postgres_bin, work_directory=root) as (dest, dest_metadata):
@@ -484,6 +565,7 @@ def main():
                     verify_delegation(dest, restored_files)
                     verify_execute_lists(dest, restored_files)
                     verify_routine_access(dest)
+                    verify_routine_defaults(dest)
                 checks[f"ramsql_to_native_{label}"] = True
     report = {"passed": True, "reference": args.reference, "binary_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(), "checks": checks}
     (root / "large-object-files.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
