@@ -192,16 +192,22 @@ There is no Oracle, SQLite, DB2 or other dialect endpoint in this beta.
 
 Implemented SQL includes typed CRUD/RETURNING, primary keys, defaults/generated
 columns, sequences, joins, aggregates, CTEs/set operations, savepoints and
-transactional DDL. Development adds PostgreSQL ROUND over numeric and float8
-values, including aggregate expressions. The reporting candidate adds temporal
-`to_char`, ranking/aggregate windows and flat `ROLLUP`/`GROUPING`. The follow-up
-candidate adds bounded ROWS/GROUPS, integral-key RANGE, exclusions and aggregate
-FILTER; named windows and the remaining built-in window functions stay open. See the
-[reporting qualification record](compatibility/REPORTING_SQL_PROGRESS.md) for
-supported forms, remaining gaps and pending original dbMeter validation.
-Isolation is READ COMMITTED only. Secondary/foreign-key
-indexes, complete window coverage, complete catalogs, stored procedures/extensions and
-full dialect semantics are missing. Some MySQL/TDS types are rendered as text.
+transactional DDL. Constraints, secondary indexes, SQL/PLpgSQL routines,
+transaction modes, catalogs and window forms have dedicated contracts; their
+remaining scope is recorded in the
+[ZPM conformance TDD](https://github.com/SB0LTD/zpm/blob/main/docs/SQL_CONFORMANCE_TDD_STATUS.md).
+
+Current development qualification matches all **106 PostgreSQL smoke programs**
+against frozen PostgreSQL 18.3, with exact values, types, command tags and
+transaction state ([CI evidence](https://github.com/SB0LTD/ramsql/actions/runs/45929457438)).
+Stock PG16 and PG18 each pass 48 tooling, 10 large-object and 11 file/routine
+checks, including plain/custom archives in both directions and WAL recovery
+([archive evidence](https://github.com/SB0LTD/ramsql/actions/runs/45928135880)).
+Check a downloaded release's provenance to determine which development changes
+it contains. These finite smoke and tooling suites do not establish complete
+PostgreSQL conformance. Routine, window, extension, catalog/application and
+other-dialect gaps remain; the broader 755-record upstream inventory still
+needs applicability review and semantic closure. Some MySQL/TDS types render as text.
 Read the [SQL reference](SQL_REFERENCE.md) and [usability audit](compatibility/BETA_USABILITY.md)
 before importing a schema; wire compatibility does not establish dialect parity.
 
