@@ -1,5 +1,21 @@
 # RAMSQL gap-closing plan
 
+## View replacement — candidate, 27 November 2026
+
+The next pure-Sig ZPM slice adds CREATE OR REPLACE VIEW using existing
+transactional definition rewrites, retaining OID, owner and ACLs. The stock
+archive fixture now checks dependent reads, unchanged OIDs, 42P16 shape errors
+and savepoint rollback before dumping, then verifies the changed definition in
+both plain/custom archive directions. PG16/18 CI and the unchanged strict smoke
+inventory must pass before merging. The previous qualified preview below remains
+the downloadable baseline while those checks run.
+
+Remaining view work is explicit: adding columns with dependent stored views
+returns 0A000 until star projections are frozen; transitive dependency lists can
+retain obsolete base links. ALTER VIEW column rename, temporary views/options,
+updatability, broader search_path and experimental packed-bank definition changes
+remain separate gaps. This candidate does not close the full view family.
+
 ## View return-rule definitions — qualified, 27 November 2026
 
 ZPM now deparses the implicit `_RETURN` rows that it already exposes for views and

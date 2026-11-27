@@ -1705,6 +1705,24 @@ def check_view_archives(binary, tools, native):
             db.execute(f"CREATE VIEW {schema}.a_positive AS SELECT id,amount FROM {schema}.z_source WHERE amount > 0")
             db.execute(f"CREATE VIEW {schema}.b_amounts AS SELECT amount FROM {schema}.a_positive")
             db.execute(f"INSERT INTO {schema}.z_source VALUES (1,20),(2,-1)")
+            oid = db.execute("SELECT %s::regclass::oid", (f"{schema}.a_positive",)).fetchone()[0]
+            db.execute(f"CREATE OR REPLACE VIEW {schema}.a_positive AS SELECT id,amount*2 AS amount FROM {schema}.z_source WHERE amount > 0")
+            assert db.execute("SELECT %s::regclass::oid", (f"{schema}.a_positive",)).fetchone()[0] == oid
+            assert db.execute(f"SELECT amount FROM {schema}.b_amounts").fetchall() == [(40,)]
+            for select in ("id", "id,amount AS renamed", "id,amount::bigint AS amount"):
+                try:
+                    with db.transaction():
+                        db.execute(f"CREATE OR REPLACE VIEW {schema}.a_positive AS SELECT {select} FROM {schema}.z_source")
+                except psycopg.Error as error:
+                    assert error.sqlstate == "42P16", (select, error.sqlstate)
+                else:
+                    raise AssertionError(f"incompatible replacement accepted: {select}")
+            db.execute("SAVEPOINT replacement_rollback")
+            db.execute(f"CREATE OR REPLACE VIEW {schema}.a_positive AS SELECT id,amount*3 AS amount FROM {schema}.z_source WHERE amount > 0")
+            assert db.execute(f"SELECT amount FROM {schema}.b_amounts").fetchall() == [(60,)]
+            db.execute("ROLLBACK TO replacement_rollback")
+            db.execute("RELEASE replacement_rollback")
+            assert db.execute(f"SELECT amount FROM {schema}.b_amounts").fetchall() == [(40,)]
             db.execute(f'CREATE TABLE public."{public_table}" (id int)')
             db.execute(f'INSERT INTO public."{public_table}" VALUES (8)')
             db.execute(f'CREATE VIEW {schema}.c_public AS SELECT id FROM "{public_table}"')
@@ -1716,8 +1734,8 @@ def check_view_archives(binary, tools, native):
 
     def verify(endpoint, schema):
         with psycopg.connect(**endpoint) as db:
-            assert db.execute(f"SELECT id,amount FROM {schema}.a_positive").fetchall() == [(1, 20)]
-            assert db.execute(f"SELECT amount FROM {schema}.b_amounts").fetchall() == [(20,)]
+            assert db.execute(f"SELECT id,amount FROM {schema}.a_positive").fetchall() == [(1, 40)]
+            assert db.execute(f"SELECT amount FROM {schema}.b_amounts").fetchall() == [(40,)]
             assert db.execute(f"SELECT id FROM {schema}.c_public").fetchall() == [(8,)]
             assert db.execute(f"SELECT id FROM {schema}.d_cte").fetchall() == [(6,)]
             verify_view_return_rules(db, schema, ("a_positive", "b_amounts", "c_public", "d_cte"))
