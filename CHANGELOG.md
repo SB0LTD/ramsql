@@ -11,6 +11,9 @@ later binary.
   fixture with live generation publication, replacement WAL and reopen; require
   stock PG16/18 archives in both directions before qualification. Other catalog
   classes and full catalog snapshot parity remain open.
+  The expanded archive fixture exposed missing routine owner changes and rule
+  definitions; the candidate adds those in ZPM, wide definition output and
+  qualified trigger callbacks, and reduces wide-cell evaluation stack usage.
 
 - Add schema-scoped routine default privileges in pure Sig in ZPM, qualified with
   stock PG16/18 plain/custom archives in both directions, future routine ACL

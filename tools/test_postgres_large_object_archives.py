@@ -448,6 +448,10 @@ def seed_routine_images(endpoint):
         db.execute("CREATE TRIGGER checkpoint_before BEFORE INSERT ON checkpoint_rows FOR EACH ROW EXECUTE FUNCTION checkpoint_trigger()")
         db.execute("CREATE RULE checkpoint_keep AS ON DELETE TO checkpoint_rows DO INSTEAD NOTHING")
         db.execute("CREATE PROCEDURE checkpoint_proc(x integer) LANGUAGE SQL AS 'INSERT INTO checkpoint_rows VALUES (x,checkpoint_fn(x))'")
+        db.execute(f"ALTER FUNCTION public.checkpoint_fn(x integer) OWNER TO {OWNER}")
+        db.execute("ALTER FUNCTION public.checkpoint_fn(x integer) OWNER TO ramsql")
+        db.execute("CREATE FUNCTION checkpoint_owned() RETURNS integer LANGUAGE SQL AS 'SELECT 42'")
+        db.execute(f"ALTER FUNCTION public.checkpoint_owned() OWNER TO {OWNER}")
         db.execute(f"SET ROLE {READER}")
         db.execute(f"GRANT EXECUTE ON FUNCTION checkpoint_fn(integer) TO {SECOND}")
         db.execute("RESET ROLE")
@@ -456,6 +460,7 @@ def seed_routine_images(endpoint):
 def verify_routine_images(endpoint, increment=5):
     with psycopg.connect(**endpoint) as db, db.transaction(force_rollback=True):
         assert db.execute("SELECT count(*) FROM checkpoint_rows").fetchone() == (0,)
+        assert db.execute("SELECT pg_get_userbyid(proowner) FROM pg_proc WHERE proname='checkpoint_owned'").fetchone() == (OWNER,)
         db.execute("CALL checkpoint_proc(1)")
         db.execute("DELETE FROM checkpoint_rows")
         assert db.execute("SELECT id,v FROM checkpoint_rows").fetchall() == [(1, 1 + increment + 10)]
