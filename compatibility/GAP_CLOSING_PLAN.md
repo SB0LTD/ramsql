@@ -1,5 +1,16 @@
 # RAMSQL gap-closing plan
 
+## View return-rule definitions — candidate, 27 November 2026
+
+ZPM now deparses the implicit `_RETURN` rows that it already exposes for views and
+materialized views. The red contract returned NULL before the change. Definitions
+use the real stored SELECT, declared column aliases, quoted names and caller-owned
+wide output. Stock fixtures execute both pretty/non-pretty SELECT actions under an
+empty search_path and compare rows and column names/types before dump and after
+restore/reopen. PG16/18 qualification is pending; no merge or release claim yet.
+Arbitrary rule actions, CREATE OR REPLACE VIEW and ALTER VIEW column rename remain
+open, alongside the named-routine namespace and broader catalog-image work below.
+
 ## Current qualified checkpoint and routine scope - 27 November 2026
 
 Pure Sig ZPM now preserves supported public SQL/PLpgSQL routines, their owners and
