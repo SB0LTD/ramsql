@@ -6,16 +6,17 @@ later binary.
 
 ## Unreleased
 
-- Add a candidate RSBASE10 compact image for live functions/procedures, delegated
-  routine ACLs, triggers and rules in pure Sig in ZPM. Extend the checkpoint
-  fixture with live generation publication, replacement WAL and reopen; require
-  stock PG16/18 archives in both directions before qualification. Other catalog
-  classes and full catalog snapshot parity remain open.
-  The expanded archive fixture exposed missing routine owner changes and rule
-  definitions; the candidate adds those in ZPM, wide definition output and
-  qualified trigger callbacks, and reduces wide-cell evaluation stack usage.
-  Default ACL construction also uses caller-owned storage for full 63-byte role
-  names; native outbound archives remain required qualification.
+- Preserve public SQL/PLpgSQL routines, delegated EXECUTE ACLs, triggers and
+  DO NOTHING rules in RSBASE10 compact images. Qualify live generation rotation,
+  owned routines, replacement/revocation WAL and reopen alongside large objects.
+  Stock PG16/18 plain/custom archives pass both directions, including future
+  defaults. Other catalog image classes/layouts remain open.
+- Support user-routine ALTER FUNCTION/PROCEDURE OWNER with stable OIDs and ACL
+  endpoint transfer; expose rule definitions and typed trigger flags, qualified
+  callbacks and wide definition/default-ACL output with full 63-byte role names.
+- Reduce wide-cell expression stack frames without changing evaluation/checkpoint
+  order. Debug and ReleaseSafe pass the unchanged 4 MiB CI gate. All 106 strict
+  PostgreSQL smoke programs pass; full SQL conformance remains incomplete.
 
 - Add schema-scoped routine default privileges in pure Sig in ZPM, qualified with
   stock PG16/18 plain/custom archives in both directions, future routine ACL
